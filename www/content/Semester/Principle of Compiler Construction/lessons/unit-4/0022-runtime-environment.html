@@ -1,0 +1,419 @@
+<title>Runtime Environment — Activation Records &amp; Storage</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit IV &middot; Lesson 22 of 22</p>
+<h1>Runtime Environment &mdash; Activation Records &amp; Storage</h1>
+<p class="deck">Memory layout, activation trees, the seven fields of an activation record, static vs stack vs heap allocation, dynamic vs static links, and parameter passing mechanisms (Value, Reference, Value-Result, Name).</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Draw and explain the structure of an Activation Record (stack frame)&rdquo;</strong> is a guaranteed 7&ndash;10 marker. <strong>&ldquo;Compare Static, Stack, and Heap storage allocation strategies&rdquo;</strong> is another frequent 10-marker. <strong>&ldquo;Trace a program under Call-by-Value, Call-by-Reference, and Call-by-Value-Result&rdquo;</strong> is a classic numerical problem where aliasing causes different outputs. Know all 7 fields of the activation record by heart.</p>
+</div>
+
+<!-- CURATED VIDEO MASTERCLASS -->
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Storage Allocation &amp; Activation Records</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Storage Allocation Strategies &amp; Activation Record Fields</a>
+    <span class="v-meta">Gate Smashers &middot; 17:35</span>
+    <div class="v-why">Comprehensive structural walkthrough of the runtime stack, activation record fields, control links vs access links, and stack unwinding.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Parameter Passing Techniques &amp; Aliasing</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Parameter Passing Techniques: Value, Reference, Copy-Restore, Name</a>
+    <span class="v-meta">Neso Academy &middot; 19:10</span>
+    <div class="v-why">Rigorous trace of how different parameter passing semantics produce completely different variable values when arguments alias each other.</div>
+  </div>
+</div>
+
+<h2>1. Runtime Storage Organization</h2>
+
+<p>During execution, the operating system allocates a continuous block of virtual memory to the compiled program, subdivided into four logical segments:</p>
+
+<!-- DIAGRAM: RUNTIME MEMORY ORGANIZATION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Target Machine Runtime Memory Map</span>
+  
+  <div class="flow-col">
+    <!-- Code Segment -->
+    <div class="flow-box highlight" style="min-width:20rem;">
+      <strong>Target Code / Text Segment</strong><br>
+      <span class="sub">Fixed size, read-only machine instructions (Low Memory: 0x0000...)</span>
+    </div>
+
+    <div class="flow-arrow-down"></div>
+
+    <!-- Static Data Segment -->
+    <div class="flow-box highlight" style="min-width:20rem;">
+      <strong>Static Data Segment</strong><br>
+      <span class="sub">Global variables and compile-time string/numeric constants</span>
+    </div>
+
+    <div class="flow-arrow-down"></div>
+
+    <!-- Heap Segment -->
+    <div class="flow-box ok" style="min-width:20rem; border-color:var(--ok);">
+      <strong style="color:var(--ok);">Heap (Grows Downward &darr;)</strong><br>
+      <span class="sub">Dynamically allocated data (<code>malloc</code>, <code>new</code>, dynamic objects)</span>
+    </div>
+
+    <!-- Unallocated Free Space -->
+    <div style="margin:0.8rem 0; font-family:'Cascadia Mono',monospace; font-size:0.75rem; color:var(--ink-faint);">
+      &uarr; &nbsp; &mdash;&mdash;&mdash; Free Unallocated Memory Space &mdash;&mdash;&mdash; &nbsp; &darr;
+    </div>
+
+    <!-- Stack Segment -->
+    <div class="flow-box warn" style="min-width:20rem; border-color:var(--warn);">
+      <strong style="color:var(--warn);">Stack (Grows Upward &uarr;)</strong><br>
+      <span class="sub">Activation records / stack frames for active procedure calls (High Memory)</span>
+    </div>
+  </div>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why Stack and Heap Grow Toward Each Other</span>
+  <p>By placing the Stack at the highest memory addresses growing downward and the Heap at lower addresses growing upward, the compiler allows both segments to dynamically share the unused middle memory space without pre-allocating an arbitrary fixed boundary for either.</p>
+</div>
+
+<h2>2. Activation Trees and Lifetimes</h2>
+
+<p>The execution of a program can be modeled as a tree of procedure invocations called an <strong>Activation Tree</strong>:</p>
+<ul>
+  <li>Each node represents an <strong>activation</strong> of a procedure.</li>
+  <li>The root of the tree is the activation of the main program entry point (<code>main()</code>).</li>
+  <li>Node $A$ is the parent of node $B$ if activation $A$ calls procedure $B$.</li>
+  <li>Children are ordered from left to right according to the chronological sequence of calls.</li>
+</ul>
+
+<div class="solve">
+  <span class="lbl">Worked Example: QuickSort Activation Tree</span>
+  <pre class="mono">
+main()
+└── qsort(1, 9)
+    ├── partition(1, 9)
+    ├── qsort(1, 4)
+    │   ├── partition(1, 4)
+    │   ├── qsort(1, 2)
+    │   └── qsort(4, 4)
+    └── qsort(6, 9)
+        └── ...
+  </pre>
+  <p><strong>Crucial Property:</strong> Because procedure calls follow Last-In, First-Out (LIFO) nesting, the set of currently live procedure activations at any moment corresponds <strong>strictly to the path from the root to the active node in the activation tree</strong>. This guarantees that procedure storage can be managed using a <strong>runtime stack</strong>.</p>
+</div>
+
+<h2>3. Structure of an Activation Record (Stack Frame)</h2>
+
+<p>An <strong>Activation Record</strong> (or stack frame) is a contiguous block of memory allocated on the runtime stack for a single execution of a procedure. It contains seven standard fields:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field #</th><th>Field Name</th><th>Compiler Function &amp; Purpose</th></tr></thead>
+<tbody>
+<tr>
+  <td class="num">1</td>
+  <td><strong>Return Value</strong></td>
+  <td>Allocates space used by the called procedure to return computed results to the caller (especially for composite types not fitting into a machine register).</td>
+</tr>
+<tr>
+  <td class="num">2</td>
+  <td><strong>Actual Parameters</strong></td>
+  <td>Storage for arguments passed by the calling procedure to the callee.</td>
+</tr>
+<tr>
+  <td class="num">3</td>
+  <td><strong>Control Link (Dynamic Link)</strong></td>
+  <td>A pointer storing the base address of the <strong>caller's activation record</strong>. Used by the CPU base pointer (<code>ebp</code>/<code>rbp</code>) to unwind the stack frame upon return.</td>
+</tr>
+<tr>
+  <td class="num">4</td>
+  <td><strong>Access Link (Static Link)</strong></td>
+  <td>A pointer to the activation record of the procedure that <strong>statically (lexically) encloses</strong> the callee. Used to access non-local variables in languages with nested procedures (e.g. Pascal, Ada, GCC nested C).</td>
+</tr>
+<tr>
+  <td class="num">5</td>
+  <td><strong>Saved Machine Status</strong></td>
+  <td>Stores the program counter (return address), condition code flags, and machine registers that must be restored when the function completes.</td>
+</tr>
+<tr>
+  <td class="num">6</td>
+  <td><strong>Local Variables</strong></td>
+  <td>Storage for variables declared locally within the scope of this procedure invocation.</td>
+</tr>
+<tr>
+  <td class="num">7</td>
+  <td><strong>Temporaries</strong></td>
+  <td>Temporary memory allocated for intermediate expression evaluations that cannot fit into CPU general-purpose registers.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Exam Differentiator: Dynamic Link vs Static Link</span>
+  <p><strong>Control Link (Dynamic Link):</strong> Points to the <em>calling</em> procedure at runtime. Follows the dynamic execution call stack. Unwinds on return.</p>
+  <p><strong>Access Link (Static Link):</strong> Points to the <em>enclosing</em> procedure defined in the source code text. Follows static lexical scoping rules. Used to resolve non-local variable addresses.</p>
+</div>
+
+<h2>4. Storage Allocation Strategies</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Criteria</th><th>Static Allocation</th><th>Stack Allocation</th><th>Heap Allocation</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Binding Time</strong></td>
+  <td>Compile time (fixed addresses).</td>
+  <td>Runtime (on procedure call).</td>
+  <td>Runtime (on explicit request).</td>
+</tr>
+<tr>
+  <td><strong>Recursion Support</strong></td>
+  <td><strong style="color:var(--accent);">NO</strong>: Only one instance of local variables exists; recursive calls overwrite memory.</td>
+  <td><strong style="color:var(--ok);">YES</strong>: Each recursive call pushes a fresh activation record.</td>
+  <td><strong style="color:var(--ok);">YES</strong>: Dynamic allocation is independent of call stack.</td>
+</tr>
+<tr>
+  <td><strong>Data Structure Sizing</strong></td>
+  <td>Fixed at compile time. Variable-length arrays prohibited.</td>
+  <td>Dynamic size allocated per frame, but lifetime strictly bound to function exit.</td>
+  <td>Fully dynamic. Can grow, shrink, and persist beyond procedure termination.</td>
+</tr>
+<tr>
+  <td><strong>Deallocation Policy</strong></td>
+  <td>Never deallocated (retained for program lifetime).</td>
+  <td>Strict LIFO (popped automatically upon function return).</td>
+  <td>Manual (<code>free</code>/<code>delete</code>) or automated Garbage Collection.</td>
+</tr>
+<tr>
+  <td><strong>Memory Pitfalls</strong></td>
+  <td>Inflexible memory usage.</td>
+  <td>Dangling pointers if local address is returned. Stack overflow.</td>
+  <td>Memory leaks, internal/external fragmentation.</td>
+</tr>
+<tr>
+  <td><strong>Representative Languages</strong></td>
+  <td>Early Fortran (Fortran 77), COBOL.</td>
+  <td>C, C++, Java (for local primitives/references).</td>
+  <td>Java, Python, C++ (<code>malloc</code>/<code>new</code>), Lisp.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. Parameter Passing Mechanisms</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Mechanism</th><th>Passing Rule</th><th>Caller Impact</th><th>Aliasing Sensitivity</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Call by Value</strong></td>
+  <td>The caller evaluates the actual argument's <strong>r-value</strong> (data value) and copies it into the callee's parameter.</td>
+  <td><strong style="color:var(--ok);">None</strong>: Modifications to parameter do not affect caller's variables.</td>
+  <td>None.</td>
+</tr>
+<tr>
+  <td><strong>Call by Reference</strong></td>
+  <td>The caller passes the <strong>l-value</strong> (memory address) of the actual variable. Formal parameter becomes an alias for the actual variable.</td>
+  <td><strong style="color:var(--accent);">Direct &amp; Immediate</strong>: Every assignment to formal parameter immediately alters caller's variable in real time.</td>
+  <td>High: Two parameters referencing the same variable alias each other.</td>
+</tr>
+<tr>
+  <td><strong>Call by Value-Result (Copy-Restore)</strong></td>
+  <td>Actual argument value copied in at call time. Callee operates on local copy. At procedure return, <strong>final local value is copied back</strong> to caller's argument.</td>
+  <td><strong style="color:var(--warn);">Deferred</strong>: Caller's variable remains unchanged until the moment the function returns.</td>
+  <td>Distinct from Reference if aliasing occurs (order of copy-back matters!).</td>
+</tr>
+<tr>
+  <td><strong>Call by Name (Algol 60)</strong></td>
+  <td>Textual substitution of argument expression into procedure body (implemented via runtime functions called <strong>thunks</strong>).</td>
+  <td>Evaluated afresh every time parameter is accessed; side effects repeat.</td>
+  <td>Extreme (can cause unexpected Jensen's Device behavior).</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Classic Exam Problem: Parameter Passing &amp; Aliasing Comparison</span>
+  <p>Consider the following C-like program:</p>
+  <pre class="mono">
+int a = 1;
+
+void test(int x, int y) {
+    x = x + 1;
+    y = y + a;
+}
+
+int main() {
+    test(a, a);
+    print(a);
+}
+  </pre>
+  <p>What is printed under each parameter passing mechanism?</p>
+
+  <ul>
+    <li><strong>1. Call by Value:</strong><br>
+      $x = 1, y = 1$ are independent local copies.<br>
+      $x = 1 + 1 = 2$.<br>
+      $y = 1 + a = 1 + 1 = 2$.<br>
+      Global variable $a$ was never modified. <strong>Output: $a = 1$</strong>.
+    </li>
+    <li><strong>2. Call by Reference:</strong><br>
+      Both $x$ and $y$ receive the address of global variable $a$ ($x \equiv a, y \equiv a$).<br>
+      $x = x + 1 \implies a = 1 + 1 = 2$.<br>
+      $y = y + a \implies a = a + a = 2 + 2 = 4$.<br>
+      <strong>Output: $a = 4$</strong>.
+    </li>
+    <li><strong>3. Call by Value-Result (Copy-Restore):</strong><br>
+      At call time: copy in $x = 1, y = 1$.<br>
+      Body executes: $x = 1 + 1 = 2$.<br>
+      $y = 1 + a = 1 + 1 = 2$ (since global $a$ is still 1 during execution).<br>
+      At return time: copy back parameters to $a$ from left to right:<br>
+      $a = x = 2$, then $a = y = 2$.<br>
+      <strong>Output: $a = 2$</strong>.
+    </li>
+  </ul>
+</div>
+
+<h2>6. Accessing Non-Local Data &middot; Static Links vs The Display Mechanism (Mam's Material)</h2>
+
+<p>In languages that support nested procedures (such as Pascal, Ada, and modern closures in Python/JavaScript), a procedure can reference variables declared in lexically enclosing outer procedures. The runtime environment must efficiently resolve these <strong>non-local data accesses</strong>.</p>
+
+<div class="formula">
+  <span class="name">Lexical Nesting Depth Definition</span>
+  &bull; Main program sits at nesting depth $0$ (or $1$).<br>
+  &bull; A procedure immediately declared inside procedure $p$ at depth $d$ has nesting depth $d + 1$.<br>
+  &bull; If procedure $p$ at nesting depth $n_p$ accesses variable $x$ declared at nesting depth $n_q$, the <strong>nesting depth difference</strong> is $\Delta = n_p - n_q$.
+</div>
+
+<h3>Method 1: Static Links (Access Links / Static Chain)</h3>
+<p>In this approach, each activation record contains a pointer called an <strong>access link (or static link)</strong> that points directly to the activation record of the procedure that <em>statically (lexically) encloses</em> it in the source text.
+<ul>
+  <li><strong>Variable Lookup:</strong> To access variable $x$ declared at nesting depth $n_q$ from depth $n_p$, the CPU follows exactly $\Delta = n_p - n_q$ static links backward:
+  $$\text{Target Frame Address} = \underbrace{\text{static\_link}(\text{static\_link}(\dots(\text{current\_fp})\dots))}_{n_p - n_q \text{ dereferences}} + \text{offset}(x)$$
+  </li>
+  <li><strong>Limitation:</strong> Variable access takes time proportional to the nesting depth difference ($O(k)$ pointer dereferences). If procedures are deeply nested, non-local reads become sluggish.</li>
+</ul>
+</p>
+
+<h3>Method 2: The Display Mechanism</h3>
+<p><em class="term">The Display</em> is an auxiliary global array of pointers, <code>d[]</code>, maintained by the runtime environment to provide <strong>constant-time $O(1)$ access</strong> to non-local variables regardless of nesting depth.</p>
+
+<div class="box exam">
+  <span class="lbl">How the Display Operates (Mam's Runtime env.pdf)</span>
+  <p>The display array is indexed by lexical nesting depth:
+  <ul>
+    <li><code>d[i]</code> always points to the <strong>most currently active activation record</strong> at lexical nesting depth $i$.</li>
+    <li><strong>Fast Variable Access ($O(1)$):</strong> When procedure $p$ accesses variable $x$ declared at lexical depth $i$ with offset $j$, the address is computed directly in one single instruction:
+    $$\text{Address}(x) = \mathbf{d}[i] + j$$
+    No static links are traversed!</li>
+    <li><strong>Maintenance on Procedure Call ($p$ at depth $k$ called):</strong>
+      <ol>
+        <li>Save the current value of <code>d[k]</code> into the new activation record's "saved display entry" slot.</li>
+        <li>Update <code>d[k]</code> to point to the new activation record.</li>
+      </ol>
+    </li>
+    <li><strong>Maintenance on Procedure Return:</strong>
+      <ol>
+        <li>Restore <code>d[k]</code> from the activation record's saved display entry slot before popping the frame.</li>
+      </ol>
+    </li>
+  </ul>
+  </p>
+</div>
+
+<h3>Master Comparison: Static Chain versus Display Mechanism</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Static Links (Static Chain)</th><th>The Display Mechanism</th></tr></thead>
+<tbody>
+<tr><td><strong>Data Structure</strong></td><td>A pointer (access link) embedded within each activation record forming a linked list.</td><td>A single global array of frame pointers: <code>d[0 ... max_depth]</code>.</td></tr>
+<tr><td><strong>Variable Access Speed</strong></td><td><strong>$O(k)$ time</strong> &mdash; requires traversing $k = n_p - n_q$ static links through memory.</td><td><strong>$O(1)$ constant time</strong> &mdash; direct index into array: <code>d[depth] + offset</code>.</td></tr>
+<tr><td><strong>Call / Return Overhead</strong></td><td>Very low &mdash; setting one pointer on call ($O(1)$).</td><td>Slightly higher &mdash; must save old <code>d[k]</code> in the frame and restore it upon return.</td></tr>
+<tr><td><strong>Memory Overhead</strong></td><td>One extra word per activation record.</td><td>One global array of size equal to maximum procedure nesting depth (typically small, &lt; 32 entries).</td></tr>
+<tr><td><strong>Best suited for</strong></td><td>Languages with shallow nesting and few non-local variable reads.</td><td>Languages with deep lexical nesting and intensive non-local variable reads.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. What is the fundamental difference between the Control Link and the Access Link in an activation record?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Control link points to the caller (dynamic); access link points to static lexical parent</button>
+    <button class="opt">Control link is used for recursion; access link is used for loops</button>
+    <button class="opt">Control link is compile-time; access link is runtime</button>
+    <button class="opt">There is no difference; they are synonyms</button>
+  </div>
+  <p class="why">The control link (dynamic link) maintains the caller-callee call chain for stack unwinding. The access link (static link) traverses lexical scope levels to find non-local variables.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Why can't early programming languages like Fortran 77 that use static storage allocation support recursive procedure calls?</p>
+  <div class="opts">
+    <button class="opt">Because Fortran lacks conditional branches</button>
+    <button class="opt" data-ok="1">Because each procedure has only one statically allocated set of local variables, which would be overwritten</button>
+    <button class="opt">Because Fortran does not support arithmetic operations</button>
+    <button class="opt">Because static compilers cannot generate assembly code</button>
+  </div>
+  <p class="why">Static allocation binds fixed memory addresses to local variables at compile time. Recursive calls require multiple live instances of variables simultaneously, which static allocation cannot provide.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In Call by Value-Result (Copy-Restore), when are modifications to formal parameters reflected in the caller's actual arguments?</p>
+  <div class="opts">
+    <button class="opt">At the moment the function is invoked</button>
+    <button class="opt">Immediately as each assignment occurs</button>
+    <button class="opt">Never; changes are discarded</button>
+    <button class="opt" data-ok="1">Only upon function return when the formal parameters are copied back</button>
+  </div>
+  <p class="why">Value-Result acts on a local copy throughout the function body and copies the final value back to the caller's argument only when the procedure terminates.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which runtime memory segment grows downward toward the heap to accommodate active procedure frames?</p>
+  <div class="opts">
+    <button class="opt">The Code segment</button>
+    <button class="opt">The Symbol Table</button>
+    <button class="opt" data-ok="1">The Stack</button>
+    <button class="opt">The Static data segment</button>
+  </div>
+  <p class="why">The runtime stack grows downward from high memory, while the heap grows upward from low memory into the shared free space.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>List the seven fields of an Activation Record.</summary>
+    <p class="ans">1. Return Value<br>2. Actual Parameters<br>3. Control Link (Dynamic Link)<br>4. Access Link (Static Link)<br>5. Saved Machine Status / Registers<br>6. Local Variables<br>7. Temporaries.</p></details>
+  <details class="card"><summary>Contrast Call by Reference and Call by Value-Result.</summary>
+    <p class="ans">Call by Reference passes the variable address, causing modifications to take effect immediately in the caller. Call by Value-Result copies values in, operates on local variables, and copies values back only at return time.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0021-backpatching.html">&larr; Previous: Backpatching</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-5/0023-sources-of-optimization.html">Next: Unit V &mdash; Optimization &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

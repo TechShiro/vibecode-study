@@ -1,0 +1,381 @@
+<title>Syntax-Directed Translation — SDD and SDT</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit IV &middot; Lesson 18 of 22</p>
+<h1>Syntax-Directed Translation &mdash; SDD and SDT</h1>
+<p class="deck">Syntax-Directed Definitions (SDDs), synthesised and inherited attributes, dependency graphs, annotated parse trees, S-attributed vs L-attributed definitions, and Syntax-Directed Translation Schemes (SDTs).</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Differentiate between synthesised and inherited attributes with examples&rdquo;</strong> is a guaranteed 5-mark question. <strong>&ldquo;Compare S-attributed and L-attributed definitions&rdquo;</strong> is another staple. <strong>&ldquo;Draw the annotated parse tree and dependency graph for an expression&rdquo;</strong> carries 10 marks. Be prepared to show the bottom-up flow of synthesised values versus the top-down/left-to-right flow of inherited values.</p>
+</div>
+
+<!-- CURATED VIDEO MASTERCLASS -->
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; SDD, Synthesised &amp; Inherited Attributes</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Syntax Directed Definition (SDD) &amp; Attribute Types</a>
+    <span class="v-meta">Gate Smashers &middot; 15:20</span>
+    <div class="v-why">Intuitive, exam-focused introduction to attributes, semantic rules, and constructing annotated parse trees.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; S-Attributed vs L-Attributed Definitions &amp; SDTs</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">S-Attributed and L-Attributed SDD with Solved Examples</a>
+    <span class="v-meta">Neso Academy &middot; 17:10</span>
+    <div class="v-why">Rigorous explanation of dependency graphs, topological sorting, left-to-right evaluation constraints, and embedding semantic actions.</div>
+  </div>
+</div>
+
+<h2>1. What is Syntax-Directed Translation?</h2>
+
+<p><strong>Syntax-Directed Translation (SDT)</strong> augments a Context-Free Grammar with semantic information by associating <strong>attributes</strong> with grammar symbols and <strong>semantic rules</strong> (or actions) with productions.</p>
+
+<div class="formula">
+  <span class="name">Components of Syntax-Directed Translation</span>
+  $$\text{SDT} = \text{Context-Free Grammar} + \text{Attributes} + \text{Semantic Rules}$$
+  <em>The parsing process drives semantic computation &mdash; evaluating types, checking scope, computing values, or emitting intermediate code.</em>
+</div>
+
+<h2>2. Synthesised vs Inherited Attributes</h2>
+
+<p>Grammar attributes are categorized according to how their values are computed across parse tree nodes:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Synthesised Attribute</th><th>Inherited Attribute</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Definition</strong></td>
+  <td>Computed from the attribute values of the <strong>children</strong> of that node in the parse tree (or the node itself).</td>
+  <td>Computed from the attribute values of the <strong>parent</strong> and/or <strong>siblings</strong> of that node.</td>
+</tr>
+<tr>
+  <td><strong>Flow Direction</strong></td>
+  <td><strong style="color:var(--ok);">Bottom-Up</strong> (from leaves up toward the root).</td>
+  <td><strong style="color:var(--warn);">Top-Down &amp; Left-to-Right</strong> (from root and left siblings downward).</td>
+</tr>
+<tr>
+  <td><strong>Production Rule Form</strong></td>
+  <td>For production $A \to X_1 X_2 \dots X_k$:<br>$$A.s = f(X_1.a_1, X_2.a_2, \dots, X_k.a_k)$$ (LHS attribute defined by RHS symbols).</td>
+  <td>For production $A \to X_1 X_2 \dots X_k$:<br>$$X_j.i = f(A.a, X_1.a_1, \dots, X_{j-1}.a_{j-1})$$ (RHS attribute defined by LHS or left-siblings).</td>
+</tr>
+<tr>
+  <td><strong>Terminal Symbols</strong></td>
+  <td>Terminals can have synthesised attributes (supplied by the Lexical Analyser via <code>yylval</code>).</td>
+  <td>Terminals <strong>cannot</strong> have inherited attributes (their values are fixed by lexical tokens).</td>
+</tr>
+<tr>
+  <td><strong>Parsing Mechanism</strong></td>
+  <td>Naturally evaluated during <strong>bottom-up LR parsing</strong> as handles are reduced on the stack.</td>
+  <td>Naturally evaluated during <strong>top-down LL parsing</strong> or via depth-first traversals.</td>
+</tr>
+<tr>
+  <td><strong>Typical Example</strong></td>
+  <td>Evaluating arithmetic expressions: <code>E.val = E1.val + T.val</code>.</td>
+  <td>Type declarations: passing <code>int</code> down to a list of variables in <code>int a, b, c;</code>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>3. Annotated Parse Tree &mdash; Full Worked Example</h2>
+
+<p>An <strong>annotated parse tree</strong> (or decorated parse tree) displays the values of all attributes at each respective parse tree node.</p>
+
+<div class="solve">
+  <span class="lbl">Worked Example: Desk Calculator SDD for &ldquo;3 * 5 + 4&rdquo;</span>
+  <p>Consider the standard arithmetic grammar with synthesised attribute <code>.val</code>:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Production</th><th>Semantic Rule</th></tr></thead>
+  <tbody>
+  <tr><td>$L \to E$</td><td><code>L.val = E.val</code> (print result)</td></tr>
+  <tr><td>$E \to E_1 + T$</td><td><code>E.val = E1.val + T.val</code></td></tr>
+  <tr><td>$E \to T$</td><td><code>E.val = T.val</code></td></tr>
+  <tr><td>$T \to T_1 * F$</td><td><code>T.val = T1.val * F.val</code></td></tr>
+  <tr><td>$T \to F$</td><td><code>T.val = F.val</code></td></tr>
+  <tr><td>$F \to \textbf{digit}$</td><td><code>F.val = digit.lexval</code></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Annotated Parse Tree Structure for $3 * 5 + 4$:</strong></p>
+  <pre class="mono">
+                    L [val = 19]
+                      |
+                    E [val = 19]
+                   /  |  \
+       [val = 15] E   +   T [val = 4]
+                  |       |
+       [val = 15] T       F [val = 4]
+                / | \     |
+     [val = 3] T  *  F    digit [lexval = 4]
+               |     |    [val = 5]
+     [val = 3] F   digit [lexval = 5]
+               |
+             digit [lexval = 3]
+  </pre>
+  <p><strong>Evaluation Steps (Bottom-Up):</strong><br>
+  1. Leaves scanned: <code>digit.lexval = 3</code>, <code>5</code>, <code>4</code>.<br>
+  2. Reductions: $F.val = 3$, $T_1.val = 3$, $F.val = 5$.<br>
+  3. Multiplication: $T.val = T_1.val \times F.val = 3 \times 5 = 15$.<br>
+  4. Reductions: $E_1.val = 15$, $F.val = 4$, $T.val = 4$.<br>
+  5. Addition: $E.val = E_1.val + T.val = 15 + 4 = 19$.<br>
+  6. Root: $L.val = 19$. All attributes flow upwards &rarr; purely <strong>S-attributed</strong>.
+  </p>
+</div>
+
+<h2>4. Dependency Graphs and Evaluation Order</h2>
+
+<p>A <strong>dependency graph</strong> depicts the flow of information between attribute instances in a parse tree:</p>
+<ul>
+  <li>For each node attribute $X.a$, there is a vertex in the dependency graph.</li>
+  <li>If attribute $Y.b$ is computed using the value of $X.a$, an edge is directed from <strong>$X.a \longrightarrow Y.b$</strong>.</li>
+</ul>
+
+<!-- FLOWCHART: DEPENDENCY GRAPH PRINCIPLE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Attribute Dependency &amp; Topological Sorting</span>
+  
+  <div class="flow-col">
+    <div class="flow-row" style="gap:2rem;">
+      <div class="flow-box highlight" style="min-width:11rem;">
+        <strong>X₁.a (Child 1)</strong>
+        <span class="sub">Leaves / Subtree Attributes</span>
+      </div>
+      <div class="flow-box highlight" style="min-width:11rem;">
+        <strong>X₂.b (Child 2)</strong>
+        <span class="sub">Leaves / Subtree Attributes</span>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:center; gap:8rem; width:100%; margin:0.3rem 0;">
+      <div class="flow-arrow-down"></div>
+      <div class="flow-arrow-down"></div>
+    </div>
+
+    <div class="flow-box ok" style="min-width:18rem;">
+      <strong style="color:var(--ok);">A.s = f(X₁.a, X₂.b)</strong>
+      <span class="sub">Evaluation Order: Topological Sort of Dependency DAG</span>
+    </div>
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Circular Dependency Warning</span>
+  <p>If a dependency graph contains any <strong>directed cycle</strong>, the SDD is circular and mathematically undefined &mdash; there is no possible order to evaluate the attributes! A valid SDD must yield an <strong>Acyclic Directed Graph (DAG)</strong>, allowing a <strong>topological sort</strong> to determine evaluation order.</p>
+</div>
+
+<h2>5. S-Attributed vs L-Attributed Definitions</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>S-Attributed SDD</th><th>L-Attributed SDD</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Attribute Types Allowed</strong></td>
+  <td>Uses <strong>ONLY synthesised attributes</strong>.</td>
+  <td>Uses <strong>synthesised attributes AND restricted inherited attributes</strong>.</td>
+</tr>
+<tr>
+  <td><strong>Inherited Attribute Restriction</strong></td>
+  <td>Inherited attributes are strictly forbidden.</td>
+  <td>An inherited attribute $X_j.i$ for production $A \to X_1 X_2 \dots X_n$ may depend ONLY on:<br>
+    1. Attributes of symbols to its <strong>left</strong>: $X_1, X_2, \dots, X_{j-1}$, or<br>
+    2. Inherited attributes of the <strong>parent</strong> $A$.<br>
+    <em>(It can never depend on right siblings or synthesised parent attributes!)</em>
+  </td>
+</tr>
+<tr>
+  <td><strong>Evaluation Strategy</strong></td>
+  <td>Evaluated during <strong>Bottom-Up parsing</strong> directly on the LR parser stack (at handle reduction time).</td>
+  <td>Evaluated in a single <strong>depth-first, left-to-right traversal</strong> (compatible with top-down LL parsing).</td>
+</tr>
+<tr>
+  <td><strong>Expressive Hierarchy</strong></td>
+  <td colspan="2" style="text-align:center;">
+    <strong style="color:var(--ok);">&empty; &sub; S-Attributed &sub; L-Attributed &sub; General SDD</strong><br>
+    <em>Every S-attributed definition is automatically an L-attributed definition (since it places zero illegal dependencies on right siblings).</em>
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Inherited Attribute Example: Type Declarations</span>
+  <p>Consider the declaration grammar <code>D &rarr; T L</code>, &nbsp; <code>T &rarr; int | float</code>, &nbsp; <code>L &rarr; L₁, id | id</code>:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Production</th><th>Semantic Rule</th><th>Attribute Category</th></tr></thead>
+  <tbody>
+  <tr><td>$D \to T\ L$</td><td><code>L.type = T.type</code></td><td><strong>Inherited</strong> (passed from sibling $T$ to $L$)</td></tr>
+  <tr><td>$T \to \textbf{int}$</td><td><code>T.type = integer</code></td><td><strong>Synthesised</strong> (from terminal)</td></tr>
+  <tr><td>$T \to \textbf{float}$</td><td><code>T.type = float</code></td><td><strong>Synthesised</strong> (from terminal)</td></tr>
+  <tr><td>$L \to L_1,\ \textbf{id}$</td><td><code>L1.type = L.type</code><br><code>addType(id.entry, L.type)</code></td><td><strong>Inherited</strong> (passed from parent $L$ to child $L_1$)</td></tr>
+  <tr><td>$L \to \textbf{id}$</td><td><code>addType(id.entry, L.type)</code></td><td><strong>Inherited</strong> (passed from parent $L$)</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p>Because $L.type$ depends only on the left sibling $T$ and parent $L$, this SDD is strictly <strong>L-attributed</strong>.</p>
+</div>
+
+<h2>6. Syntax-Directed Translation Schemes (SDTs)</h2>
+
+<p>A <strong>Syntax-Directed Translation Scheme (SDT)</strong> is a Context-Free Grammar where program fragments called <strong>semantic actions</strong> (enclosed in braces <code>{ ... }</code>) are embedded directly within the production bodies.</p>
+
+<div class="formula">
+  <span class="name">Postfix SDT for Infix-to-Postfix Translation</span>
+  E &rarr; E₁ + T &nbsp; { printf(&quot;+&quot;); }<br>
+  E &rarr; T<br>
+  T &rarr; T₁ * F &nbsp; { printf(&quot;*&quot;); }<br>
+  T &rarr; F<br>
+  F &rarr; ( E )<br>
+  F &rarr; <strong>id</strong> &emsp;&nbsp; { printf(&quot;%s&quot;, id.name); }
+</div>
+
+<p>When an SDT has all semantic actions placed at the <strong>extreme right end</strong> of every production, it is called a <strong>Postfix SDT</strong>. Postfix SDTs execute naturally during bottom-up LR parsing exactly when a production reduction is applied.</p>
+
+<h2>7. Bottom-Up Evaluation of S-Attributed Definitions on the Value Stack (Yacc)</h2>
+
+<p>S-attributed syntax-directed definitions can be evaluated <strong>directly during bottom-up LR parsing</strong> without explicitly building a parse tree in memory. The parser maintains a <strong>Value Stack (<code>val</code> stack)</strong> in parallel with the parse <code>state</code> and <code>symbol</code> stacks.</p>
+
+<div class="box exam">
+  <span class="lbl">How Yacc/Bison Implements S-Attributed Evaluation (Mam's Semantic Analysis.pdf)</span>
+  <p>Whenever a token is shifted onto the parser stack, its synthesized lexical attribute (from <code>yylval</code>) is pushed onto the top of the <code>val</code> stack.<br><br>
+  When reducing by a production $A \to X_1 X_2 \dots X_k$:
+  <ul>
+    <li>The top of the stack points to $X_k$ at index <code>top</code>.</li>
+    <li>The attribute of $X_1$ resides at <code>val[top - k + 1]</code> &mdash; accessed in Yacc as <code>$1</code>.</li>
+    <li>The attribute of $X_i$ resides at <code>val[top - k + i]</code> &mdash; accessed in Yacc as <code>$i</code>.</li>
+    <li>The attribute of the left-hand side non-terminal $A$ is computed and stored at <code>val[top - k + 1]</code> &mdash; accessed in Yacc as <code>$$</code>.</li>
+    <li>The stack pointer is decremented by $k - 1$ ($top \leftarrow top - k + 1$).</li>
+  </ul>
+  </p>
+</div>
+
+<h3>Step-by-Step Stack Simulation Matrix &middot; Expression <code>3 * 5 + 4</code></h3>
+<p>Grammar: (1) $L \to E \$, \text{print}(E.val)$ &nbsp; (2) $E \to E_1 + T, E.val = E_1.val + T.val$ &nbsp; (3) $E \to T, E.val = T.val$ &nbsp; (4) $T \to T_1 * F, T.val = T_1.val \times F.val$ &nbsp; (5) $T \to F, T.val = F.val$ &nbsp; (6) $F \to \mathbf{digit}, F.val = \mathbf{digit}.lexval$</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Step</th><th>Symbol Stack</th><th>Value Stack (<code>val</code>)</th><th>Input</th><th>Action / Semantic Rule</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>-</code></td><td><code>-</code></td><td><code>3 * 5 + 4 $</code></td><td>Shift <code>3</code></td></tr>
+<tr><td>2</td><td><code>digit</code></td><td><code>3</code></td><td><code>* 5 + 4 $</code></td><td>Reduce $F \to \mathbf{digit}$ ($$\leftarrow $1 = 3$)</td></tr>
+<tr><td>3</td><td><code>F</code></td><td><code>3</code></td><td><code>* 5 + 4 $</code></td><td>Reduce $T \to F$ ($$\leftarrow $1 = 3$)</td></tr>
+<tr><td>4</td><td><code>T *</code></td><td><code>3 -</code></td><td><code>5 + 4 $</code></td><td>Shift <code>*</code>, then shift <code>5</code></td></tr>
+<tr><td>5</td><td><code>T * digit</code></td><td><code>3 - 5</code></td><td><code>+ 4 $</code></td><td>Reduce $F \to \mathbf{digit}$ ($$\leftarrow $1 = 5$)</td></tr>
+<tr><td>6</td><td><code>T * F</code></td><td><code>3 - 5</code></td><td><code>+ 4 $</code></td><td>Reduce $T \to T * F$ ($$\leftarrow val[top-2] \times val[top] = 3 \times 5 = 15$)</td></tr>
+<tr><td>7</td><td><code>T</code></td><td><code>15</code></td><td><code>+ 4 $</code></td><td>Reduce $E \to T$ ($$\leftarrow $1 = 15$)</td></tr>
+<tr><td>8</td><td><code>E +</code></td><td><code>15 -</code></td><td><code>4 $</code></td><td>Shift <code>+</code>, then shift <code>4</code></td></tr>
+<tr><td>9</td><td><code>E + digit</code></td><td><code>15 - 4</code></td><td><code>$</code></td><td>Reduce $F \to \mathbf{digit}$ ($$\leftarrow 4$), then $T \to F$ ($$\leftarrow 4$)</td></tr>
+<tr><td>10</td><td><code>E + T</code></td><td><code>15 - 4</code></td><td><code>$</code></td><td>Reduce $E \to E + T$ ($$\leftarrow val[top-2] + val[top] = 15 + 4 = 19$)</td></tr>
+<tr><td>11</td><td><code>E</code></td><td><code>19</code></td><td><code>$</code></td><td><strong>Accept &amp; print(19)!</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>8. Eliminating Left Recursion from Translation Schemes (SDTs)</h2>
+
+<p>When implementing syntax-directed translation top-down (e.g. in predictive or recursive-descent parsers), left-recursive productions cause infinite recursion. However, simply eliminating left recursion from the grammar alone destroys the order and binding of semantic actions! We must systematically transform the semantic actions alongside the grammar rules.</p>
+
+<div class="formula">
+  <span class="name">General SDT Left-Recursion Elimination Rule</span>
+  <strong>Left-Recursive SDT:</strong><br>
+  $$A \to A_1 \, Y \, \{ A.a = g(A_1.a, Y.y) \} \mid X \, \{ A.a = f(X.x) \}$$<br>
+  <strong>Equivalent Right-Recursive SDT (using Inherited Attribute $i$ and Synthesized Attribute $s$ for $A'$):</strong><br>
+  $$A \to X \, \{ A'.i = f(X.x) \} \, A' \, \{ A.a = A'.s \}$$<br>
+  $$A' \to Y \, \{ A'_1.i = g(A'.i, Y.y) \} \, A'_1 \, \{ A'.s = A'_1.s \} \mid \epsilon \, \{ A'.s = A'.i \}$$
+</div>
+
+<div class="box win">
+  <span class="lbl">Concrete Example &middot; Infix to Postfix Translation Scheme</span>
+  <p><strong>Original Left-Recursive Translation Scheme:</strong><br>
+  <code>E &rarr; E₁ + T { print('+'); } | T</code><br><br>
+  <strong>Transformed Right-Recursive Scheme (embed actions right where symbols are consumed):</strong><br>
+  <code>E &rarr; T R</code><br>
+  <code>R &rarr; + T { print('+'); } R | &epsilon;</code><br><br>
+  Tracing on <code>9 - 5 + 2</code> correctly outputs postfix string <code>9 5 - 2 +</code>, fully preserving operator associativity without left recursion!
+  </p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In an L-attributed SDD, an inherited attribute of a symbol on the RHS may depend on which of the following?</p>
+  <div class="opts">
+    <button class="opt">Synthesised attributes of the parent non-terminal</button>
+    <button class="opt">Any attribute anywhere in the entire parse tree</button>
+    <button class="opt">Attributes of siblings to its right</button>
+    <button class="opt" data-ok="1">The parent's inherited attributes and attributes of siblings strictly to its left</button>
+  </div>
+  <p class="why">The L in L-attributed stands for Left-to-right. Attributes may only depend on information that has already been visited in a depth-first, left-to-right traversal.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. An S-attributed Syntax-Directed Definition can always be evaluated during which type of parsing?</p>
+  <div class="opts">
+    <button class="opt">Top-down parsing with infinite backtracking</button>
+    <button class="opt">Pre-processing pass</button>
+    <button class="opt" data-ok="1">Bottom-up (LR) parsing on the parse stack</button>
+    <button class="opt">Lexical analysis before parsing begins</button>
+  </div>
+  <p class="why">Because S-attributed definitions only compute synthesized attributes from children, all required attribute values are already available on the stack when the handle is reduced.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. What does a cycle in an attribute dependency graph indicate?</p>
+  <div class="opts">
+    <button class="opt">The parser must backtrack</button>
+    <button class="opt">The grammar is ambiguous</button>
+    <button class="opt">The grammar contains left recursion</button>
+    <button class="opt" data-ok="1">The SDD is circular and cannot be evaluated</button>
+  </div>
+  <p class="why">A cycle means attribute X depends on attribute Y, which in turn depends on X. No topological ordering exists to compute these values.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. What is a Postfix SDT?</p>
+  <div class="opts">
+    <button class="opt">An SDT with actions placed at the start of productions</button>
+    <button class="opt" data-ok="1">An SDT with all semantic actions placed at the right ends of production bodies</button>
+    <button class="opt">An SDT that only converts infix expressions to postfix</button>
+    <button class="opt">An SDT evaluated by a lexical scanner</button>
+  </div>
+  <p class="why">In a Postfix SDT, every action occurs at the end of the RHS, matching the exact moment an LR parser reduces the production.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Contrast Synthesised vs Inherited attributes.</summary>
+    <p class="ans">Synthesised attributes flow bottom-up: calculated from children's attributes or lexical values. Inherited attributes flow top-down or sideways: calculated from parent or left-sibling attributes.</p></details>
+  <details class="card"><summary>State the relationship between S-attributed and L-attributed definitions.</summary>
+    <p class="ans">All S-attributed definitions are L-attributed definitions ($S \subset L$). S-attributed definitions use only synthesised attributes, while L-attributed definitions allow synthesised plus inherited attributes restricted to left-siblings and parent.</p></details>
+</div>
+
+<div class="nav">
+  <a href="../unit-3/0017-parser-generators.html">&larr; Previous: Parser Generators</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0019-three-address-code.html">Next: Three-Address Code &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

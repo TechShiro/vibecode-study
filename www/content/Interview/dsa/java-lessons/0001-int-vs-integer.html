@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Java Essentials 01 — int vs Integer</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Java Essentials · Lesson 01 of 03 · primitives vs wrapper objects</div>
+<h1>int vs Integer</h1>
+<p class="subtitle">One is a 32-bit value on the stack; the other is a heap object that can be <code>null</code>. Confusing them is the source of the most embarrassing interview bugs — <code>NullPointerException</code> on an <code>int</code>, and <code>==</code> that lies.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> these Java internals are asked directly in Google India SWE-intern interviews, and they're the source of subtle bugs that fail you on hidden test cases. Know them cold. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<code>int</code> is a <strong>primitive</strong> — a raw 32-bit value living directly in a variable (stack / array slot).
+<code>Integer</code> is an <strong>object</strong> — a box on the heap that holds one <code>int</code> plus an object header and a reference.
+You need <code>Integer</code> the instant you want <code>null</code> ("no value"), or you want to put numbers into a
+generic collection (<code>List</code>, <code>Map</code>, <code>PriorityQueue</code>) — generics can't hold primitives.
+Everywhere else, prefer <code>int</code>: it's smaller, faster, and can never be <code>null</code>.
+</p>
+
+<div class="callout">
+  <span class="label">When this fires in an interview</span>
+  You reach for <code>Integer</code> the moment you write <code>List&lt;Integer&gt;</code>, <code>Map&lt;String,Integer&gt;</code>,
+  or <code>Deque&lt;Integer&gt;</code> — generics force the wrapper. The danger zone is the <em>boundary</em>: every time a value
+  crosses from a collection back into an <code>int</code> (<code>int x = map.get(k);</code>), Java silently unboxes — and if the
+  wrapper is <code>null</code>, you get a runtime crash on a line that looks like pure arithmetic.
+</div>
+
+<table>
+  <thead><tr><th>&nbsp;</th><th><code>int</code> (primitive)</th><th><code>Integer</code> (wrapper object)</th></tr></thead>
+  <tbody>
+    <tr><td>What it is</td><td>Raw 32-bit two's-complement value</td><td>Heap object wrapping one <code>int</code></td></tr>
+    <tr><td>Lives on</td><td>Stack / inside the array</td><td>Heap (variable holds a reference)</td></tr>
+    <tr><td>Default value</td><td><code>0</code></td><td><code>null</code></td></tr>
+    <tr><td>Nullable?</td><td><strong>No</strong> — always a number</td><td><strong>Yes</strong> — can be <code>null</code></td></tr>
+    <tr><td>In generics (<code>List&lt;…&gt;</code>)</td><td><strong>Illegal</strong> — <code>List&lt;int&gt;</code> won't compile</td><td>Required — <code>List&lt;Integer&gt;</code></td></tr>
+    <tr><td>Compare with <code>==</code></td><td>Compares values — correct</td><td>Compares <em>references</em> — a trap (see §3)</td></tr>
+    <tr><td>Memory</td><td>4 bytes</td><td>~16 bytes + reference — ~4× heavier</td></tr>
+    <tr><td>Reach for it when</td><td>Hot loops, fixed-size arrays, counters</td><td>You need <code>null</code> or a collection / generic</td></tr>
+  </tbody>
+</table>
+
+<h2>2 · Autoboxing &amp; unboxing</h2>
+<p>
+Java auto-converts between the two so you rarely write the conversion yourself.
+<strong>Autoboxing</strong> = <code>int</code> → <code>Integer</code> (calls <code>Integer.valueOf</code>);
+<strong>unboxing</strong> = <code>Integer</code> → <code>int</code> (calls <code>.intValue()</code>). It's invisible — and that's exactly why it bites.
+</p>
+
+<pre><code>List&lt;Integer&gt; list = new ArrayList&lt;&gt;();
+list.add(5);            <span class="cmt">// autobox: 5 -&gt; Integer.valueOf(5)</span>
+int x = list.get(0);    <span class="cmt">// unbox: Integer -&gt; int via intValue()</span>
+
+Integer a = 10;         <span class="cmt">// autobox</span>
+int b = a + 1;          <span class="cmt">// unbox a, add, result is int</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">The NullPointerException that looks impossible</span>
+  Unboxing a <code>null</code> <code>Integer</code> throws <code>NullPointerException</code> — on a line of plain arithmetic.
+  The classic: <code>map.get(key)</code> returns <code>null</code> for a missing key, and you unbox it straight into an <code>int</code>.
+<pre><code>Map&lt;String,Integer&gt; count = new HashMap&lt;&gt;();
+int n = count.get("missing");   <span class="cmt">// get() returns null -&gt; unbox null -&gt; NPE!</span>
+
+<span class="cmt">// Fix: never unbox a value that might be absent</span>
+int safe = count.getOrDefault("missing", 0);   <span class="cmt">// stays an int, defaults to 0</span>
+Integer raw = count.get("missing");            <span class="cmt">// or keep it boxed and null-check</span>
+if (raw != null) { /* use raw */ }</code></pre>
+</div>
+
+<h2>3 · The <code>==</code> trap</h2>
+<p>
+For <code>int</code>, <code>==</code> compares values — always correct. For <code>Integer</code>, <code>==</code> compares
+<strong>object references</strong>: "are these the same box?", not "are the values equal?". To compare the
+<em>numbers</em>, use <code>.equals()</code> or compare unboxed <code>int</code>s.
+</p>
+
+<div class="callout trap">
+  <span class="label">The Integer cache makes it pass small tests, then fail big ones</span>
+  Java caches <code>Integer</code> objects for <strong>−128..127</strong>, so autoboxing values in that range returns the
+  <em>same cached object</em> — and <code>==</code> happens to return <code>true</code>. Outside the range you get fresh objects,
+  so <code>==</code> returns <code>false</code>. Same code, different answer depending on the value.
+<pre><code>Integer a = 100, b = 100;
+System.out.println(a == b);        <span class="cmt">// true  — both from the -128..127 cache</span>
+
+Integer c = 500, d = 500;
+System.out.println(c == d);        <span class="cmt">// false — two different heap objects!</span>
+System.out.println(c.equals(d));   <span class="cmt">// true  — compares values (correct)</span>
+System.out.println(c.intValue() == d.intValue()); <span class="cmt">// true — compare as int</span></code></pre>
+  <strong>Rule:</strong> never use <code>==</code> on two <code>Integer</code>s. Use <code>.equals()</code> (after a null check) or compare <code>int</code> values.
+</div>
+
+<h3>Worked example — dry run</h3>
+<p>Code: <code>Integer x = 500, y = 500; int a = 500, b = 500;</code> Because 500 is
+<em>outside</em> the −128..127 cache, autoboxing <code>x</code> and <code>y</code> creates two
+<strong>separate heap objects</strong> at different addresses. The primitives <code>a</code> and
+<code>b</code> are raw values, not references. Walk each comparison:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 360 200" role="img" aria-label="Two separate Integer 500 heap objects at addresses 0x1A and 0x2F, both referenced by x and y, plus the shared -128..127 cache box">
+  <rect class="cell" x="40"  y="40" width="110" height="56" rx="4"/>
+  <text class="lbl" x="95"  y="68">Integer 500</text>
+  <text class="wt"  x="95"  y="28">@0x1A  (x)</text>
+  <rect class="cell" x="210" y="40" width="110" height="56" rx="4"/>
+  <text class="lbl" x="265" y="68">Integer 500</text>
+  <text class="wt"  x="265" y="28">@0x2F  (y)</text>
+  <line class="edge" x1="150" y1="68" x2="210" y2="68"/>
+  <text class="wt"  x="180" y="60">≠</text>
+  <rect class="cell done" x="100" y="135" width="160" height="46" rx="4"/>
+  <text class="lbl" x="180" y="162">cache −128..127</text>
+  <text class="wt"  x="180" y="125">small values share ONE box</text>
+</svg>
+<figcaption>== on Integer compares references; use .equals() or compare int values.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">x == y → compares object REFERENCES → @0x1A ≠ @0x2F → <span class="ptr">false</span></span>
+<span class="step">x.equals(y) → compares VALUES → 500 == 500 → <span class="ptr">true</span></span>
+<span class="step">a == b (primitives) → compares values directly → <span class="ptr">true</span></span>
+<span class="step now">if instead value = 100: Integer p = 100, q = 100; p == q → cache returns the SAME box → <span class="ptr">true</span> (the trap!)</span>
+</div>
+
+<h2>4 · Overflow</h2>
+<p>
+Both <code>int</code> and <code>Integer</code> are 32-bit. The range is
+<code>Integer.MIN_VALUE</code> = −2,147,483,648 to <code>Integer.MAX_VALUE</code> = 2,147,483,647.
+Exceed it and Java <strong>silently wraps around</strong> — no exception, just a wrong (often negative) number.
+</p>
+
+<div class="callout trap">
+  <span class="label">The two overflow bugs that fail hidden test cases</span>
+  These look correct and pass small inputs, then wrap on the large ones interviewers add on purpose.
+<pre><code><span class="cmt">// (1) The infamous binary-search midpoint bug</span>
+int mid = (lo + hi) / 2;          <span class="cmt">// lo+hi can overflow when both are large</span>
+int mid = lo + (hi - lo) / 2;     <span class="cmt">// FIX: never overflows</span>
+
+<span class="cmt">// (2) Summing many / large values</span>
+int sum = 0;
+for (int w : weights) sum += w;   <span class="cmt">// overflows if the total &gt; 2.1e9</span>
+long sum = 0;                     <span class="cmt">// FIX: accumulate in a long</span>
+for (int w : weights) sum += w;</code></pre>
+  Whenever a sum, product, or <code>a+b</code> could plausibly exceed ~2.1 billion, accumulate in <code>long</code>
+  (64-bit, ~9.2×10¹⁸). For the midpoint, use <code>lo + (hi - lo) / 2</code>.
+</div>
+
+<h2>5 · Performance: <code>int[]</code> vs <code>List&lt;Integer&gt;</code></h2>
+<p>
+A <code>List&lt;Integer&gt;</code> stores a reference to a separate heap object for <em>every</em> element: more memory,
+worse cache locality, and boxing/unboxing on every access. An <code>int[]</code> is one contiguous block of raw values —
+several times smaller and faster. In a tight inner loop the difference is real.
+</p>
+<table>
+  <thead><tr><th>&nbsp;</th><th><code>int[]</code></th><th><code>List&lt;Integer&gt;</code></th></tr></thead>
+  <tbody>
+    <tr><td>Storage</td><td>Contiguous raw values</td><td>References to boxed objects</td></tr>
+    <tr><td>Speed / cache</td><td>Fast, cache-friendly</td><td>Slower, pointer-chasing + boxing</td></tr>
+    <tr><td>Resizable?</td><td>No — fixed length</td><td>Yes — grows dynamically</td></tr>
+    <tr><td>Works with generics?</td><td>No</td><td>Yes (collections, comparators)</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">How to choose</span>
+  Use <code>int[]</code> for fixed-size, performance-critical work (DP tables, frequency arrays, hot loops).
+  Use <code>List&lt;Integer&gt;</code> when the size grows dynamically or you need generics/collection APIs.
+  When unsure on a hot path in competitive programming, default to <code>int[]</code>.
+</div>
+
+<h2>6 · Quick reference</h2>
+<table>
+  <thead><tr><th>Call</th><th>Returns</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td><code>Integer.parseInt(s)</code></td><td>primitive <code>int</code></td><td>Parsing a string to a number — the usual choice</td></tr>
+    <tr><td><code>Integer.valueOf(s / i)</code></td><td><code>Integer</code> (uses cache)</td><td>When you need a wrapper object</td></tr>
+    <tr><td><code>Integer.compare(a, b)</code></td><td>−1 / 0 / 1</td><td>Overflow-safe comparison (esp. in comparators)</td></tr>
+  </tbody>
+</table>
+<pre><code>int n      = Integer.parseInt("42");   <span class="cmt">// String -&gt; int</span>
+Integer w  = Integer.valueOf(42);      <span class="cmt">// String/int -&gt; Integer (cached for -128..127)</span>
+
+<span class="cmt">// In a comparator, NEVER do (a - b) — it can overflow. Use Integer.compare:</span>
+list.sort((a, b) -&gt; Integer.compare(a, b));   <span class="cmt">// safe; (a - b) can wrap to the wrong sign</span></code></pre>
+
+<h2>7 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Unboxing <code>null</code></strong> → <code>NullPointerException</code> on arithmetic. Use <code>getOrDefault</code> or null-check before assigning to an <code>int</code>.</li>
+  <li><strong><code>==</code> on two <code>Integer</code>s</strong> → compares references; the −128..127 cache makes it pass for small values, fail for large. Use <code>.equals()</code> or compare <code>int</code> values.</li>
+  <li><strong><code>(lo + hi) / 2</code></strong> → overflow. Use <code>lo + (hi - lo) / 2</code>.</li>
+  <li><strong>Summing into an <code>int</code></strong> → silent wraparound past 2.1e9. Accumulate in <code>long</code>.</li>
+  <li><strong><code>(a - b)</code> comparator</strong> → overflow flips the sign for far-apart values. Use <code>Integer.compare(a, b)</code>.</li>
+  <li><strong><code>List&lt;Integer&gt;</code> in a hot loop</strong> → boxing overhead + cache misses. Prefer <code>int[]</code> when size is fixed.</li>
+  <li><strong>Default values differ</strong> → a fresh <code>int[]</code> is all <code>0</code>; an <code>Integer[]</code> / uninitialized <code>Integer</code> field is <code>null</code>.</li>
+</ul>
+
+<h2>8 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What happens when you run <code>int n = map.get(key);</code> and <code>key</code> is <strong>not</strong> in the map?</div>
+  <button class="opt">It compiles but assigns <code>0</code> to <code>n</code>, the default int value</button>
+  <button class="opt">It fails to compile because <code>get</code> returns an <code>Integer</code></button>
+  <button class="opt">It throws a <code>NullPointerException</code> when unboxing the <code>null</code></button>
+  <div class="fb" data-correct="map.get returns null for a missing key; unboxing null into an int throws NPE. Use getOrDefault(key, 0) or keep the Integer and null-check." data-wrong="get() returns null for a missing key, and unboxing null into an int throws NullPointerException — not 0. Use getOrDefault to stay safe."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q"><code>Integer c = 500, d = 500;</code> Why does <code>c == d</code> evaluate to <code>false</code>?</div>
+  <button class="opt">Because <code>500</code> overflows the <code>Integer</code> range and wraps around</button>
+  <button class="opt">Because <code>==</code> compares object references, and 500 is outside the −128..127 cache</button>
+  <button class="opt">Because <code>Integer</code> values are immutable and can never be equal</button>
+  <div class="fb" data-correct="== compares references for Integer. Values in -128..127 share cached objects (== is true); 500 makes two distinct objects, so == is false. Use .equals()." data-wrong="== compares references for Integer. Small values share a cache so == looks true; 500 is outside it, giving two distinct objects. Use .equals() to compare values."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In binary search, why prefer <code>mid = lo + (hi - lo) / 2</code> over <code>mid = (lo + hi) / 2</code>?</div>
+  <button class="opt"><code>lo + hi</code> can overflow <code>int</code> when both are large; the subtraction form never does</button>
+  <button class="opt">The subtraction form is faster because it avoids an integer division</button>
+  <button class="opt">They differ in rounding, so only the subtraction form lands on the true middle</button>
+  <div class="fb" data-correct="When lo and hi are both near Integer.MAX_VALUE, lo+hi overflows to a negative number; lo + (hi-lo)/2 keeps every intermediate in range." data-wrong="It's about overflow: lo+hi can exceed Integer.MAX_VALUE and wrap negative. lo + (hi-lo)/2 keeps the intermediates in range and gives the same midpoint."></div>
+</div>
+
+<h2>9 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (read):</strong> <a href="https://www.baeldung.com/java-wrapper-classes">Baeldung — Java Wrapper Classes &amp; Autoboxing</a>. Backup: <a href="https://docs.oracle.com/javase/tutorial/java/data/autoboxing.html">Oracle Java Tutorial — Autoboxing and Unboxing</a>.</li>
+  <li><strong>Practice ladder (Java), all overflow-sensitive:</strong> LC 7 (Reverse Integer — classic overflow) → LC 8 (String to Integer / atoi) → LC 50 (Pow(x, n)) → LC 69 (Sqrt(x)). On each, deliberately think about where an <code>int</code> could overflow and where <code>long</code> saves you.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure when a value can be <code>null</code>, want me to trace why <code>==</code> lies on a specific input, or which of your
+  loops should use <code>long</code>? Ask in the chat. When you can explain the unboxing NPE, the <code>==</code> cache trap, and the
+  overflow fixes from memory, say <strong>"next"</strong> and we move to Java Essentials 02: Queue / Deque / Stack.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-queue-deque-stack.html">Queue / Deque / Stack →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

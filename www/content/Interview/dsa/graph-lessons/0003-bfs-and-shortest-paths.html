@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 03 — BFS &amp; Shortest Paths</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 03 of 09 · level by level = shortest in unweighted</div>
+<h1>Breadth-First Search &amp; Shortest Paths</h1>
+<p class="subtitle">A queue expands a frontier one distance-ring at a time. The <em>first</em> time it touches a node in an unweighted graph, it arrived by a shortest path — that single guarantee is the whole pattern.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> graphs are ~25% of Google intern questions, and "shortest steps" is
+  BFS's home turf. This is Lesson 3 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+BFS pushes a source into a FIFO <strong>queue</strong> and expands outward: it finishes every node at
+distance <code>d</code> before touching any node at distance <code>d+1</code>. Because nodes come out
+in non-decreasing distance order, the <strong>first arrival</strong> at any node in an
+<strong>unweighted</strong> graph is already a shortest path — no relaxation, no priority queue. That
+guarantee is why "minimum steps / fewest moves / nearest" almost always means BFS.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Shortest / fewest steps / minimum moves", "nearest", "level by level", or
+  "spread / rotting / infection" on an <strong>unweighted</strong> graph or grid. The instant a problem
+  asks for the <em>minimum number of edges</em> (not a weighted cost), BFS fires. Weighted edges →
+  Dijkstra (Lesson 07), not BFS.
+</div>
+
+<div class="callout trap">
+  <span class="label">THE #1 BUG — mark visited at ENQUEUE, not DEQUEUE</span>
+  If you only mark a node visited when you <code>poll()</code> it, the same node gets enqueued many times
+  before it is first dequeued. The queue floods (worst case exponential), distances overcount, and you
+  TLE. <strong>Set <code>visited[nei] = true</code> in the same breath as <code>q.offer(nei)</code></strong>,
+  and mark every source visited as you seed it. This is the cardinal BFS sin — burn it in now.
+</div>
+
+<h2>2 · Core template</h2>
+<p>
+Carry a queue and a <code>visited</code> marker. The inner <strong>level-size loop</strong> snapshots
+<code>q.size()</code> at the top of each round so you can count levels (= distances) cleanly. Snapshot it
+<em>before</em> the inner loop — never read <code>q.size()</code> inside the loop, because you're mutating
+the queue as you go.
+</p>
+
+<pre><code><span class="cmt">// graph BFS with a queue + level-size loop → shortest distance start→target</span>
+int bfs(List&lt;List&lt;Integer&gt;&gt; adj, int start, int target) {
+    Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+    boolean[] visited = new boolean[adj.size()];
+    q.offer(start);
+    visited[start] = true;          <span class="cmt">// mark the SOURCE at enqueue too</span>
+    int dist = 0;
+    while (!q.isEmpty()) {
+        int sz = q.size();          <span class="cmt">// snapshot this level's width BEFORE the loop</span>
+        for (int i = 0; i &lt; sz; i++) {
+            int node = q.poll();
+            if (node == target) return dist;
+            for (int nei : adj.get(node)) {
+                if (!visited[nei]) {
+                    visited[nei] = true;   <span class="cmt">// mark BEFORE offering — the #1 bug</span>
+                    q.offer(nei);
+                }
+            }
+        }
+        dist++;                     <span class="cmt">// finished one level → distance grows by 1</span>
+    }
+    return -1;                       <span class="cmt">// target unreachable</span>
+}</code></pre>
+<p><strong>Time</strong> O(V + E) — each vertex and edge processed once. <strong>Space</strong> O(V) for the queue and visited marker. On a grid V = rows·cols and E ≈ 4V (or 8V for diagonals), so still O(rows·cols).</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: <code>n = 5</code>, <code>edges = {{0,1},{0,2},{1,3},{2,4}}</code> (undirected), source <code>= 0</code>.
+Each level the frontier expands one distance-ring outward; the level a node is enqueued on <em>is</em> its
+shortest distance from 0:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 320 210" role="img" aria-label="BFS tree rooted at node 0: 0 at the top, its children 1 and 2 at distance 1, and 3 and 4 at distance 2">
+  <line class="edge" x1="160" y1="40"  x2="90"  y2="120"/>
+  <line class="edge" x1="160" y1="40"  x2="230" y2="120"/>
+  <line class="edge" x1="90"  y1="120" x2="90"  y2="190"/>
+  <line class="edge" x1="230" y1="120" x2="230" y2="190"/>
+  <circle class="node cur"  cx="160" cy="40"  r="20"/><text class="lbl inv" x="160" y="40">0</text>
+  <circle class="node done" cx="90"  cy="120" r="20"/><text class="lbl" x="90"  y="120">1</text>
+  <circle class="node done" cx="230" cy="120" r="20"/><text class="lbl" x="230" y="120">2</text>
+  <circle class="node done" cx="90"  cy="190" r="20"/><text class="lbl" x="90"  y="190">3</text>
+  <circle class="node done" cx="230" cy="190" r="20"/><text class="lbl" x="230" y="190">4</text>
+</svg>
+<figcaption>Source 0 (distance 0); ring 1 = {1,2} (distance 1); ring 2 = {3,4} (distance 2). The frontier fans out one level at a time.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">seed: enqueue 0, <strong>mark 0 visited</strong> → queue [0], dist[0]=<span class="ptr">0</span></span>
+<span class="step">— level 0 (dist 0) —</span>
+<span class="step now">pop 0 → neighbors 1,2 unvisited: <strong>mark visited at enqueue</strong> → queue [1,2], dist[1]=<span class="ptr">1</span>, dist[2]=<span class="ptr">1</span></span>
+<span class="step">— level 1 (dist 1) —</span>
+<span class="step now">pop 1 → neighbor 3 unvisited: <strong>mark + enqueue</strong> → queue [2,3], dist[3]=<span class="ptr">2</span> (0 already visited, skipped)</span>
+<span class="step now">pop 2 → neighbor 4 unvisited: <strong>mark + enqueue</strong> → queue [3,4], dist[4]=<span class="ptr">2</span> (0 already visited, skipped)</span>
+<span class="step">— level 2 (dist 2) —</span>
+<span class="step now">pop 3, pop 4 → no unvisited neighbors → queue empties → done</span>
+<span class="step">result: dist = [<span class="ptr">0</span>, <span class="ptr">1</span>, <span class="ptr">1</span>, <span class="ptr">2</span>, <span class="ptr">2</span>]</span>
+</div>
+<p>Notice every node is enqueued <em>exactly once</em> — that is the payoff of marking visited at enqueue.
+Had we marked at dequeue instead, 0 would re-enqueue 1 and 2 (and they each other), inflating the queue
+and corrupting the distances.</p>
+
+<div class="callout tip">
+  <span class="label">When do you even need the level-size loop?</span>
+  Only when you must know <em>which</em> level a node is on (per-level grouping, or counting distance as
+  "number of rings"). If you instead store distance in a <code>dist[]</code> array
+  (<code>dist[nei] = dist[node] + 1</code>), you can drop the snapshot loop entirely. Both are correct —
+  pick whichever the problem's output shape wants.
+</div>
+
+<h2>3 · BFS vs DFS for shortest path</h2>
+<p>Both explore the same graph, but only one hands you shortest paths for free:</p>
+<table>
+  <thead><tr><th>&nbsp;</th><th>BFS</th><th>DFS</th></tr></thead>
+  <tbody>
+    <tr><td>Structure</td><td>FIFO queue, level by level</td><td>LIFO stack / recursion, go deep first</td></tr>
+    <tr><td>Shortest path (unweighted)</td><td><strong>Yes</strong> — first arrival is optimal</td><td>No — first arrival may be a long detour</td></tr>
+    <tr><td>Memory</td><td>O(width) — can be huge on bushy graphs</td><td>O(depth) — usually smaller</td></tr>
+    <tr><td>Best for</td><td>min steps, nearest, levels, multi-source spread</td><td>connectivity, cycles, all-paths, backtracking (Lesson 02)</td></tr>
+  </tbody>
+</table>
+<p>
+Rule of thumb: <strong>"minimum / fewest / nearest" → BFS; "exists / all paths / cycle" → DFS</strong>.
+For <em>weighted</em> shortest paths neither suffices — reach for Dijkstra (Lesson 07) or 0-1 BFS.
+</p>
+
+<h2>4 · All the cases</h2>
+<p>Same queue, different seeding and neighbor rules. Master the template and these are bookkeeping.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Shortest path in grid</td><td>LC 1091</td><td>8-directional neighbors; count <em>cells</em> until you reach the corner.</td></tr>
+    <tr><td>Multi-source spread</td><td>LC 994 ⭐</td><td>Seed <strong>all</strong> rotten cells at once; level counter = elapsed time.</td></tr>
+    <tr><td>Multi-source distance</td><td>LC 542</td><td>Seed every 0-cell; first visit fills each 1-cell's distance to nearest 0.</td></tr>
+    <tr><td>Word transformation</td><td>LC 127 ⭐</td><td>Neighbors = words one letter apart; build them on the fly.</td></tr>
+    <tr><td>State-space BFS</td><td>LC 752</td><td>Nodes are abstract states (lock combos); enumerate neighbor states.</td></tr>
+    <tr><td>Bipartite check</td><td>LC 785 / 886</td><td>BFS 2-coloring: a <code>color[]</code> array, not just a visited flag.</td></tr>
+  </tbody>
+</table>
+<p>⭐ = frequently reported on Google interviews — drill these first.</p>
+
+<h3>Case: shortest path in binary matrix — 8-dir, count cells (LC 1091)</h3>
+<pre><code>int shortestPathBinaryMatrix(int[][] grid) {
+    int n = grid.length;
+    if (grid[0][0] == 1 || grid[n-1][n-1] == 1) return -1;   <span class="cmt">// blocked start/end</span>
+    int[][] dirs = {{-1,-1},{-1,0},{-1,1},{0,-1},{0,1},{1,-1},{1,0},{1,1}}; <span class="cmt">// 8-dir</span>
+    Queue&lt;int[]&gt; q = new ArrayDeque&lt;&gt;();
+    q.offer(new int[]{0, 0});
+    grid[0][0] = 1;                  <span class="cmt">// reuse grid as visited: mark at enqueue</span>
+    int dist = 1;                    <span class="cmt">// path length counts CELLS, start counts as 1</span>
+    while (!q.isEmpty()) {
+        int sz = q.size();
+        for (int i = 0; i &lt; sz; i++) {
+            int[] cell = q.poll();
+            int r = cell[0], c = cell[1];
+            if (r == n-1 && c == n-1) return dist;
+            for (int[] d : dirs) {
+                int nr = r + d[0], nc = c + d[1];
+                if (nr &gt;= 0 && nr &lt; n && nc &gt;= 0 && nc &lt; n && grid[nr][nc] == 0) {
+                    grid[nr][nc] = 1;   <span class="cmt">// mark BEFORE offering</span>
+                    q.offer(new int[]{nr, nc});
+                }
+            }
+        }
+        dist++;
+    }
+    return -1;
+}</code></pre>
+<p><strong>Time</strong> O(n²) cells, each touched once. <strong>Space</strong> O(n²) for the queue worst case (we reuse <code>grid</code> as visited, so no extra visited array).</p>
+
+<h3>Case: rotting oranges — multi-source BFS (LC 994) ⭐</h3>
+<p>
+Multi-source BFS is the secret weapon: seed <em>every</em> source into the queue <strong>before</strong>
+the loop, and the level counter becomes the simultaneous spread time. No need to BFS from each source
+separately — one pass handles them all at once.
+</p>
+<pre><code>int orangesRotting(int[][] grid) {
+    int R = grid.length, C = grid[0].length, fresh = 0;
+    Queue&lt;int[]&gt; q = new ArrayDeque&lt;&gt;();
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++) {
+            if (grid[r][c] == 2) q.offer(new int[]{r, c}); <span class="cmt">// seed ALL rotten first</span>
+            else if (grid[r][c] == 1) fresh++;
+        }
+    if (fresh == 0) return 0;        <span class="cmt">// nothing to rot</span>
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    int minutes = 0;
+    while (!q.isEmpty() && fresh &gt; 0) {
+        int sz = q.size();
+        for (int i = 0; i &lt; sz; i++) {
+            int[] cell = q.poll();
+            for (int[] d : dirs) {
+                int nr = cell[0] + d[0], nc = cell[1] + d[1];
+                if (nr &gt;= 0 && nr &lt; R && nc &gt;= 0 && nc &lt; C && grid[nr][nc] == 1) {
+                    grid[nr][nc] = 2;   <span class="cmt">// rot it now (= mark visited)</span>
+                    fresh--;
+                    q.offer(new int[]{nr, nc});
+                }
+            }
+        }
+        minutes++;                   <span class="cmt">// one level = one minute</span>
+    }
+    return fresh == 0 ? minutes : -1; <span class="cmt">// leftover fresh → unreachable</span>
+}</code></pre>
+<p><strong>Time</strong> O(R·C). <strong>Space</strong> O(R·C) for the queue.</p>
+
+<h3>Case: 01 Matrix — multi-source distance (LC 542)</h3>
+<p>
+Same multi-source move, inverted. You want each cell's distance to the <em>nearest</em> 0. Seed every
+<code>0</code>-cell at distance 0; the first time BFS reaches a <code>1</code>-cell is its answer.
+This turns "distance from each cell to nearest X" from O(V²) (BFS per cell) into a single O(V) pass.
+</p>
+<pre><code>int[][] updateMatrix(int[][] mat) {
+    int R = mat.length, C = mat[0].length;
+    int[][] dist = new int[R][C];
+    Queue&lt;int[]&gt; q = new ArrayDeque&lt;&gt;();
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++) {
+            if (mat[r][c] == 0) q.offer(new int[]{r, c}); <span class="cmt">// seed ALL zeros</span>
+            else dist[r][c] = -1;        <span class="cmt">// -1 doubles as "not visited"</span>
+        }
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    while (!q.isEmpty()) {
+        int[] cell = q.poll();
+        int r = cell[0], c = cell[1];
+        for (int[] d : dirs) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr &gt;= 0 && nr &lt; R && nc &gt;= 0 && nc &lt; C && dist[nr][nc] == -1) {
+                dist[nr][nc] = dist[r][c] + 1; <span class="cmt">// first arrival = shortest, mark via dist</span>
+                q.offer(new int[]{nr, nc});
+            }
+        }
+    }
+    return dist;
+}</code></pre>
+<div class="callout tip">
+  <span class="label">visited via the answer array</span>
+  Here <code>dist[nr][nc] == -1</code> <em>is</em> the visited check — setting a real distance both records
+  the answer and marks the node. One array, two jobs. Note there's no level-size loop: the
+  <code>dist[r][c] + 1</code> recurrence carries distance per node, so we don't need to count rings.
+</div>
+
+<h3>Case: Word Ladder — implicit graph, build neighbors on the fly (LC 127) ⭐</h3>
+<p>
+No edges are given. Two words are neighbors if they differ by exactly one letter, so you
+<em>generate</em> neighbors by mutating each position a→z and checking the dictionary. A Google favorite.
+</p>
+<pre><code>int ladderLength(String beginWord, String endWord, List&lt;String&gt; wordList) {
+    Set&lt;String&gt; dict = new HashSet&lt;&gt;(wordList);
+    if (!dict.contains(endWord)) return 0;       <span class="cmt">// target unreachable</span>
+    Queue&lt;String&gt; q = new ArrayDeque&lt;&gt;();
+    Set&lt;String&gt; visited = new HashSet&lt;&gt;();
+    q.offer(beginWord);
+    visited.add(beginWord);
+    int steps = 1;                                <span class="cmt">// LC counts words in the path, begin = 1</span>
+    while (!q.isEmpty()) {
+        int sz = q.size();
+        for (int i = 0; i &lt; sz; i++) {
+            char[] cur = q.poll().toCharArray();
+            for (int j = 0; j &lt; cur.length; j++) {
+                char old = cur[j];
+                for (char ch = 'a'; ch &lt;= 'z'; ch++) { <span class="cmt">// neighbors built on the fly</span>
+                    cur[j] = ch;
+                    String next = new String(cur);
+                    if (next.equals(endWord)) return steps + 1;
+                    if (dict.contains(next) && !visited.contains(next)) {
+                        visited.add(next);   <span class="cmt">// mark at enqueue</span>
+                        q.offer(next);
+                    }
+                }
+                cur[j] = old;          <span class="cmt">// restore before mutating the next position</span>
+            }
+        }
+        steps++;
+    }
+    return 0;
+}</code></pre>
+<p><strong>Time</strong> O(N · L · 26) where N = words, L = word length (each word spawns L·26 candidates). <strong>Space</strong> O(N · L).</p>
+
+<h3>Case: Open the Lock — BFS over states (LC 752)</h3>
+<p>
+Structurally identical to Word Ladder: each node is a 4-digit state, each neighbor turns one wheel ±1,
+and the deadends form a blocked set. <strong>"BFS over states"</strong> covers a huge class of puzzles
+(also "Knight Minimum Moves" — neighbors are the 8 knight jumps).
+</p>
+<pre><code>int openLock(String[] deadends, String target) {
+    Set&lt;String&gt; dead = new HashSet&lt;&gt;(Arrays.asList(deadends));
+    if (dead.contains("0000")) return -1;
+    if (target.equals("0000")) return 0;          <span class="cmt">// start == target</span>
+    Queue&lt;String&gt; q = new ArrayDeque&lt;&gt;();
+    Set&lt;String&gt; visited = new HashSet&lt;&gt;();
+    q.offer("0000");
+    visited.add("0000");
+    int turns = 0;
+    while (!q.isEmpty()) {
+        int sz = q.size();
+        for (int i = 0; i &lt; sz; i++) {
+            String s = q.poll();
+            if (s.equals(target)) return turns;
+            for (int j = 0; j &lt; 4; j++) {            <span class="cmt">// 4 wheels × 2 directions = 8 neighbors</span>
+                for (int delta = -1; delta &lt;= 1; delta += 2) {
+                    char[] a = s.toCharArray();
+                    a[j] = (char) ('0' + (a[j] - '0' + delta + 10) % 10); <span class="cmt">// wrap 0↔9</span>
+                    String next = new String(a);
+                    if (!dead.contains(next) && !visited.contains(next)) {
+                        visited.add(next);   <span class="cmt">// mark at enqueue</span>
+                        q.offer(next);
+                    }
+                }
+            }
+        }
+        turns++;
+    }
+    return -1;
+}</code></pre>
+<p><strong>Time</strong> O(10⁴ · 8) — at most 10000 states, 8 neighbors each. <strong>Space</strong> O(10⁴).</p>
+
+<h3>Case: bipartite check via BFS 2-coloring (LC 785 / 886)</h3>
+<p>
+Can you split the graph into two groups with no edge inside a group? BFS-color the graph: paint the
+source one color, every neighbor the <em>opposite</em>. A conflict (a neighbor already wearing the same
+color) means an odd cycle → not bipartite. The key twist: you need a <code>color[]</code> array
+(0 = uncolored, 1 / -1 = the two colors), <strong>not just a boolean visited</strong>.
+</p>
+<pre><code>boolean isBipartite(int[][] graph) {            <span class="cmt">// graph[u] = neighbors of u (adjacency list)</span>
+    int n = graph.length;
+    int[] color = new int[n];                    <span class="cmt">// 0 = uncolored, else 1 / -1</span>
+    for (int s = 0; s &lt; n; s++) {                <span class="cmt">// graph may be disconnected → try every node</span>
+        if (color[s] != 0) continue;
+        Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+        q.offer(s);
+        color[s] = 1;
+        while (!q.isEmpty()) {
+            int u = q.poll();
+            for (int v : graph[u]) {
+                if (color[v] == 0) {             <span class="cmt">// uncolored → paint opposite + enqueue</span>
+                    color[v] = -color[u];
+                    q.offer(v);
+                } else if (color[v] == color[u]) {
+                    return false;                 <span class="cmt">// same color across an edge → odd cycle</span>
+                }
+            }
+        }
+    }
+    return true;
+}</code></pre>
+<p>
+<strong>Time</strong> O(V + E). <strong>Space</strong> O(V). LC 886 (<em>Possible Bipartition</em>) is the
+same algorithm — you just build the adjacency list from the "dislikes" edge list first (Lesson 01), then
+run this check.
+</p>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Mark at dequeue instead of enqueue</strong> → duplicates flood the queue; TLE / wrong distances. The cardinal BFS sin. ✓ mark at enqueue.</li>
+  <li><strong>Source(s) unmarked</strong> → the start gets re-enqueued by a neighbor. Mark every seed visited as you offer it.</li>
+  <li><strong>Multi-source: seed every source FIRST</strong> → push all sources before the loop starts, then one BFS. Don't loop a single-source BFS per source (that's O(V²)).</li>
+  <li><strong>Start == target</strong> (already at the goal, <code>beginWord == endWord</code>, target = "0000") → handle before the loop or your distance is off.</li>
+  <li><strong>Counting cells vs edges</strong> → LC 1091 counts <em>cells</em> (start = 1); most others count <em>edges/steps</em> (start = 0). Pin this down before you code.</li>
+  <li><strong>Bipartite needs <code>color[]</code>, not just <code>visited</code></strong> → a boolean can't detect a same-color conflict; you must track which of the two colors each node holds.</li>
+  <li><strong>Disconnected graph</strong> (bipartite / state checks) → loop over all nodes and launch from each uncolored/unvisited one.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why must you mark a node visited when you <em>enqueue</em> it rather than when you dequeue it?</div>
+  <button class="opt">Dequeue marking is fine; it only changes the output order slightly</button>
+  <button class="opt">Otherwise the same node is enqueued many times, bloating the queue and breaking distances</button>
+  <button class="opt">Because the queue must stay sorted by node value for BFS to work</button>
+  <div class="fb" data-correct="Between enqueue and the eventual dequeue, other nodes re-enqueue the same node repeatedly — wasted work, wrong levels, possible TLE. Mark at enqueue." data-wrong="It's about duplicate enqueues: a node can be added many times before it's first polled, which corrupts distances and explodes the queue. Mark at enqueue."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">For "distance from every cell to the nearest 0" (LC 542) on a large grid, the efficient approach is:</div>
+  <button class="opt">Run a separate single-source BFS from each cell and keep the minimum</button>
+  <button class="opt">DFS from every 0 and record the deepest cell reached</button>
+  <button class="opt">Multi-source BFS: seed every 0-cell at once, first arrival fills each cell's distance</button>
+  <div class="fb" data-correct="Seeding all sources together makes the first arrival at any cell its distance to the nearest source — one O(V) pass instead of O(V²)." data-wrong="Multi-source BFS seeds all 0-cells before the loop; the first time BFS reaches a cell is its nearest-source distance. Per-cell BFS would be O(V²)."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Checking whether a graph is bipartite with BFS requires which bookkeeping per node?</div>
+  <button class="opt">A <code>color[]</code> array (two colors) so a same-color neighbor signals an odd cycle</button>
+  <button class="opt">A plain boolean <code>visited[]</code>, exactly like ordinary BFS</button>
+  <button class="opt">A distance array, since bipartite-ness depends on shortest paths</button>
+  <div class="fb" data-correct="You alternate colors across each edge; detecting a conflict needs to know WHICH color a neighbor holds, which a boolean can't express." data-wrong="A boolean visited can't catch a same-color clash. You need a two-valued color[] so an edge between same-colored nodes reveals the odd cycle."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/rotting-fruit">NeetCode — Rotting Oranges (multi-source BFS)</a>. Clearest treatment of seeding many sources and counting levels.</li>
+  <li><strong>Practice ladder (Java, in order):</strong> LC 1091 → LC 994 ⭐ → LC 542 → LC 752 → LC 127 ⭐ → LC 785 → LC 886. Code each from a blank file; if you stall, re-derive the template above.</li>
+  <li><strong>Google focus:</strong> Word Ladder (127) and Rotting Oranges (994) are repeatedly reported on Google interviews — be able to write both from memory, bug-free, in one pass.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Stuck on multi-source seeding, unsure whether to count cells or edges, want me to dry-run your queue,
+  or curious how 2-coloring detects odd cycles? Ask in the chat. When you can code LC 994 and the
+  bipartite check from memory, say <strong>"next"</strong> and we move to Lesson 04: Grid Graphs.
+</div>
+
+<div class="nav">
+  <span><a href="0002-dfs-traversal-and-cycles.html">← DFS</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0004-grid-graphs.html">Grid Graphs →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 36 - Authentication Tokens | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 36 of 66 · JWT, Refresh Tokens, Blacklisting</div>
+  
+  <h1>Authentication Tokens: Session Cookies vs JWTs</h1>
+  <p class="subtitle">Architecting secure, stateless authentication for web, mobile, and microservices.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module J — Security</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>HTTP is fundamentally stateless: each incoming request knows nothing about past requests. To remember that a user logged in, systems historically used <strong>Stateful Sessions</strong> (storing session IDs in server memory/database). In modern distributed systems with millions of mobile and API clients, we use <strong>Stateless JSON Web Tokens (JWT)</strong>: the user's identity and permissions are cryptographically signed directly inside the token string, allowing any microservice to verify authentication instantly without querying a central database!</p>
+
+  <h2>2 · Stateful Sessions vs Stateless JWTs</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Aspect</th>
+        <th>Stateful Session Cookies</th>
+        <th>Stateless JWT (JSON Web Token)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Where state lives</strong></td>
+        <td>On the server (Redis cluster or database table). Client receives a random session ID string.</td>
+        <td>Entirely in the token payload carried by the client. Server stores zero session state.</td>
+      </tr>
+      <tr>
+        <td><strong>Verification Cost</strong></td>
+        <td>Requires a database/Redis lookup on <em>every single HTTP request</em> across all microservices.</td>
+        <td>$0$ database calls! Verified cryptographically in CPU memory via public key or secret signature.</td>
+      </tr>
+      <tr>
+        <td><strong>Revocation / Logout</strong></td>
+        <td>Trivial: Delete the session key from Redis. User is instantly logged out everywhere.</td>
+        <td>Hard: Once issued, a JWT is valid until its expiration timestamp unless you maintain a revocation blacklist.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The Anatomy of a JWT</h2>
+  <p>A JWT consists of three base64url-encoded parts separated by dots: <code>header.payload.signature</code></p>
+  <ol>
+    <li><strong>Header:</strong> Algorithmic metadata (e.g. <code>{"alg": "RS256", "typ": "JWT"}</code>).</li>
+    <li><strong>Payload:</strong> Claims data (e.g. <code>{"sub": "user_42", "role": "admin", "exp": 1740000000}</code>). <em>Warning: Not encrypted! Anyone can read this; never store credit cards or passwords in a JWT.</em></li>
+    <li><strong>Signature:</strong> Computed hash of <code>Header + Payload</code> signed by the server's private key. If an attacker modifies the payload to say <code>"role": "superadmin"</code>, the cryptographic signature fails immediately!</li>
+  </ol>
+
+  <h2>4 · The Production Architecture: Access + Refresh Tokens</h2>
+  <div class="callout tip">
+    <span class="label">Best Practice Architecture</span>
+    <ul>
+      <li><strong>Access Token (Short-Lived: 10–15 minutes):</strong> Stored in memory; passed in <code>Authorization: Bearer &lt;token&gt;</code> header on every API call. Because it expires in minutes, a stolen token's blast radius is tiny.</li>
+      <li><strong>Refresh Token (Long-Lived: 30 days):</strong> Stored securely in an <code>HttpOnly, Secure, SameSite=Strict</code> cookie. When the access token expires, client hits <code>POST /auth/refresh</code> to receive a fresh access token. Refresh tokens are tracked in Redis so they can be instantly revoked on user password reset or stolen phone!</li>
+    </ul>
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do users log in using "Sign in with Google" or "Sign in with GitHub"? Next: SSO and OAuth 2.0.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0035-anomaly-detection.html">← Previous: Anomaly Detection</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0037-sso-oauth.html">Next: SSO &amp; OAuth 2.0 →</a>
+  </div>
+</body>
+</html>

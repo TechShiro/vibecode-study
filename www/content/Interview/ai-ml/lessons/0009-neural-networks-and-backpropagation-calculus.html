@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 09 – Neural Networks & Backpropagation Calculus</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module C · Lesson 9 of 17 · Deep Learning Foundations</div>
+  <h1>Neural Networks & Backpropagation Calculus</h1>
+  <p class="subtitle">Deriving the Multivariable Chain Rule and building a full 2-layer Neural Network from scratch in pure NumPy.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Deep Learning Foundations</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>An Artificial Neural Network is a universal function approximator composed of layers of artificial neurons. Each neuron performs a linear combination followed by a non-linear activation function. Without non-linear activations, stacking 100 layers would mathematically collapse into a single linear matrix multiplication. <strong>Backpropagation</strong> is the algorithmic application of the <strong>Calculus Chain Rule</strong> that efficiently computes the gradient of the loss function with respect to every single weight in the network in a single reverse sweep.</p>
+
+  <h2>2 · Recommended Deep-Dive Lectures</h2>
+  <p>Watch these two legendary lectures to solidify the visual calculus and step-by-step code implementation:</p>
+  <div class="card-grid">
+    <div class="card">
+      <h3>3Blue1Brown: What is Backpropagation Really Doing?</h3>
+      <div class="video-container">
+        <iframe src="https://www.youtube-nocookie.com/embed/Ilg3gGewQ5U" title="What is backpropagation really doing? - 3Blue1Brown" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Andrej Karpathy: Building Micrograd from Scratch</h3>
+      <div class="video-container">
+        <iframe src="https://www.youtube-nocookie.com/embed/VMj-3S1tku0" title="Building Micrograd - Andrej Karpathy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <h2>3 · The Calculus of Backpropagation Derived</h2>
+  <p>Consider a neuron where <code>z = W·a<sub>prev</sub> + b</code> and <code>a = &sigma;(z)</code>, producing total loss <code>L</code>:</p>
+  <div class="callout info">
+    <h4>The Multivariable Chain Rule</h4>
+    <p>How does a change in weight <code>W<sub>jk</sub></code> affect final Loss <code>L</code>?</p>
+    <p><code>&part;L / &part;W<sub>jk</sub> = (&part;L / &part;a) &times; (&part;a / &part;z) &times; (&part;z / &part;W<sub>jk</sub>)</code></p>
+    <ul>
+      <li><code>&part;z / &part;W<sub>jk</sub> = a<sub>prev</sub></code> (the incoming activation).</li>
+      <li><code>&part;a / &part;z = &sigma;'(z)</code> (the derivative of the activation function).</li>
+      <li><code>&delta; = (&part;L / &part;a) &times; &sigma;'(z)</code> is called the <strong>error term</strong> for the layer.</li>
+      <li>Therefore: <code>&part;L / &part;W = &delta; &times; (a<sub>prev</sub>)<sup>T</sup></code> and <code>&part;L / &part;b = &delta;</code>.</li>
+    </ul>
+  </div>
+
+  <h2>4 · Complete 2-Layer Neural Network from Scratch in NumPy</h2>
+  <pre><code>import numpy as np
+
+class NeuralNetworkFromScratch:
+    def __init__(self, input_dim, hidden_dim, output_dim, lr=0.1):
+        self.lr = lr
+        # He initialization for ReLU activation
+        self.W1 = np.random.randn(input_dim, hidden_dim) * np.sqrt(2.0 / input_dim)
+        self.b1 = np.zeros((1, hidden_dim))
+        self.W2 = np.random.randn(hidden_dim, output_dim) * np.sqrt(2.0 / hidden_dim)
+        self.b2 = np.zeros((1, output_dim))
+
+    def _relu(self, z):
+        return np.maximum(0, z)
+
+    def _relu_deriv(self, z):
+        return (z > 0).astype(float)
+
+    def _softmax(self, z):
+        shift = z - np.max(z, axis=-1, keepdims=True)
+        exps = np.exp(shift)
+        return exps / np.sum(exps, axis=-1, keepdims=True)
+
+    def forward(self, X):
+        self.X = X
+        self.z1 = np.dot(X, self.W1) + self.b1
+        self.a1 = self._relu(self.z1)
+        self.z2 = np.dot(self.a1, self.W2) + self.b2
+        self.a2 = self._softmax(self.z2)
+        return self.a2
+
+    def backward(self, y_true):
+        N = self.X.shape[0]
+        # 1. Output error (Softmax + Cross-Entropy derivative simplifies to: a2 - y_true)
+        dz2 = (self.a2 - y_true) / N
+        dW2 = np.dot(self.a1.T, dz2)
+        db2 = np.sum(dz2, axis=0, keepdims=True)
+
+        # 2. Backpropagate error into hidden layer
+        da1 = np.dot(dz2, self.W2.T)
+        dz1 = da1 * self._relu_deriv(self.z1)
+        dW1 = np.dot(self.X.T, dz1)
+        db1 = np.sum(dz1, axis=0, keepdims=True)
+
+        # 3. Update Weights via SGD
+        self.W2 -= self.lr * dW2
+        self.b2 -= self.lr * db2
+        self.W1 -= self.lr * dW1
+        self.b1 -= self.lr * db1
+
+    def train(self, X, y_one_hot, epochs=500):
+        for epoch in range(epochs):
+            probs = self.forward(X)
+            loss = -np.mean(np.sum(y_one_hot * np.log(probs + 1e-9), axis=1))
+            self.backward(y_one_hot)
+            if epoch % 100 == 0:
+                print(f"Epoch {epoch:03d} | Loss: {loss:.4f}")</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0008-unsupervised-learning-clustering-and-anomaly-detection.html">← Lesson 08: Clustering</a>
+    <a href="0010-pytorch-foundations-autograd-and-training-loop.html">Lesson 10: PyTorch Foundations & Training Loop →</a>
+  </nav>
+</body>
+</html>

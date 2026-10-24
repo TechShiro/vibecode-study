@@ -1,0 +1,392 @@
+<title>Hashing</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 11 of 15</p>
+<h1>Hashing and Collision Resolution</h1>
+<p class="deck">The four hash functions, chaining and the three open-addressing schemes with the same key set worked through all of them, the load factor, the probe-count formulas, clustering, and rehashing.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>The guaranteed question is <strong>&ldquo;Insert the following keys into a hash table of size m using linear probing / quadratic probing / double hashing&rdquo;</strong> &mdash; often two of the three on the same key set, so you can compare. <strong>Draw the table as numbered slots and fill them in order, showing every probe you rejected.</strong> Then: <strong>&ldquo;Differentiate open hashing and closed hashing&rdquo;</strong>, and <strong>&ldquo;Define load factor and primary clustering&rdquo;</strong>. Learn the <strong>probe-count formulas</strong> &mdash; a numerical on them appears surprisingly often and almost nobody prepares it.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Collision Resolution in Hashing: Chaining vs Open Addressing</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Separate Chaining</strong><span class="sub">Array of Linked Lists</span></div>
+      <div class="flow-box">Keys hashing to slot i appended to list i &bull; Never suffers primary clustering &bull; Load factor &alpha; can exceed 1</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Open Addressing (&alpha; &le; 1)</strong><span class="sub">All elements stored in hash table array</span></div>
+      <div class="flow-box"><strong>Linear:</strong> h(k, i) = (h(k) + i) mod m (primary clustering)</div>
+      <div class="flow-box"><strong>Quadratic:</strong> h(k, i) = (h(k) + c<sub>1</sub>i + c<sub>2</sub>i<sup>2</sup>) mod m</div>
+      <div class="flow-box"><strong>Double Hashing:</strong> h(k, i) = (h<sub>1</sub>(k) + i&middot;h<sub>2</sub>(k)) mod m</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 17 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Hashing & Collisions</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-6.2: Collision Resolution Techniques in Hashing</div>
+    <div class="v-desc">Clear contrast between separate chaining and open addressing probing strategies with clustering comparison.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=j612Fj-mgCY" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>The idea, and the vocabulary</h2>
+
+<div class="formula">
+  <span class="name">Definitions</span>
+  A <strong>hash table</strong> is an array T[0 &hellip; m&minus;1] of <strong>m slots</strong>. A <strong>hash function h</strong> maps a key k to a slot: <strong>h(k) &isin; {0, 1, &hellip;, m&minus;1}</strong>. The key k is said to <em>hash to</em> slot h(k).<br><br>
+  A <strong>collision</strong> occurs when two distinct keys hash to the same slot: <strong>h(k<sub>1</sub>) = h(k<sub>2</sub>) with k<sub>1</sub> &ne; k<sub>2</sub></strong>.<br><br>
+  The <strong>load factor</strong> is <strong>&alpha; = n / m</strong>, where n is the number of keys stored and m the number of slots.
+</div>
+
+<div class="box win">
+  <span class="lbl">Why collisions are unavoidable &mdash; the pigeonhole answer</span>
+  <p>The <strong>universe of possible keys is far larger than the table</strong>. If |U| &gt; m, then by the <strong>pigeonhole principle</strong> at least two keys must share a slot. So a hash table is not defined by avoiding collisions &mdash; it is defined by <strong>resolving them cheaply</strong>. Every hashing question ultimately turns on that sentence.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>Average case</th><th>Worst case</th></tr></thead>
+<tbody>
+<tr><td><strong>Search</strong></td><td><strong>O(1)</strong></td><td>O(n) &mdash; when every key collides</td></tr>
+<tr><td><strong>Insert</strong></td><td><strong>O(1)</strong></td><td>O(n)</td></tr>
+<tr><td><strong>Delete</strong></td><td><strong>O(1)</strong></td><td>O(n)</td></tr>
+<tr><td><strong>Find minimum / sorted order</strong></td><td colspan="2"><strong>O(n log n)</strong> &mdash; hashing destroys ordering entirely. <em>This is the price paid for O(1) access, and it is why balanced trees still exist.</em></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Hash functions</h2>
+
+<div class="formula">
+  <span class="name">What makes a hash function good &mdash; three requirements</span>
+  <strong>1. Uniformity</strong> &mdash; it should distribute keys evenly across the slots (the <em>simple uniform hashing</em> assumption).<br>
+  <strong>2. Speed</strong> &mdash; it must be computable in O(1).<br>
+  <strong>3. Determinism</strong> &mdash; the same key must always give the same slot.<br><br>
+  It should also <strong>use every part of the key</strong>, so that patterns in the data do not become patterns in the table.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>Formula</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Division</strong></td><td><strong>h(k) = k mod m</strong></td><td>Fastest and most common. <strong>Choose m to be a PRIME not close to a power of 2.</strong> If m = 2<sup>p</sup>, the hash is just the low p bits and ignores the rest of the key</td></tr>
+<tr><td><strong>2. Multiplication</strong></td><td><strong>h(k) = &lfloor;m &middot; (kA mod 1)&rfloor;</strong></td><td>Multiply by a constant 0 &lt; A &lt; 1, take the fractional part, scale by m. <strong>The value of m does not matter</strong>, so a power of 2 is fine. Knuth's suggestion: <strong>A = (&radic;5 &minus; 1)/2 &asymp; 0.6180339887</strong></td></tr>
+<tr><td><strong>3. Mid-square</strong></td><td>Square k, take the <strong>middle digits</strong></td><td>The middle digits depend on <em>all</em> digits of k, so it mixes well</td></tr>
+<tr><td><strong>4. Folding</strong></td><td>Split k into equal-sized parts and <strong>add them</strong> (or XOR them)</td><td>Good for long keys such as phone numbers or identifiers</td></tr>
+<tr><td><strong>5. Universal hashing</strong></td><td>Choose h at <strong>random</strong> from a family H at run time</td><td>Guarantees good <em>expected</em> behaviour <strong>whatever the input</strong>, defeating an adversary who knows your hash function</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; the multiplication method. Hash k = 123456 with m = 10000 and A = (&radic;5 &minus; 1)/2.</span>
+  <p><strong>Step 1.</strong> kA = 123456 &times; 0.6180339887 = <strong>76300.0041...</strong></p>
+  <p><strong>Step 2.</strong> Take the fractional part: kA mod 1 = <strong>0.0041...</strong></p>
+  <p><strong>Step 3.</strong> Multiply by m and take the floor: &lfloor;10000 &times; 0.0041151&rfloor; = &lfloor;41.151&rfloor; = <strong>41</strong></p>
+  <p><strong>h(123456) = 41.</strong></p>
+  <p><em>Why this A:</em> (&radic;5 &minus; 1)/2 is the reciprocal of the golden ratio, and it scatters consecutive keys about as evenly as any constant can.</p>
+</div>
+
+<h2>Collision resolution &mdash; the two families</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Separate chaining</strong></th><th><strong>Open addressing</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Also called</strong></td><td><strong>Open hashing</strong> &mdash; keys live outside the table</td><td><strong>Closed hashing</strong> &mdash; keys live inside the table</td></tr>
+<tr><td><strong>Idea</strong></td><td>Each slot holds a <strong>linked list</strong> of all keys that hash there</td><td>On a collision, <strong>probe</strong> for another empty slot in the table itself</td></tr>
+<tr><td><strong>Load factor</strong></td><td>&alpha; <strong>may exceed 1</strong></td><td>&alpha; <strong>&le; 1 always</strong> &mdash; the table can fill up</td></tr>
+<tr><td><strong>Extra memory</strong></td><td>Pointers for the lists</td><td>None</td></tr>
+<tr><td><strong>Deletion</strong></td><td><strong>Easy</strong> &mdash; unlink from the list</td><td><strong>Hard</strong> &mdash; needs a <em>deleted</em> marker, or the probe sequence breaks</td></tr>
+<tr><td><strong>Cache behaviour</strong></td><td>Poor &mdash; pointer chasing</td><td><strong>Good</strong> &mdash; contiguous array</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The naming trap:</strong> <em>open hashing</em> = separate chaining; <em>closed hashing</em> = open addressing. The words &ldquo;open&rdquo; and &ldquo;closed&rdquo; refer to <strong>whether the table is open to storing keys outside it</strong>. Objective questions exploit this constantly.</p>
+
+<h2>The four methods, on the same key set</h2>
+
+<p>Throughout: <strong>table size m = 10</strong>, <strong>h(k) = k mod 10</strong>, and the keys are inserted in the order <strong>12, 22, 32, 45, 67, 89, 55</strong>.</p>
+
+<div class="solve">
+  <span class="lbl">Method 1 &mdash; Separate chaining.</span>
+  <p><strong>Hash values:</strong> 12&rarr;2, 22&rarr;2, 32&rarr;2, 45&rarr;5, 67&rarr;7, 89&rarr;9, 55&rarr;5.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Slot</th><th>Chain</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td>&mdash;</td></tr>
+  <tr><td class="num">1</td><td>&mdash;</td></tr>
+  <tr><td class="num"><strong>2</strong></td><td><strong>12 &rarr; 22 &rarr; 32</strong></td></tr>
+  <tr><td class="num">3</td><td>&mdash;</td></tr>
+  <tr><td class="num">4</td><td>&mdash;</td></tr>
+  <tr><td class="num"><strong>5</strong></td><td><strong>45 &rarr; 55</strong></td></tr>
+  <tr><td class="num">6</td><td>&mdash;</td></tr>
+  <tr><td class="num"><strong>7</strong></td><td><strong>67</strong></td></tr>
+  <tr><td class="num">8</td><td>&mdash;</td></tr>
+  <tr><td class="num"><strong>9</strong></td><td><strong>89</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>&alpha; = 7/10 = 0.7.</strong> The longest chain is 3, so a search costs at most 3 comparisons. <em>New keys are usually inserted at the FRONT of the chain, which makes insertion O(1).</em></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Method 2 &mdash; Linear probing. &nbsp; h(k, i) = (h(k) + i) mod m, &nbsp; i = 0, 1, 2, &hellip;</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Key</th><th class="num">h(k)</th><th>Probe sequence</th><th class="num">Placed at</th></tr></thead>
+  <tbody>
+  <tr><td class="num">12</td><td class="num">2</td><td>slot 2 &mdash; free</td><td class="num"><strong>2</strong></td></tr>
+  <tr><td class="num">22</td><td class="num">2</td><td>2 occupied &rarr; 3 free</td><td class="num"><strong>3</strong></td></tr>
+  <tr><td class="num">32</td><td class="num">2</td><td>2 occ &rarr; 3 occ &rarr; 4 free</td><td class="num"><strong>4</strong></td></tr>
+  <tr><td class="num">45</td><td class="num">5</td><td>slot 5 &mdash; free</td><td class="num"><strong>5</strong></td></tr>
+  <tr><td class="num">67</td><td class="num">7</td><td>slot 7 &mdash; free</td><td class="num"><strong>7</strong></td></tr>
+  <tr><td class="num">89</td><td class="num">9</td><td>slot 9 &mdash; free</td><td class="num"><strong>9</strong></td></tr>
+  <tr><td class="num">55</td><td class="num">5</td><td>5 occupied &rarr; 6 free</td><td class="num"><strong>6</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center">
+  slot: &nbsp;0 &nbsp;&nbsp;1 &nbsp;&nbsp;<strong>2</strong> &nbsp;&nbsp;<strong>3</strong> &nbsp;&nbsp;<strong>4</strong> &nbsp;&nbsp;<strong>5</strong> &nbsp;&nbsp;<strong>6</strong> &nbsp;&nbsp;<strong>7</strong> &nbsp;&nbsp;8 &nbsp;&nbsp;<strong>9</strong><br>
+  key:&nbsp; &mdash; &nbsp;&nbsp;&mdash; &nbsp;<strong>12</strong> &nbsp;<strong>22</strong> &nbsp;<strong>32</strong> &nbsp;<strong>45</strong> &nbsp;<strong>55</strong> &nbsp;<strong>67</strong> &nbsp;&mdash; &nbsp;<strong>89</strong></p>
+  <p><strong>Notice slots 2&ndash;7 form one unbroken run of six keys.</strong> That is <strong>primary clustering</strong> &mdash; and it is exactly what makes linear probing degrade.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Method 3 &mdash; Quadratic probing. &nbsp; h(k, i) = (h(k) + i&sup2;) mod m</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Key</th><th class="num">h(k)</th><th>Probe sequence</th><th class="num">Placed at</th></tr></thead>
+  <tbody>
+  <tr><td class="num">12</td><td class="num">2</td><td>2 &mdash; free</td><td class="num"><strong>2</strong></td></tr>
+  <tr><td class="num">22</td><td class="num">2</td><td>2 occ &rarr; i=1: (2+1) = 3 free</td><td class="num"><strong>3</strong></td></tr>
+  <tr><td class="num">32</td><td class="num">2</td><td>2 occ &rarr; i=1: 3 occ &rarr; i=2: (2+4) = 6 free</td><td class="num"><strong>6</strong></td></tr>
+  <tr><td class="num">45</td><td class="num">5</td><td>5 &mdash; free</td><td class="num"><strong>5</strong></td></tr>
+  <tr><td class="num">67</td><td class="num">7</td><td>7 &mdash; free</td><td class="num"><strong>7</strong></td></tr>
+  <tr><td class="num">89</td><td class="num">9</td><td>9 &mdash; free</td><td class="num"><strong>9</strong></td></tr>
+  <tr><td class="num">55</td><td class="num">5</td><td>5 occ &rarr; i=1: 6 occ &rarr; i=2: 9 occ &rarr; i=3: (5+9) = 14 mod 10 = 4 free</td><td class="num"><strong>4</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center">
+  slot: &nbsp;0 &nbsp;&nbsp;1 &nbsp;&nbsp;<strong>2</strong> &nbsp;&nbsp;<strong>3</strong> &nbsp;&nbsp;<strong>4</strong> &nbsp;&nbsp;<strong>5</strong> &nbsp;&nbsp;<strong>6</strong> &nbsp;&nbsp;<strong>7</strong> &nbsp;&nbsp;8 &nbsp;&nbsp;<strong>9</strong><br>
+  key:&nbsp; &mdash; &nbsp;&nbsp;&mdash; &nbsp;<strong>12</strong> &nbsp;<strong>22</strong> &nbsp;<strong>55</strong> &nbsp;<strong>45</strong> &nbsp;<strong>32</strong> &nbsp;<strong>67</strong> &nbsp;&mdash; &nbsp;<strong>89</strong></p>
+  <p><strong>The cluster is broken up</strong> &mdash; but keys with the <em>same</em> initial hash still follow the <em>same</em> probe sequence. That residual problem is <strong>secondary clustering</strong>.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Method 4 &mdash; Double hashing. &nbsp; h(k, i) = (h<sub>1</sub>(k) + i &middot; h<sub>2</sub>(k)) mod m, with h<sub>1</sub>(k) = k mod 10 and h<sub>2</sub>(k) = 7 &minus; (k mod 7)</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Key</th><th class="num">h<sub>1</sub></th><th class="num">h<sub>2</sub></th><th>Probe sequence</th><th class="num">Placed at</th></tr></thead>
+  <tbody>
+  <tr><td class="num">12</td><td class="num">2</td><td class="num">7&minus;5 = 2</td><td>2 &mdash; free</td><td class="num"><strong>2</strong></td></tr>
+  <tr><td class="num">22</td><td class="num">2</td><td class="num">7&minus;1 = 6</td><td>2 occ &rarr; i=1: (2 + 6) = 8 free</td><td class="num"><strong>8</strong></td></tr>
+  <tr><td class="num">32</td><td class="num">2</td><td class="num">7&minus;4 = 3</td><td>2 occ &rarr; i=1: (2 + 3) = 5 free</td><td class="num"><strong>5</strong></td></tr>
+  <tr><td class="num">45</td><td class="num">5</td><td class="num">7&minus;3 = 4</td><td>5 occ &rarr; i=1: (5 + 4) = 9 free</td><td class="num"><strong>9</strong></td></tr>
+  <tr><td class="num">67</td><td class="num">7</td><td class="num">7&minus;4 = 3</td><td>7 &mdash; free</td><td class="num"><strong>7</strong></td></tr>
+  <tr><td class="num">89</td><td class="num">9</td><td class="num">7&minus;5 = 2</td><td>9 occ &rarr; i=1: (9 + 2) = 11 mod 10 = 1 free</td><td class="num"><strong>1</strong></td></tr>
+  <tr><td class="num">55</td><td class="num">5</td><td class="num">7&minus;6 = 1</td><td>5 occ &rarr; i=1: (5 + 1) = 6 free</td><td class="num"><strong>6</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center">
+  slot: &nbsp;0 &nbsp;&nbsp;<strong>1</strong> &nbsp;&nbsp;<strong>2</strong> &nbsp;&nbsp;3 &nbsp;&nbsp;4 &nbsp;&nbsp;<strong>5</strong> &nbsp;&nbsp;<strong>6</strong> &nbsp;&nbsp;<strong>7</strong> &nbsp;&nbsp;<strong>8</strong> &nbsp;&nbsp;<strong>9</strong><br>
+  key:&nbsp; &mdash; &nbsp;<strong>89</strong> &nbsp;<strong>12</strong> &nbsp;&nbsp;&mdash; &nbsp;&nbsp;&mdash; &nbsp;<strong>32</strong> &nbsp;<strong>55</strong> &nbsp;<strong>67</strong> &nbsp;<strong>22</strong> &nbsp;<strong>45</strong></p>
+  <p><strong>Two keys with the same h<sub>1</sub> now follow different probe sequences</strong>, because h<sub>2</sub> differs &mdash; so <strong>even secondary clustering is eliminated</strong>. Double hashing is the best of the three.</p>
+  <p><em>The condition to state:</em> <strong>h<sub>2</sub>(k) must never be 0, and must be relatively prime to m</strong>, or the probe sequence will not reach every slot. The usual construction is to take <strong>m prime</strong> and h<sub>2</sub>(k) = 1 + (k mod (m &minus; 1)), or to take <strong>m a power of 2</strong> and force h<sub>2</sub> to be odd. <em>In the example above m = 10 is not prime, so a value such as h<sub>2</sub> = 5 would probe only two slots &mdash; it happened not to arise here, but the caveat is worth stating.</em></p>
+</div>
+
+<h2>Clustering &mdash; the vocabulary to define</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Kind</th><th>Definition</th><th>Caused by</th><th>Cured by</th></tr></thead>
+<tbody>
+<tr><td><strong>Primary clustering</strong></td><td>Long <strong>contiguous runs</strong> of occupied slots form, and any key hashing anywhere into a run must traverse all of it. Runs also <strong>grow faster the longer they are</strong>, since more hash values land in them</td><td><strong>Linear probing</strong></td><td>Quadratic probing or double hashing</td></tr>
+<tr><td><strong>Secondary clustering</strong></td><td>Keys with the <strong>same initial hash value</strong> follow the <strong>same probe sequence</strong>, so they still collide repeatedly &mdash; though the occupied slots are scattered</td><td><strong>Quadratic probing</strong></td><td><strong>Double hashing</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Linear probing</th><th>Quadratic probing</th><th>Double hashing</th></tr></thead>
+<tbody>
+<tr><td><strong>Probe function</strong></td><td>(h(k) + i) mod m</td><td>(h(k) + c<sub>1</sub>i + c<sub>2</sub>i&sup2;) mod m</td><td>(h<sub>1</sub>(k) + i&middot;h<sub>2</sub>(k)) mod m</td></tr>
+<tr><td><strong>Distinct probe sequences</strong></td><td>m</td><td>m</td><td><strong>m&sup2;</strong></td></tr>
+<tr><td><strong>Primary clustering</strong></td><td><strong>Yes</strong></td><td>No</td><td>No</td></tr>
+<tr><td><strong>Secondary clustering</strong></td><td>Yes</td><td><strong>Yes</strong></td><td><strong>No</strong></td></tr>
+<tr><td><strong>Finds an empty slot?</strong></td><td>Always, if one exists</td><td>Only guaranteed if m is prime and &alpha; &lt; 0.5</td><td>Guaranteed if h<sub>2</sub> is coprime to m</td></tr>
+<tr><td><strong>Cache behaviour</strong></td><td><strong>Best</strong> &mdash; adjacent slots</td><td>Medium</td><td>Worst &mdash; jumps around</td></tr>
+<tr><td><strong>Verdict</strong></td><td>Simplest; degrades badly when full</td><td>A good compromise</td><td><strong>Closest to ideal uniform hashing</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Analysis &mdash; the probe-count formulas</h2>
+
+<div class="formula">
+  <span class="name">Expected number of probes, in terms of the load factor &alpha; = n/m</span>
+  <strong>Separate chaining</strong> &mdash; unsuccessful search: <strong>1 + &alpha;</strong> &nbsp;&nbsp; successful search: <strong>1 + &alpha;/2</strong><br><br>
+  <strong>Linear probing</strong> &mdash; unsuccessful: <strong>&frac12; [ 1 + 1/(1 &minus; &alpha;)&sup2; ]</strong> &nbsp;&nbsp; successful: <strong>&frac12; [ 1 + 1/(1 &minus; &alpha;) ]</strong><br><br>
+  <strong>Quadratic probing and double hashing</strong> &mdash; unsuccessful: <strong>1/(1 &minus; &alpha;)</strong> &nbsp;&nbsp; successful: <strong>(1/&alpha;) ln(1/(1 &minus; &alpha;))</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; what a rising load factor actually costs.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">&alpha;</th><th class="num">Chaining<br>successful</th><th class="num">Linear probing<br>successful</th><th class="num">Linear probing<br>unsuccessful</th><th class="num">Double hashing<br>unsuccessful</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0.25</td><td class="num">1.13</td><td class="num">1.17</td><td class="num">1.39</td><td class="num">1.33</td></tr>
+  <tr><td class="num"><strong>0.50</strong></td><td class="num">1.25</td><td class="num"><strong>1.50</strong></td><td class="num"><strong>2.50</strong></td><td class="num">2.00</td></tr>
+  <tr><td class="num">0.75</td><td class="num">1.38</td><td class="num">2.50</td><td class="num">8.50</td><td class="num">4.00</td></tr>
+  <tr><td class="num"><strong>0.90</strong></td><td class="num">1.45</td><td class="num"><strong>5.50</strong></td><td class="num"><strong>50.50</strong></td><td class="num">10.00</td></tr>
+  <tr><td class="num">0.95</td><td class="num">1.48</td><td class="num">10.50</td><td class="num">200.50</td><td class="num">20.00</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Worked check at &alpha; = 0.9, linear probing:</strong></p>
+  <p>Successful = &frac12;[1 + 1/(1 &minus; 0.9)] = &frac12;[1 + 10] = <strong>5.5 probes</strong></p>
+  <p>Unsuccessful = &frac12;[1 + 1/(0.1)&sup2;] = &frac12;[1 + 100] = <strong>50.5 probes</strong></p>
+  <p><strong>The lesson to write down:</strong> chaining degrades <em>linearly</em> and stays cheap even past &alpha; = 1; open addressing degrades <strong>catastrophically as &alpha; &rarr; 1</strong>. <strong>Keep &alpha; below about 0.75 with open addressing</strong>, and rehash when it is exceeded.</p>
+</div>
+
+<h2>Rehashing and deletion</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Issue</th><th>Problem</th><th>Solution</th></tr></thead>
+<tbody>
+<tr><td><strong>Table getting full</strong></td><td>Performance collapses as &alpha; &rarr; 1</td><td><strong>Rehashing:</strong> when &alpha; exceeds a threshold (usually 0.75), allocate a table roughly <strong>twice as large</strong> &mdash; the next prime above 2m &mdash; and <strong>reinsert every key</strong> using the new hash function. Cost O(n), but <strong>amortised O(1) per insertion</strong></td></tr>
+<tr><td><strong>Deletion in open addressing</strong></td><td>Simply emptying a slot <strong>breaks every probe sequence that passed through it</strong> &mdash; later keys become unfindable</td><td>Mark the slot <strong>DELETED</strong> (a tombstone) rather than EMPTY. A search treats it as occupied and keeps probing; an insertion may reuse it. Too many tombstones eventually force a rehash</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. &ldquo;Open hashing&rdquo; is another name for:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Separate chaining</button>
+    <button class="opt">Open addressing</button>
+    <button class="opt">Linear probing</button>
+    <button class="opt">Double hashing</button>
+  </div>
+  <p class="why">Open hashing = chaining, because the table is open to storing keys outside it. Closed hashing = open addressing. Objective questions exploit this constantly.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the division method h(k) = k mod m, m should be:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A prime not close to a power of 2</button>
+    <button class="opt">A power of 2, for speed</button>
+    <button class="opt">Any even number</button>
+    <button class="opt">Equal to the number of keys</button>
+  </div>
+  <p class="why">If m = 2^p, the hash is just the low p bits and ignores the rest of the key. The multiplication method is the one where m's value does not matter.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Primary clustering is a problem specific to:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Linear probing</button>
+    <button class="opt">Separate chaining</button>
+    <button class="opt">Double hashing</button>
+    <button class="opt">Quadratic probing</button>
+  </div>
+  <p class="why">Contiguous runs form and grow faster the longer they are. Quadratic probing removes primary but not secondary clustering; only double hashing removes both.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Inserting 12, 22, 32, 45, 67, 89, 55 with linear probing into a table of size 10 places 55 at:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Slot 6</button>
+    <button class="opt">Slot 4</button>
+    <button class="opt">Slot 5</button>
+    <button class="opt">Slot 8</button>
+  </div>
+  <p class="why">h(55) = 5, which holds 45, so it probes 6 and finds it free. With quadratic probing 55 lands in slot 4 instead, and with double hashing in slot 6 by a different route.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. With linear probing at α = 0.9, the expected probes for an unsuccessful search is about:</p>
+  <div class="opts">
+    <button class="opt">2</button>
+    <button class="opt">5</button>
+    <button class="opt">10</button>
+    <button class="opt" data-ok="1">50</button>
+  </div>
+  <p class="why">½[1 + 1/(0.1)²] = ½[1 + 100] = 50.5. A successful search costs only 5.5 — the asymmetry is why the table must never be allowed to fill.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Deleting a key from an open-addressed table requires:</p>
+  <div class="opts">
+    <button class="opt">Simply setting the slot to EMPTY</button>
+    <button class="opt" data-ok="1">Marking the slot DELETED rather than EMPTY</button>
+    <button class="opt">Nothing special</button>
+    <button class="opt">Rehashing the entire table each time</button>
+  </div>
+  <p class="why">Emptying it would break every probe sequence that passed through, making later keys unfindable. A search treats a tombstone as occupied; an insertion may reuse it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. For double hashing to probe every slot, h₂(k) must:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Never be zero, and be relatively prime to m</button>
+    <button class="opt">Always be even</button>
+    <button class="opt">Be larger than m</button>
+    <button class="opt">Equal h₁(k)</button>
+  </div>
+  <p class="why">The usual constructions are m prime with h₂(k) = 1 + (k mod (m−1)), or m a power of 2 with h₂ forced odd. Double hashing gives m² distinct probe sequences against m for the other two.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define hash table, collision and load factor, and say why collisions are unavoidable.</summary>
+    <p class="ans">A hash table is an array of m slots with a hash function mapping keys into 0…m−1. A collision is two distinct keys hashing to the same slot. The load factor is &alpha; = n/m. Collisions are unavoidable because the universe of keys exceeds the table size, so by the pigeonhole principle two keys must share a slot — hashing is about resolving collisions cheaply, not avoiding them.</p></details>
+  <details class="card"><summary>Name the hash-function methods and the constraint on each.</summary>
+    <p class="ans">Division h(k) = k mod m, with m a prime not close to a power of two. Multiplication h(k) = &lfloor;m(kA mod 1)&rfloor;, where m does not matter and Knuth suggests A = (&radic;5 − 1)/2. Mid-square: square the key and take the middle digits. Folding: split the key into parts and add them. Universal hashing: pick h at random from a family, guaranteeing good expected behaviour against any input.</p></details>
+  <details class="card"><summary>Compare separate chaining with open addressing on five points.</summary>
+    <p class="ans">Chaining is open hashing with keys in linked lists outside the table; &alpha; may exceed 1; it needs pointer memory; deletion is easy; cache behaviour is poor. Open addressing is closed hashing with keys inside the table; &alpha; &le; 1; no extra memory; deletion needs tombstones; cache behaviour is good.</p></details>
+  <details class="card"><summary>Give the three probe functions and what each suffers from.</summary>
+    <p class="ans">Linear (h(k)+i) mod m suffers primary and secondary clustering, but always finds a free slot and has the best cache behaviour. Quadratic (h(k)+c₁i+c₂i²) mod m removes primary but keeps secondary clustering, and is only guaranteed to find a slot when m is prime and &alpha; &lt; 0.5. Double hashing (h₁(k)+i·h₂(k)) mod m removes both, gives m² distinct probe sequences, and needs h₂ non-zero and coprime to m.</p></details>
+  <details class="card"><summary>Define primary and secondary clustering.</summary>
+    <p class="ans">Primary clustering is the formation of long contiguous runs of occupied slots, which grow faster the longer they are because more hash values land in them — caused by linear probing. Secondary clustering is keys with the same initial hash following the same probe sequence — caused by quadratic probing, and cured only by double hashing.</p></details>
+  <details class="card"><summary>Give the probe-count formulas and the practical conclusion.</summary>
+    <p class="ans">Chaining: 1 + &alpha; unsuccessful, 1 + &alpha;/2 successful. Linear probing: &frac12;[1 + 1/(1−&alpha;)&sup2;] unsuccessful, &frac12;[1 + 1/(1−&alpha;)] successful. Quadratic and double hashing: 1/(1−&alpha;) unsuccessful. Chaining degrades linearly; open addressing degrades catastrophically as &alpha; approaches 1 — at &alpha; = 0.9 a failed linear-probing search costs about 50 probes. Keep &alpha; below 0.75 and rehash.</p></details>
+  <details class="card"><summary>Explain rehashing and deletion in open addressing.</summary>
+    <p class="ans">When &alpha; passes a threshold, usually 0.75, allocate a table about twice as large — the next prime above 2m — and reinsert every key with the new hash function. It costs O(n) but is amortised O(1) per insertion. For deletion, mark the slot DELETED rather than EMPTY, since emptying it would break every probe sequence passing through; too many tombstones eventually force a rehash.</p></details>
+</div>
+
+<p class="ask">Next: the structure that gives O(1) access to the <em>largest</em> element &mdash; heaps and priority queues, with the O(n) build-heap proof.</p>
+
+<div class="nav">
+  <a href="0010-b-trees.html">&larr; B-Trees</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0012-heaps-and-priority-queues.html">Next: Heaps and Priority Queues &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

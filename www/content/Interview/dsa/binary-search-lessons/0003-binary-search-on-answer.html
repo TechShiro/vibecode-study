@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binary Search Lesson 03 — Binary Search on the Answer</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Binary Search Track · Lesson 3 of 3 · search the answer space, not the array</div>
+<h1>Binary Search on the Answer</h1>
+<p class="subtitle">When you can't compute the answer but you CAN check a guess — "could Koko finish at speed 6?" — binary search the guesses. This is the single most common pattern in big-tech online assessments.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "minimize the max / maximize the min" problems dominate Amazon, Google, and
+  TikTok OAs — most candidates try greedy or DP and time out; you'll recognize the predicate in 30 seconds.
+  Final lesson of the 3-lesson binary search track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Stop searching the input. Search the <strong>space of possible answers</strong>. If Koko can finish the bananas
+eating at speed 6, she can certainly finish at 7, 8, 9… — <em>feasibility is monotonic in the guess</em>:
+<code>F F F T T T</code> over speeds. So write a checker <code>feasible(guess)</code> (usually a greedy O(n)
+simulation), and run Lesson 1's <code>firstTrue</code> over the numeric range of guesses. Cost:
+O(n log(range)). You never construct the answer — you corner it.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The four magic phrasings: <strong>"minimize the maximum …"</strong>, <strong>"maximize the minimum …"</strong>,
+  <strong>"smallest X such that ‹task› is possible"</strong>, <strong>"largest X such that ‹constraint› still
+  holds"</strong>. Confirm with two tests: (1) checking one candidate answer is easy (linear greedy), and
+  (2) feasibility can only improve as the candidate grows (or only worsen — same thing, flipped). Constraints
+  scream it too: answer range up to 10⁹ but n only 10⁵ → they want O(n log 10⁹), not DP over values.
+</div>
+
+<h2>2 · Core template — minimize a feasible answer</h2>
+<p>
+Three decisions, then it's Lesson 1 verbatim: <strong>(a)</strong> the search range <code>[lo, hi]</code> —
+smallest and largest answers that could ever make sense; <strong>(b)</strong> the checker; <strong>(c)</strong>
+which boundary you want (minimizing a "true means doable" predicate → first true).
+</p>
+<pre><code><span class="cmt">// Minimize x in [lo, hi] such that feasible(x) — feasible must be monotonic F…FT…T.</span>
+int minFeasible(int lo, int hi) {         <span class="cmt">// pick lo/hi so the answer is GUARANTEED inside</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;     <span class="cmt">// ranges hit 10⁹ here — the overflow guard earns its keep</span>
+        if (feasible(mid)) hi = mid;      <span class="cmt">// mid works → try smaller, but keep mid</span>
+        else lo = mid + 1;                <span class="cmt">// mid fails → everything ≤ mid fails too</span>
+    }
+    return lo;
+}
+
+boolean feasible(int x) {                 <span class="cmt">// the ONLY problem-specific part: an O(n) greedy check</span>
+    <span class="cmt">// "if the answer were x, could we do the task?" — simulate and compare to the budget</span>
+    return true;
+}</code></pre>
+<p><strong>Time</strong> O(n · log(hi − lo)) — one O(n) check per halving. <strong>Space</strong> O(1).
+To <em>maximize</em> instead (feasibility looks like T…TF…F): find the first false, return <code>lo − 1</code> —
+the Sqrt(x) move from Lesson 1. No second template.</p>
+
+<div class="callout tip">
+  <span class="label">Choosing lo and hi is half the problem</span>
+  <code>lo</code> = smallest answer that isn't automatically absurd; <code>hi</code> = an answer that certainly
+  works. Koko: lo = 1 banana/hr, hi = max pile (faster never helps — one pile per hour is the floor). Shipping:
+  lo = heaviest single package (a smaller capacity can't ship it at all), hi = sum of all weights (ship
+  everything in one day). Tight bounds aren't about speed — log is forgiving — they're about the checker never
+  seeing a nonsense input like capacity 0.
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Min speed under a time budget</td><td>LC 875</td><td>Checker: sum of ceil(pile / k) hours ≤ h. Range [1, max pile].</td></tr>
+    <tr><td>Min capacity under a day budget</td><td>LC 1011</td><td>Checker: greedy-fill days ≤ D. Range [max w, sum w].</td></tr>
+    <tr><td>Minimize the largest part</td><td>LC 410 <span class="cmt">★hard-that-isn't</span></td><td>Same checker as 1011 — count pieces under cap. DP is the bait; this is O(n log Σ).</td></tr>
+    <tr><td>Min day when count is reached</td><td>LC 1482</td><td>Checker scans for k adjacent bloomed flowers. Feasibility monotonic in the DAY.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Koko Eating Bananas (LC 875)</h3>
+<p>Minimum eating speed k so all piles are gone within h hours. A pile of p bananas takes ⌈p / k⌉ hours (one pile per hour max). More speed → fewer hours → feasibility is monotonic. Textbook instance.</p>
+<pre><code>int minEatingSpeed(int[] piles, int h) {
+    int lo = 1, hi = 0;
+    for (int p : piles) hi = Math.max(hi, p); <span class="cmt">// speed beyond max pile buys nothing</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (hours(piles, mid) &lt;= h) hi = mid; <span class="cmt">// fast enough → try slower</span>
+        else lo = mid + 1;
+    }
+    return lo;
+}
+long hours(int[] piles, int k) {
+    long total = 0;
+    for (int p : piles) total += (p + k - 1) / k; <span class="cmt">// ceil division without doubles</span>
+    return total;                         <span class="cmt">// long: 10⁴ piles × 10⁹ each at k=1 overflows int</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log max(piles)). Memorize <code>(p + k - 1) / k</code> for ceiling division — <code>Math.ceil</code> on doubles is a precision bug waiting for a 10⁹ input.</p>
+
+<h3>Case: Capacity to Ship Packages in D Days (LC 1011)</h3>
+<p>Minimum ship capacity to deliver in order within D days. Checker: greedily pack packages into the current day until the next one would overflow, then start a new day. Bigger capacity → fewer days → monotonic.</p>
+<pre><code>int shipWithinDays(int[] weights, int days) {
+    int lo = 0, hi = 0;
+    for (int w : weights) { lo = Math.max(lo, w); hi += w; } <span class="cmt">// [heaviest item, total weight]</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (daysNeeded(weights, mid) &lt;= days) hi = mid;
+        else lo = mid + 1;
+    }
+    return lo;
+}
+int daysNeeded(int[] weights, int cap) {
+    int days = 1, load = 0;               <span class="cmt">// day 1 exists even before the first package</span>
+    for (int w : weights) {
+        if (load + w &gt; cap) { days++; load = 0; } <span class="cmt">// close the day, open a new one</span>
+        load += w;                        <span class="cmt">// w always fits alone: cap ≥ max weight by our lo</span>
+    }
+    return days;
+}</code></pre>
+
+<h3>Case: Split Array Largest Sum (LC 410)</h3>
+<p>Split an array into k contiguous parts minimizing the largest part-sum. Sounds like interval DP (and an O(n²k) DP exists — that's the trap). Reframe: "is there a split whose largest part ≤ cap?" Greedily cut whenever adding the next number would exceed cap; count parts. That is <em>exactly</em> LC 1011's checker with "days" renamed "parts". Minimize-the-maximum ≡ first feasible cap.</p>
+<pre><code>int splitArray(int[] nums, int k) {
+    int lo = 0; long hi = 0;
+    for (int x : nums) { lo = Math.max(lo, x); hi += x; }
+    while (lo &lt; hi) {
+        long mid = lo + (hi - lo) / 2;
+        if (parts(nums, mid) &lt;= k) hi = mid;  <span class="cmt">// few enough parts → cap is feasible → try smaller</span>
+        else lo = (int) mid + 1;
+    }
+    return lo;
+}
+int parts(int[] nums, long cap) {
+    int count = 1; long sum = 0;
+    for (int x : nums) {
+        if (sum + x &gt; cap) { count++; sum = 0; } <span class="cmt">// greedy cut = fewest possible parts for this cap</span>
+        sum += x;
+    }
+    return count;
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Why the greedy checker is trustworthy</span>
+  For a fixed cap, stretching every part as far as it can go clearly minimizes the number of parts. If even the
+  greedy (minimum) count exceeds k, no split under this cap uses ≤ k parts. And fewer parts than k is fine — split
+  any part further; the max only shrinks. That two-sentence argument is the proof interviewers want to hear.
+</div>
+
+<h3>Case: Minimum Days to Make m Bouquets (LC 1482)</h3>
+<p>Flower i blooms on day <code>bloomDay[i]</code>; a bouquet needs k <em>adjacent</em> bloomed flowers; make m bouquets in minimum days. The guess is a <strong>day</strong>: waiting longer only blooms more flowers, so feasibility is monotonic in the day. Checker: scan once, counting runs of adjacent bloomed flowers.</p>
+<pre><code>int minDays(int[] bloomDay, int m, int k) {
+    if ((long) m * k &gt; bloomDay.length) return -1; <span class="cmt">// not enough flowers EVER → bail before searching</span>
+    int lo = 1, hi = 0;
+    for (int d : bloomDay) hi = Math.max(hi, d);   <span class="cmt">// by day max(bloomDay), everything is bloomed</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (canMake(bloomDay, m, k, mid)) hi = mid;
+        else lo = mid + 1;
+    }
+    return lo;
+}
+boolean canMake(int[] bloomDay, int m, int k, int day) {
+    int bouquets = 0, run = 0;
+    for (int d : bloomDay) {
+        if (d &lt;= day) {                   <span class="cmt">// bloomed by 'day' → extends the adjacent run</span>
+            if (++run == k) { bouquets++; run = 0; } <span class="cmt">// harvest and restart the run</span>
+        } else run = 0;                   <span class="cmt">// unbloomed flower breaks adjacency</span>
+    }
+    return bouquets &gt;= m;
+}</code></pre>
+<p>The lesson inside the lesson: the answer axis doesn't have to be a speed or a size — <strong>time itself binary-searches</strong> whenever "wait longer" only helps.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Impossible inputs first.</strong> LC 1482's <code>m·k &gt; n</code> → return −1 <em>before</em> the loop. A binary search can only pick from candidates you gave it; it cannot invent "no answer."</li>
+  <li><strong>lo must be the smallest sane answer.</strong> Capacity below max(weights) or speed 0 makes the checker lie or divide by zero. Guard the range, not the checker.</li>
+  <li><strong>Overflow, twice.</strong> The midpoint (range up to 10⁹) and the checker's accumulators (<code>long total</code> in Koko, <code>long sum</code> in 410, <code>(long) m * k</code> in 1482).</li>
+  <li><strong>Ceil division:</strong> <code>(p + k - 1) / k</code>. Never <code>Math.ceil((double) p / k)</code> — doubles lose integer precision past 2⁵³ and earlier than you think in intermediate math.</li>
+  <li><strong>Minimize vs maximize.</strong> Minimize + "true = doable" → first true. Maximize + "true = still OK" (T…TF…F) → first false, minus one. Write the F/T picture in a comment before coding.</li>
+  <li><strong>The checker must be exactly monotonic.</strong> If a larger guess could ever flip feasible → infeasible, the pattern is invalid. State the one-line monotonicity argument out loud in interviews — it's part of the expected answer.</li>
+  <li><strong>Checker is greedy — justify it.</strong> "Greedy gives the minimum count for this cap, so if greedy fails, everything fails" (LC 410/1011). One sentence, big signal.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">An OA problem says: "split the workload so that the busiest worker has as little work as possible." Which reformulation unlocks binary search?</div>
+  <button class="opt">Sort the tasks descending and assign each to the currently least-loaded worker</button>
+  <button class="opt">Ask "can we split so no worker exceeds X?" and find the smallest feasible X</button>
+  <button class="opt">Compute total work divided by number of workers — the busiest worker meets the average</button>
+  <div class="fb" data-correct="Exactly — 'minimize the maximum' becomes a feasibility question with a monotonic threshold: if X works, X+1 works. Greedy-check each guess, firstTrue over X. This is LC 410 in a costume." data-wrong="Least-loaded-first is a heuristic (and wrong for contiguous splits); the average is only a lower bound. The tell is 'minimize the maximum': threshold it — can we stay under X? — and binary search X."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In Koko (LC 875), why is <code>hi = max(piles)</code> a safe upper bound instead of, say, the sum of all piles?</div>
+  <button class="opt">It isn't — with very few hours available, Koko may need a speed larger than the biggest pile</button>
+  <button class="opt">Because the answer is always exactly the largest pile when h equals the number of piles</button>
+  <button class="opt">Because Koko eats at most one pile per hour, so speed beyond the largest pile can't reduce total hours</button>
+  <div class="fb" data-correct="Right — each pile costs at least one hour no matter what, so at speed max(piles) every pile takes exactly 1 hour: n hours total, the absolute floor. Extra speed changes nothing, so the answer is guaranteed ≤ max(piles). (The problem guarantees h ≥ number of piles.)" data-wrong="The one-pile-per-hour rule is the key: at speed max(piles), total time is already the minimum possible (one hour per pile). Any higher speed gives the identical hour count, so the search range can stop there."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Your feasibility checker for a "maximize the minimum distance" problem (place k cows in stalls, spread them out) returns T for small guesses and F for large ones: T T T F F. What do you return?</div>
+  <button class="opt">The last true — computed as firstFalse minus one, using the same firstTrue template on the negated question</button>
+  <button class="opt">The first true — index 0 of the range, since the predicate starts true</button>
+  <button class="opt">This T…TF…F shape is not monotonic, so binary search does not apply here</button>
+  <div class="fb" data-correct="Yes. Maximize-the-minimum flips the picture to T…TF…F. Find the first false with the standard template and step back one — exactly the Sqrt(x) move from Lesson 1. One template covers both directions." data-wrong="T…TF…F IS monotonic (it flips exactly once), and 'first true' would trivially return the smallest guess. You want the boundary from the other side: first false, minus one."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/eating-bananas">NeetCode — Koko Eating Bananas</a>, then <a href="https://cp-algorithms.com/num_methods/binary_search.html#search-on-arbitrary-predicate">CP-Algorithms — search on an arbitrary predicate</a> for the general theory.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 875 (Koko) → LC 1011 (ship packages) → LC 410 (split array — notice it's 1011 again) → LC 1482 (bouquets — the answer axis is time) → LC 1552 (Magnetic Force Between Balls — your first maximize-the-minimum, cash in quiz 3) → LC 774 / LC 1283 (more checkers, same skeleton). After the ladder, redo LC 410 from scratch in under 10 minutes — that's OA speed.</li>
+</ul>
+
+<h2>7 · Binary Search cheat sheet</h2>
+<p>The whole track on one card. Every row is <code>firstTrue</code> with a different predicate — print it, tape it to the monitor.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>First-true boundary (core)</td><td>Any monotonic F…FT…T question</td><td><code>while(lo&lt;hi){m=lo+(hi-lo)/2; if(p(m)) hi=m; else lo=m+1;} return lo;</code></td><td>O(log n)</td><td>—</td></tr>
+    <tr><td>Classic search</td><td>Sorted array, "find target"</td><td><code>lowerBound</code> then verify <code>nums[lo]==t</code></td><td>O(log n)</td><td>704</td></tr>
+    <tr><td>Insert position</td><td>"Where would it go"</td><td>Return <code>lowerBound(t)</code> raw</td><td>O(log n)</td><td>35</td></tr>
+    <tr><td>First &amp; last occurrence</td><td>"Range of target"</td><td><code>[lowerBound(t), lowerBound(t+1)-1]</code></td><td>O(log n)</td><td>34</td></tr>
+    <tr><td>Predicate is an API</td><td>"First version that is bad"</td><td>firstTrue over values 1..n, p = isBadVersion</td><td>O(log n)</td><td>278</td></tr>
+    <tr><td>Last true (value space)</td><td>"Largest x with x² ≤ n"</td><td>firstTrue of the opposite, minus 1; cast <code>(long)m*m</code></td><td>O(log n)</td><td>69</td></tr>
+    <tr><td>Rotation point / min</td><td>"Rotated, find minimum"</td><td>p(i) = <code>nums[i] &lt;= nums[hi]</code>; anchor on hi</td><td>O(log n)</td><td>153/154</td></tr>
+    <tr><td>Rotated target search</td><td>"Rotated, find target"</td><td>Per mid: pick the sorted half, test membership, discard</td><td>O(log n); dups O(n)</td><td>33/81</td></tr>
+    <tr><td>Peak finding</td><td>"Any peak", neighbors differ</td><td>p(i) = <code>nums[i] &gt; nums[i+1]</code>; hi = n−1</td><td>O(log n)</td><td>162</td></tr>
+    <tr><td>Sorted 2D matrix</td><td>Rows sorted, row-to-row sorted</td><td>Virtual 1D: <code>matrix[m/cols][m%cols]</code></td><td>O(log mn)</td><td>74</td></tr>
+    <tr><td>Two-array median (boss)</td><td>"Median of two sorted arrays"</td><td>Search partition size i in smaller array; check cross maxima ≤ minima</td><td>O(log min(m,n))</td><td>4</td></tr>
+    <tr><td>Search on answer: minimize</td><td>"Min X such that doable"</td><td>firstTrue over [lo,hi] with greedy <code>feasible(x)</code></td><td>O(n log range)</td><td>875/1011</td></tr>
+    <tr><td>Minimize the maximum</td><td>"Split/spread, min largest part"</td><td>feasible(cap) = greedy piece-count ≤ k</td><td>O(n log Σ)</td><td>410</td></tr>
+    <tr><td>Answer axis = time</td><td>"Min day/time when possible"</td><td>feasible(day) = simulate state at that day</td><td>O(n log maxDay)</td><td>1482</td></tr>
+    <tr><td>Maximize the minimum</td><td>"Spread out, max smallest gap"</td><td>T…TF…F → firstFalse − 1, same template</td><td>O(n log range)</td><td>1552</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want more OA-style reps, a walkthrough of why LC 410's greedy checker is provably optimal, or a drill where I
+  give you four problem statements and you just name lo/hi/predicate? Ask in the chat. When you can go from
+  "minimize the maximum" to a working checker in under five minutes, the binary search track is done — say
+  <strong>"next"</strong> to start the Greedy track.
+</div>
+
+<div class="nav">
+  <span><a href="0002-rotated-and-modified.html">← Rotated &amp; Modified</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../greedy-lessons/0001-greedy-foundations.html">Greedy Foundations →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

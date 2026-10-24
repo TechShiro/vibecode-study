@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 04 — Polymorphism</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 4 of 8 · overloading vs overriding, upcasting, dynamic dispatch, vtables</div>
+<h1>Polymorphism</h1>
+<p class="subtitle">One name, many forms: call <code>speak()</code> on an Animal and get a bark, a meow, or a moo — decided by the actual object, not by your variable's type.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero. This is Lesson 4 of 8.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<strong>Polymorphism ("many forms") means one method name can behave differently depending on context.</strong>
+Java gives you two flavours: at <em>compile time</em>, the same name with different parameter lists (overloading);
+at <em>runtime</em>, the same call landing on different subclass versions (overriding + dynamic dispatch).
+The second flavour is the superpower: code written against a parent type automatically does the right thing
+for every child type — even children written years later.
+</p>
+
+<h2>2 · The animal analogy</h2>
+<p>
+Tell a group of animals "speak!" You give <em>one</em> command, but the dog barks, the cat meows, the cow moos.
+You didn't need a separate command per animal — each one responds in its own form. That's polymorphism:
+<strong>same instruction, different behaviour, chosen by who receives it</strong>.
+</p>
+
+<pre><code>class Animal {
+    void speak() { System.out.println("..."); }
+}
+class Dog extends Animal {
+    @Override void speak() { System.out.println("Woof!"); }
+}
+class Cat extends Animal {
+    @Override void speak() { System.out.println("Meow!"); }
+}
+
+Animal[] zoo = { new Dog(), new Cat(), new Dog() };
+for (Animal a : zoo) a.speak();   <span class="cmt">// Woof! Meow! Woof! — ONE line handles every species</span></code></pre>
+
+<p>
+Look at that loop. It only knows about <code>Animal</code>, yet each element speaks in its own voice.
+Add a <code>Cow</code> class tomorrow — the loop doesn't change. This is why polymorphism matters:
+<strong>old code can run new code</strong> without being edited.
+</p>
+
+<h2>3 · Two kinds: compile-time vs runtime</h2>
+<p>
+<strong>Compile-time polymorphism = method overloading.</strong> Same method name, different parameter lists,
+in the same class. The <em>compiler</em> picks the version by looking at the arguments you pass — the decision is
+locked in before the program ever runs. (Also called <em>static binding</em> or early binding.)
+</p>
+
+<pre><code>class Calculator {
+    int    add(int a, int b)        { return a + b; }        <span class="cmt">// version 1</span>
+    double add(double a, double b)  { return a + b; }        <span class="cmt">// version 2</span>
+    int    add(int a, int b, int c) { return a + b + c; }    <span class="cmt">// version 3</span>
+}
+calc.add(2, 3);        <span class="cmt">// compiler sees (int, int) → version 1. Decided at compile time.</span>
+calc.add(2.0, 3.0);    <span class="cmt">// (double, double) → version 2</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">Return type alone can't overload</span>
+  <code>int get()</code> and <code>double get()</code> in one class won't compile. The compiler picks overloads by
+  the <em>parameter list</em> only — at the call site <code>x.get()</code> it would have no way to choose.
+  Small question, frequently asked.
+</div>
+
+<p>
+<strong>Runtime polymorphism = method overriding</strong> (Lesson 3) <strong>+ dynamic dispatch.</strong>
+The child redefines the parent's method with the same signature, and the <em>JVM</em> — at runtime — runs the
+version belonging to the <strong>actual object</strong>, whatever the variable's declared type says.
+(Also called <em>dynamic binding</em> or late binding.)
+</p>
+
+<table>
+  <thead><tr><th></th><th>Compile-time (overloading)</th><th>Runtime (overriding)</th></tr></thead>
+  <tbody>
+    <tr><td>Same name, different...</td><td>parameter lists (same class)</td><td>class (same signature, parent vs child)</td></tr>
+    <tr><td>Decision made by</td><td>Compiler, from argument types</td><td>JVM, from the actual object</td></tr>
+    <tr><td>Decision made when</td><td>Compile time (early/static binding)</td><td>Runtime (late/dynamic binding)</td></tr>
+    <tr><td>Needs inheritance?</td><td>No</td><td>Yes — parent and child</td></tr>
+    <tr><td>Return type</td><td>Can differ freely (params must differ)</td><td>Must match (or be covariant — §7)</td></tr>
+    <tr><td>Example</td><td><code>add(int,int)</code> vs <code>add(double,double)</code></td><td><code>Dog.speak()</code> replacing <code>Animal.speak()</code></td></tr>
+    <tr><td>Static methods?</td><td>Can be overloaded</td><td>Cannot be overridden — only hidden (Lesson 3)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Memory hook</span>
+  <strong>Overloading = same name, different ingredients. Overriding = same recipe name, child's own version.</strong>
+  Overloading is resolved by the compiler reading your arguments; overriding is resolved by the JVM inspecting
+  the live object.
+</div>
+
+<h2>4 · Upcasting — <code>Animal a = new Dog()</code></h2>
+<p>
+Storing a child object in a parent-type variable is called <strong>upcasting</strong>. It's always safe and needs
+no cast syntax, because every Dog <em>is an</em> Animal (Lesson 3's is-a test). Analogy: pinning a generic
+"Animal" name-badge on a dog. The badge changes what people <em>ask</em> of it — not what it <em>is</em>.
+</p>
+
+<pre><code>Animal a = new Dog();    <span class="cmt">// upcast: Dog object, Animal badge</span>
+
+a.speak();               <span class="cmt">// OK — Animal declares speak(); the DOG's version runs: "Woof!"</span>
+<span class="cmt">// a.fetch();            // COMPILE ERROR — the Animal badge doesn't list fetch()</span></code></pre>
+
+<p>The two rules of an upcast reference — memorise them as a pair:</p>
+<ul>
+  <li><strong>What you may CALL is fixed by the reference type</strong> (compile time). Only methods declared in <code>Animal</code> are callable through <code>a</code>.</li>
+  <li><strong>Which version RUNS is fixed by the actual object</strong> (runtime). If Dog overrode it, Dog's version runs.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Why would anyone upcast?</span>
+  Generality. A method <code>feed(Animal a)</code> accepts every species, present and future. A
+  <code>List&lt;Animal&gt;</code> can hold a whole zoo. Write code once against the parent; every child slots in.
+  Upcasting is not a trick — it's the normal way polymorphic code is written.
+</div>
+
+<h2>5 · Dynamic dispatch — how the JVM picks, with vtables</h2>
+<p>
+So <code>a.speak()</code> runs Dog's version even though <code>a</code> is declared <code>Animal</code>.
+<em>How does the JVM know?</em> The classic answer: <strong>virtual method tables (vtables)</strong>.
+</p>
+<p>
+Think of a restaurant menu. Each <em>class</em> keeps a menu — a table listing its methods and where their code
+lives. A subclass starts with a photocopy of its parent's menu, then <strong>pastes its own code address over any
+slot it overrides</strong> and appends new items at the end. Every object carries a small hidden pointer to its
+class's menu.
+</p>
+
+<pre><code><span class="cmt">// what a.speak() really does, conceptually:</span>
+<span class="cmt">// 1. follow a → the object on the heap</span>
+<span class="cmt">// 2. follow the object's hidden class pointer → the ACTUAL class's vtable (Dog's)</span>
+<span class="cmt">// 3. look up the "speak" slot → Dog pasted its own address there</span>
+<span class="cmt">// 4. jump to that code → "Woof!"</span></code></pre>
+
+<figure class="diagram">
+<svg viewBox="0 0 500 210" role="img" aria-label="Reference a points to a Dog object, which points to the Dog vtable; the speak slot holds Dog's code, while toString still points to the inherited version">
+  <defs><marker id="ahVt" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" class="arrow"/></marker></defs>
+  <text class="wt" x="70" y="30">stack</text>
+  <rect class="cell" x="20" y="42" width="100" height="34"/><text class="lbl" x="70" y="59">a : Animal</text>
+  <text class="wt" x="230" y="30">heap</text>
+  <rect class="cell done" x="180" y="42" width="100" height="52"/>
+  <text class="lbl" x="230" y="62">Dog object</text>
+  <text class="wt" x="230" y="84">class ptr ●</text>
+  <text class="wt" x="395" y="30">Dog's vtable (menu)</text>
+  <rect class="cell" x="330" y="42" width="130" height="34"/><text class="lbl" x="395" y="59">speak → Dog</text>
+  <rect class="cell" x="330" y="76" width="130" height="34"/><text class="lbl" x="395" y="93">toString → Object</text>
+  <rect class="cell" x="330" y="110" width="130" height="34"/><text class="lbl" x="395" y="127">fetch → Dog</text>
+  <line class="edge hl" marker-end="url(#ahVt)" x1="120" y1="59" x2="176" y2="62"/>
+  <line class="edge hl" marker-end="url(#ahVt)" x1="280" y1="80" x2="326" y2="59"/>
+  <text class="wt" x="250" y="180">a.speak(): follow ref → object → its class's table → the "speak" slot → Dog's code</text>
+</svg>
+<figcaption>The lookup goes through the object's own class table — so the actual object always wins, no matter what the reference type says.</figcaption>
+</figure>
+
+<p>
+Now the earlier rules explain themselves. The reference type limits which <em>slots you may name</em>
+(the compiler checks <code>Animal</code>'s menu has a <code>speak</code> line at all). The actual object supplies
+<em>which table is consulted</em> — Dog's — so an overridden slot holds Dog's code. And <code>static</code>,
+<code>private</code>, and <code>final</code> methods skip the table entirely (nothing could override them),
+which is precisely why static methods are "hidden, not overridden" (Lesson 3).
+</p>
+
+<div class="callout tip">
+  <span class="label">If the interviewer says "virtual functions"</span>
+  That's C++ vocabulary: there, only methods marked <code>virtual</code> get vtable dispatch. In Java,
+  <strong>every non-static, non-private, non-final method is virtual by default</strong>. Say that sentence —
+  it directly answers "how does dynamic dispatch work internally" across both languages.
+</div>
+
+<h2>6 · Downcasting and <code>instanceof</code></h2>
+<p>
+Upcasting's opposite: convincing the compiler a parent-typed reference really points to a specific child, so you
+can call child-only methods. This is <strong>downcasting</strong>, it needs an explicit cast, and it's the risky
+direction — if you're wrong about what the object is, the JVM throws <code>ClassCastException</code> at runtime.
+</p>
+
+<pre><code>Animal a = new Dog();
+
+Dog d = (Dog) a;         <span class="cmt">// downcast — OK, the object really is a Dog</span>
+d.fetch();               <span class="cmt">// now fetch() is callable</span>
+
+Animal x = new Cat();
+Dog oops = (Dog) x;      <span class="cmt">// compiles!  ...but throws ClassCastException at runtime</span></code></pre>
+
+<p>The safe pattern: check before you cast with <code>instanceof</code>.</p>
+
+<pre><code>if (a instanceof Dog) {          <span class="cmt">// "is the actual object a Dog?"</span>
+    Dog d = (Dog) a;
+    d.fetch();
+}
+<span class="cmt">// modern Java (16+) pattern matching does both in one step:</span>
+if (a instanceof Dog d) d.fetch();</code></pre>
+
+<div class="callout trap">
+  <span class="label">Needing lots of downcasts is a design smell</span>
+  If your code is full of <code>instanceof</code> chains ("if Dog do this, if Cat do that"), you're doing the JVM's
+  job by hand. Usually the fix is to push that behaviour into the classes as an overridden method and let dynamic
+  dispatch choose. Mention this and you sound like someone who has designed real systems.
+</div>
+
+<h2>7 · Covariant return types — a quick nicety</h2>
+<p>
+An override must keep the same signature — but since Java 5, the return type may <strong>narrow</strong> to a
+subtype. That's called a <em>covariant return type</em>. It saves callers a downcast:
+</p>
+
+<pre><code>class AnimalShelter {
+    Animal adopt() { return new Animal(); }
+}
+class DogShelter extends AnimalShelter {
+    @Override
+    Dog adopt() { return new Dog(); }   <span class="cmt">// returns Dog, not Animal — legal since Java 5</span>
+}
+
+Dog d = new DogShelter().adopt();       <span class="cmt">// no cast needed — the override promised a Dog</span></code></pre>
+
+<p>
+It's safe because every Dog is an Animal — anyone who expected an Animal back still gets one.
+Parameters get no such freedom: change a parameter type and you've created an <em>overload</em>, not an override
+(one more reason to always write <code>@Override</code>).
+</p>
+
+<h2>8 · Interview questions this lesson answers</h2>
+<p>From your senior's Top-25 list:</p>
+<ul>
+  <li><strong>Q4. "Difference between compile-time polymorphism and runtime polymorphism."</strong><br>
+  Compile-time = overloading: the compiler picks among same-named methods by parameter types, before the program runs (static binding).
+  Runtime = overriding: the JVM picks the actual object's version at the moment of the call (dynamic binding), which needs inheritance.</li>
+  <li><strong>Q5. "What is the difference between overloading and overriding?"</strong><br>
+  Overloading: same name, different parameter lists, usually in one class, resolved at compile time; no inheritance needed.
+  Overriding: same signature redefined in a subclass, resolved at runtime by the actual object; requires inheritance, powers polymorphic code like <code>Animal a = new Dog(); a.speak()</code>.</li>
+  <li><strong>Q13. "How does dynamic dispatch (virtual functions) work internally?"</strong><br>
+  Each class has a vtable mapping method slots to code; a subclass copies its parent's table and overwrites the slots it overrides.
+  Every object holds a pointer to its class's table, so <code>a.speak()</code> follows object → class table → slot — the actual object's version always wins.
+  In Java all non-static, non-private, non-final methods are virtual by default; in C++ only methods marked <code>virtual</code>.</li>
+</ul>
+
+<h2>9 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">With <code>Animal a = new Dog();</code> where Dog overrides <code>speak()</code> and adds <code>fetch()</code> — what can <code>a</code> do?</div>
+  <button class="opt"><code>a.speak()</code> runs Animal's version, and <code>a.fetch()</code> works since the object is a Dog</button>
+  <button class="opt"><code>a.speak()</code> runs Dog's version, but <code>a.fetch()</code> won't even compile</button>
+  <button class="opt">Both calls work and both run Dog's versions, because the actual object decides everything</button>
+  <div class="fb" data-correct="Two rules, two bosses: the reference type (Animal) fixes what you may CALL — no fetch() on Animal's menu — while the actual object (Dog) fixes which VERSION of speak() runs." data-wrong="Split the two decisions: callable methods come from the declared type Animal (so fetch() is invisible), but the overridden speak() dispatches to the real object — Dog's Woof!."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A class declares <code>int area(int side)</code> and you add <code>double area(int side)</code> to the same class. What happens?</div>
+  <button class="opt">Compile error — overloads must differ in parameter list, and return type alone doesn't count</button>
+  <button class="opt">Valid overloading — the compiler will choose by whether you assign the result to int or double</button>
+  <button class="opt">Valid overriding — the newer method silently replaces the older one in the vtable</button>
+  <div class="fb" data-correct="At a call site like x.area(5) the compiler sees only the arguments — both candidates match, so there'd be no way to choose. Parameter lists must differ; return type alone can never distinguish overloads." data-wrong="Overload resolution looks at arguments, never at what you do with the result — and overriding needs a subclass, not the same class. Identical parameter lists with different return types simply won't compile."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In vtable terms, why does <code>a.speak()</code> run Dog's version when <code>a</code> is declared as <code>Animal</code>?</div>
+  <button class="opt">The compiler secretly rewrites the variable's type from Animal to Dog during compilation</button>
+  <button class="opt">The JVM scans every loaded subclass at each call and picks the most specific match by name</button>
+  <button class="opt">The lookup goes through the object's own class table, where Dog overwrote the speak slot</button>
+  <div class="fb" data-correct="Dispatch follows the object's hidden class pointer to Dog's vtable. Dog pasted its own code address into the speak slot when it overrode the method — so the actual class's version is found, in one table lookup." data-wrong="Nothing is rewritten and nothing is scanned — dispatch is one indirection: object → its class's vtable → slot. The declared type only checks at compile time that a speak slot exists at all."></div>
+</div>
+
+<h2>10 · Do this next</h2>
+<ul>
+  <li>Build the zoo: <code>Animal</code> with <code>speak()</code>, three subclasses overriding it, and a <code>Animal[] zoo</code> loop. Add a fourth subclass afterwards and observe that the loop needs zero edits — that's the point of polymorphism.</li>
+  <li>Break it on purpose: try <code>a.fetch()</code> through an <code>Animal</code> reference (read the compile error), then cast a <code>Cat</code> to <code>Dog</code> (watch the <code>ClassCastException</code>), then fix it with <code>instanceof</code>.</li>
+  <li>Say aloud, from memory, the overloading-vs-overriding table's first three rows — that's the exact comparison interviewers want in the first 20 seconds of your answer.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Still mixing up which decision happens at compile time vs runtime, or want me to trace the vtable lookup on a
+  fresh example? Ask in the chat. When you can explain <code>Animal a = new Dog()</code> — what's callable, what
+  runs, and why — plus draw the vtable picture from memory, say <strong>"next"</strong> and we move to
+  Lesson 5: Abstraction and Interfaces.
+</div>
+
+<div class="nav">
+  <span><a href="0003-inheritance.html">← Inheritance</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0005-abstraction-and-interfaces.html">Abstraction &amp; Interfaces →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

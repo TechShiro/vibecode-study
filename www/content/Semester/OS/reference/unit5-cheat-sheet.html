@@ -1,0 +1,104 @@
+<title>OS Unit V Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.6rem 0 .4rem;font-size:1.12rem}
+  .formula{padding:.5rem .75rem;margin:.5rem 0;font-size:.95rem}
+  table{font-size:.85rem}
+  th,td{padding:.3rem .45rem}
+  ul,ol{margin:.35rem 0 .35rem 1.1rem}
+  li{margin:.12rem 0}
+  .tag{display:inline-block;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--paper);padding:.12rem .45rem;border-radius:3px;vertical-align:.15em;margin-left:.4rem}
+  @media print{body{font-size:9.2pt}.wrap{max-width:100%}h2{margin:.7rem 0 .25rem}}
+</style>
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Reference</p>
+<h1>Unit V &mdash; Exam Sheet</h1>
+<p class="deck">I/O Systems, Buffering Arithmetic, Protection &amp; Access Matrix (ACL vs Capability Lists), OS Security Threats &amp; Case Studies on one printable page.</p>
+
+<h2>1. I/O Hardware &amp; Transfer Mechanisms <span class="tag">guaranteed</span></h2>
+<ul>
+  <li><strong>Registers in Device Controller:</strong> Data-in (read by CPU), Data-out (written by CPU), Status (busy/ready flags), Control (commands).</li>
+  <li><strong>Memory-Mapped vs Port-Mapped I/O:</strong> Memory-mapped shares CPU RAM address space, uses regular <code>MOV</code> instructions. Port-mapped has separate I/O space and special <code>IN/OUT</code> instructions.</li>
+</ul>
+
+<div class="tw">
+<table>
+<thead><tr><th>Mechanism</th><th>Operation</th><th>CPU Overhead</th><th>Best For</th></tr></thead>
+<tbody>
+<tr><td><strong>Polling (Busy-Wait)</strong></td><td>CPU loops reading status register until ready</td><td>100% spin during wait</td><td>Ultra-fast, predictable devices</td></tr>
+<tr><td><strong>Interrupt-Driven</strong></td><td>Device raises INTR; CPU executes ISR via vector table</td><td>Per-byte / word context switch</td><td>Slow/sporadic devices (keyboard)</td></tr>
+<tr><td><strong>Direct Memory Access (DMA)</strong></td><td>DMAC transfers entire block directly to RAM; 1 interrupt</td><td>Only at start and end of block</td><td>High-speed block devices (disk, NIC)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>DMA Modes:</strong> <em>Burst mode</em> (DMAC locks bus for entire block). <em>Cycle stealing</em> (DMAC steals single bus cycles during CPU internal ALU work).</p>
+
+<h2>2. Kernel I/O Subsystem: Buffering &amp; Spooling <span class="tag">arithmetic</span></h2>
+<ul>
+  <li><strong>Why Buffer?</strong> 1. Speed mismatch. 2. Transfer size mismatch. 3. Copy semantics.</li>
+  <li><strong>Buffering Arithmetic ($T$ = transfer time, $C$ = compute time, $M$ = memory copy):</strong>
+    <ul>
+      <li><em>No buffering:</em> Time per block = $T + C$.</li>
+      <li><em>Single buffering:</em> Time per block = $\max(C, T) + M$.</li>
+      <li><em>Double buffering (ping-pong):</em> Time per block = $\max(C, T)$ (complete concurrency).</li>
+    </ul>
+  </li>
+  <li><strong>Buffering vs Caching vs Spooling:</strong>
+    <ul>
+      <li><strong>Buffering:</strong> Transient storage for in-transit speed/size smoothing.</li>
+      <li><strong>Caching:</strong> Holds fast duplicate copy of disk blocks to accelerate repeated reads.</li>
+      <li><strong>Spooling:</strong> Queues entire output files on disk for dedicated serial devices (printers).</li>
+    </ul>
+  </li>
+  <li><strong>STREAMS:</strong> Modular full-duplex character I/O: Stream head &harr; STREAMS modules (read/write queues) &harr; Driver.</li>
+</ul>
+
+<h2>3. Protection &amp; Access Matrix <span class="tag">guaranteed 10-marker</span></h2>
+<div class="formula">
+<strong>Access Matrix:</strong> Rows = Domains ($D_i$). Columns = Objects ($O_j$). Entry $A[i,j]$ = Access Rights.<br>
+<strong>Dynamic Rights:</strong> <code>switch</code> (transition to another domain), <code>copy (*)</code> (propagate rights), <code>owner</code> (add/delete rights in column), <code>control</code> (modify row rights).
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Access Control List (ACL)</th><th>Capability List (C-List)</th></tr></thead>
+<tbody>
+<tr><td><strong>Matrix Partition</strong></td><td>Decomposition by <strong>Columns</strong> (stored with object)</td><td>Decomposition by <strong>Rows</strong> (stored with domain/process)</td></tr>
+<tr><td><strong>Enforcement</strong></td><td>Kernel checks list on object access (e.g. <code>open</code>)</td><td>Process presents unforgeable ticket/token to kernel</td></tr>
+<tr><td><strong>Revocation</strong></td><td><strong>Trivial and immediate:</strong> delete domain entry from object</td><td><strong>Difficult:</strong> capabilities are widely distributed</td></tr>
+<tr><td><strong>Real-World Use</strong></td><td>Unix permissions, Windows NTFS ACLs</td><td>File descriptors, microkernel capabilities (Mach)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Revocation Trade-offs:</strong> Immediate vs delayed, selective vs general, partial vs total, temporary vs permanent.</p>
+
+<h2>4. OS Threats &amp; Security Case Studies <span class="tag">taxonomy</span></h2>
+<ul>
+  <li><strong>Program Threats:</strong>
+    <ul>
+      <li><strong>Trojan Horse:</strong> Masquerades as legitimate software while performing hidden malicious actions.</li>
+      <li><strong>Trapdoor / Backdoor:</strong> Developer secret bypass skipping standard authentication.</li>
+      <li><strong>Logic Bomb:</strong> Dormant malicious code triggered by a specific event or condition.</li>
+      <li><strong>Buffer Overflow:</strong> Overwriting stack frame return address to execute shellcode.</li>
+    </ul>
+  </li>
+  <li><strong>System &amp; Network Threats:</strong> Port scanning (reconnaissance via <code>nmap</code>), Denial of Service (TCP SYN flood exhausting backlog, defended by SYN Cookies).</li>
+  <li><strong>Linux Case Study &mdash; SELinux (MAC):</strong> Discretionary Access Control (DAC) fails when root is hijacked. SELinux enforces <strong>Mandatory Access Control (MAC)</strong> via Type Enforcement: kernel labels all processes and objects; access blocked unless explicit policy rule exists, even for root.</li>
+  <li><strong>Windows Case Study:</strong> Security Identifiers (SIDs), Access Tokens inherited by processes, Security Descriptors containing DACLs, and User Account Control (UAC) least-privilege token stripping.</li>
+</ul>
+
+<h2>Ten-Minute Exam Final Scan</h2>
+<ol>
+  <li><strong>DMA cycle stealing:</strong> DMAC transfers a byte over the bus when the CPU is busy with internal ALU operations.</li>
+  <li><strong>Double buffering time:</strong> Effective time per block = $\max(C, T)$. Complete overlap of I/O and CPU computation.</li>
+  <li><strong>Least privilege:</strong> Operating processes with minimal necessary rights limits vulnerability impact.</li>
+  <li><strong>ACL vs C-List:</strong> ACL = column (with object, easy revocation). C-List = row (with domain, difficult revocation).</li>
+  <li><strong>Spooling:</strong> Queues files on disk because physical printers cannot interleave output from concurrent processes.</li>
+  <li><strong>SELinux:</strong> Uses Type Enforcement (MAC) to confine processes regardless of whether they have UID 0 (root).</li>
+  <li><strong>SYN flood:</strong> Exhausts half-open connection backlog table; mitigated using SYN Cookies.</li>
+</ol>
+
+</div>

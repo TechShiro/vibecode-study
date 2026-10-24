@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bit Manipulation Lesson 02 — XOR &amp; Masks</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Bit Manipulation Track · Lesson 2 of 2 · XOR's greatest hits and subset masks</div>
+<h1>XOR &amp; Masks</h1>
+<p class="subtitle">One operator that makes duplicates annihilate each other, and one loop that enumerates every subset of a set — the two ideas behind a shelf of "impossible without the trick" problems.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> the Single Number family is pure recognition — with the XOR properties you solve LC 136 in one line; without them you burn 20 minutes on a HashMap.
+  This is Lesson 2 of the 2-lesson Bit Manipulation track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+XOR is addition without carrying — per bit, "are they different?". Two properties do all the work:
+<strong>self-inverse</strong> (<code>a ^ a = 0</code>, and <code>a ^ 0 = a</code>) and
+<strong>order-free</strong> (commutative + associative). XOR a whole array and you can mentally reorder it so
+every duplicate pair sits together and vanishes — <em>whatever appears an even number of times evaporates;
+whatever's left is the XOR of the odd ones out.</em> Separately, an int can <em>be</em> a set: bit i set ⇔
+element i included — so counting <code>0 … 2ⁿ−1</code> enumerates every subset of an n-element set.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Every element appears twice except…" (or three times, or two exceptions), "find missing/duplicate without extra
+  space," "add without +," swap/parity tricks — that's XOR. "All subsets / all combinations of ≤ 20 items,"
+  "assign workers to tasks," TSP-sized n — that's bitmask enumeration.
+</div>
+
+<h2>2 · Core — XOR fold (LC 136)</h2>
+<pre><code>int singleNumber(int[] nums) {
+    int x = 0;                 <span class="cmt">// 0 is XOR's identity</span>
+    for (int v : nums) x ^= v; <span class="cmt">// pairs annihilate (a ^ a = 0), order irrelevant</span>
+    return x;                  <span class="cmt">// the survivor: the one element with odd count</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) — the constraints (linear time, no extra memory) exist precisely to disqualify the HashMap answer.</p>
+<div class="trace">
+<span class="step">nums = [4, 1, 2, 1, 2] — XOR is order-free, so regroup mentally:</span>
+<span class="step now">(1 ^ 1) ^ (2 ^ 2) ^ 4 &nbsp;=&nbsp; 0 ^ 0 ^ 4 &nbsp;=&nbsp; <span class="ptr">4</span></span>
+<span class="step">every even-count value self-destructs; the odd one out survives</span>
+</div>
+<p>
+Bonus party tricks from the same properties: in-place swap
+(<code>a ^= b; b ^= a; a ^= b;</code>) and "XOR undo" — if <code>c = a ^ b</code>, then <code>c ^ a = b</code>.
+The undo is how XOR prefix arrays answer range-XOR queries.
+</p>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>One loner among pairs</td><td>LC 136</td><td>The core fold.</td></tr>
+    <tr><td>TWO loners among pairs</td><td>LC 260</td><td>Fold gives <code>a ^ b</code>; split the array by a bit where they differ (<code>x &amp; −x</code>), fold each side.</td></tr>
+    <tr><td>Loner among TRIPLES</td><td>LC 137</td><td>XOR can't kill triples — count each bit position mod 3 instead.</td></tr>
+    <tr><td>Add without <code>+</code></td><td>LC 371</td><td>XOR = sum-sans-carry, AND&lt;&lt;1 = the carry; loop until carry dies.</td></tr>
+    <tr><td>All subsets</td><td>LC 78</td><td>Masks 0..2ⁿ−1; bit j of the mask = "include nums[j]".</td></tr>
+    <tr><td>Subsets of a subset</td><td>—</td><td>Submask iteration <code>s = (s−1) &amp; m</code>; feeds Bitmask DP.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Single Number III — two loners (LC 260)</h3>
+<p>
+Folding everything yields <code>d = a ^ b</code> — the two answers mashed together. Any set bit of <code>d</code>
+is a position where <strong>a and b disagree</strong>; grab the lowest via <code>d &amp; −d</code> (Lesson 1) and
+partition the array into "numbers with that bit set" vs "not." Each loner lands in a different bucket, each pair
+lands together in one bucket — so each bucket is a fresh LC 136.
+</p>
+<pre><code>int[] singleNumberIII(int[] nums) {
+    int d = 0;
+    for (int v : nums) d ^= v;       <span class="cmt">// d = a ^ b (pairs gone)</span>
+    int bit = d &amp; -d;                <span class="cmt">// lowest bit where a, b differ (d ≠ 0 since a ≠ b)</span>
+    int a = 0, b = 0;
+    for (int v : nums) {             <span class="cmt">// split by that bit → two LC 136 instances</span>
+        if ((v &amp; bit) != 0) a ^= v;
+        else                b ^= v;
+    }
+    return new int[]{a, b};
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Note for the pedantic: <code>d &amp; −d</code> is safe even when d's lowest set bit is bit 31 (d = <code>Integer.MIN_VALUE</code>) — the overflow wraps exactly right.</p>
+
+<h3>Case: Single Number II — loner among triples (LC 137)</h3>
+<p>
+Pairs die under XOR; triples don't. Zoom into one bit position: across the array, that position's 1s count is
+<code>3k</code> (from the triples) plus 0 or 1 (from the loner). So <strong>count mod 3</strong> per position and
+reassemble the loner bit by bit.
+</p>
+<pre><code>int singleNumberII(int[] nums) {
+    int res = 0;
+    for (int i = 0; i &lt; 32; i++) {           <span class="cmt">// each bit position independently</span>
+        int cnt = 0;
+        for (int v : nums) cnt += (v &gt;&gt; i) &amp; 1; <span class="cmt">// how many numbers have bit i set?</span>
+        if (cnt % 3 != 0) res |= (1 &lt;&lt; i);   <span class="cmt">// leftover 1 belongs to the loner</span>
+    }
+    return res;                              <span class="cmt">// works for negatives too — bit 31 is just a bit</span>
+}</code></pre>
+<p><strong>Time</strong> O(32n), <strong>Space</strong> O(1). Generalizes: everyone appears k times except one → count mod k. (A two-variable DFA version exists — <code>ones, twos</code> — mention it, derive this one.)</p>
+
+<h3>Case: Sum of Two Integers without + (LC 371)</h3>
+<p>
+Grade-school addition, split in two: XOR adds each column ignoring carries; <code>(a &amp; b) &lt;&lt; 1</code>
+computes exactly the carries (a column carries when both bits are 1, into the next column). Repeat until no
+carry remains — each pass pushes the carry at least one bit left, so it dies within 32 rounds.
+</p>
+<pre><code>int getSum(int a, int b) {
+    while (b != 0) {
+        int carry = (a &amp; b) &lt;&lt; 1;  <span class="cmt">// both-1 columns generate a carry one place left</span>
+        a = a ^ b;                 <span class="cmt">// carry-less column sums</span>
+        b = carry;                 <span class="cmt">// re-add the carries next round</span>
+    }
+    return a;
+}</code></pre>
+<p><strong>Time</strong> O(32) = O(1), <strong>Space</strong> O(1). Two's complement makes negatives free — no sign special-casing.</p>
+
+<h3>Case: Subsets via bitmask enumeration (LC 78)</h3>
+<p>
+n ≤ ~20 elements → represent a subset as an n-bit mask and just <em>count</em>. Mask <code>m</code>'s bit
+<code>j</code> answers "is nums[j] in this subset?" — 2ⁿ masks, 2ⁿ subsets, no recursion, no backtracking.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; subsets(int[] nums) {
+    int n = nums.length;
+    List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+    for (int m = 0; m &lt; (1 &lt;&lt; n); m++) {     <span class="cmt">// every mask 0 .. 2ⁿ−1 IS a subset</span>
+        List&lt;Integer&gt; cur = new ArrayList&lt;&gt;();
+        for (int j = 0; j &lt; n; j++)
+            if ((m &gt;&gt; j &amp; 1) == 1) cur.add(nums[j]); <span class="cmt">// bit j set → include nums[j]</span>
+        res.add(cur);
+    }
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n · 2ⁿ), <strong>Space</strong> O(n · 2ⁿ) for the output — both unavoidable, since that's the answer's size.</p>
+
+<h3>Submask iteration — the one loop to know before Bitmask DP</h3>
+<p>
+Sometimes you need every subset <em>of a mask</em> <code>m</code> (e.g. "which sub-team of the available people
+handles this task?"). The idiom:
+</p>
+<pre><code>for (int s = m; s &gt; 0; s = (s - 1) &amp; m) {
+    <span class="cmt">// visit non-empty submask s of m (add s == 0 after the loop if needed)</span>
+}</code></pre>
+<p>
+<code>s − 1</code> counts down; <code>&amp; m</code> snaps back to bits allowed by m — together they visit every
+submask in decreasing order, and summed over all m the total work is O(3ⁿ), far below the naive
+O(4ⁿ). This loop plus a DP table over masks is the whole engine of
+<a href="../dp-lessons/0011-bitmask-dp.html">Bitmask DP</a> (TSP, assignment problems) — file the idiom now, spend
+it there.
+</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>XOR kills even counts only.</strong> Triples survive (hence LC 137's mod-3 counting). Before folding, confirm the "everything else appears exactly twice" premise.</li>
+  <li><strong>Split bit must be a differing bit (LC 260):</strong> any set bit of <code>a ^ b</code> works; <code>d &amp; −d</code> is just the convenient lowest. d is never 0 because the two loners are distinct.</li>
+  <li><strong>Negatives in LC 137:</strong> loop all 32 bits including bit 31; <code>res |= (1 &lt;&lt; 31)</code> correctly rebuilds a negative loner. Summing counts into a long "to be safe" is unnecessary — cnt ≤ n fits an int.</li>
+  <li><strong>Mask width (LC 78):</strong> <code>1 &lt;&lt; n</code> as an int is fine for n ≤ 30; n = 32 wraps to 1 (shift mod 32 — Lesson 1's trap). LeetCode caps n at 10, but say it.</li>
+  <li><strong>Submask loop and s = 0:</strong> the canonical loop stops before the empty submask; append it manually when the empty set is a legal choice.</li>
+  <li><strong>LC 371 in other languages:</strong> Java ints overflow silently (good here); Python's unbounded ints make the same code hang without a 32-bit mask — worth mentioning if asked "would this port?".</li>
+  <li><strong>XOR swap aliasing:</strong> <code>a ^= b; b ^= a; a ^= b;</code> zeroes both if a and b are the <em>same variable</em> (e.g. <code>swap(arr, i, i)</code>). Cute trick, real bug — prefer a temp in production.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In LC 260, after folding to <code>d = a ^ b</code>, why does partitioning the array by ANY set bit of d reduce the problem to two LC 136s?</div>
+  <button class="opt">Because the set bits of d mark array positions where the two loners are stored</button>
+  <button class="opt">Because a set bit of d is a position where a and b differ — they land in different buckets, while every pair lands intact in one bucket</button>
+  <button class="opt">Because d's lowest set bit equals the smaller of the two loners</button>
+  <div class="fb" data-correct="d's set bits are exactly where a and b disagree, so that bit separates a from b. Duplicated values agree with themselves on every bit, so each pair stays together and self-destructs within its bucket — leaving one loner per bucket." data-wrong="d says nothing about positions or magnitudes — it's the XOR of the two VALUES. A set bit of d means a and b differ there, so bucketing by that bit splits them apart while keeping every duplicate pair together."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why does the LC 371 loop <code>{ carry = (a &amp; b) &lt;&lt; 1; a ^= b; b = carry; }</code> always terminate?</div>
+  <button class="opt">Because XOR strictly decreases a on every iteration until it reaches the sum</button>
+  <button class="opt">Because a &amp; b has fewer set bits than b, so the AND eventually returns zero by pigeonhole</button>
+  <button class="opt">Because each round shifts the carry at least one bit left, so within 32 rounds it shifts out of the int entirely</button>
+  <div class="fb" data-correct="The carry is always shifted left by 1, so the lowest possible carry bit rises every round; after at most 32 rounds it exits the 32-bit window and b becomes 0. (This exact property is why unbounded-int languages need a mask.)" data-wrong="a can grow, shrink, or oscillate, and a &amp; b can have MORE set bits than the previous carry. The real invariant: carry is left-shifted every round, so its lowest bit strictly rises and must leave the 32-bit window within 32 iterations."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In the LC 78 bitmask enumeration with nums = [a, b, c], what subset does mask <code>m = 0b101</code> produce?</div>
+  <button class="opt">[a, c] — bits 0 and 2 are set, so nums[0] and nums[2] are included</button>
+  <button class="opt">[b] — the 0 in the middle selects the middle element</button>
+  <button class="opt">[a, b, c] — 0b101 is 5, and the 5th subset in order is the full set</button>
+  <div class="fb" data-correct="Bit j set means nums[j] is in. 0b101 has bits 0 and 2 set → {nums[0], nums[2]} = {a, c}. The 2ⁿ masks map one-to-one onto the 2ⁿ subsets." data-wrong="Read set bits as memberships: 0b101 sets bits 0 and 2 (a and c in) and clears bit 1 (b out). The mask's VALUE (5) is just an index; its BITS are the subset."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch/read):</strong> <a href="https://neetcode.io/problems/single-number">NeetCode — Single Number</a>; then <a href="https://cp-algorithms.com/algebra/all-submasks.html">CP-Algorithms — Submask enumeration</a> for the 3ⁿ proof.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 136 (one line) → LC 268 (re-solve with XOR from Lesson 1) → LC 260 (fold, split, fold) → LC 137 (mod-3 counting; then read the ones/twos version) → LC 371 (trace 5 + 7 by hand once) → LC 78 (bitmask version, even if you know the backtracking one) → stretch: LC 1863 (Sum of All Subset XOR Totals) to combine both halves of this lesson.</li>
+</ul>
+
+<h2>7 · Bit Manipulation cheat sheet</h2>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Count set bits</td><td>"number of 1 bits", parity</td><td>loop <code>n &amp;= n − 1</code>, count iterations</td><td>O(bits) / O(1)</td><td>191</td></tr>
+    <tr><td>Power of two</td><td>"is n a power of 2"</td><td><code>n &gt; 0 &amp;&amp; (n &amp; (n−1)) == 0</code></td><td>O(1) / O(1)</td><td>231</td></tr>
+    <tr><td>Reverse bits</td><td>"reverse the 32 bits"</td><td>32×: <code>res = res&lt;&lt;1 | (n&amp;1); n &gt;&gt;&gt;= 1</code></td><td>O(1) / O(1)</td><td>190</td></tr>
+    <tr><td>Missing in 0..n</td><td>"one number missing"</td><td>XOR all indices and values; loner survives</td><td>O(n) / O(1)</td><td>268</td></tr>
+    <tr><td>Bits for all 0..n</td><td>"count bits for every i"</td><td><code>dp[i] = dp[i &amp; (i−1)] + 1</code></td><td>O(n) / O(n)</td><td>338</td></tr>
+    <tr><td>One loner (pairs)</td><td>"appears twice except one"</td><td>fold with XOR</td><td>O(n) / O(1)</td><td>136</td></tr>
+    <tr><td>Two loners (pairs)</td><td>"twice except two"</td><td>fold → split by <code>d &amp; −d</code> → fold each side</td><td>O(n) / O(1)</td><td>260</td></tr>
+    <tr><td>One loner (triples)</td><td>"three times except one"</td><td>per bit: count 1s mod 3, reassemble</td><td>O(32n) / O(1)</td><td>137</td></tr>
+    <tr><td>Add without +</td><td>"no arithmetic operators"</td><td>loop: <code>a ^= b</code>, <code>b = old (a&amp;b)&lt;&lt;1</code></td><td>O(1) / O(1)</td><td>371</td></tr>
+    <tr><td>All subsets</td><td>n ≤ 20, "all combinations"</td><td>masks 0..2ⁿ−1; bit j ⇔ include element j</td><td>O(n·2ⁿ)</td><td>78</td></tr>
+    <tr><td>Submasks of m</td><td>subsets of a subset, Bitmask DP</td><td><code>for (s = m; s &gt; 0; s = (s−1) &amp; m)</code></td><td>O(3ⁿ) total</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the ones/twos DFA for LC 137 derived, a hand-trace of 5 + 7 through LC 371, or the 3ⁿ submask argument
+  unpacked? Ask in the chat. When the cheat sheet reads like common sense, say <strong>"next"</strong> and we move
+  to the Cyclic Sort track — the other classic for missing/duplicate numbers.
+</div>
+
+<div class="nav">
+  <span><a href="0001-operators-and-tricks.html">← Operators &amp; Tricks</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../cyclic-sort-lessons/0001-cyclic-sort.html">Cyclic Sort →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

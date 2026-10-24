@@ -1,0 +1,243 @@
+<title>Network Layer Functions and Services</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 19 of 27</p>
+<h1>Network Layer: Functions and Services</h1>
+<p class="deck">What the network layer is responsible for, the difference between routing and forwarding, connectionless versus connection-oriented service, and the services this layer deliberately does not provide. The framing lesson for the whole of Unit&nbsp;III.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Asked as <strong>"Explain the functions/services of the network layer"</strong> &mdash; 5 marks. Structure it as <strong>packetizing, routing and forwarding</strong> as the three main duties, then the secondary ones. Keep two lines for <strong>routing vs forwarding</strong>, which is the sub-question most often used to separate answers, and one line for <strong>what IP does not provide</strong> &mdash; that omission is deliberate and examiners like to see it named.</p>
+</div>
+
+<h2>Where the network layer sits</h2>
+
+<p>The network layer is responsible for <strong>host-to-host (source-to-destination) delivery of packets, possibly across multiple networks</strong>. It is the layer that makes internetworking possible &mdash; the data link layer can only deliver within one network.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Layer</th><th>Delivers</th><th>Between</th><th>Using</th></tr></thead>
+<tbody>
+<tr><td>Data link</td><td>Frames</td><td><strong>Hop to hop</strong> (node to adjacent node)</td><td>MAC addresses</td></tr>
+<tr><td><strong>Network</strong></td><td><strong>Packets (datagrams)</strong></td><td><strong>Source to destination</strong> (host to host)</td><td><strong>IP addresses</strong></td></tr>
+<tr><td>Transport</td><td>Segments</td><td><strong>Process to process</strong></td><td>Port numbers</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The network layer is present at <strong>hosts and at routers</strong>. At a router, the top layer present <em>is</em> the network layer &mdash; a router does not have transport or application layers, which is why it forwards packets without ever interpreting their contents.</p>
+
+<h2>The three main duties</h2>
+
+<h3>1. Packetizing</h3>
+
+<ul>
+<li><strong>Encapsulating the payload from the transport layer into a network-layer packet</strong> at the source, and <strong>decapsulating it</strong> at the destination.</li>
+<li>The source adds the header containing the source and destination <strong>logical (IP) addresses</strong>.</li>
+<li><strong>Routers are not allowed to change either address</strong>, and are not allowed to decapsulate the packet unless it must be <strong>fragmented</strong>. Stating this restriction is worth a mark, because it is what makes end-to-end delivery meaningful.</li>
+</ul>
+
+<h3>2. Routing</h3>
+
+<ul>
+<li><strong>Determining the best path</strong> from source to destination through an internet of many possible routes.</li>
+<li>Done by <strong>routing protocols</strong> (RIP, OSPF, BGP) running in the background and building a <strong>routing table</strong> at each router.</li>
+<li>Routing is a <strong>global, network-wide, comparatively slow process</strong> &mdash; it runs continuously and independently of any particular packet.</li>
+</ul>
+
+<h3>3. Forwarding</h3>
+
+<ul>
+<li><strong>The action a router takes when a packet arrives</strong>: look up the destination in the <strong>forwarding table</strong> and send the packet out of the correct interface.</li>
+<li>Forwarding is a <strong>local, per-packet, very fast process</strong>.</li>
+</ul>
+
+<div class="box win">
+  <span class="lbl">Routing vs forwarding &mdash; state it exactly like this</span>
+  <p><strong>Routing is building the table; forwarding is using it.</strong> Routing is global, runs in the background, and involves every router exchanging information. Forwarding is local, happens once per arriving packet, and involves only one table lookup. A router does both, but they are different activities on different timescales.</p>
+</div>
+
+<h2>The other services</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Service</th><th>What it means</th><th>Provided by IPv4?</th></tr></thead>
+<tbody>
+<tr><td><strong>Logical addressing</strong></td><td>A universal addressing scheme (IP addresses) independent of the underlying physical networks</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Fragmentation and reassembly</strong></td><td>Splitting a packet too large for the next network's <strong>MTU</strong>, and reassembling it at the destination</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Error control</strong></td><td>Detecting and correcting errors in the payload</td><td><strong>No</strong> &mdash; there is a <strong>header checksum only</strong>. A corrupted payload is not detected here; that is left to the transport layer.</td></tr>
+<tr><td><strong>Flow control</strong></td><td>Preventing a fast sender from overwhelming a receiver</td><td><strong>No</strong> &mdash; deliberately, to keep the layer simple. Provided by TCP above.</td></tr>
+<tr><td><strong>Congestion control</strong></td><td>Preventing too many packets from overloading the routers themselves</td><td><strong>Not directly</strong> &mdash; ICMP source-quench was the attempt and is now deprecated. TCP handles it.</td></tr>
+<tr><td><strong>Quality of Service</strong></td><td>Differentiating traffic by priority, delay or bandwidth guarantee</td><td>Only partially, via the <strong>Type of Service / DiffServ</strong> field</td></tr>
+<tr><td><strong>Security</strong></td><td>Confidentiality and authentication</td><td><strong>Not in the original design</strong> &mdash; added afterwards as <strong>IPsec</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The sentence that ties Unit III together</span>
+  <p><strong>IP provides an unreliable, connectionless, best-effort delivery service.</strong> "Best effort" means it does its best but guarantees nothing &mdash; a packet may be lost, duplicated, delayed or delivered out of order, and IP will not notice. This is a <em>design choice</em>, not a defect: it keeps routers simple and fast, and pushes reliability to TCP at the endpoints, where it can be done once rather than at every hop.</p>
+</div>
+
+<h2>Connectionless vs connection-oriented service</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Connectionless (datagram)</th><th>Connection-oriented (virtual circuit)</th></tr></thead>
+<tbody>
+<tr><td><strong>Setup phase</strong></td><td>None &mdash; packets are sent immediately</td><td>Required, before any data flows</td></tr>
+<tr><td><strong>Packet independence</strong></td><td>Each packet is <strong>treated independently</strong></td><td>All packets belong to one connection</td></tr>
+<tr><td><strong>Route</strong></td><td>May differ from packet to packet</td><td>All packets take the <strong>same route</strong></td></tr>
+<tr><td><strong>Order of arrival</strong></td><td>May be out of order</td><td>In order</td></tr>
+<tr><td><strong>Address in header</strong></td><td><strong>Full destination address</strong></td><td>Short <strong>label / VCI</strong></td></tr>
+<tr><td><strong>Router state</strong></td><td>Stateless &mdash; no per-connection information stored</td><td>Stateful &mdash; a table entry per connection</td></tr>
+<tr><td><strong>Failure of a router</strong></td><td>Packets simply reroute</td><td>The connection breaks</td></tr>
+<tr><td><strong>Example</strong></td><td><strong>IPv4 and IPv6</strong></td><td>ATM, Frame Relay, <strong>MPLS</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The forwarding table</h2>
+
+<p>Each router keeps a table mapping destinations to next hops. In classless addressing every entry has four columns:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Mask</th><th>Network address</th><th>Next-hop address</th><th>Interface</th></tr></thead>
+<tbody>
+<tr><td>/26</td><td>180.70.65.192</td><td>&mdash;</td><td>m2</td></tr>
+<tr><td>/25</td><td>180.70.65.128</td><td>&mdash;</td><td>m0</td></tr>
+<tr><td>/24</td><td>201.4.22.0</td><td>&mdash;</td><td>m3</td></tr>
+<tr><td>/0</td><td>0.0.0.0 (default)</td><td>180.70.65.200</td><td>m2</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The forwarding algorithm</span>
+  1. Extract the destination address from the packet.<br>
+  2. For each table row, <strong>AND</strong> the destination address with the row's mask.<br>
+  3. If the result equals the row's network address, that row <strong>matches</strong>.<br>
+  4. Choose the matching row with the <strong>longest prefix</strong> (largest mask).<br>
+  5. Send the packet out of that row's interface, to that row's next hop.
+</div>
+
+<p><strong>Longest prefix matching</strong> is the rule to name: when several entries match, the <strong>most specific</strong> one &mdash; the one with the longest network prefix &mdash; wins. The default route <code>0.0.0.0/0</code> matches everything and therefore always loses to any other match, which is exactly what makes it a last resort.</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Network Layer Dual Plane Architecture: Routing vs Forwarding</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>Control Plane: Routing Algorithm</strong><span class="sub">Computes end-to-end paths across global network topology (OSPF, RIP, BGP)</span></div>
+    <div class="flow-arrow-right">&rarr;</div>
+    <div class="flow-box ok"><strong>Local Forwarding Table</strong><span class="sub">Header prefix &rarr; Output interface mapping table</span></div>
+    <div class="flow-arrow-right">&rarr;</div>
+    <div class="flow-box"><strong>Data Plane: Forwarding Engine</strong><span class="sub">Moves packet from input port to correct output link in nanoseconds</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 12 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Network Layer Fundamentals</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-41: Network Layer Responsibilities & Architecture</div>
+    <div class="v-desc">Crisp breakdown of host-to-host delivery, packetizing, routing algorithms, and datagram forwarding versus virtual circuits.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=rW1jPlYgp_0" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The difference between routing and forwarding is that:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Routing builds the table globally; forwarding uses it locally per packet</button>
+    <button class="opt">Routing uses MAC addresses; forwarding uses IP addresses</button>
+    <button class="opt">Routing applies to datagrams; forwarding to virtual circuits</button>
+    <button class="opt">Routing happens at hosts; forwarding happens only at routers</button>
+  </div>
+  <p class="why">Routing is the slow, global, background process of exchanging information and building tables. Forwarding is the fast, local, per-packet act of looking up the table and choosing an interface. Both happen at routers.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A router may decapsulate a packet only when it needs to:</p>
+  <div class="opts">
+    <button class="opt">Verify the checksum computed over the packet's payload</button>
+    <button class="opt">Change the source address to its own interface address</button>
+    <button class="opt">Reorder packets that have arrived out of their sequence</button>
+    <button class="opt" data-ok="1">Fragment the packet for a network with a smaller MTU</button>
+  </div>
+  <p class="why">Fragmentation is the one legitimate reason. Routers must not alter the source or destination addresses, IP checksums cover only the header, and reordering is the transport layer's job at the destination.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. IPv4's error control consists of:</p>
+  <div class="opts">
+    <button class="opt">No error checking of any kind anywhere in the header</button>
+    <button class="opt">Full detection and retransmission of corrupted packets</button>
+    <button class="opt">A CRC-32 covering the entire packet including data</button>
+    <button class="opt" data-ok="1">A checksum over the header only, not over the payload</button>
+  </div>
+  <p class="why">IPv4 checksums only the header, because a corrupted header could misdeliver the packet entirely. Payload integrity is left to the transport layer, which checks it once end to end rather than at every hop. (IPv6 drops the header checksum altogether.)</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A forwarding table has entries for 180.70.65.128/25 and 180.70.65.192/26, and a packet arrives for 180.70.65.200. Which entry is used?</p>
+  <div class="opts">
+    <button class="opt">The /25 entry, since it appears first in the table</button>
+    <button class="opt">Both, and the packet is duplicated on two interfaces</button>
+    <button class="opt">Neither &mdash; the packet goes to the default route</button>
+    <button class="opt" data-ok="1">The /26 entry, by longest prefix matching</button>
+  </div>
+  <p class="why">Both entries match, so the most specific one wins — /26 is longer than /25. Longest prefix matching is also why the default route 0.0.0.0/0, which matches everything, is always the last resort.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. "Best-effort delivery" means that IP:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Makes no guarantee &mdash; packets may be lost, duplicated, delayed or reordered</button>
+    <button class="opt">Guarantees delivery but not the order of arrival</button>
+    <button class="opt">Reserves bandwidth along the path before sending data</button>
+    <button class="opt">Retransmits any packet that fails to reach its destination</button>
+  </div>
+  <p class="why">Best effort means IP tries and gives up quietly. This is deliberate: keeping routers stateless and simple lets them be fast, and reliability is added once at the endpoints by TCP rather than at every hop.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the network layer's responsibility and its three main duties.</summary>
+    <p class="ans">Source-to-destination (host-to-host) delivery of packets, possibly across multiple networks. Duties: packetizing (encapsulating and decapsulating), routing (determining the best path), and forwarding (acting on each arriving packet).</p></details>
+  <details class="card"><summary>Distinguish routing from forwarding.</summary>
+    <p class="ans">Routing builds the routing table — a global, background, comparatively slow process involving routing protocols and all routers. Forwarding uses the table — a local, per-packet, very fast table lookup that selects an outgoing interface.</p></details>
+  <details class="card"><summary>What restrictions apply to routers during packetizing?</summary>
+    <p class="ans">A router must not change the source or destination address of a packet, and must not decapsulate it unless the packet has to be fragmented for a network with a smaller MTU.</p></details>
+  <details class="card"><summary>Which services does IPv4 not provide, and why?</summary>
+    <p class="ans">No flow control, no payload error control (header checksum only), no congestion control directly, and no security in the original design. These are deliberately omitted to keep routers simple and fast; TCP supplies them once at the endpoints, and IPsec was added later for security.</p></details>
+  <details class="card"><summary>Define best-effort delivery.</summary>
+    <p class="ans">IP attempts delivery but guarantees nothing — packets may be lost, duplicated, delayed or delivered out of order, and IP will not detect or correct it. It is an unreliable, connectionless service by design.</p></details>
+  <details class="card"><summary>Give five differences between connectionless and connection-oriented network service.</summary>
+    <p class="ans">Setup phase (none/required); packets treated independently or as one connection; route may differ per packet or is fixed; arrival may be out of order or in order; header carries a full destination address or a short label; routers are stateless or stateful. Examples: IPv4/IPv6 versus ATM, Frame Relay and MPLS.</p></details>
+  <details class="card"><summary>State the forwarding algorithm and the longest prefix rule.</summary>
+    <p class="ans">For each table row, AND the destination address with the row's mask; if the result equals the row's network address the row matches. Among matching rows, choose the one with the longest prefix (largest mask) and send the packet out of its interface. The default route 0.0.0.0/0 matches everything and therefore always loses to a more specific entry.</p></details>
+</div>
+
+<p class="ask">Next comes IP addressing, which is where Unit III's marks actually live. Do not skim Lessons 20 to 22 &mdash; they build on each other and subnetting depends on both.</p>
+
+<div class="nav">
+  <a href="../unit-2/0018-ethernet.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0020-classful-addressing.html">Next: IP Addresses and Classful Addressing &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

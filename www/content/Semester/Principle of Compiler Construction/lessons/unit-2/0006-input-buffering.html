@@ -1,0 +1,335 @@
+<title>Input Buffering</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit II &middot; Lesson 6 of 10</p>
+<h1>Input Buffering</h1>
+<p class="deck">Why the scanner needs lookahead, the one-buffer scheme and where it breaks, buffer pairs with their two pointers and the reload algorithm, and the sentinel trick that halves the tests per character &mdash; with the arithmetic to prove it.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain input buffering with sentinels&rdquo; is a reliable 5&ndash;10 mark question</strong>, and it has a fixed shape: state <em>why</em> buffering is needed, draw the <strong>two-buffer diagram with <code>lexemeBegin</code> and <code>forward</code> marked</strong>, give the <strong>code before and after sentinels</strong>, and finish with <strong>&ldquo;two tests per character become one&rdquo;</strong>. That last sentence is the point of the whole topic and the one students omit. The <strong>eof sentinel character</strong> and the reason <strong>N is the disk block size</strong> are the two details examiners probe.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Buffer Pairs &amp; Sentinel Algorithm</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=ziH4zvUgswI" target="_blank">Input Buffering in Compiler Design || One Buffer, Two Buffer</a>
+    <span class="v-meta">Sundeep Saradhi Kanthety &middot; 19:18</span>
+    <div class="v-why">The most comprehensive visual walkthrough of buffer pairs, pointer movements (lexemeBegin and forward), and the sentinel optimization.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Alternative &middot; Two Buffer System (Hindi)</span>
+      <span class="best-tag">Top Hindi Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=-ZGlslHpenE" target="_blank">Input Buffering | Two Buffer System | Compiler Design</a>
+    <span class="v-meta">Kalrav &middot; 9:48</span>
+    <div class="v-why">Concise Hindi explanation detailing the cyclical reloading of buffer halves and how sentinels eliminate redundant boundary tests.</div>
+  </div>
+</div>
+
+<h2>Why buffering is needed at all</h2>
+
+<div class="box win">
+  <span class="lbl">The two reasons &mdash; state both</span>
+  <p><strong>1. Speed.</strong> The lexical analyser is the <strong>only phase that reads the source character by character</strong>, so it does the bulk of the compiler's I/O. Fetching one character at a time from disk would dominate the compiler's running time. <strong>Reading a large block at once and serving characters from memory is far cheaper.</strong></p>
+  <p><strong>2. Lookahead.</strong> The analyser <strong>often cannot decide what token it has until it has read one or more characters past the end of the lexeme.</strong> Seeing <code>&gt;</code> it must look ahead to know whether the token is <code>&gt;</code> or <code>&gt;=</code>; seeing <code>i</code>, <code>f</code> it must look ahead to know whether the lexeme is the keyword <code>if</code> or the start of the identifier <code>ifx</code>. <strong>Having looked ahead, it must be able to retract</strong> &mdash; and that requires the characters to still be available.</p>
+</div>
+
+<h2>The one-buffer scheme</h2>
+
+<p>The simplest idea: read <strong>N characters into a single buffer</strong>, scan from it, and when it runs out read the next N.</p>
+
+<div class="formula">
+  <span class="name">One buffer &mdash; and its fatal flaw</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:center">
+  +&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;+<br>
+  | &nbsp;&nbsp;&nbsp;E &nbsp;= &nbsp;M &nbsp;* &nbsp;C &nbsp;* &nbsp;* &nbsp;2 &nbsp;&hellip; &nbsp;&nbsp;|<br>
+  +&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;+<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&uarr;<br>
+  &nbsp;&nbsp;&nbsp;pointer
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.5rem"><strong>The problem:</strong> if a lexeme <strong>straddles the end of the buffer</strong>, reloading destroys the part already scanned. A long identifier or string literal beginning near the end of the buffer <strong>cannot be recovered</strong>. The scheme only works if <strong>no lexeme is ever longer than the buffer</strong>, which cannot be guaranteed.</span>
+</div>
+
+<h2>Buffer pairs &mdash; the two-buffer scheme</h2>
+
+<div class="formula">
+  <span class="name">The arrangement</span>
+  Use a buffer divided into <strong>two halves of N characters each</strong>, where <strong>N is the size of one disk block</strong> &mdash; typically <strong>1024 or 4096</strong>.<br><br>
+  <strong>Read N characters into each half with ONE system read command</strong>, not one per character. If fewer than N characters remain in the file, a special <strong>eof</strong> character marks the true end of input.<br><br>
+  <strong>Two pointers are maintained:</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>lexemeBegin</strong> &mdash; marks the <strong>start of the current lexeme</strong>, whose extent we are trying to determine.<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>forward</strong> &mdash; <strong>scans ahead</strong> until a pattern match is found.<br><br>
+  Once the lexeme is determined, <strong>forward is set past its last character</strong>, the token and attribute are returned, and then <strong>lexemeBegin is moved to the character just after the lexeme</strong>.
+</div>
+
+<!-- FLOWCHART: BUFFER PAIR SCHEME -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Two-Buffer Scheme (Buffer Pairs)</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:0; max-width:36rem; margin:1rem auto; font-family:ui-monospace,monospace; font-size:.82rem;">
+    <!-- Buffer 1 -->
+    <div style="flex:1; border:2px solid var(--accent); border-right:1px dashed var(--rule); border-radius:6px 0 0 6px; padding:.75rem .4rem; background:var(--panel); text-align:center;">
+      <div style="font-weight:700; color:var(--accent); font-size:.76rem; margin-bottom:.4rem;">First Half (N Chars)</div>
+      <div style="font-size:.9rem; letter-spacing:.12em;">E &nbsp;= &nbsp;M &nbsp;* &nbsp;C &nbsp;<strong>*</strong></div>
+      <div style="margin-top:.6rem; font-size:.74rem; color:var(--accent); font-weight:700;">
+        &uarr; lexemeBegin
+      </div>
+    </div>
+    
+    <!-- Buffer 2 -->
+    <div style="flex:1; border:2px solid var(--accent); border-left:1px dashed var(--rule); border-radius:0 6px 6px 0; padding:.75rem .4rem; background:var(--panel); text-align:center;">
+      <div style="font-weight:700; color:var(--ok); font-size:.76rem; margin-bottom:.4rem;">Second Half (N Chars)</div>
+      <div style="font-size:.9rem; letter-spacing:.12em;"><strong>*</strong> &nbsp;2 &nbsp;&hellip; &nbsp;&hellip; &nbsp;&hellip;</div>
+      <div style="margin-top:.6rem; font-size:.74rem; color:var(--ok); font-weight:700;">
+        &uarr; forward
+      </div>
+    </div>
+  </div>
+  
+  <p style="text-align:center; font-size:.82rem; color:var(--ink-soft); margin:.6rem 0 0;">
+    Here, <code>forward</code> crossed into the second half while scanning operator <code>**</code>. Because <code>lexemeBegin</code> is still preserved in the first half without being overwritten, the whole token boundary remains intact!
+  </p>
+</div>
+
+<!-- FLOWCHART: SENTINEL EXTENSION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Buffer Pairs with Sentinels (N + 1 Chars Each)</span>
+  
+  <div style="display:flex; justify-content:center; align-items:stretch; gap:.4rem; max-width:38rem; margin:1rem auto; font-family:ui-monospace,monospace; font-size:.82rem;">
+    <!-- First Half -->
+    <div style="flex:1; display:flex; border:2px solid var(--rule); border-radius:6px; overflow:hidden;">
+      <div style="flex:1; background:var(--panel); padding:.6rem .3rem; text-align:center;">
+        <span style="font-size:.72rem; color:var(--ink-soft); display:block;">First Half (N)</span>
+        E = M * C *
+      </div>
+      <div style="width:3.2rem; background:var(--warn-bg); border-left:1.5px solid var(--warn); color:var(--warn); font-weight:700; display:flex; align-items:center; justify-content:center;">
+        eof
+      </div>
+    </div>
+
+    <!-- Second Half -->
+    <div style="flex:1; display:flex; border:2px solid var(--rule); border-radius:6px; overflow:hidden;">
+      <div style="flex:1; background:var(--panel); padding:.6rem .3rem; text-align:center;">
+        <span style="font-size:.72rem; color:var(--ink-soft); display:block;">Second Half (N)</span>
+        * 2 &hellip;
+      </div>
+      <div style="width:3.2rem; background:var(--warn-bg); border-left:1.5px solid var(--warn); color:var(--warn); font-weight:700; display:flex; align-items:center; justify-content:center;">
+        eof
+      </div>
+    </div>
+  </div>
+  
+  <p style="text-align:center; font-size:.82rem; color:var(--ink-soft); margin:.6rem 0 0;">
+    Each half is extended to hold a sentinel <code>eof</code> marker. The common advance path requires only <strong>ONE test</strong>: <code>if (*forward == eof)</code>!
+  </p>
+</div>
+
+
+
+<div class="formula">
+  <span class="name">The advancing code &mdash; before sentinels</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.6">
+  if ( forward at end of first half ) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;reload second half;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;forward = forward + 1;<br>
+  }<br>
+  else if ( forward at end of second half ) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;reload first half;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>move forward to the beginning of the first half;</strong><br>
+  }<br>
+  else forward = forward + 1;
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.4rem">The two halves are used <strong>alternately and cyclically</strong>. <strong>Count the tests: TWO per character advanced</strong> &mdash; one for each end-of-half check &mdash; even though a reload is actually needed only once every N characters. That waste is what sentinels remove.</span>
+</div>
+
+<div class="box">
+  <span class="lbl">The limitation to state</span>
+  <p>Buffer pairs work only if <strong>no lexeme is longer than N characters</strong>, since a lexeme that spans <em>both</em> halves would still be destroyed by a reload. In practice N is a full disk block and lexemes are short, so this never bites &mdash; but it is the honest caveat, and stating it earns a mark.</p>
+</div>
+
+<h2>Sentinels &mdash; the improvement</h2>
+
+<div class="formula">
+  <span class="name">The idea</span>
+  <strong>Extend each buffer half to hold a sentinel character at the end</strong> &mdash; a character that <strong>cannot be part of the source program</strong>. The natural choice is <strong>eof</strong>.<br><br>
+  Now a single test <code>if (*forward == eof)</code> catches <em>both</em> end-of-half conditions, and only when that test succeeds does the code work out <strong>which</strong> case it is. <strong>The common case &mdash; an ordinary character &mdash; costs ONE test instead of two.</strong>
+</div>
+
+
+
+<div class="formula">
+  <span class="name">The advancing code &mdash; with sentinels</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.6">
+  forward = forward + 1;<br>
+  <strong>if ( *forward == eof ) {</strong>&nbsp;&nbsp;&nbsp;/* the ONE test in the common path */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;if ( forward at end of first half ) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reload second half;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;forward = forward + 1;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;else if ( forward at end of second half ) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;reload first half;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;move forward to the beginning of the first half;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>else terminate lexical analysis;</strong>&nbsp;&nbsp;/* a real eof — the source has ended */<br>
+  }
+  </div>
+</div>
+
+<div class="box win">
+  <span class="lbl">The sentence that is the point of the topic</span>
+  <p><strong>Without sentinels, every character advance costs two tests. With sentinels it costs one, because the expensive checks are performed only when the single eof test succeeds &mdash; roughly once every N characters. The number of tests per character is halved.</strong></p>
+  <p>And the neat bonus: <strong>the same test detects the genuine end of the file</strong>, so no separate end-of-input check is needed anywhere in the scanner.</p>
+</div>
+
+<h2>Numerical &mdash; what sentinels actually save</h2>
+
+<div class="solve">
+  <span class="lbl">Q. A source program contains 100,000 characters. The buffer half-size is N = 4096. Compare the number of end-of-buffer tests, and the number of disk reads, with and without sentinels.</span>
+
+  <p><strong>Disk reads.</strong> Each reload fetches N = 4096 characters with one system read.</p>
+  <p style="text-align:center">Reloads = &lceil;100000 / 4096&rceil; = &lceil;24.41&rceil; = <strong>25 reads</strong></p>
+  <p><em>This is the same either way</em> &mdash; sentinels do not change how often the buffer must be refilled, only how often we <em>check</em>. Say so; it is the distinction the question is testing.</p>
+
+  <p><strong>Tests without sentinels.</strong> Two tests per character advanced:</p>
+  <p style="text-align:center">2 &times; 100000 = <strong>200,000 tests</strong></p>
+
+  <p><strong>Tests with sentinels.</strong> One test per character, plus the two extra tests performed on each of the 25 occasions the eof test succeeds:</p>
+  <p style="text-align:center">100000 + (2 &times; 25) = 100000 + 50 = <strong>100,050 tests</strong></p>
+
+  <p><strong>Saving = 200000 &minus; 100050 = 99,950 tests, very close to 50 %.</strong></p>
+  <p><em>Sanity check:</em> the overhead term is 50 tests against 100,000 &mdash; that is 0.05 %, which is why the saving is &ldquo;essentially half&rdquo; rather than exactly half. <strong>As N grows the saving approaches exactly 50 %</strong>, and that limiting statement is what the theory means by &ldquo;the tests per character are halved&rdquo;.</p>
+
+  <p><strong>And the comparison that matters most:</strong> reading one character at a time from disk would need <strong>100,000 system calls</strong> instead of <strong>25</strong>. <strong>Buffering saves four orders of magnitude on I/O; sentinels then save a further factor of two on the in-memory testing.</strong> The two optimisations are independent, and a full answer names both.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Scheme</th><th>Buffers</th><th>Tests per character</th><th>Handles a lexeme spanning a boundary?</th></tr></thead>
+<tbody>
+<tr><td><strong>Character-at-a-time</strong></td><td>None</td><td>&mdash;</td><td>Yes, but one system call per character</td></tr>
+<tr><td><strong>One buffer</strong></td><td>1 &times; N</td><td>1</td><td><strong>No</strong> &mdash; a reload destroys the scanned part</td></tr>
+<tr><td><strong>Buffer pairs</strong></td><td>2 &times; N</td><td><strong>2</strong></td><td><strong>Yes</strong>, provided the lexeme is shorter than N</td></tr>
+<tr><td><strong>Buffer pairs with sentinels</strong></td><td>2 &times; (N + 1)</td><td><strong>1</strong></td><td>Yes, same condition &mdash; <strong>and the same test finds real eof</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The one-buffer scheme fails when:</p>
+  <div class="opts">
+    <button class="opt">The source contains comments</button>
+    <button class="opt" data-ok="1">A lexeme straddles the end of the buffer, so a reload destroys the part already scanned</button>
+    <button class="opt">The buffer is larger than the file</button>
+    <button class="opt">There are too many tokens</button>
+  </div>
+  <p class="why">A long identifier or string literal beginning near the end of the buffer cannot be recovered. Buffer pairs fix it by never reloading the half that still holds lexemeBegin.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In buffer pairs, N is normally chosen to be:</p>
+  <div class="opts">
+    <button class="opt">The number of lines in the file</button>
+    <button class="opt">The length of the longest token</button>
+    <button class="opt">Exactly 256, always</button>
+    <button class="opt" data-ok="1">The size of a disk block — typically 1024 or 4096</button>
+  </div>
+  <p class="why">One system read fetches exactly one block, which is what makes buffering worth doing. It also means N is far larger than any realistic lexeme.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The two pointers maintained are:</p>
+  <div class="opts">
+    <button class="opt">head and tail of a queue</button>
+    <button class="opt" data-ok="1">lexemeBegin, marking the start of the current lexeme, and forward, which scans ahead</button>
+    <button class="opt">start and eof</button>
+    <button class="opt">One per buffer half</button>
+  </div>
+  <p class="why">Once the lexeme is determined, forward sits just past its last character; the token is returned, and only then does lexemeBegin move to the character after the lexeme.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A sentinel must be a character that:</p>
+  <div class="opts">
+    <button class="opt">Appears frequently in the source</button>
+    <button class="opt">Is a valid identifier character</button>
+    <button class="opt" data-ok="1">Cannot appear in the source program — eof is the natural choice</button>
+    <button class="opt">Marks the start of each token</button>
+  </div>
+  <p class="why">If it could occur in the source, the test would fire spuriously. Using eof has the bonus that the same test also detects the genuine end of input.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Sentinels reduce the number of tests per character advance from:</p>
+  <div class="opts">
+    <button class="opt">Four to two</button>
+    <button class="opt">One to zero</button>
+    <button class="opt">N to 1</button>
+    <button class="opt" data-ok="1">Two to one</button>
+  </div>
+  <p class="why">Without them, both end-of-half conditions are tested every time. With them, a single eof test guards both, and the expensive checks run only when it succeeds — about once every N characters.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. For a 100,000-character program with N = 4096, the number of disk reads is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">25, with or without sentinels</button>
+    <button class="opt">50 without sentinels, 25 with</button>
+    <button class="opt">100,000</button>
+    <button class="opt">4096</button>
+  </div>
+  <p class="why">⌈100000/4096⌉ = 25. Sentinels change how often you <em>test</em>, not how often you <em>reload</em> — that distinction is exactly what this numerical checks.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Buffer pairs still fail if:</p>
+  <div class="opts">
+    <button class="opt">The file contains no tokens</button>
+    <button class="opt">Two tokens appear on one line</button>
+    <button class="opt">Comments appear at the end of the file</button>
+    <button class="opt" data-ok="1">A single lexeme is longer than N characters, so it spans both halves</button>
+  </div>
+  <p class="why">It never happens in practice, because N is a full disk block and lexemes are short — but it is the honest caveat, and stating it earns a mark.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the two reasons input buffering is needed.</summary>
+    <p class="ans">Speed — the lexical analyser is the only phase reading the source character by character, so it does the bulk of the compiler's I/O, and fetching a block at a time is far cheaper than a system call per character. Lookahead — the analyser often cannot decide the token until it has read past the end of the lexeme, as with &gt; versus &gt;= or <code>if</code> versus <code>ifx</code>, and it must then be able to retract.</p></details>
+  <details class="card"><summary>Why does the one-buffer scheme fail?</summary>
+    <p class="ans">If a lexeme straddles the end of the buffer, reloading destroys the part already scanned, so a long identifier or string beginning near the end cannot be recovered. It works only if no lexeme is ever longer than the buffer, which cannot be guaranteed.</p></details>
+  <details class="card"><summary>Describe the buffer-pairs scheme.</summary>
+    <p class="ans">Two halves of N characters each, N being one disk block, filled by a single read command per half and used alternately and cyclically. Two pointers: lexemeBegin marks the start of the current lexeme, forward scans ahead until a pattern matches. Once found, forward sits past the last character, the token is returned, and lexemeBegin moves past the lexeme. It costs two tests per character and requires no lexeme to exceed N characters.</p></details>
+  <details class="card"><summary>Explain the sentinel improvement and give the code.</summary>
+    <p class="ans">Extend each half by one character holding a sentinel that cannot appear in the source — eof. Then: forward = forward + 1; if (*forward == eof) { if at end of first half, reload the second and advance; else if at end of second half, reload the first and move forward to its beginning; else terminate lexical analysis }. The common path costs one test instead of two, and the same test detects real end of input.</p></details>
+  <details class="card"><summary>For 100,000 characters with N = 4096, give the reads and the tests.</summary>
+    <p class="ans">Reads: ⌈100000/4096⌉ = 25, the same with or without sentinels. Tests without sentinels: 2 × 100000 = 200,000. Tests with sentinels: 100000 + 2 × 25 = 100,050. The saving is 99,950, essentially 50 %, and it approaches exactly 50 % as N grows. Reading character by character would instead need 100,000 system calls rather than 25.</p></details>
+  <details class="card"><summary>Compare the four schemes.</summary>
+    <p class="ans">Character-at-a-time: no buffer, one system call per character. One buffer of N: one test per character but cannot handle a lexeme spanning the boundary. Buffer pairs, 2 × N: two tests per character, handles boundary-spanning lexemes shorter than N. Buffer pairs with sentinels, 2 × (N+1): one test per character, same condition, and the same test finds real eof.</p></details>
+</div>
+
+<p class="ask">Next: how the patterns themselves are written down &mdash; alphabets, strings, languages and regular expressions.</p>
+
+<div class="nav">
+  <a href="0005-role-of-the-lexical-analyzer.html">&larr; Role of the Lexical Analyser</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0007-specification-of-tokens.html">Next: Specification of Tokens &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

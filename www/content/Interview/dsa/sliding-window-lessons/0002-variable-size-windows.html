@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sliding Window Lesson 02 — Variable-Size Windows</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Sliding Window Track · Lesson 2 of 3 · expand right, shrink left on violation</div>
+<h1>Variable-Size Windows</h1>
+<p class="subtitle">When the problem asks for the longest or shortest window satisfying a condition, the width itself is the unknown — grow greedily, shrink only when forced.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Longest Substring Without Repeating Characters (LC 3) is among the most-asked
+  interview questions in existence, and Minimum Window Substring (LC 76) is a big-tech onsite staple.
+  This is Lesson 2 of the 3-lesson sliding-window track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Take LC 3: longest substring with no repeated character. Naive: try every substring — O(n²) pairs, each checked
+for duplicates. The window insight: define an <strong>invariant</strong> ("no character appears twice") and
+notice it's <em>monotone</em> — if a window violates it, every wider window containing it violates it too.
+So march the right edge <code>r</code> forward one step at a time; whenever adding <code>s[r]</code> breaks the
+invariant, advance the left edge <code>l</code> just far enough to restore it. Both pointers only move forward,
+each at most n steps → <strong>O(n)</strong>. You are implicitly considering all O(n²) windows, but skipping
+every one that provably can't beat what you've seen.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "<strong>Longest</strong> / <strong>shortest</strong> / <strong>smallest</strong> subarray or substring such
+  that…" with a condition like "at most k distinct", "no repeats", "contains all of…", "sum ≥ target". The window
+  size is the answer, not an input. Key requirement: the condition must be monotone under growing/shrinking —
+  otherwise shrinking can't be greedy and the pattern breaks (e.g. exactly-k conditions need Lesson 3's trick).
+</div>
+
+<h2>2 · Core template</h2>
+<p>
+Memorize this shape — every problem in this lesson is an instance. For-loop expands <code>r</code>; an inner
+<code>while</code> shrinks <code>l</code> while the window is invalid; then record the (now valid) window.
+</p>
+<pre><code><span class="cmt">// Longest Substring Without Repeating Characters (LC 3).</span>
+int lengthOfLongestSubstring(String s) {
+    int[] count = new int[128];              <span class="cmt">// window state: freq of each ASCII char</span>
+    int l = 0, best = 0;
+    for (int r = 0; r &lt; s.length(); r++) {
+        count[s.charAt(r)]++;                <span class="cmt">// EXPAND: bring s[r] into the window</span>
+        while (count[s.charAt(r)] &gt; 1) {     <span class="cmt">// SHRINK while invariant broken (a repeat exists)</span>
+            count[s.charAt(l)]--;            <span class="cmt">// evict s[l] and advance left edge</span>
+            l++;
+        }
+        best = Math.max(best, r - l + 1);    <span class="cmt">// RECORD: window [l..r] is valid here</span>
+    }
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(n) — <code>r</code> advances n times and <code>l</code> advances at most n times in total across all inner-loop iterations (amortized). <strong>Space</strong> O(Σ) for the frequency state (128 here).</p>
+
+<h3>Dry run — s = "pwwkew"</h3>
+<div class="trace">
+<span class="step">r=0 'p': window "p" valid → best 1</span>
+<span class="step">r=1 'w': "pw" valid → best 2</span>
+<span class="step now">r=2 'w': "pww" has repeat → shrink: drop 'p', drop 'w' → l=2, window "w" → best stays 2</span>
+<span class="step">r=3 'k': "wk" valid → best 2</span>
+<span class="step now">r=4 'e': "wke" valid → best <span class="ptr">3</span></span>
+<span class="step now">r=5 'w': "wkew" repeat → shrink: drop 'w' → l=3, window "kew" → best 3</span>
+<span class="step">answer 3 ("wke" / "kew") — l never moved backward</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Longest vs shortest — where you record</span>
+  <strong>Longest-valid</strong> problems (LC 3, 340, 904, 424): shrink while <em>invalid</em>, record
+  <em>after</em> the while, when the window is valid again. <strong>Shortest-valid</strong> problems (LC 76,
+  209): flip it — shrink while the window is still <em>valid</em> (trying to make it tighter), and record
+  <em>inside</em> the while, just before each shrink step. Same two pointers, opposite squeeze.
+</div>
+
+<h2>3 · All the cases</h2>
+<p>Only two things vary: the window state, and the invariant tested by the <code>while</code>.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>No repeated characters</td><td>LC 3</td><td>State = char counts; invalid when the entering char's count hits 2.</td></tr>
+    <tr><td>At most k distinct chars</td><td>LC 340</td><td>State = counts + distinct tally; invalid when distinct &gt; k.</td></tr>
+    <tr><td>At most 2 distinct (costume)</td><td>LC 904</td><td>LC 340 with k = 2, "fruit types" instead of chars. Same code.</td></tr>
+    <tr><td>≤ k replacements make it uniform</td><td>LC 424</td><td>Invalid when windowLen − maxFreq &gt; k; window never needs to re-shrink below its best.</td></tr>
+    <tr><td>Shortest window covering all of t</td><td>LC 76 <span class="cmt">★boss</span></td><td>Flip to shrink-while-valid; state = need/have counts + a <code>formed</code> tally.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Longest Substring with At Most K Distinct Characters (LC 340)</h3>
+<p>
+Invariant: "≤ k distinct characters in the window." Track a count map plus a running <code>distinct</code>;
+a character entering from 0 increments it, a character leaving to 0 decrements it. This one template is the
+parent of a whole family — memorize it and 904 is free.
+</p>
+<pre><code>int lengthOfLongestSubstringKDistinct(String s, int k) {
+    if (k == 0) return 0;                    <span class="cmt">// zero distinct allowed ⇒ empty window only</span>
+    int[] count = new int[128];
+    int distinct = 0, l = 0, best = 0;
+    for (int r = 0; r &lt; s.length(); r++) {
+        if (count[s.charAt(r)]++ == 0) distinct++;  <span class="cmt">// new species enters</span>
+        while (distinct &gt; k) {               <span class="cmt">// too many kinds → shrink</span>
+            if (--count[s.charAt(l)] == 0) distinct--;
+            l++;
+        }
+        best = Math.max(best, r - l + 1);
+    }
+    return best;
+}</code></pre>
+
+<h3>Case: Fruit Into Baskets (LC 904)</h3>
+<p>
+The story: two baskets, each holds one fruit <em>type</em>, pick a contiguous run of trees. Decode the costume
+and it's literally "longest subarray with at most 2 distinct values" — LC 340 with <code>k = 2</code> and a
+HashMap because values aren't chars.
+</p>
+<pre><code>int totalFruit(int[] fruits) {
+    Map&lt;Integer, Integer&gt; count = new HashMap&lt;&gt;();
+    int l = 0, best = 0;
+    for (int r = 0; r &lt; fruits.length; r++) {
+        count.merge(fruits[r], 1, Integer::sum);
+        while (count.size() &gt; 2) {           <span class="cmt">// third fruit type → shrink</span>
+            int c = count.merge(fruits[l], -1, Integer::sum);
+            if (c == 0) count.remove(fruits[l]);  <span class="cmt">// remove dead keys so size() is honest</span>
+            l++;
+        }
+        best = Math.max(best, r - l + 1);
+    }
+    return best;
+}</code></pre>
+<div class="callout trap">
+  <span class="label">Dead keys lie about distinct counts</span>
+  With a HashMap, a count that reaches 0 must be <code>remove</code>d — otherwise <code>map.size()</code>
+  overcounts distinct values and you shrink forever. With an int array (LC 340 above), track
+  <code>distinct</code> explicitly instead.
+</div>
+
+<h3>Case: Longest Repeating Character Replacement (LC 424)</h3>
+<p>
+Longest window that can be made all-one-letter with at most k replacements. Reframe the condition: a window is
+fixable iff <code>windowLen − maxFreqInWindow ≤ k</code> (change everything that isn't the majority letter).
+Twist: when a char leaves, recomputing the true max frequency costs O(26) — but you can skip it. Let
+<code>maxFreq</code> be a <em>historical</em> max that only ever grows. The window then never shrinks below the
+best size found so far; it slides at its record width until a genuinely better maxFreq appears. A stale
+maxFreq can make the window "illegally" large for its current contents, but never larger than some valid window
+seen earlier — so the final answer is still exact.
+</p>
+<pre><code>int characterReplacement(String s, int k) {
+    int[] count = new int[26];
+    int maxFreq = 0, l = 0, best = 0;
+    for (int r = 0; r &lt; s.length(); r++) {
+        maxFreq = Math.max(maxFreq, ++count[s.charAt(r) - 'A']); <span class="cmt">// historical max — never decreased</span>
+        if (r - l + 1 - maxFreq &gt; k) {       <span class="cmt">// too many chars would need replacing</span>
+            count[s.charAt(l) - 'A']--;      <span class="cmt">// note: if, not while — shrink exactly one step</span>
+            l++;                             <span class="cmt">// window slides at constant (record) width</span>
+        }
+        best = Math.max(best, r - l + 1);
+    }
+    return best;
+}</code></pre>
+<p>
+The <code>if</code> (instead of <code>while</code>) works because each expand grows the window by exactly 1,
+so at most 1 shrink step restores the record width. If the never-shrinking-below-record argument feels slippery
+in an interview, using <code>while</code> plus an O(26) recompute of maxFreq is also correct and still O(26·n).
+</p>
+
+<h3>Case: Minimum Window Substring (LC 76) — the boss problem</h3>
+<p>
+Shortest window of <code>s</code> containing every character of <code>t</code> <em>with multiplicity</em>.
+This is the shrink-while-<strong>valid</strong> flavor: expand until the window covers <code>t</code>, then
+squeeze from the left as long as coverage survives, recording each size before a squeeze. State:
+<code>need</code> (t's counts), <code>win</code> (window's counts), and <code>formed</code> = how many distinct
+required chars are currently at full quota — so validity is the O(1) check <code>formed == required</code>.
+</p>
+<pre><code>String minWindow(String s, String t) {
+    if (t.length() &gt; s.length()) return "";
+    int[] need = new int[128], win = new int[128];
+    int required = 0;                        <span class="cmt">// distinct chars t needs</span>
+    for (char c : t.toCharArray()) if (need[c]++ == 0) required++;
+    int formed = 0, l = 0;
+    int bestLen = Integer.MAX_VALUE, bestStart = 0;
+    for (int r = 0; r &lt; s.length(); r++) {
+        char c = s.charAt(r);
+        win[c]++;                            <span class="cmt">// EXPAND</span>
+        if (need[c] &gt; 0 &amp;&amp; win[c] == need[c]) formed++; <span class="cmt">// c just reached quota</span>
+        while (formed == required) {         <span class="cmt">// window covers t → SHRINK while it still does</span>
+            if (r - l + 1 &lt; bestLen) {       <span class="cmt">// RECORD before shrinking</span>
+                bestLen = r - l + 1;
+                bestStart = l;
+            }
+            char d = s.charAt(l);
+            win[d]--;
+            if (need[d] &gt; 0 &amp;&amp; win[d] &lt; need[d]) formed--; <span class="cmt">// d dropped below quota → invalid</span>
+            l++;
+        }
+    }
+    return bestLen == Integer.MAX_VALUE ? "" : s.substring(bestStart, bestStart + bestLen);
+}</code></pre>
+<p><strong>Time</strong> O(|s| + |t|). <strong>Space</strong> O(128). Notice it's Lesson 1's need/have frequency idea (LC 567) welded onto this lesson's shrink loop — the two tracks compose.</p>
+
+<div class="callout trap">
+  <span class="label">The three classic LC 76 bugs</span>
+  (1) <code>formed</code> counts <em>distinct chars at quota</em>, not total matched characters — increment only
+  on <code>win[c] == need[c]</code>, exactly once per char reaching quota. (2) Extra copies are fine:
+  <code>win[c] &gt; need[c]</code> keeps the window valid; only dropping <em>below</em> quota decrements
+  <code>formed</code>. (3) Record the best <em>inside</em> the while — after it exits, the window is invalid and
+  one char short.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Empty inputs / t longer than s</strong> (LC 76): answer <code>""</code>; guard before the loop.</li>
+  <li><strong>k = 0</strong> (LC 340): at most zero distinct means the answer is 0 — the generic loop can mishandle it; special-case it.</li>
+  <li><strong>Answer of "no valid window":</strong> distinguish "never found" (<code>bestLen</code> still MAX_VALUE → return "") from a legitimate size-0/size-1 answer.</li>
+  <li><strong>Record at the right moment.</strong> Longest: after the shrink-while. Shortest: inside the shrink-while. Swapping these is the #1 template transcription error.</li>
+  <li><strong>l can catch up to r+1.</strong> A window can legitimately empty out (e.g. LC 340 with k=0-like states). <code>r − l + 1 = 0</code> then — make sure that doesn't corrupt <code>best</code>.</li>
+  <li><strong>Monotonicity check before you commit.</strong> "Shortest subarray with sum ≥ k" works with this template only when all numbers are positive; with negatives, growing a window can shrink its sum and the greedy shrink is unsound (LC 862 needs a deque instead). Say this out loud in interviews — it's a strong signal.</li>
+  <li><strong>charAt in hot loops:</strong> fine on LeetCode, but <code>s.toCharArray()</code> once up front is a cheap constant-factor win and avoids repeated bounds checks.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">The variable-window loop has a for over r containing a while over l. Why is the total running time O(n) and not O(n²)?</div>
+  <button class="opt">The while loop runs at most a constant number of times per iteration of the for loop</button>
+  <button class="opt">l only moves forward and can advance at most n times across the entire run, so all while iterations together cost O(n)</button>
+  <button class="opt">The while condition is evaluated lazily, so most iterations skip it entirely</button>
+  <div class="fb" data-correct="Amortized analysis: each of the n elements is added by r once and removed by l at most once. The inner while may run many times in one outer step, but its lifetime total is bounded by n." data-wrong="In a single outer iteration the while can run many times — the bound is global, not per-iteration: l is monotone and travels at most n steps total, so the summed inner work is O(n)."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 424, <code>maxFreq</code> is never decreased even when the true max frequency in the window drops. Why is the final answer still correct?</div>
+  <button class="opt">The true max frequency of a window can never actually decrease as the window slides</button>
+  <button class="opt">A stale maxFreq makes the validity check stricter, so the window only ever gets smaller than necessary</button>
+  <button class="opt">A stale maxFreq only lets the window stay at a width some earlier valid window already achieved, so the recorded best is never inflated past a real answer</button>
+  <div class="fb" data-correct="Right — the window's width never exceeds (historical maxFreq + k), and that width was genuinely achieved by a valid window when that maxFreq was fresh. The window can be 'invalid' for its current contents, but its size never beats a real answer." data-wrong="The true max frequency can drop when the majority letter leaves, and a stale (too-large) maxFreq makes the check LOOSER, not stricter. The saving grace: the width it permits was already achieved by some genuinely valid earlier window."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Minimum Window Substring, when should you update the best answer?</div>
+  <button class="opt">Inside the shrink-while, each time the window is still valid before evicting from the left</button>
+  <button class="opt">Right after the expand step, once the new character has been added on the right</button>
+  <button class="opt">After the shrink-while finishes, when the window has just been made as small as possible</button>
+  <div class="fb" data-correct="Yes — for shortest-valid problems the while runs WHILE the window is valid, tightening it. Each pass through the body sees a valid window, so record there. When the while exits, validity is already broken." data-wrong="After expanding, the window may not cover t at all; and when the shrink-while exits, the window has just LOST coverage (that's why the loop stopped). The only moment it's both valid and tightest-so-far is inside the while, before each eviction."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/longest-substring-without-duplicates">NeetCode — Longest Substring Without Repeating Characters</a>, then <a href="https://neetcode.io/problems/minimum-window-with-characters">NeetCode — Minimum Window Substring</a> for the formed/required bookkeeping.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 3 (no repeats) → LC 209 (min-size subarray sum ≥ target — your first shrink-while-valid) → LC 904 (fruit baskets) → LC 340 (generalize to k) → LC 424 (historical maxFreq) → LC 76 (boss). Then test yourself: LC 1004 (max consecutive ones with k flips) is LC 424's invariant in disguise — solve it cold.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry run of LC 76's <code>formed</code> counter, still suspicious of the LC 424 stale-max argument, or
+  unsure when a condition is "monotone enough" for this template? Ask in the chat. When you can write
+  expand-then-shrink from memory in both the longest and shortest flavors, say <strong>"next"</strong> for
+  Lesson 3: counting windows with the atMost trick, and the monotonic deque.
+</div>
+
+<div class="nav">
+  <span><a href="0001-fixed-size-windows.html">← Fixed-Size Windows</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-counting-windows-and-deque.html">Counting Windows &amp; Deque →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 26 - Rate Limiting | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 26 of 66 · Token Bucket, Leaky Bucket, Sliding Window</div>
+  
+  <h1>Rate Limiting Algorithms &amp; Architecture</h1>
+  <p class="subtitle">Protecting your APIs from denial-of-service attacks, brute force abuse, and accidental traffic floods.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module F — Load Balancers &amp; Traffic Management</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>A <strong>Rate Limiter</strong> controls the rate of traffic sent by a client or user to your services (e.g., "Maximum 100 requests per minute per IP"). If the request rate exceeds the limit, the limiter rejects the excess requests with HTTP status <strong><code>429 Too Many Requests</code></strong> and a <code>Retry-After</code> header, ensuring system stability.</p>
+
+  <h2>2 · The 4 Great Rate Limiting Algorithms</h2>
+
+  <h3>1. Token Bucket (Most Popular — Used by AWS &amp; Stripe)</h3>
+  <ul>
+    <li>A bucket has a fixed capacity (e.g., 10 tokens) and refills with new tokens at a steady rate (e.g., 2 tokens per second).</li>
+    <li>Every incoming request consumes 1 token.</li>
+    <li>If the bucket has enough tokens, the request is allowed. If empty, the request is dropped (HTTP 429).</li>
+    <li><strong>Strength:</strong> Allows short bursts of traffic (up to bucket capacity) while maintaining a strict long-term average rate.</li>
+  </ul>
+
+  <h3>2. Leaky Bucket</h3>
+  <ul>
+    <li>Requests enter a FIFO queue (bucket) of fixed size.</li>
+    <li>The bucket leaks (processes requests) at a strictly constant, smoothed rate regardless of incoming bursts.</li>
+    <li>If the queue overflows, incoming requests are dropped.</li>
+    <li><strong>Strength:</strong> Eliminates bursts completely, ensuring a perfectly smooth flow of traffic to fragile downstream services.</li>
+  </ul>
+
+  <h3>3. Fixed Window Counter</h3>
+  <ul>
+    <li>Divides time into fixed windows (e.g., 12:00:00 to 12:01:00) with a max counter (e.g., 100 requests).</li>
+    <li><strong>Major Flaw (Edge Burst):</strong> A user sends 100 requests at 12:00:59, and another 100 requests at 12:01:01. In a span of 2 seconds, 200 requests pass through, doubling the intended limit!</li>
+  </ul>
+
+  <h3>4. Sliding Window Counter</h3>
+  <ul>
+    <li>Blends the current window count with the previous window count weighted by elapsed time.</li>
+    <li><code>Requests = (Current Window Count) + (Previous Window Count * (1 - Percentage of Current Window Elapsed))</code>.</li>
+    <li><strong>Strength:</strong> Prevents edge boundary bursts with minimal memory footprint (only stores 2 integers per user).</li>
+  </ul>
+
+  <h2>3 · Distributed Rate Limiting with Redis &amp; Lua Scripts</h2>
+  <p>In a cluster with 50 API servers, local in-memory counters won't work because requests from the same user hit different servers. You store counters in a central in-memory store like <strong>Redis</strong>.</p>
+  <p><strong>The Race Condition Trap:</strong> Reading a counter from Redis, incrementing it in backend memory, and writing it back causes race conditions under high concurrency.</p>
+  <div class="callout tip">
+    <span class="label">Production Solution</span>
+    Execute the rate limiting logic inside a <strong>Redis Lua Script</strong>. Redis executes Lua scripts atomically in a single thread, guaranteeing zero race conditions and sub-millisecond execution!
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We now enter Module G: Message Queues &amp; Asynchronous Processing. Learn how Kafka and RabbitMQ decouple systems.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0025-proxy-reverse-proxy.html">← Previous: Proxy &amp; Reverse Proxy</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0027-async-processing.html">Next: Asynchronous Processing →</a>
+  </div>
+</body>
+</html>

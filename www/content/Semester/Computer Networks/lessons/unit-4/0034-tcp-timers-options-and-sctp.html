@@ -1,0 +1,294 @@
+<title>TCP Timers, Options and SCTP</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit IV &middot; Lesson 34 of 42</p>
+<h1>TCP Timers, Options and SCTP</h1>
+<p class="deck">The four timers with the RTO calculation worked out, the seven TCP options, and SCTP &mdash; its two headline features, its cookie handshake, and the three-way comparison that closes Unit&nbsp;IV.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three short questions rather than one long one. <strong>"Explain TCP timers"</strong> &mdash; name all four with one line each, 4 marks. <strong>"What is Karn's algorithm?"</strong> &mdash; 3 marks, and it needs the <em>problem</em> stated before the fix. <strong>"Explain SCTP / compare TCP, UDP and SCTP"</strong> &mdash; 5 marks, and <strong>multi-homing and multi-streaming</strong> are the two words that must appear.</p>
+</div>
+
+<h2>The four TCP timers</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Timer</th><th>Purpose</th><th>What happens on expiry</th></tr></thead>
+<tbody>
+<tr><td><strong>Retransmission (RTO)</strong></td><td>Waits for an acknowledgement of a sent segment</td><td>The segment is <strong>retransmitted</strong>, and congestion control treats it as severe congestion &mdash; cwnd drops to 1 MSS.</td></tr>
+<tr><td><strong>Persistence</strong></td><td>Handles the <strong>zero-window deadlock</strong> &mdash; a lost window update would otherwise leave both sides waiting forever</td><td>A <strong>one-byte probe segment</strong> is sent, forcing the receiver to report its current window size.</td></tr>
+<tr><td><strong>Keepalive</strong></td><td>Detects a connection whose other end has <strong>crashed or gone away</strong>, so idle connections do not persist for ever</td><td>Typically after <strong>2 hours</strong> of idleness, probes are sent. After ten unanswered probes, <strong>10 minutes apart</strong>, the connection is terminated.</td></tr>
+<tr><td><strong>TIME-WAIT (2MSL)</strong></td><td>Runs after the connection is closed by the <strong>active closer</strong></td><td>Waits <strong>2 &times; MSL</strong> so that a lost final ACK can be re-answered and all old segments die out, then releases the connection.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Calculating the retransmission timeout</h2>
+
+<p>The RTO cannot be a fixed constant. Too short and TCP retransmits segments that were merely slow; too long and it takes forever to notice a real loss. So <strong>TCP measures the round-trip time continuously and adapts</strong>.</p>
+
+<div class="formula">
+  <span class="name">The three quantities and the formula</span>
+  <strong>RTT<sub>M</sub></strong> &mdash; the <em>measured</em> round-trip time for one segment<br>
+  <strong>RTT<sub>S</sub></strong> &mdash; the <em>smoothed</em> round-trip time (a weighted running average)<br>
+  <strong>RTT<sub>D</sub></strong> &mdash; the <em>deviation</em><br><br>
+  After the first measurement: &nbsp; RTT<sub>S</sub> = RTT<sub>M</sub> &nbsp;&middot;&nbsp; RTT<sub>D</sub> = RTT<sub>M</sub> / 2<br>
+  After each later measurement:<br>
+  &nbsp;&nbsp;<strong>RTT<sub>S</sub> = (1 &minus; &alpha;) &times; previous RTT<sub>S</sub> + &alpha; &times; RTT<sub>M</sub></strong> &nbsp;&nbsp;(&alpha; = 1/8)<br>
+  &nbsp;&nbsp;<strong>RTT<sub>D</sub> = (1 &minus; &beta;) &times; previous RTT<sub>D</sub> + &beta; &times; | RTT<sub>S</sub> &minus; RTT<sub>M</sub> |</strong> &nbsp;&nbsp;(&beta; = 1/4)<br>
+  &nbsp;&nbsp;<strong>RTO = RTT<sub>S</sub> + 4 &times; RTT<sub>D</sub></strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; RTO calculation</span>
+  <p><strong>Q.</strong> The first measured round-trip time is 1.5 s. A second segment measures 2.5 s. Find RTT<sub>S</sub>, RTT<sub>D</sub> and RTO after each measurement, taking &alpha; = 1/8 and &beta; = 1/4.</p>
+
+  <p><strong>After the first measurement</strong> (RTT<sub>M</sub> = 1.5):</p>
+  <p>RTT<sub>S</sub> = <strong>1.5 s</strong> &nbsp;(the first measurement is taken as-is)<br>
+  RTT<sub>D</sub> = 1.5 / 2 = <strong>0.75 s</strong><br>
+  RTO = 1.5 + 4(0.75) = 1.5 + 3.0 = <strong>4.5 s</strong></p>
+
+  <p><strong>After the second measurement</strong> (RTT<sub>M</sub> = 2.5):</p>
+  <p>RTT<sub>S</sub> = (7/8)(1.5) + (1/8)(2.5) = 1.3125 + 0.3125 = <strong>1.625 s</strong></p>
+  <p>| RTT<sub>S</sub> &minus; RTT<sub>M</sub> | = | 1.625 &minus; 2.5 | = 0.875</p>
+  <p>RTT<sub>D</sub> = (3/4)(0.75) + (1/4)(0.875) = 0.5625 + 0.21875 = <strong>0.78125 s</strong></p>
+  <p>RTO = 1.625 + 4(0.78125) = 1.625 + 3.125 = <strong>4.75 s</strong></p>
+
+  <p><em>Two checks worth stating:</em></p>
+  <ul>
+    <li><strong>Use the NEW RTT<sub>S</sub> when computing RTT<sub>D</sub></strong>, not the old one. Using the previous value is the standard error in this calculation.</li>
+    <li>The RTO rose from 4.5 s to 4.75 s because the second sample was slower and more variable. <strong>RTO should always be comfortably larger than RTT<sub>S</sub></strong> &mdash; the whole point of the 4 &times; RTT<sub>D</sub> term is to leave headroom for variation, so that normal jitter never triggers a retransmission.</li>
+  </ul>
+</div>
+
+<h3>Karn's algorithm</h3>
+
+<p><strong>The problem it solves must be stated first.</strong> Suppose a segment is sent, times out, and is retransmitted. An acknowledgement then arrives. <strong>Which transmission is it acknowledging?</strong> There is no way to tell &mdash; both carried the same sequence number. If we assume it answered the retransmission, we compute a round-trip time that is far too short; if the original, far too long. Either way the RTT estimate is corrupted.</p>
+
+<div class="formula">
+  <span class="name">Karn's algorithm</span>
+  <strong>Do not update the RTT estimate using any segment that was retransmitted.</strong><br>
+  Take RTT measurements only from segments acknowledged on their <em>first</em> transmission.
+</div>
+
+<p><strong>Karn's algorithm alone would leave a gap:</strong> if the RTO is too short and every segment gets retransmitted, no measurement is ever usable and the RTO never adapts. So Karn's algorithm is paired with <strong>exponential backoff</strong>: <strong>each time a segment is retransmitted, the RTO is doubled</strong>. Once a segment finally gets through on its first attempt, normal measurement resumes. Give both halves &mdash; the algorithm and the backoff &mdash; because the pairing is the point.</p>
+
+<h2>TCP options</h2>
+
+<p>Up to 40 bytes may follow the fixed 20-byte header. Seven options are defined:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Option</th><th>Size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>End of Option (EOP)</strong></td><td>1 byte</td><td>Marks the end of the options list; padding follows.</td></tr>
+<tr><td><strong>No Operation (NOP)</strong></td><td>1 byte</td><td>A filler used to <strong>align</strong> the next option on a 4-byte boundary.</td></tr>
+<tr><td><strong>Maximum Segment Size (MSS)</strong></td><td>4 bytes</td><td>Announces <strong>the largest segment this end is willing to receive</strong>. Exchanged only during connection establishment (in the SYN), and it is <strong>not negotiated</strong> &mdash; each side simply states its own limit. Default 536 bytes if absent.</td></tr>
+<tr><td><strong>Window Scale Factor</strong></td><td>3 bytes</td><td>The window field is only 16 bits, capping the window at 65,535 bytes &mdash; far too small for a fast, long link. This option supplies a <strong>left-shift count</strong>, multiplying the window by up to 2<sup>14</sup>. Set only in the SYN segment.</td></tr>
+<tr><td><strong>Timestamp</strong></td><td>10 bytes</td><td>Two uses: <strong>more accurate RTT measurement</strong>, and <strong>PAWS</strong> (Protection Against Wrapped Sequence numbers) on very fast links where the 32-bit sequence number could wrap during one connection.</td></tr>
+<tr><td><strong>SACK-Permitted</strong></td><td>2 bytes</td><td>Sent in the SYN to say this end supports selective acknowledgement.</td></tr>
+<tr><td><strong>SACK</strong></td><td>variable</td><td><strong>Selective Acknowledgement</strong> &mdash; reports blocks of data that arrived out of order, so the sender retransmits <em>only</em> what is genuinely missing rather than everything after the gap.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why the window scale option exists &mdash; a good 2-mark answer</span>
+  <p>The window field is 16 bits, so the maximum window is <strong>65,535 bytes</strong>. On a link with a large <strong>bandwidth-delay product</strong> &mdash; say 1 Gbps with a 100 ms round trip, which can hold about 12.5 MB in flight &mdash; a 64 KB window leaves the link almost entirely idle while the sender waits for acknowledgements. The scale factor lifts the ceiling to about 1 GB. This is the same bandwidth-delay-product idea from Lesson 1, applied at the transport layer.</p>
+</div>
+
+<h2>SCTP &mdash; Stream Control Transmission Protocol</h2>
+
+<p>The third transport protocol named in the syllabus. It was designed for <strong>telephony signalling over IP</strong>, and it combines the good properties of TCP and UDP while adding two features neither has.</p>
+
+<h3>The two headline features</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>What it means</th><th>Why it matters</th></tr></thead>
+<tbody>
+<tr><td><strong>Multi-homing</strong></td><td>Each endpoint may have <strong>several IP addresses</strong>, and the association uses one as primary with the others as backups.</td><td><strong>Fault tolerance.</strong> If the primary path fails, traffic moves to an alternative address <em>without dropping the connection</em>. A TCP connection is bound to one address pair and dies with it.</td></tr>
+<tr><td><strong>Multi-streaming</strong></td><td>One association carries <strong>several independent streams</strong> of messages, each with its own sequence numbering.</td><td>Eliminates <strong>head-of-line blocking</strong>: a lost message in stream 1 stalls only stream 1, while streams 2 and 3 keep delivering. In TCP, one lost segment blocks <em>everything</em> behind it.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Other SCTP properties worth naming</h3>
+
+<ul>
+<li><strong>Message-oriented</strong> &mdash; like UDP, it <strong>preserves message boundaries</strong>. TCP's byte stream does not.</li>
+<li><strong>Reliable and connection-oriented</strong> &mdash; like TCP: acknowledged, ordered within a stream, with flow and congestion control.</li>
+<li><strong>Association, not connection</strong> &mdash; SCTP's term, because it links <em>sets</em> of addresses rather than a single pair.</li>
+<li><strong>Packets made of chunks</strong> &mdash; a general header plus one or more chunks, which may be control chunks or data chunks; several can be bundled into one packet.</li>
+<li><strong>Three numbering levels:</strong> <strong>TSN</strong> (Transmission Sequence Number, per association, for reliability), <strong>SI</strong> (Stream Identifier), and <strong>SSN</strong> (Stream Sequence Number, for ordering within a stream).</li>
+<li><strong>No half-close</strong> &mdash; SCTP does not support it; shutdown closes both directions.</li>
+</ul>
+
+<h3>The four-way handshake with a cookie</h3>
+
+<p>SCTP establishes an association in <strong>four</strong> steps rather than three, and the reason is a security improvement worth stating:</p>
+
+<div class="formula">
+  <span class="name">SCTP association establishment</span>
+  1. Client &rarr; Server: <strong>INIT</strong><br>
+  2. Server &rarr; Client: <strong>INIT ACK</strong>, carrying a <strong>cookie</strong> &mdash; and the server allocates <strong>no resources yet</strong><br>
+  3. Client &rarr; Server: <strong>COOKIE ECHO</strong>, returning the cookie<br>
+  4. Server &rarr; Client: <strong>COOKIE ACK</strong> &mdash; only now does the server allocate resources
+</div>
+
+<p><strong>This makes SCTP immune to SYN flooding by design.</strong> Because the server commits nothing until the cookie comes back, an attacker sending thousands of INIT chunks from spoofed addresses consumes no server state at all. TCP had to retrofit the same idea as SYN cookies; SCTP built it in.</p>
+
+<h2>The three-protocol comparison</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>UDP</th><th>TCP</th><th>SCTP</th></tr></thead>
+<tbody>
+<tr><td><strong>Connection</strong></td><td>Connectionless</td><td>Connection-oriented</td><td>Connection-oriented (<strong>association</strong>)</td></tr>
+<tr><td><strong>Reliability</strong></td><td>Unreliable</td><td>Reliable</td><td>Reliable</td></tr>
+<tr><td><strong>Data boundaries</strong></td><td><strong>Message oriented</strong></td><td>Byte stream</td><td><strong>Message oriented</strong></td></tr>
+<tr><td><strong>Ordering</strong></td><td>None</td><td>Strict, across the whole connection</td><td>Ordered <strong>within each stream</strong>; unordered delivery also available</td></tr>
+<tr><td><strong>Multi-homing</strong></td><td>No</td><td><strong>No</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Multi-streaming</strong></td><td>No</td><td><strong>No</strong> &mdash; suffers head-of-line blocking</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Handshake</strong></td><td>None</td><td>Three-way</td><td><strong>Four-way with cookie</strong></td></tr>
+<tr><td><strong>SYN flood resistance</strong></td><td>N/A</td><td>Vulnerable (SYN cookies retrofit it)</td><td><strong>Immune by design</strong></td></tr>
+<tr><td><strong>Half-close</strong></td><td>N/A</td><td><strong>Supported</strong></td><td>Not supported</td></tr>
+<tr><td><strong>Header</strong></td><td>8 bytes</td><td>20&ndash;60 bytes</td><td>12-byte general header + chunks</td></tr>
+<tr><td><strong>Flow / congestion control</strong></td><td>Neither</td><td>Both</td><td>Both</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">The Four Essential TCP Timers & SCTP Multi-Homing</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>1. Retransmission Timer (RTO)</strong><span class="sub">Dynamic RTO based on measured Round Trip Time (Jacobson's algorithm) & Karn's rule</span></div>
+    <div class="flow-box warn"><strong>2. Persistence Timer</strong><span class="sub">Prevents zero-window deadlock by sending periodic 1-byte probe segments</span></div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>3. Keepalive Timer (2 Hours)</strong><span class="sub">Detects dead or crashed client connections</span></div>
+    <div class="flow-box ok"><strong>4. TIME-WAIT Timer (2MSL)</strong><span class="sub">Ensures final ACK reaches peer and prevents old duplicate segments from clashing</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">TCP Timers & Options</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">TCP Timers & Retransmission Time Out (RTO) Calculation</div>
+    <div class="v-desc">Concise breakdown of RTO dynamic formula, Karn's rule for retransmitted segments, persistence timer probing, and SCTP multi-streaming.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=ynFSszLvAas" target="_blank" rel="noopener">Watch on YouTube &rarr; (5 Minutes Engineering)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Which timer resolves the zero-window deadlock?</p>
+  <div class="opts">
+    <button class="opt">The retransmission timer, which resends the segment</button>
+    <button class="opt" data-ok="1">The persistence timer, which sends a one-byte probe</button>
+    <button class="opt">The keepalive timer, which detects a crashed peer</button>
+    <button class="opt">The TIME-WAIT timer, which waits for 2 × MSL</button>
+  </div>
+  <p class="why">A lost window update would leave both sides waiting forever, because pure acknowledgements are not themselves acknowledged. The persistence timer's one-byte probe forces the receiver to report its current window.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. RTT<sub>S</sub> = 2.0 s and RTT<sub>D</sub> = 0.5 s. The RTO is:</p>
+  <div class="opts">
+    <button class="opt">2.0 s</button>
+    <button class="opt">8.0 s</button>
+    <button class="opt">2.5 s</button>
+    <button class="opt" data-ok="1">4.0 s</button>
+  </div>
+  <p class="why">RTO = RTT<sub>S</sub> + 4 × RTT<sub>D</sub> = 2.0 + 2.0 = 4.0 s. The 4 × deviation term leaves headroom so that ordinary jitter never triggers a needless retransmission.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Karn's algorithm says that TCP should:</p>
+  <div class="opts">
+    <button class="opt">Delay each acknowledgement by at most 500 milliseconds</button>
+    <button class="opt" data-ok="1">Not update its RTT estimate from any retransmitted segment</button>
+    <button class="opt">Double the congestion window on every acknowledgement</button>
+    <button class="opt">Retransmit immediately after three duplicate acknowledgements</button>
+  </div>
+  <p class="why">After a retransmission there is no way to tell which transmission an arriving ACK refers to, so the measurement would be meaningless. Karn's fix is paired with exponential backoff — doubling the RTO on each retransmission — so the timer still adapts when nothing gets through first time.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The window scale option exists because:</p>
+  <div class="opts">
+    <button class="opt">Sequence numbers wrap around on very fast connections</button>
+    <button class="opt" data-ok="1">A 16-bit window field caps the window at 65,535 bytes, too small for fast long links</button>
+    <button class="opt">Congestion control needs a separate field from flow control</button>
+    <button class="opt">The receiver needs to shrink its window below one segment</button>
+  </div>
+  <p class="why">On a 1 Gbps link with a 100 ms round trip, about 12.5 MB can be in flight — a 64 KB window would leave it nearly idle. Sequence-number wrapping is a real problem too, but it is solved by the timestamp option's PAWS mechanism, not by window scaling.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. SCTP's multi-streaming eliminates:</p>
+  <div class="opts">
+    <button class="opt">The requirement to establish an association first</button>
+    <button class="opt">The need for any acknowledgement of received data</button>
+    <button class="opt" data-ok="1">Head-of-line blocking &mdash; a loss in one stream does not stall the others</button>
+    <button class="opt">The possibility of a path failure breaking the connection</button>
+  </div>
+  <p class="why">Independent streams with their own sequence numbering mean a lost message stalls only its own stream. Surviving a path failure is the other feature — multi-homing — and the two are frequently swapped in answers.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. SCTP is immune to SYN flooding because:</p>
+  <div class="opts">
+    <button class="opt">It refuses associations from any spoofed source address</button>
+    <button class="opt">It uses a three-way handshake identical to TCP's</button>
+    <button class="opt">It requires authentication before the association opens</button>
+    <button class="opt" data-ok="1">The server allocates no resources until the cookie is returned in step 3</button>
+  </div>
+  <p class="why">The four-way handshake — INIT, INIT ACK with cookie, COOKIE ECHO, COOKIE ACK — means thousands of forged INITs cost the server no state at all. TCP retrofitted the same idea as SYN cookies; SCTP had it by design.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the four TCP timers and what each does.</summary>
+    <p class="ans">Retransmission (RTO) — waits for an acknowledgement; on expiry the segment is resent and cwnd drops to 1. Persistence — resolves the zero-window deadlock by sending a one-byte probe. Keepalive — detects a crashed peer, typically after 2 hours idle, then ten probes 10 minutes apart. TIME-WAIT — the active closer waits 2 × MSL before releasing the connection.</p></details>
+  <details class="card"><summary>Write the RTO formulas.</summary>
+    <p class="ans">First measurement: RTT<sub>S</sub> = RTT<sub>M</sub>, RTT<sub>D</sub> = RTT<sub>M</sub>/2. Afterwards: RTT<sub>S</sub> = (1−α)·previous RTT<sub>S</sub> + α·RTT<sub>M</sub> with α = 1/8; RTT<sub>D</sub> = (1−β)·previous RTT<sub>D</sub> + β·|RTT<sub>S</sub> − RTT<sub>M</sub>| with β = 1/4; RTO = RTT<sub>S</sub> + 4·RTT<sub>D</sub>. Use the new RTT<sub>S</sub> when computing RTT<sub>D</sub>.</p></details>
+  <details class="card"><summary>State the problem Karn's algorithm solves, and the fix.</summary>
+    <p class="ans">After a retransmission, an arriving acknowledgement could refer to either transmission, so the measured RTT is meaningless. Karn's algorithm excludes retransmitted segments from RTT measurement, and is paired with exponential backoff — doubling the RTO on each retransmission — so the timer still adapts when no segment gets through first time.</p></details>
+  <details class="card"><summary>Name the seven TCP options.</summary>
+    <p class="ans">End of Option, No Operation, Maximum Segment Size, Window Scale Factor, Timestamp, SACK-Permitted, SACK.</p></details>
+  <details class="card"><summary>What is MSS, and is it negotiated?</summary>
+    <p class="ans">The largest segment an endpoint is willing to receive, announced in the SYN during connection establishment. It is <em>not</em> negotiated — each side simply states its own limit. The default is 536 bytes if the option is absent.</p></details>
+  <details class="card"><summary>Explain SCTP's two headline features.</summary>
+    <p class="ans">Multi-homing — each endpoint may have several IP addresses, so if the primary path fails traffic moves to a backup without dropping the association, giving fault tolerance TCP cannot. Multi-streaming — one association carries several independent streams, each separately numbered, so a loss in one stream does not stall the others; this eliminates head-of-line blocking.</p></details>
+  <details class="card"><summary>Describe SCTP's four-way handshake and its security benefit.</summary>
+    <p class="ans">INIT, then INIT ACK carrying a cookie with no resources allocated, then COOKIE ECHO returning it, then COOKIE ACK when the server finally allocates. Because nothing is committed until the cookie returns, forged INITs from spoofed addresses cost no server state — SCTP is immune to SYN flooding by design.</p></details>
+  <details class="card"><summary>Give six differences between TCP and SCTP.</summary>
+    <p class="ans">Byte stream vs message oriented; no multi-homing vs multi-homing; no multi-streaming (head-of-line blocking) vs multi-streaming; three-way vs four-way cookie handshake; vulnerable to SYN flooding vs immune; half-close supported vs not supported. SCTP also numbers at three levels — TSN, SI and SSN — and builds packets from chunks.</p></details>
+</div>
+
+<p class="ask">That completes Unit IV. Unit V is the application layer and the security half &mdash; largely descriptive, but with an RSA numerical worth having ready.</p>
+
+<div class="nav">
+  <a href="0033-tcp-congestion-control.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-5/0035-application-layer-and-client-server.html">Next: Unit V &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 47 - Distributed Systems Fundamentals | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 47 of 66 · Raft, Paxos, Leader Election, Split-Brain</div>
+  
+  <h1>Distributed Systems Fundamentals: Consensus &amp; Raft</h1>
+  <p class="subtitle">How computers agree on reality across unreliable networks.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Bonus HLD Fundamentals</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In a single machine, there is one CPU and one memory bus — truth is absolute. In a distributed cluster of 5 servers, network cables can disconnect, machines can experience garbage collection pauses for 10 seconds, and messages can arrive out of order. If Server 1 thinks it is the leader, but Server 2 also thinks it is the leader, both will accept conflicting writes, causing fatal data corruption (<strong>Split-Brain</strong>). <strong>Distributed Consensus</strong> algorithms (like <strong>Raft</strong> and <strong>Paxos</strong>) mathematically guarantee that a cluster of machines agree on a sequence of decisions even when some nodes fail.</p>
+
+  <h2>2 · How the Raft Consensus Algorithm Works (Zero-Level)</h2>
+  <p>Raft breaks consensus into three simple, understandable subproblems:</p>
+
+  <h3>1. Leader Election</h3>
+  <ul>
+    <li>Nodes start in <strong>Follower</strong> state. Each follower has a randomized election countdown timer (e.g. 150ms to 300ms).</li>
+    <li>If a follower doesn't hear a heartbeat from the leader before its timer expires, it promotes itself to <strong>Candidate</strong> and votes for itself.</li>
+    <li>It sends <code>RequestVote</code> messages to all peers.</li>
+    <li>If it receives votes from a <strong>Strict Majority (Quorum: $\lfloor N/2 floor + 1$)</strong> of nodes, it becomes the new official <strong>Leader</strong>!</li>
+  </ul>
+
+  <h3>2. Log Replication</h3>
+  <ul>
+    <li>All client writes must go directly to the Leader.</li>
+    <li>The leader writes the command to its local log and sends <code>AppendEntries</code> RPCs to all followers.</li>
+    <li>Once a majority of followers acknowledge writing the log entry to their disks, the leader <strong>commits</strong> the entry and returns success to the client.</li>
+  </ul>
+
+  <h3>3. Safety (Preventing Split-Brain)</h3>
+  <div class="callout tip">
+    <span class="label">Quorum Math Prevents Split-Brain</span>
+    In a 5-node cluster, a majority is 3. If a network partition splits the cluster into 2 nodes on the East Coast and 3 nodes on the West Coast:
+    The East Coast group (2 nodes) cannot form a majority (2 &lt; 3) and refuses to elect a leader or accept writes. Only the West Coast group (3 nodes) has a quorum and remains active. <strong>There can never be two simultaneous majorities!</strong>
+  </div>
+
+  <h2>3 · Real-World Consensus Engines</h2>
+  <ul>
+    <li><strong>etcd:</strong> Powers the brain of every Kubernetes cluster using Raft.</li>
+    <li><strong>ZooKeeper:</strong> Historically powered Kafka and Hadoop coordination (Zab protocol).</li>
+    <li><strong>CockroachDB &amp; TiDB:</strong> Uses Raft per range partition for distributed SQL consistency.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Before we begin Low-Level Design (LLD), how do you calculate servers, storage, and QPS in real interviews? Lesson 48: Back-of-the-Envelope Estimation.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0046-api-gateway-service-discovery.html">← Previous: API Gateway</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0048-estimation.html">Next: Back-of-the-Envelope Estimation →</a>
+  </div>
+</body>
+</html>

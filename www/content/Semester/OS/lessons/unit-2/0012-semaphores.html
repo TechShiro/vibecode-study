@@ -1,0 +1,389 @@
+<title>Semaphores</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit II &middot; Lesson 12 of 14</p>
+<h1>Semaphores</h1>
+<p class="deck">The wait and signal operations, binary and counting semaphores, the block&ndash;wakeup implementation that removes busy waiting, enforcing execution order, and the three things that still go wrong &mdash; deadlock, starvation and priority inversion.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three certainties. <strong>&ldquo;What is a semaphore? Explain wait and signal&rdquo;</strong> &mdash; write both operations as code, and stress that they are <strong>atomic</strong>. <strong>&ldquo;Differentiate binary and counting semaphore&rdquo;</strong> &mdash; a table. <strong>Semaphore value numericals</strong> &mdash; count the P's and V's, and know that a <strong>negative value is the number of blocked processes</strong>; that single fact answers most objective questions on this topic. Priority inversion, with the Mars Pathfinder story, is a reliable short note.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Semaphore Atomic Operations: Wait (P) and Signal (V)</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>wait(S) / P(S) &bull; Decrement</strong><span class="sub">Acquires Resource</span></div>
+      <div class="flow-box"><code>S.value--;<br>if (S.value &lt; 0) {<br>&nbsp;&nbsp;add process to S.queue;<br>&nbsp;&nbsp;block();<br>}</code></div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>signal(S) / V(S) &bull; Increment</strong><span class="sub">Releases Resource</span></div>
+      <div class="flow-box"><code>S.value++;<br>if (S.value &le; 0) {<br>&nbsp;&nbsp;remove process P from S.queue;<br>&nbsp;&nbsp;wakeup(P);<br>}</code></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Semaphores</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-3.8: Semaphores | Wait, Signal Operation | Counting Semaphore</div>
+    <div class="v-desc">Crystal clear explanation of negative semaphore magnitude representing queue length, avoiding busy-waiting with sleep/wakeup, and binary mutexes.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=eoGkJWgxurQ" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>What a semaphore is</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>semaphore S</strong> is an <strong>integer variable</strong> that, apart from initialisation, is accessed only through two <strong>standard atomic operations</strong>: <strong><code>wait()</code></strong> and <strong><code>signal()</code></strong>.<br><br>
+  Dijkstra's original names, still used in exam papers, are <strong>P</strong> (from the Dutch <em>proberen</em>, to test) for wait, and <strong>V</strong> (<em>verhogen</em>, to increment) for signal.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th><code>wait(S)</code> &mdash; also P(S), or down</th><th><code>signal(S)</code> &mdash; also V(S), or up</th></tr></thead>
+<tbody>
+<tr>
+<td style="font-family:ui-monospace,monospace; font-size:.82rem; vertical-align:top">
+wait(S) {<br>
+&nbsp;&nbsp;while (S &lt;= 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;;&nbsp;&nbsp;/* busy wait */<br>
+&nbsp;&nbsp;<strong>S--;</strong><br>
+}
+</td>
+<td style="font-family:ui-monospace,monospace; font-size:.82rem; vertical-align:top">
+signal(S) {<br>
+&nbsp;&nbsp;<strong>S++;</strong><br>
+}
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The word that carries the marks</span>
+  <p><strong>Atomically.</strong> All modifications to the integer value of the semaphore in <code>wait()</code> and <code>signal()</code> <strong>must be executed indivisibly</strong> &mdash; when one process modifies the semaphore value, no other process may simultaneously modify it. In <code>wait()</code>, the <em>testing</em> of S and its <em>decrement</em> must together be uninterruptible. Without atomicity, the semaphore is itself a shared variable with a race condition, and solves nothing.</p>
+</div>
+
+<h2>Binary and counting semaphores</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Binary semaphore</strong></th><th><strong>Counting semaphore</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Range of values</strong></td><td><strong>0 or 1 only</strong></td><td>Any <strong>unrestricted integer</strong> domain</td></tr>
+<tr><td><strong>Also called</strong></td><td><strong>Mutex lock</strong></td><td>General semaphore</td></tr>
+<tr><td><strong>Initialised to</strong></td><td>1, for mutual exclusion</td><td>The <strong>number of available instances</strong> of the resource</td></tr>
+<tr><td><strong>Used for</strong></td><td><strong>Mutual exclusion</strong> &mdash; protecting one critical section</td><td><strong>Resource counting</strong> &mdash; controlling access to a resource with several identical instances</td></tr>
+<tr><td><strong>Processes admitted</strong></td><td>Exactly one at a time</td><td>Up to N at a time</td></tr>
+<tr><td><strong>Example</strong></td><td>Guarding a shared variable</td><td>5 printers; the semaphore starts at 5</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The two standard uses</span>
+  <strong>1. Mutual exclusion</strong> &mdash; binary semaphore <code>mutex</code>, initialised to 1:<br>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; margin:.3rem 0 .6rem">
+  do {<br>
+  &nbsp;&nbsp;wait(mutex);<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;critical section<br>
+  &nbsp;&nbsp;signal(mutex);<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;remainder section<br>
+  } while (true);
+  </div>
+  <strong>2. Resource counting</strong> &mdash; counting semaphore initialised to the number of instances. Each process calls <code>wait()</code> to claim one and <code>signal()</code> to release it. <strong>When the count reaches 0, all resources are in use and further callers block.</strong>
+</div>
+
+<h2>Enforcing execution order &mdash; the second use of semaphores</h2>
+
+<p>Semaphores also solve <strong>ordering</strong> problems, not just mutual exclusion. Suppose statement S<sub>2</sub> in process P<sub>2</sub> must execute only after statement S<sub>1</sub> in process P<sub>1</sub>.</p>
+
+<div class="formula">
+  <span class="name">Ordering with a semaphore initialised to 0</span>
+  Shared: <code>semaphore synch = 0;</code><br><br>
+  <strong>P<sub>1</sub>:</strong> &nbsp; S<sub>1</sub>; &nbsp; <strong>signal(synch);</strong><br>
+  <strong>P<sub>2</sub>:</strong> &nbsp; <strong>wait(synch);</strong> &nbsp; S<sub>2</sub>;<br><br>
+  Because <code>synch</code> starts at <strong>0</strong>, P<sub>2</sub> cannot pass the <code>wait</code> until P<sub>1</sub> has executed the <code>signal</code>. <strong>Initialising to 0 is the whole trick</strong> &mdash; initialising to 1 would give mutual exclusion instead.
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; enforce a precedence graph with semaphores.</span>
+  <p><strong>Q. Four statements must execute in this order: S1 first; then S2 and S3 in parallel; then S4 only after both S2 and S3 have finished. Write the semaphore solution.</strong></p>
+  <p><strong>Semaphores needed:</strong> one per dependency edge, all initialised to 0. The edges are S1&rarr;S2, S1&rarr;S3, S2&rarr;S4, S3&rarr;S4, so we need <code>a, b, c, d</code>, all 0.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P1</th><th>P2</th><th>P3</th><th>P4</th></tr></thead>
+  <tbody>
+  <tr style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+  <td>S1;<br>signal(a);<br>signal(b);</td>
+  <td>wait(a);<br>S2;<br>signal(c);</td>
+  <td>wait(b);<br>S3;<br>signal(d);</td>
+  <td>wait(c);<br>wait(d);<br>S4;</td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Why it works:</strong> P2 and P3 both block at 0 until P1 signals both, so they start together. P4 blocks on <code>c</code> until S2 finishes and then on <code>d</code> until S3 finishes, so it starts only after both. <strong>The rule for any such question: one semaphore per arrow in the graph, all initialised to 0; <code>signal</code> at the tail of the arrow, <code>wait</code> at the head.</strong></p>
+</div>
+
+<h2>The implementation &mdash; removing busy waiting</h2>
+
+<p>The definition above still busy-waits, which wastes CPU cycles. The real implementation replaces the spin with <strong>blocking</strong>.</p>
+
+<div class="formula">
+  <span class="name">Semaphore with a waiting queue</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left">
+  typedef struct {<br>
+  &nbsp;&nbsp;<strong>int value;</strong><br>
+  &nbsp;&nbsp;<strong>struct process *list;</strong>&nbsp;&nbsp;/* the waiting queue */<br>
+  } semaphore;<br><br>
+  wait(semaphore *S) {<br>
+  &nbsp;&nbsp;<strong>S-&gt;value--;</strong><br>
+  &nbsp;&nbsp;if (S-&gt;value &lt; 0) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;add this process to S-&gt;list;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>block();</strong><br>
+  &nbsp;&nbsp;}<br>
+  }<br><br>
+  signal(semaphore *S) {<br>
+  &nbsp;&nbsp;<strong>S-&gt;value++;</strong><br>
+  &nbsp;&nbsp;if (S-&gt;value &lt;= 0) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;remove a process P from S-&gt;list;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>wakeup(P);</strong>&nbsp;&nbsp;/* move P to the ready queue */<br>
+  &nbsp;&nbsp;}<br>
+  }
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The single most useful fact in this lesson</span>
+  <p>In this implementation the semaphore value <strong>can go negative</strong>, and <strong>the magnitude of a negative value is exactly the number of processes blocked on that semaphore.</strong></p>
+  <p>So if S = &minus;4, then <strong>four processes are waiting</strong>. If S = 3, then three more processes may enter without blocking. Note that <code>block()</code> suspends the calling process and <code>wakeup(P)</code> moves a blocked process to the ready queue &mdash; both are ordinary OS system calls.</p>
+</div>
+
+<h2>Semaphore value numericals</h2>
+
+<div class="solve">
+  <span class="lbl">Numerical 1 &mdash; the basic count.</span>
+  <p><strong>Q. A counting semaphore is initialised to 10. Then 6 <code>wait</code> (P) and 4 <code>signal</code> (V) operations are completed. What is the final value?</strong></p>
+  <p>Each <code>wait</code> decrements by 1; each <code>signal</code> increments by 1.</p>
+  <p style="text-align:center"><strong>Final = 10 &minus; 6 + 4 = 8</strong></p>
+  <p><em>Interpretation:</em> 8 instances of the resource remain free, so 8 more processes could enter without blocking.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2 &mdash; when the value goes negative.</span>
+  <p><strong>Q. A counting semaphore S is initialised to 5. Twelve P operations and three V operations are then performed. What is the value of S, and how many processes are blocked?</strong></p>
+  <p style="text-align:center"><strong>S = 5 &minus; 12 + 3 = &minus;4</strong></p>
+  <p><strong>Four processes are blocked on S</strong> &mdash; the magnitude of the negative value is the queue length.</p>
+  <p><em>Sanity check:</em> 5 initial permits plus 3 released = 8 permits ever available, against 12 requests. 12 &minus; 8 = 4 requests unmet. The two routes agree.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 3 &mdash; how many processes are inside.</span>
+  <p><strong>Q. Twenty processes share a resource guarded by a counting semaphore initialised to 3. If all twenty execute <code>wait(S)</code>, what is the value of S, how many are in the critical section, and how many are blocked?</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Quantity</th><th class="num">Value</th><th>Working</th></tr></thead>
+  <tbody>
+  <tr><td>Final value of S</td><td class="num"><strong>&minus;17</strong></td><td>3 &minus; 20</td></tr>
+  <tr><td>Processes in the critical section</td><td class="num"><strong>3</strong></td><td>The initial value &mdash; the number of permits</td></tr>
+  <tr><td>Processes blocked</td><td class="num"><strong>17</strong></td><td>|&minus;17|, and also 20 &minus; 3</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>Sanity check:</em> in the critical section plus blocked must equal the total: 3 + 17 = 20. &check;</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 4 &mdash; the reverse question.</span>
+  <p><strong>Q. A binary semaphore initialised to 1 currently has the value &minus;3. How many processes have executed <code>wait</code>, and what is the state of the system?</strong></p>
+  <p>Value = 1 &minus; (number of waits) + (number of signals). With no signals yet completed, 1 &minus; n = &minus;3 gives <strong>n = 4 processes have executed <code>wait</code></strong>.</p>
+  <p><strong>State: one process is inside the critical section, and three are blocked on the semaphore's queue.</strong></p>
+  <p><em>Sanity check:</em> a binary semaphore admits exactly one process, so of the four, 1 got in and 3 wait &mdash; and |&minus;3| = 3 matches. &check;</p>
+</div>
+
+<div class="box">
+  <span class="lbl">The trap in these questions</span>
+  <p>Some textbooks define <code>wait</code> so that the value <strong>never falls below 0</strong> &mdash; the busy-wait version at the top of this lesson. Under that definition, the answer to Numerical 2 is <strong>0, with 4 processes waiting</strong>, not &minus;4. <strong>Always state which definition you are using in the first line of the answer</strong>; examiners accept either, and the working is identical.</p>
+</div>
+
+<h2>What still goes wrong</h2>
+
+<h3>1. Deadlock</h3>
+
+<p>Two or more processes wait indefinitely for an event that can only be caused by one of the waiting processes.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>P<sub>0</sub></th><th>P<sub>1</sub></th></tr></thead>
+<tbody>
+<tr style="font-family:ui-monospace,monospace; font-size:.8rem; vertical-align:top">
+<td>wait(S);<br>wait(Q);<br>&nbsp;&nbsp;&hellip;<br>signal(S);<br>signal(Q);</td>
+<td>wait(Q);<br>wait(S);<br>&nbsp;&nbsp;&hellip;<br>signal(Q);<br>signal(S);</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<p>Both S and Q start at 1. If P<sub>0</sub> executes <code>wait(S)</code> and P<sub>1</sub> executes <code>wait(Q)</code>, then P<sub>0</sub> blocks on <code>wait(Q)</code> and P<sub>1</sub> blocks on <code>wait(S)</code>. <strong>Neither can proceed, and neither can release.</strong> The fix is to make every process acquire the semaphores in <strong>the same order</strong>.</p>
+
+<h3>2. Starvation &mdash; indefinite blocking</h3>
+
+<p>A process waits indefinitely on the semaphore queue. This happens if the queue is served in <strong>last-in first-out</strong> order: a process at the bottom may never be reached. The fix is a <strong>FIFO waiting queue</strong>.</p>
+
+<h3>3. Priority inversion &mdash; the short note that always appears</h3>
+
+<div class="formula">
+  <span class="name">Priority inversion</span>
+  A <strong>higher-priority process is kept waiting because a lower-priority process holds a lock it needs.</strong> The situation is made far worse when a <em>medium</em>-priority process preempts the low-priority lock holder &mdash; the high-priority process is then blocked indirectly by a process of lower priority than itself.
+</div>
+
+<p><strong>The concrete case:</strong> three processes L (low), M (medium) and H (high). L acquires a resource R. H then needs R and blocks. M, which needs nothing, preempts L. <strong>H now waits on M, which has lower priority than H</strong> &mdash; the priorities have inverted.</p>
+
+<p><strong>The solution: the priority-inheritance protocol.</strong> A process holding a resource needed by a higher-priority process <strong>temporarily inherits that higher priority</strong> until it releases the resource, at which point it reverts. In the example L inherits H's priority, so M cannot preempt it, L finishes quickly, releases R, and H proceeds.</p>
+
+<div class="box win">
+  <span class="lbl">The story worth telling in one line</span>
+  <p>The <strong>Mars Pathfinder rover, 1997</strong>, kept resetting itself on the Martian surface. The cause was priority inversion in its real-time kernel. The fix &mdash; enabling priority inheritance &mdash; was uploaded from Earth. One sentence of this in an answer is worth a mark, and makes the concept memorable.</p>
+</div>
+
+<h2>Advantages and disadvantages of semaphores</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+<tbody>
+<tr><td>Machine independent; implemented in the kernel's machine-independent code</td><td><strong>Programmer discipline is essential</strong> &mdash; a single misplaced call breaks everything</td></tr>
+<tr><td>Simple and flexible &mdash; handle both mutual exclusion and ordering</td><td>Swapping <code>wait(mutex)</code> and <code>signal(mutex)</code> &rarr; <strong>several processes in the critical section</strong></td></tr>
+<tr><td>Allow more than one process into the critical section when that is correct</td><td>Writing <code>wait(mutex)</code> instead of <code>signal(mutex)</code> at the exit &rarr; <strong>deadlock</strong></td></tr>
+<tr><td>No busy waiting, in the block&ndash;wakeup implementation</td><td><strong>Omitting</strong> either call &rarr; mutual exclusion violated, or deadlock</td></tr>
+<tr><td>&nbsp;</td><td>Difficult to prove correct; errors are timing-dependent and hard to reproduce</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>These usage errors are precisely the motivation for <strong>monitors</strong> &mdash; Lesson 14 &mdash; which make the compiler enforce what the programmer would otherwise have to remember.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. A counting semaphore initialised to 7 undergoes 20 P operations and 15 V operations. Its final value is:</p>
+  <div class="opts">
+    <button class="opt">12</button>
+    <button class="opt">−2</button>
+    <button class="opt" data-ok="1">2</button>
+    <button class="opt">0</button>
+  </div>
+  <p class="why">7 − 20 + 15 = 2. Positive, so no process is blocked and two more may enter freely.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. If a semaphore's value is −5 in the block–wakeup implementation, then:</p>
+  <div class="opts">
+    <button class="opt">Five processes are in the critical section</button>
+    <button class="opt">Five signal operations are pending</button>
+    <button class="opt" data-ok="1">Five processes are blocked on its waiting queue</button>
+    <button class="opt">The semaphore has been corrupted</button>
+  </div>
+  <p class="why">The magnitude of a negative value is exactly the queue length. This one fact answers most objective questions on semaphores.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. To make S₂ in P₂ execute only after S₁ in P₁, the shared semaphore must be initialised to:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">0</button>
+    <button class="opt">1</button>
+    <button class="opt">2</button>
+    <button class="opt">−1</button>
+  </div>
+  <p class="why">Starting at 0 means P₂'s wait cannot pass until P₁ has signalled. Initialising to 1 would give mutual exclusion instead of ordering.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Twenty processes call wait() on a semaphore initialised to 3. How many are in the critical section?</p>
+  <div class="opts">
+    <button class="opt">17</button>
+    <button class="opt">20</button>
+    <button class="opt" data-ok="1">3</button>
+    <button class="opt">1</button>
+  </div>
+  <p class="why">The initial value is the number of permits, so 3 get in and 17 block. The semaphore value becomes −17, and 3 + 17 = 20 checks out.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Priority inversion occurs when:</p>
+  <div class="opts">
+    <button class="opt">Two processes have equal priority</button>
+    <button class="opt" data-ok="1">A higher-priority process waits because a lower-priority process holds a lock it needs</button>
+    <button class="opt">A process's priority number is entered incorrectly</button>
+    <button class="opt">The scheduler runs the lowest-priority process first</button>
+  </div>
+  <p class="why">It becomes acute when a medium-priority process preempts the low-priority lock holder. The remedy is priority inheritance — the holder temporarily inherits the waiter's priority.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Swapping wait(mutex) and signal(mutex) around the critical section causes:</p>
+  <div class="opts">
+    <button class="opt">Deadlock</button>
+    <button class="opt">Priority inversion</button>
+    <button class="opt">Nothing — the order does not matter</button>
+    <button class="opt" data-ok="1">Several processes to be inside the critical section at once</button>
+  </div>
+  <p class="why">Signalling first raises the count instead of claiming it, so mutual exclusion is lost. Writing wait() at both ends instead causes deadlock. These usage errors are the reason monitors exist.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Starvation on a semaphore is avoided by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Serving the waiting queue in FIFO order</button>
+    <button class="opt">Serving the waiting queue in LIFO order</button>
+    <button class="opt">Using a binary rather than counting semaphore</button>
+    <button class="opt">Disabling interrupts during wait()</button>
+  </div>
+  <p class="why">LIFO ordering is exactly what causes it — a process at the bottom of the stack may never be reached.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a semaphore and write both operations.</summary>
+    <p class="ans">A semaphore is an integer variable accessed, apart from initialisation, only through two standard atomic operations: wait(S), which spins while S &le; 0 then decrements, and signal(S), which increments. Dijkstra's names are P and V. Atomicity is essential — in wait(), the test and the decrement must be indivisible.</p></details>
+  <details class="card"><summary>Compare binary and counting semaphores.</summary>
+    <p class="ans">A binary semaphore ranges over 0 and 1 only, is also called a mutex lock, is initialised to 1 and gives mutual exclusion for one process at a time. A counting semaphore ranges over any integers, is initialised to the number of available instances of a resource, and admits up to N processes.</p></details>
+  <details class="card"><summary>How do you enforce that S₂ runs only after S₁?</summary>
+    <p class="ans">Share a semaphore initialised to 0. P₁ executes S₁ then signal(synch); P₂ executes wait(synch) then S₂. For a precedence graph, use one semaphore per edge, all initialised to 0, with signal at the tail of each arrow and wait at the head.</p></details>
+  <details class="card"><summary>Give the block–wakeup implementation and the meaning of a negative value.</summary>
+    <p class="ans">The semaphore is a struct holding an integer value and a list of waiting processes. wait() decrements, and if the value goes below zero adds the process to the list and calls block(). signal() increments, and if the value is still &le; 0 removes a process from the list and calls wakeup(). The magnitude of a negative value is exactly the number of blocked processes.</p></details>
+  <details class="card"><summary>How do you find the number of processes inside and blocked?</summary>
+    <p class="ans">Final value = initial − (number of waits) + (number of signals). If the result is negative, its magnitude is the number blocked, and the number admitted is the initial value. If positive, nobody is blocked and that many more may enter. Check that admitted plus blocked equals the total.</p></details>
+  <details class="card"><summary>Show how two semaphores can deadlock, and give the fix.</summary>
+    <p class="ans">P₀ does wait(S) then wait(Q); P₁ does wait(Q) then wait(S), with both semaphores at 1. If each takes its first, each blocks on the other's and neither can release. The fix is to make every process acquire semaphores in the same global order.</p></details>
+  <details class="card"><summary>Define priority inversion and its solution.</summary>
+    <p class="ans">A high-priority process waits because a low-priority process holds a lock it needs, and the problem worsens when a medium-priority process preempts the holder. The priority-inheritance protocol has the holder temporarily inherit the waiter's priority until it releases the resource. Mars Pathfinder in 1997 kept resetting because of this, and was fixed by enabling priority inheritance.</p></details>
+  <details class="card"><summary>Name the four ways a programmer can misuse semaphores.</summary>
+    <p class="ans">Swapping wait and signal, which lets several processes into the critical section; writing wait instead of signal at the exit, which deadlocks; omitting either call, which loses mutual exclusion or deadlocks; and errors that are timing-dependent and so nearly impossible to reproduce. These motivate monitors.</p></details>
+</div>
+
+<p class="ask">Next: the three classic problems every synchronisation question is ultimately based on.</p>
+
+<div class="nav">
+  <a href="0011-critical-section-problem.html">&larr; Critical Section</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0013-classic-synchronization-problems.html">Next: Classic Problems &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

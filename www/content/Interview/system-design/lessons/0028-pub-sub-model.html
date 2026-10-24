@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 28 - Publisher-Subscriber Model | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 28 of 66 · Fan-out, Delivery Semantics, Idempotency</div>
+  
+  <h1>Publisher-Subscriber (Pub/Sub) Pattern</h1>
+  <p class="subtitle">Decoupling senders from receivers to enable flexible event-driven architectures.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module G — Message Queues &amp; Async</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In traditional point-to-point queues, each message is consumed by exactly <em>one</em> worker. In the <strong>Pub/Sub pattern</strong>, senders (Publishers) publish events to a named channel or <strong>Topic</strong> without knowing who (if anyone) is listening. Any number of interested services (Subscribers) subscribe to that topic and each receive an independent copy of the message (<strong>Fan-out</strong>).</p>
+
+  <h2>2 · Point-to-Point Queue vs Pub/Sub</h2>
+  <div class="arch-flow">
+    <div class="box">Publisher</div>
+    <div class="arrow-right"></div>
+    <div class="box queue">Topic: "UserRegistered"</div>
+    <div class="arrow-right"></div>
+    <div class="box">Welcome Email Service</div>
+    <div class="box">Marketing Promo Service</div>
+    <div class="box">Data Warehouse ETL</div>
+  </div>
+
+  <h2>3 · The 3 Message Delivery Semantics</h2>
+  <p>Distributed networks can crash, drop packets, or timeout. How does a message broker guarantee delivery?</p>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Semantic</th>
+        <th>Guarantee</th>
+        <th>Trade-off</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>At-Most-Once</strong></td>
+        <td>Message is delivered 0 or 1 time. Packets may be lost, but duplicates never happen.</td>
+        <td>Lowest latency; acceptable only for non-critical metrics (e.g. mouse hover tracking).</td>
+      </tr>
+      <tr>
+        <td><strong>At-Least-Once</strong></td>
+        <td>Message is guaranteed to be delivered, but network retries may cause <strong>duplicate messages</strong>.</td>
+        <td>The industry standard! Consumers MUST be engineered to be <strong>Idempotent</strong>.</td>
+      </tr>
+      <tr>
+        <td><strong>Exactly-Once</strong></td>
+        <td>Message is guaranteed to be processed exactly once, with zero loss and zero duplicates.</td>
+        <td>Heaviest overhead; requires distributed transaction logs, two-phase commit, or Kafka transactional APIs.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Idempotency: The Universal Antidote to Duplicates</h2>
+  <p>Because distributed systems almost always operate on <em>At-Least-Once</em> delivery, your consumer service will inevitably receive duplicate messages (e.g., network timeout during ACK). How do you prevent double-charging a credit card?</p>
+  <div class="callout tip">
+    <span class="label">The Idempotency Key Pattern</span>
+    <p>Every message includes a unique <code>idempotency_key</code> (UUID). Before processing, the consumer checks a database or Redis: <code>IF EXISTS(key) -> SKIP</code>. If not, it executes the operation and records the key inside the same database transaction. Any duplicate message is recognized and ignored safely!</p>
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We now enter Module H: Microservices Architecture. Why do engineering teams split monoliths? Next: Monolith vs Microservices.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0027-async-processing.html">← Previous: Async Processing</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0029-monolith-vs-microservices.html">Next: Monolith vs Microservices →</a>
+  </div>
+</body>
+</html>

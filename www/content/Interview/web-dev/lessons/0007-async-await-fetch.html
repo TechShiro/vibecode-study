@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 07 — async/await, fetch &amp; Friends</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 7 of 24 · async/await, fetch, timers, cancellation</div>
+<h1>async/await, fetch &amp; Friends</h1>
+<p class="subtitle">Promise chains taught you the machine — now learn the syntax that makes async code read like normal code, and use it to talk to real servers.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 7 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · async functions — promises in disguise</h2>
+<p>
+Mark a function <code>async</code> and two things become true. First: <strong>it always returns a
+promise</strong>, no matter what you write. Return a plain value? It arrives wrapped in a fulfilled
+promise. Throw? The returned promise rejects. There is no way for an async function to hand back a raw
+value — callers always get the "food token" from last lesson.
+</p>
+
+<pre><code>async function getAnswer() {
+  return 42;                       <span class="cmt">// looks like returning a number...</span>
+}
+const p = getAnswer();
+console.log(p);                    <span class="cmt">// Promise { 42 } — NOT 42</span>
+p.then(v =&gt; console.log(v));       <span class="cmt">// 42</span>
+
+async function boom() {
+  throw new Error("nope");         <span class="cmt">// throw → the promise REJECTS</span>
+}
+boom().catch(e =&gt; console.log(e.message));   <span class="cmt">// "nope"</span></code></pre>
+
+<p>Second: inside an <code>async</code> function you may use <code>await</code> — the whole point.</p>
+
+<h2>2 · What <code>await</code> actually does</h2>
+<p>
+<code>await somePromise</code> <strong>pauses the async function</strong> — not the thread, not the page,
+not other code — until the promise settles. If fulfilled, <code>await</code> evaluates to the value.
+If rejected, <code>await</code> <em>throws</em> the reason, right there at that line, like a normal
+Java exception.
+</p>
+
+<pre><code>async function main() {
+  console.log("before");
+  const user = await readUserP(7);   <span class="cmt">// function suspends HERE; thread moves on</span>
+  console.log("after:", user.name);  <span class="cmt">// resumes later, when the promise fulfills</span>
+}
+main();
+console.log("this prints BEFORE 'after' — main() paused, script continued");</code></pre>
+
+<p>
+Tie this back to Lesson 6: at each <code>await</code>, the function's remaining code is packaged up as a
+promise reaction — effectively a hidden <code>.then</code> — and the function returns control immediately.
+When the awaited promise settles, the continuation is queued on the <strong>microtask queue</strong> and
+the function resumes from where it stopped. <code>async/await</code> is <em>pure syntax sugar over promise
+chains</em>; the event-loop rules you drilled last lesson are unchanged.
+</p>
+
+<pre><code><span class="cmt">// Proof that await = microtask (classic interview drill)</span>
+async function f() {
+  console.log("1");
+  await null;                    <span class="cmt">// even awaiting a non-promise yields to microtasks</span>
+  console.log("3");              <span class="cmt">// resumes as a microtask</span>
+}
+f();
+console.log("2");
+<span class="cmt">// Output: 1, 2, 3 — everything after 'await' behaves like a .then callback</span></code></pre>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  <code>await</code> feels like Java's <code>future.get()</code> — but <code>get()</code> <em>blocks the
+  thread</em>. <code>await</code> suspends only the current function and frees the one JS thread to run
+  other work. The closest Java relative is virtual threads / Kotlin coroutines' <code>suspend</code>:
+  cheap suspension, no OS thread held hostage.
+</div>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "<code>await</code> unwraps a promise: it suspends the enclosing async function until the promise
+  settles, yielding the thread; on fulfillment it returns the value, on rejection it throws. The
+  continuation resumes via the microtask queue — it's syntactic sugar over <code>.then</code>."
+</div>
+
+<h2>3 · try/catch/finally with await</h2>
+<p>
+Because a rejected <code>await</code> <em>throws</em>, async error handling is just Java-style
+<code>try/catch</code> — this is the big readability win over <code>.catch()</code> chains:
+</p>
+
+<pre><code>async function loadProfile(id) {
+  try {
+    const user   = await readUserP(id);       <span class="cmt">// any of these rejecting</span>
+    const orders = await readOrdersP(user.id);<span class="cmt">// jumps straight to catch</span>
+    return { user, orders };
+  } catch (err) {                             <span class="cmt">// one catch for every step — like the</span>
+    console.error("profile failed:", err.message); <span class="cmt">// single .catch at chain end</span>
+    return null;                              <span class="cmt">// recover with a fallback value</span>
+  } finally {
+    hideSpinner();                            <span class="cmt">// runs on success AND failure</span>
+  }
+}</code></pre>
+
+<p>
+<strong>Where should you catch?</strong> Rule of thumb: catch at the level that can actually <em>do</em>
+something — show a message, retry, substitute a default. Low-level helpers should usually just
+<code>await</code> and let errors bubble up (rethrow behaviour is automatic), exactly like you don't wrap
+every Java method body in try/catch.
+</p>
+
+<div class="callout trap">
+  <span class="label">Gotcha — the forgotten await</span>
+  <code>try { readUserP(-1); } catch (e) { ... }</code> catches <strong>nothing</strong>. Without
+  <code>await</code>, the function returns a promise that rejects <em>later</em>, long after the try block
+  exited — you get an "Unhandled promise rejection" in the console instead. The same trap bites
+  <code>return</code> inside try: prefer <code>return await doWork()</code> inside a try block so the
+  rejection is caught <em>here</em>, not in your caller.
+</div>
+
+<h2>4 · Sequential vs parallel — the accidental-serial mistake</h2>
+<p>
+Each <code>await</code> is a full stop: nothing after it starts until it finishes. Perfect when step B
+needs step A's result. Wasteful when the steps are independent — and this is the most common real-world
+async performance bug:
+</p>
+
+<pre><code><span class="cmt">// ACCIDENTALLY SERIAL — ~600 ms total (300 + 300)</span>
+async function slow() {
+  const user  = await fetchUser(1);    <span class="cmt">// wait 300 ms...</span>
+  const posts = await fetchPosts(1);   <span class="cmt">// ...THEN wait another 300 ms</span>
+  return { user, posts };              <span class="cmt">// but posts never needed user!</span>
+}
+
+<span class="cmt">// PARALLEL — ~300 ms total: start both, then await both</span>
+async function fast() {
+  const userP  = fetchUser(1);         <span class="cmt">// fires the request, no await yet</span>
+  const postsP = fetchPosts(1);        <span class="cmt">// second request already in flight</span>
+  const [user, posts] = await Promise.all([userP, postsP]);
+  return { user, posts };
+}</code></pre>
+
+<p>
+The pattern: <strong>start every independent operation first (call the functions, collect promises), then
+await them together with <code>Promise.all</code></strong>. Use sequential awaits only when there is a
+real data dependency. Interviewers love asking you to spot and fix the serial version.
+</p>
+
+<table>
+  <thead><tr><th>Pattern</th><th>Code shape</th><th>Total time (two 300 ms calls)</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td>Sequential</td><td><code>await a(); await b();</code></td><td>~600 ms</td><td>b needs a's result</td></tr>
+    <tr><td>Parallel, all must succeed</td><td><code>await Promise.all([a(), b()])</code></td><td>~300 ms</td><td>independent, every result required</td></tr>
+    <tr><td>Parallel, tolerate failures</td><td><code>await Promise.allSettled([a(), b()])</code></td><td>~300 ms</td><td>independent, partial results OK</td></tr>
+  </tbody>
+</table>
+
+<h2>5 · Top-level await</h2>
+<p>
+Historically <code>await</code> only worked inside <code>async</code> functions, forcing the awkward
+<code>(async () =&gt; { ... })()</code> wrapper. Modern <strong>ES modules</strong> (Lesson 8) allow
+<code>await</code> directly at the top level of a module — the module simply finishes loading when the
+promise settles. It works in module scripts and modern Node; it does <em>not</em> work in classic
+non-module <code>&lt;script&gt;</code> tags or old-style CommonJS files.
+</p>
+
+<pre><code><span class="cmt">// config.js — an ES module</span>
+const res = await fetch("/api/config");     <span class="cmt">// legal at module top level</span>
+export const config = await res.json();     <span class="cmt">// importers wait until this settles</span></code></pre>
+
+<h2>6 · Error-handling patterns worth stealing</h2>
+<p>Two small helpers you'll see in real codebases (and can name-drop in interviews):</p>
+
+<pre><code><span class="cmt">// Pattern 1: Go-style [error, data] wrapper — no try/catch pyramid</span>
+async function safe(promise) {
+  try {
+    const data = await promise;
+    return [null, data];
+  } catch (err) {
+    return [err, null];
+  }
+}
+
+const [err, user] = await safe(fetchUser(1));
+if (err) console.error("handled inline:", err.message);
+else     console.log(user.name);
+
+<span class="cmt">// Pattern 2: retry with delay — awaits make loops trivially readable</span>
+const delay = (ms) =&gt; new Promise(res =&gt; setTimeout(res, ms));
+
+async function retry(fn, attempts = 3) {
+  for (let i = 1; i &lt;= attempts; i++) {
+    try {
+      return await fn();                 <span class="cmt">// success → return immediately</span>
+    } catch (err) {
+      if (i === attempts) throw err;     <span class="cmt">// out of attempts → give up</span>
+      await delay(500 * i);              <span class="cmt">// backoff: 500, 1000, ... ms</span>
+    }
+  }
+}
+<span class="cmt">// Try writing retry with raw .then chains — the loop alone is a nightmare.</span>
+<span class="cmt">// This readability of loops + conditionals is WHY async/await exists.</span></code></pre>
+
+<h2>7 · fetch — talking to servers</h2>
+<p>
+<code>fetch(url)</code> is the built-in browser (and modern Node) API for HTTP requests — the successor to
+the ancient <code>XMLHttpRequest</code>. It returns a promise for a <code>Response</code> object. Two-step
+ritual: first the promise for the <em>response headers</em>, then a second promise to read the
+<em>body</em>:
+</p>
+
+<pre><code>async function getUser(username) {
+  const res = await fetch(`https://api.github.com/users/${username}`);
+
+  <span class="cmt">// STEP 1: check res.ok — fetch does NOT reject on 404/500!</span>
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  }
+
+  <span class="cmt">// STEP 2: read the body — .json() parses it; ALSO returns a promise</span>
+  const data = await res.json();
+  return data;
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha — the 404 that "succeeds"</span>
+  <code>fetch</code> only rejects on <strong>network failure</strong> (no connection, DNS failure, CORS
+  block, abort). A 404 or 500 is, to fetch, a perfectly successful conversation with the server — the
+  promise <em>fulfills</em>. You must check <code>res.ok</code> (true for status 200–299) or
+  <code>res.status</code> yourself. Forgetting this check is the single most common fetch bug and a
+  guaranteed interview question.
+</div>
+
+<p>Useful bits of the <code>Response</code> object:</p>
+<ul>
+  <li><code>res.status</code> / <code>res.statusText</code> — e.g. <code>200 "OK"</code>, <code>404 "Not Found"</code>;</li>
+  <li><code>res.ok</code> — shorthand for status in 200–299;</li>
+  <li><code>res.headers.get("content-type")</code> — response headers;</li>
+  <li><code>res.json()</code>, <code>res.text()</code>, <code>res.blob()</code> — body readers, each returns a promise, and the body can be read <strong>only once</strong>.</li>
+</ul>
+
+<h2>8 · POST — sending JSON</h2>
+<p>
+The second argument to fetch is an options object: method, headers, body. To send JSON you must do three
+things yourself — stringify the body, declare the content type, and parse the reply:
+</p>
+
+<pre><code>async function createTodo(todo) {
+  const res = await fetch("https://jsonplaceholder.typicode.com/todos", {
+    method: "POST",                                <span class="cmt">// default is GET</span>
+    headers: { "Content-Type": "application/json" }, <span class="cmt">// tell server what we send</span>
+    body: JSON.stringify(todo),                    <span class="cmt">// body must be a STRING (or FormData…)</span>
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();                               <span class="cmt">// server echoes the created object</span>
+}
+
+const created = await createTodo({ title: "learn fetch", completed: false });
+console.log(created.id);           <span class="cmt">// server-assigned id</span></code></pre>
+
+<p>
+Same shape for <code>PUT</code> (replace), <code>PATCH</code> (partial update), <code>DELETE</code> (often
+no body). You'll design the server side of these verbs in the Express lessons — for now you're the client.
+</p>
+
+<h2>9 · AbortController — timeouts and cancellation</h2>
+<p>
+A promise, once made, cannot be "un-made" — but the underlying <em>request</em> can be cancelled.
+<code>AbortController</code> is the standard cancel switch: create one, pass its <code>signal</code> to
+fetch, and calling <code>abort()</code> makes the fetch promise reject with an <code>AbortError</code>.
+</p>
+
+<pre><code><span class="cmt">// Timeout: give the server 3 seconds, then hang up</span>
+async function fetchWithTimeout(url, ms = 3000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() =&gt; ctrl.abort(), ms);   <span class="cmt">// pull the plug after ms</span>
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    if (err.name === "AbortError") throw new Error(`timed out after ${ms}ms`);
+    throw err;                                        <span class="cmt">// other errors pass through</span>
+  } finally {
+    clearTimeout(timer);            <span class="cmt">// success or failure, disarm the timer</span>
+  }
+}</code></pre>
+
+<p>
+The other classic use: a search box firing a request per keystroke — abort the previous request when a new
+one starts, so a slow old response can't overwrite fresh results. React's data libraries do this for you,
+but interviewers ask how it works underneath: <em>AbortController</em> is the answer.
+</p>
+
+<h2>10 · Timer patterns — setTimeout, setInterval, polling</h2>
+<p>You met <code>setTimeout</code> conceptually in Lesson 6; here's the practical toolkit:</p>
+
+<pre><code><span class="cmt">// One-shot, cancellable</span>
+const id = setTimeout(() =&gt; console.log("fires once"), 1000);
+clearTimeout(id);                       <span class="cmt">// cancelled — never fires</span>
+
+<span class="cmt">// Repeating — and why recursive setTimeout often beats setInterval</span>
+const iv = setInterval(() =&gt; console.log("tick"), 1000);
+clearInterval(iv);
+<span class="cmt">// setInterval fires on a fixed schedule even if the previous tick's work</span>
+<span class="cmt">// (e.g. a slow fetch) hasn't finished — ticks can pile up. Recursive</span>
+<span class="cmt">// setTimeout schedules the NEXT tick only after the current one completes:</span>
+
+async function poll(url, ms) {
+  const res  = await fetch(url);
+  const data = await res.json();
+  console.log("status:", data.status);
+  if (data.status !== "done") {
+    setTimeout(() =&gt; poll(url, ms), ms);   <span class="cmt">// re-arm AFTER this round finished</span>
+  }
+}
+<span class="cmt">// Or the fully-await version with the delay() helper from section 6:</span>
+async function pollLoop(url, ms) {
+  while (true) {
+    const data = await (await fetch(url)).json();
+    if (data.status === "done") return data;
+    await delay(ms);                        <span class="cmt">// readable, no callback in sight</span>
+  }
+}</code></pre>
+
+<h2>11 · Mini-project — GitHub profile card</h2>
+<p>
+Everything combined: parallel fetches, <code>res.ok</code> checks, timeout, error handling, and a sprinkle
+of DOM output (fully explained in Lesson 9 — today just read it as "put text on the page"). Paste this into
+the browser console on any page, or save with a minimal scaffold:
+</p>
+
+<pre><code><span class="cmt">// Scaffold if you want a page: &lt;div id="card"&gt;&lt;/div&gt;&lt;script src="app.js"&gt;&lt;/script&gt;</span>
+async function getJSON(url) {                       <span class="cmt">// small reusable helper</span>
+  const res = await fetchWithTimeout(url, 5000);    <span class="cmt">// from section 9 — returns parsed JSON</span>
+  return res;
+}
+
+async function showProfile(username) {
+  try {
+    <span class="cmt">// two INDEPENDENT calls → start together, await together (section 4!)</span>
+    const [user, repos] = await Promise.all([
+      getJSON(`https://api.github.com/users/${username}`),
+      getJSON(`https://api.github.com/users/${username}/repos?sort=updated&amp;per_page=3`),
+    ]);
+
+    const top = repos.map(r =&gt; `${r.name} (★${r.stargazers_count})`).join(", ");
+    const summary =
+      `${user.name ?? user.login} — ${user.public_repos} repos, ` +
+      `${user.followers} followers. Recent: ${top}`;
+
+    console.log(summary);
+    const card = document.querySelector("#card");   <span class="cmt">// null in the bare console — that's fine</span>
+    if (card) card.textContent = summary;
+  } catch (err) {
+    console.error("could not load profile:", err.message);
+    <span class="cmt">// err.message is "HTTP 404 Not Found" for a bad username,</span>
+    <span class="cmt">// "timed out after 5000ms" on a dead network — both paths covered.</span>
+  }
+}
+
+showProfile("torvalds");</code></pre>
+
+<div class="callout tip">
+  <span class="label">Why this little app matters</span>
+  This is the exact skeleton of every frontend data flow you'll ever write: build URL → fetch with
+  timeout → check ok → parse JSON → transform → render → catch and show errors. React (Lesson 11+)
+  changes <em>where</em> this code lives, not what it does.
+</div>
+
+<h2>12 · Callbacks vs promises vs async/await</h2>
+<table>
+  <thead><tr><th></th><th>Callbacks</th><th>Promises (.then)</th><th>async/await</th></tr></thead>
+  <tbody>
+    <tr><td>Sequential steps</td><td>Nesting — pyramid of doom</td><td>Flat chain of <code>.then</code></td><td>Straight-line statements</td></tr>
+    <tr><td>Error handling</td><td><code>if (err)</code> at every level</td><td>One <code>.catch</code> per chain</td><td>Java-style <code>try/catch</code></td></tr>
+    <tr><td>Loops / conditionals</td><td>Very painful</td><td>Awkward (recursion tricks)</td><td>Normal <code>for</code>/<code>while</code>/<code>if</code></td></tr>
+    <tr><td>Parallelism</td><td>Manual counting</td><td><code>Promise.all</code> &amp; friends</td><td><code>await Promise.all([...])</code></td></tr>
+    <tr><td>Underneath</td><td>Host queues the callback</td><td>Microtask queue</td><td>Sugar over promises → microtask queue</td></tr>
+    <tr><td>Still used for</td><td>Events (<code>addEventListener</code>), Node core APIs</td><td>Library plumbing, combinators</td><td>Basically all application code</td></tr>
+  </tbody>
+</table>
+
+<h2>13 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What does the <code>async</code> keyword do?"</strong><br>
+  Makes the function always return a promise (values get wrapped, throws become rejections) and enables
+  <code>await</code> inside it. It changes the function's contract, not its scheduling — the body still
+  starts synchronously until the first <code>await</code>.</li>
+  <li><strong>"What does <code>await</code> do? Does it block?"</strong><br>
+  It suspends only the enclosing async function until the promise settles, returning the value or throwing
+  the rejection. The thread is <em>not</em> blocked — other code, events and rendering continue. The
+  continuation resumes via the microtask queue.</li>
+  <li><strong>"How do you run async operations in parallel with async/await?"</strong><br>
+  Start them all first (collect the promises), then <code>await Promise.all([...])</code>. Writing
+  <code>await</code> before each call serialises them — the classic accidental-serial mistake.</li>
+  <li><strong>"Why doesn't fetch reject on a 404?"</strong><br>
+  fetch's promise reflects the <em>network conversation</em>, not HTTP semantics. Any response received —
+  even 500 — is fulfillment; only network-level failures (offline, DNS, CORS, abort) reject. You must check
+  <code>res.ok</code>/<code>res.status</code> yourself.</li>
+  <li><strong>"How do you cancel or time out a fetch?"</strong><br>
+  Pass an <code>AbortController</code>'s <code>signal</code> in the options and call
+  <code>controller.abort()</code> — from a <code>setTimeout</code> for timeouts, or when a newer request
+  supersedes an old one. The fetch promise rejects with an <code>AbortError</code>.</li>
+  <li><strong>"setTimeout vs setInterval for repeated async work?"</strong><br>
+  <code>setInterval</code> fires on a fixed clock even if the previous run hasn't finished, so slow work can
+  overlap/pile up. Recursive <code>setTimeout</code> (or an <code>await delay()</code> loop) schedules the
+  next run only after the current one completes — safer for polling.</li>
+</ul>
+
+<h2>14 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q"><code>fetchA()</code> and <code>fetchB()</code> each take 1 second and are independent. How long does <code>const a = await fetchA(); const b = await fetchB();</code> take, and what's the fix?</div>
+  <button class="opt">~1 s — the engine notices they're independent and runs them together</button>
+  <button class="opt">~2 s — each await waits fully; fix: start both, then <code>await Promise.all([pA, pB])</code></button>
+  <button class="opt">~2 s — and it cannot be improved, since await always serialises an async function</button>
+  <div class="fb" data-correct="await is a full stop — fetchB isn't even CALLED until fetchA resolves. Start both promises first, then await them together for ~1 s." data-wrong="The engine never parallelises for you: the second call doesn't start until the first await finishes (~2 s). Collect promises first, then Promise.all — that's the fix."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A fetch to a valid server returns status 500. What happens to the promise returned by <code>fetch()</code>?</div>
+  <button class="opt">It rejects with an HttpError containing the status</button>
+  <button class="opt">It stays pending until the server sends a 2xx</button>
+  <button class="opt">It fulfills — you must inspect <code>res.ok</code> / <code>res.status</code> yourself</button>
+  <div class="fb" data-correct="fetch fulfills for ANY received response, 500 included. Only network-level failures reject. Checking res.ok is on you — forget it and errors flow through your success path." data-wrong="fetch's promise only rejects on network failure (offline, DNS, CORS, abort). A 500 is a delivered response, so it fulfills — check res.ok yourself."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">What does this print?<br><code>async function f(){ console.log("x"); await Promise.resolve(); console.log("y"); } f(); console.log("z");</code></div>
+  <button class="opt">x, z, y</button>
+  <button class="opt">x, y, z</button>
+  <button class="opt">z, x, y</button>
+  <div class="fb" data-correct="The async body runs synchronously until the first await ('x'), then suspends; the script continues ('z'); the continuation runs as a microtask ('y')." data-wrong="An async function starts synchronously — 'x' prints first. At await it suspends and the caller continues ('z'); the rest resumes as a microtask ('y'). So x, z, y."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does <code>try { doAsyncWork(); } catch (e) { ... }</code> fail to catch a rejection from <code>doAsyncWork()</code>?</div>
+  <button class="opt">try/catch never works with promises in any form</button>
+  <button class="opt">Without await, the function returns a pending promise and try exits before the rejection happens</button>
+  <button class="opt">Async errors can only be caught with window.onerror</button>
+  <div class="fb" data-correct="The call returns immediately with a pending promise; the try block is long gone by the time it rejects. Add await (inside an async function) and the rejection throws right there — catchable." data-wrong="try/catch DOES work with promises — but only when you await them, so the rejection is thrown inside the try block. Without await, the rejection happens after try has already exited."></div>
+</div>
+
+<h2>15 · Do this next</h2>
+<ul>
+  <li>Build <code>showProfile</code> from section 11 yourself, from memory, then extend it: fetch the user's followers list too (a third parallel call), and make a wrong username print a friendly "user not found" (hint: check for the specific <code>HTTP 404</code> message).</li>
+  <li>Write <code>raceDemo()</code>: call <code>fetchWithTimeout</code> with a tiny timeout (say 1 ms) against a real URL and confirm you get your "timed out" error; then with 5000 ms and confirm success. You've now tested both branches of a timeout — a habit interviewers probe for.</li>
+  <li>Convert Lesson 6's promisified <code>readUserP → readOrders → invoice</code> chain to async/await with a single try/catch. Compare the two versions side by side and write one sentence on which reads better and why — that sentence is your interview answer for "why async/await".</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure why <code>await</code> doesn't freeze the page, when to <code>Promise.all</code> vs sequential
+  awaits, or how AbortController actually stops a request? Ask in the chat — and throw me an output-ordering
+  snippet with <code>await</code> in it if you want to spar. When the accidental-serial bug and the
+  404-doesn't-reject gotcha feel obvious, say <strong>"next"</strong> and we move to Lesson 8:
+  Modules, npm &amp; Tooling — how real projects are organised and built.
+</div>
+
+<div class="nav">
+  <span><a href="0006-event-loop-callbacks-promises.html">← Event Loop &amp; Promises</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0008-modules-npm-tooling.html">Modules &amp; npm →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

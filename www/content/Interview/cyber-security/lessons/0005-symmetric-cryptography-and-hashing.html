@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 05 – Symmetric Cryptography & Hashing</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module C · Lesson 5 of 17 · Cryptography</div>
+  <h1>Symmetric Cryptography, Block Ciphers & Hash Cracking</h1>
+  <p class="subtitle">AES modes of operation, why ECB leaks secrets, cryptographic hash properties, and cracking passwords with Hashcat.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Cryptography & PKI</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Cryptography is the mathematical foundation of modern digital trust. It follows <strong>Kerckhoffs's Principle</strong>: <em>a cryptographic system should remain secure even if everything about the system (the algorithm, source code, hardware) is public knowledge, so long as the secret key remains confidential</em>. Symmetric cryptography uses the <strong>same secret key</strong> for both encryption and decryption, offering blazing-fast bulk data throughput.</p>
+
+  <h2>2 · Block Ciphers & AES (Advanced Encryption Standard)</h2>
+  <p>AES operates on fixed <strong>128-bit (16-byte) blocks</strong> using key sizes of 128, 192, or 256 bits through repeated rounds of Substitution-Permutation Networks (SubBytes, ShiftRows, MixColumns, AddRoundKey).</p>
+
+  <h3>Modes of Operation</h3>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Mode</th><th>Mechanism</th><th>Security Assessment</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>ECB (Electronic Codebook)</strong></td>
+        <td>Each 16-byte block encrypted independently with the same key.</td>
+        <td><strong style="color:var(--danger-color,#ef4444)">FATALLY INSECURE</strong>. Identical plaintext blocks produce identical ciphertext blocks! (The famous Linux Tux penguin image remains clearly visible even after ECB encryption).</td>
+      </tr>
+      <tr>
+        <td><strong>CBC (Cipher Block Chaining)</strong></td>
+        <td>Each plaintext block is XORed with the previous ciphertext block before encryption; uses a random <strong>Initialization Vector (IV)</strong> for block 1.</td>
+        <td>Secure confidentiality, but vulnerable to <strong>Padding Oracle Attacks</strong> if integrity is not verified.</td>
+      </tr>
+      <tr>
+        <td><strong>GCM (Galois/Counter Mode)</strong></td>
+        <td>Turns block cipher into stream cipher via incrementing counter; includes a <strong>Galois Message Authentication Code (GMAC)</strong>.</td>
+        <td><strong style="color:var(--good-color,#22c55e)">THE INDUSTRY GOLD STANDARD (AEAD)</strong>. Provides both <strong>Confidentiality and Authenticated Integrity</strong> in one operation.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Cryptographic Hash Functions & Passwords</h2>
+  <p>A hash function takes arbitrary-length input and produces a fixed-size deterministic digest (e.g. SHA-256 = 32 bytes). It must satisfy three mathematical properties:</p>
+  <ol>
+    <li><strong>Pre-image Resistance (One-Way)</strong>: Given <code>H(x)</code>, it is computationally impossible to find <code>x</code>.</li>
+    <li><strong>Second Pre-image Resistance (Weak Collision)</strong>: Given <code>x</code>, impossible to find <code>y &ne; x</code> such that <code>H(x) = H(y)</code>.</li>
+    <li><strong>Collision Resistance (Strong Collision)</strong>: Impossible to find ANY two different inputs with <code>H(x) = H(y)</code>. (Broken in MD5 and SHA-1).</li>
+  </ol>
+
+  <div class="callout danger">
+    <h4>Why SHA-256 is Terrible for Passwords!</h4>
+    <p>Fast hashes like SHA-256 are engineered to hash gigabytes of files per second. Modern consumer GPUs (RTX 4090) can calculate <strong>over 50 billion SHA-256 hashes per second</strong>! An 8-character password hashed with SHA-256 can be brute-forced in minutes.</p>
+    <p><strong>Correct Defense: Slow Key Derivation Functions (KDFs)</strong>:</p>
+    <ul>
+      <li><strong>bcrypt</strong>: Work factor parameter dynamically increases CPU iterations.</li>
+      <li><strong>Argon2id (Winner of Password Hashing Competition)</strong>: Memory-hard; intentionally demands large chunks of RAM (e.g. 64MB) to defeat ASIC and GPU cluster parallelization.</li>
+      <li><strong>Salt</strong>: A unique random string appended to each user's password before hashing. Defeats precomputed <strong>Rainbow Tables</strong>.</li>
+    </ul>
+  </div>
+
+  <h2>4 · Password Cracking with Hashcat</h2>
+  <pre><code># 1. Crack NTLM hashes using RockYou wordlist and Rule-based mutations
+hashcat -m 1000 -a 0 hashes.txt /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule
+
+# 2. Crack SHA-512 crypt ($6$) Linux hashes
+hashcat -m 1800 -a 0 shadow_hashes.txt /usr/share/wordlists/rockyou.txt
+
+# 3. Pure Brute-Force Mask Attack (8 characters lowercase + digits)
+hashcat -m 0 -a 3 md5_hashes.txt ?l?l?l?l?d?d?d?d</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0004-firewalls-ids-ips-and-vpn-tunneling.html">← Lesson 04: Firewalls & VPNs</a>
+    <a href="0006-asymmetric-cryptography-rsa-and-diffie-hellman.html">Lesson 06: Asymmetric Cryptography & RSA →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 33 - GraphQL APIs &amp; Apollo | Web Dev Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">Web Dev · Modern APIs · Lesson 33 of 35 · Schema, Resolvers, Over-fetching</div>
+  
+  <h1>GraphQL APIs &amp; Apollo Server</h1>
+  <p class="subtitle">Replacing rigid REST endpoints with declarative, client-driven data querying.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module G — Modern APIs &amp; DevOps</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In REST, endpoints are rigid and fixed. To render a mobile profile screen, a smartphone app might have to call <code>/users/1</code>, then <code>/users/1/orders</code>, then <code>/users/1/reviews</code> (<strong>Under-fetching</strong>). Simultaneously, the <code>/users/1</code> endpoint returns 50 unused fields (<strong>Over-fetching</strong>). <strong>GraphQL</strong> replaces multiple REST endpoints with a single <code>POST /graphql</code> endpoint where the client sends a query specifying the <em>exact fields it needs</em>, and the server returns exactly that shape in a single request!</p>
+
+  <h2>2 · Defining a GraphQL Schema &amp; Resolvers</h2>
+  <pre><code>import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+
+<span class="cmt">// 1. Schema Definition Language (SDL)</span>
+const typeDefs = `#graphql
+  type Book {
+    id: ID!
+    title: String!
+    author: String!
+  }
+
+  type Query {
+    books: [Book]
+    book(id: ID!): Book
+  }
+`;
+
+<span class="cmt">// 2. Resolvers (Functions that fetch the actual data)</span>
+const resolvers = {
+  Query: {
+    books: () =&gt; db.books.findAll(),
+    book: (_, { id }) =&gt; db.books.findById(id),
+  },
+};
+
+const server = new ApolloServer({ typeDefs, resolvers });
+const { url } = await startStandaloneServer(server, { listen: { port: 4000 } });
+console.log(`GraphQL API live at ${url}`);</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do modern apps implement social sign-on and prevent CSRF/XSS attacks? Next: Web Security &amp; Auth.js.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0032-web-performance-and-core-web-vitals.html">← Previous: Web Performance</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0034-web-security-and-oauth-authjs.html">Next: Web Security &amp; OAuth →</a>
+  </div>
+</body>
+</html>

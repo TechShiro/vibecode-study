@@ -1,0 +1,237 @@
+<title>Memory Management — Contiguous Allocation, Paging and Segmentation</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit III &middot; Lesson 18 of 22</p>
+<h1>Memory Management &mdash; Contiguous Allocation, Paging and Segmentation</h1>
+<p class="deck">Objectives of memory management, overlays and swapping, contiguous allocation (fixed and variable partitions), first/best/worst fit, internal vs external fragmentation, paging with page tables, and segmentation.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Paging address translation</strong> (given logical address, page size, find page number and offset, then physical address) is a guaranteed numerical. <strong>Internal vs external fragmentation</strong> and <strong>first/best/worst fit</strong> are guaranteed short-notes.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Paging Hardware Address Translation with TLB</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:34rem;">
+      <strong>CPU Generates Logical Address: Page Number (p) | Offset (d)</strong>
+    </div>
+    <div class="flow-arrow-down">&darr; Parallel check in fast associative TLB</div>
+    <div class="flow-row">
+      <div class="flow-box ok"><strong>TLB Hit:</strong> Frame number f retrieved in ~1 ns &bull; Physical Address = <strong>[ f | d ]</strong></div>
+      <div class="flow-box warn"><strong>TLB Miss:</strong> Lookup Page Table in RAM &bull; Retrieve frame f &bull; Update TLB (Effective Access Time trade-off)</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Paging & TLB</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Paging in Operating System & Translation Lookaside Buffer (TLB)</div>
+    <div class="v-desc">The classic address translation breakdown: page table indexing, frame offset mapping, internal fragmentation, and TLB hit ratio calculus.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=dz9Tk6KCMlQ" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Objectives of memory management</h2>
+<ul>
+<li><strong>Relocation:</strong> move processes in memory without breaking references.</li>
+<li><strong>Protection:</strong> prevent one process from accessing another&rsquo;s memory.</li>
+<li><strong>Sharing:</strong> allow processes to share code/data when appropriate.</li>
+<li><strong>Logical organisation:</strong> manage memory as modules (segments).</li>
+<li><strong>Physical organisation:</strong> manage the physical memory hierarchy efficiently.</li>
+</ul>
+
+<h2>Swapping and overlays</h2>
+<p><strong>Swapping:</strong> temporarily move an entire process from main memory to disk (swap out) and bring it back later (swap in). Allows more processes than can fit in RAM.</p>
+<p><strong>Overlays:</strong> programmer manually divides a program into pieces; only the needed overlay is in memory at a time. Superseded by virtual memory.</p>
+
+<h2>Contiguous allocation</h2>
+
+<h3>Fixed partitions</h3>
+<p>Memory divided into <strong>fixed-size partitions</strong>. Each process gets one partition.</p>
+<ul>
+<li><strong>Internal fragmentation:</strong> process smaller than partition &rArr; wasted space inside the partition.</li>
+<li>Simple but inflexible.</li>
+</ul>
+
+<h3>Variable partitions</h3>
+<p>Partitions created dynamically to fit each process exactly.</p>
+<ul>
+<li><strong>External fragmentation:</strong> free memory exists but is scattered in non-contiguous holes.</li>
+<li><strong>Compaction:</strong> shuffle processes to combine holes (expensive).</li>
+</ul>
+
+<h3>Placement algorithms</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Strategy</th><th>Speed</th><th>Fragmentation</th></tr></thead>
+<tbody>
+<tr><td><strong>First Fit</strong></td><td>Allocate the first hole that is big enough</td><td>Fast</td><td>Moderate</td></tr>
+<tr><td><strong>Best Fit</strong></td><td>Allocate the smallest hole that fits</td><td>Slow (search all)</td><td>Leaves tiny unusable holes</td></tr>
+<tr><td><strong>Worst Fit</strong></td><td>Allocate the largest hole</td><td>Slow (search all)</td><td>Largest remaining hole, but poor in practice</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The exam line</span>
+  <p><strong>First fit</strong> is generally fastest and as good as best fit. <strong>Internal fragmentation = wasted space inside a partition. External fragmentation = wasted space between partitions.</strong></p>
+</div>
+
+<h2>Paging</h2>
+
+<p>Divide logical memory into <strong>pages</strong> and physical memory into <strong>frames</strong>, both of equal size. A <strong>page table</strong> maps page numbers to frame numbers. <strong>No external fragmentation</strong>; small internal fragmentation (last page only).</p>
+
+<div class="formula">
+  <span class="name">Address translation</span>
+  Logical address = (page number, page offset)<br>
+  <strong>page number p = &lfloor;address / page_size&rfloor;</strong><br>
+  <strong>page offset d = address mod page_size</strong><br>
+  Physical address = frame_number &times; page_size + d
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; paging address translation</span>
+  <p>Page size = 4 KB = 4096 bytes. Logical address = 13500.</p>
+  <p>Page number p = &lfloor;13500 / 4096&rfloor; = &lfloor;3.295&rfloor; = <strong>3</strong></p>
+  <p>Offset d = 13500 mod 4096 = 13500 &minus; (3 &times; 4096) = 13500 &minus; 12288 = <strong>1212</strong></p>
+  <p>If page table says page 3 &rarr; frame 6:</p>
+  <p>Physical address = 6 &times; 4096 + 1212 = 24576 + 1212 = <strong>25788</strong></p>
+</div>
+
+<h3>Page table structure</h3>
+<ul>
+<li><strong>Single-level:</strong> one array indexed by page number. Simple but large for big address spaces.</li>
+<li><strong>Multi-level:</strong> page the page table itself. Reduces memory for sparse address spaces.</li>
+<li><strong>Inverted page table:</strong> one entry per physical frame, not per page. Small table but slow lookup (hash to fix).</li>
+<li><strong>TLB</strong> (Translation Lookaside Buffer): hardware cache of recent page-to-frame mappings. Hit &rArr; no memory access for translation.</li>
+</ul>
+
+<h2>Segmentation</h2>
+
+<p>Divide logical address space into <strong>variable-length segments</strong> (code, data, stack, heap). Each segment has a base and limit.</p>
+
+<div class="formula">
+  <span class="name">Segment address translation</span>
+  Logical address = (segment number s, offset d)<br>
+  Check: d &lt; limit[s] (else trap).<br>
+  Physical address = base[s] + d
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Paging</th><th>Segmentation</th></tr></thead>
+<tbody>
+<tr><td><strong>Division</strong></td><td>Fixed-size pages</td><td>Variable-size segments</td></tr>
+<tr><td><strong>Visible to programmer</strong></td><td>No (transparent)</td><td>Yes (logical units)</td></tr>
+<tr><td><strong>External fragmentation</strong></td><td>None</td><td>Yes</td></tr>
+<tr><td><strong>Internal fragmentation</strong></td><td>Last page only</td><td>None</td></tr>
+<tr><td><strong>Sharing</strong></td><td>Possible (shared pages)</td><td>Natural (share a segment)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Segmentation with paging:</strong> each segment is paged. Combines benefits of both &mdash; logical structure from segmentation, no external fragmentation from paging. Used in Intel x86.</p>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Internal fragmentation occurs in:</p>
+  <div class="opts">
+    <button class="opt">Segmentation only</button>
+    <button class="opt">All allocation methods equally</button>
+    <button class="opt" data-ok="1">Fixed partitions and paging (last page) &mdash; wasted space inside allocated blocks</button>
+    <button class="opt">Variable partitions only</button>
+  </div>
+  <p class="why">Internal = space wasted inside the allocated unit. Fixed partitions waste the most; paging wastes only in the last page.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Paging eliminates:</p>
+  <div class="opts">
+    <button class="opt">Internal fragmentation</button>
+    <button class="opt">Neither type</button>
+    <button class="opt" data-ok="1">External fragmentation</button>
+    <button class="opt">Both types of fragmentation</button>
+  </div>
+  <p class="why">Any free frame can be used for any page, so holes between processes are impossible. Small internal fragmentation remains in the last page.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Given page size 1 KB and logical address 3500, the page number is:</p>
+  <div class="opts">
+    <button class="opt">3 (and offset 500)</button>
+    <button class="opt">2 (and offset 1452)</button>
+    <button class="opt">4 (and offset 500)</button>
+    <button class="opt" data-ok="1">3 (and offset 428)</button>
+  </div>
+  <p class="why">p = &lfloor;3500/1024&rfloor; = 3. d = 3500 &minus; 3&times;1024 = 3500 &minus; 3072 = 428.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. First fit allocates:</p>
+  <div class="opts">
+    <button class="opt">A random hole</button>
+    <button class="opt" data-ok="1">The first hole that is large enough</button>
+    <button class="opt">The largest hole</button>
+    <button class="opt">The smallest sufficient hole</button>
+  </div>
+  <p class="why">First fit is fast and performs about as well as best fit in practice.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A TLB is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A hardware cache of page-to-frame mappings for fast address translation</button>
+    <button class="opt">A segment register</button>
+    <button class="opt">A disk scheduling algorithm</button>
+    <button class="opt">A type of page replacement algorithm</button>
+  </div>
+  <p class="why">TLB hit = translate without accessing the page table in memory. Critical for paging performance.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Segmentation with paging combines:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Logical structure of segmentation with no external fragmentation from paging</button>
+    <button class="opt">Swapping with overlays</button>
+    <button class="opt">Multiple address spaces with no translation</button>
+    <button class="opt">Two types of fragmentation</button>
+  </div>
+  <p class="why">Each segment is paged, so we get logical modules AND no external fragmentation. Intel x86 used this approach.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Internal vs external fragmentation.</summary>
+    <p class="ans">Internal: wasted space inside allocated block (fixed partitions, paging last page). External: free space scattered in holes (variable partitions, segmentation). Paging eliminates external; segmentation eliminates internal.</p></details>
+  <details class="card"><summary>Paging address translation formula.</summary>
+    <p class="ans">Page p = &lfloor;address / page_size&rfloor;. Offset d = address mod page_size. Physical = frame[p] &times; page_size + d.</p></details>
+  <details class="card"><summary>Three placement algorithms.</summary>
+    <p class="ans">First fit: first hole that fits (fastest). Best fit: smallest sufficient hole (tiny leftovers). Worst fit: largest hole (poor in practice).</p></details>
+  <details class="card"><summary>Paging vs segmentation &mdash; three differences.</summary>
+    <p class="ans">Paging: fixed-size, transparent, no external frag. Segmentation: variable-size, visible to programmer, no internal frag. Combined: segmentation with paging.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0017-deadlock-detection-and-recovery.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0019-virtual-memory-and-demand-paging.html">Next: Virtual Memory &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

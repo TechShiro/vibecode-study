@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 14 – Indexing: Clustered vs Secondary</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module D · Lesson 14 of 17 · Fast Path Data Retrieval</div>
+  <h1>Indexing Foundations: Clustered vs Secondary</h1>
+  <p class="subtitle">Accelerating queries from O(N) full table scans to O(log N) tree lookups.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Storage & Indexing</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Without an index, finding a specific row in a 50,000,000-row table requires reading every single page from disk (a <strong>Full Table Scan / Sequential Scan</strong>) taking tens of seconds. An <strong>Index</strong> is an auxiliary data structure (typically a B+ Tree) that stores search keys in sorted order along with pointers to the actual data records, reducing lookup latency to just 3–4 disk page reads.</p>
+
+  <h2>2 · Clustered (Primary) vs Secondary (Unclustered) Index</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>Clustered Index</h3>
+      <p>The <strong>physical table rows are sorted and stored directly inside the leaf nodes</strong> of the index tree. Because physical disk records can only be ordered in one way, a table can have <strong>EXACTLY ONE</strong> clustered index (usually the Primary Key, e.g. in MySQL InnoDB).</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>Secondary (Unclustered) Index</h3>
+      <p>Stored as an independent B+ Tree structure. The leaf nodes do NOT contain full data rows; they store the indexed column value and a <strong>pointer</strong> back to the row (either a physical Row ID / TID or the table's Primary Key value).</p>
+    </div>
+  </div>
+
+  <h2>3 · The Double-Lookup Penalty (Bookmark Lookup)</h2>
+  <p>In MySQL InnoDB, when you execute a query using a secondary index:</p>
+  <pre><code>SELECT * FROM users WHERE email = 'alice@example.com';</code></pre>
+  <ol>
+    <li>The DBMS traverses the secondary index tree on <code>email</code> to locate the leaf node.</li>
+    <li>The leaf node yields the primary key value: <code>user_id = 4289</code>.</li>
+    <li>The DBMS must now execute a <strong>second B+ Tree search</strong> on the Clustered Index using <code>user_id = 4289</code> to fetch the remaining columns (<code>name, address, created_at</code>).</li>
+  </ol>
+  <p>This second traversal is called a <strong>Bookmark Lookup</strong> or <strong>Clustered Index Lookup</strong>.</p>
+
+  <h2>4 · Covering Index & Index-Only Scans</h2>
+  <div class="callout good">
+    <h4>Optimization: The Covering Index</h4>
+    <p>If all columns requested by a SQL query exist directly inside the index tree itself, the database performs an <strong>Index-Only Scan</strong>, bypassing the clustered table lookup entirely!</p>
+    <pre><code>CREATE INDEX idx_user_covering ON users (email, first_name, last_name);
+-- This query NEVER touches the main table data pages!
+SELECT first_name, last_name FROM users WHERE email = 'alice@example.com';</code></pre>
+  </div>
+
+  <h2>5 · Composite Indexes & The Leftmost Prefix Rule</h2>
+  <p>When an index spans multiple columns: <code>CREATE INDEX idx_geo ON places (country, state, city);</code></p>
+  <ul>
+    <li>The index is sorted by <code>country</code> first; for identical countries, by <code>state</code>; for identical states, by <code>city</code>.</li>
+    <li><strong>Leftmost Prefix Rule</strong>:
+      <ul>
+        <li><code>WHERE country = 'US'</code> &rarr; <strong style="color:var(--good-color,#22c55e)">USES INDEX</strong></li>
+        <li><code>WHERE country = 'US' AND state = 'CA'</code> &rarr; <strong style="color:var(--good-color,#22c55e)">USES INDEX</strong></li>
+        <li><code>WHERE state = 'CA'</code> &rarr; <strong style="color:var(--danger-color,#ef4444)">CANNOT USE INDEX</strong> (skips leading prefix)</li>
+        <li><code>WHERE city = 'San Jose'</code> &rarr; <strong style="color:var(--danger-color,#ef4444)">CANNOT USE INDEX</strong></li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>6 · Dense vs Sparse Indexes</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Type</th><th>Structure</th><th>Pros & Cons</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Dense Index</strong></td><td>An index record appears for <strong>every single search key</strong> in the table.</td><td>Faster lookup, but takes significantly more disk storage memory.</td></tr>
+      <tr><td><strong>Sparse Index</strong></td><td>An index record appears only for each <strong>page/block</strong> of the table.</td><td>Much smaller memory footprint, but requires scanning within the block.</td></tr>
+    </tbody>
+  </table>
+
+  <nav class="bottom-nav">
+    <a href="0013-storage-engine-and-page-layout.html">← Lesson 13: Storage Engine & Slotted Pages</a>
+    <a href="0015-b-trees-and-b-plus-trees-deep-dive.html">Lesson 15: B-Trees & B+ Trees Deep Dive →</a>
+  </nav>
+</body>
+</html>

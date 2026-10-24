@@ -1,0 +1,228 @@
+<title>PCC Unit I Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul,ol{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Reference &middot; print this one</p>
+<h1>Unit I &mdash; Exam Sheet</h1>
+<p class="deck">Language processors, the six phases, compiler construction tools, the evolution of programming languages, applications of compiler technology, transition diagrams, bootstrapping and JIT &mdash; on a few printable pages.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>The phases of a compiler with the worked statement</strong> &mdash; the most-asked question in the whole paper &middot; <strong>compiler vs interpreter</strong> &middot; <strong>the language processing system diagram</strong> &middot; <strong>bootstrapping with T-diagrams</strong> &middot; compiler construction tools &middot; applications of compiler technology &middot; phase vs pass &middot; JIT. <strong>Draw a diagram for every one of these &mdash; this unit is marked on diagrams and lists.</strong></p>
+</div>
+
+<hr class="rule">
+
+<h2>Definitions <span class="tag">verbatim</span></h2>
+
+<p><strong>Translator:</strong> a program converting a program in a source language into an equivalent program in a target language.</p>
+<p><strong>Compiler:</strong> reads a high-level program and translates it <strong>as a whole</strong> into an equivalent low-level program, reporting errors during translation.</p>
+<p><strong>Interpreter:</strong> <strong>directly executes</strong> the operations of the source program, <strong>statement by statement</strong>, on inputs supplied by the user &mdash; producing <strong>no target program</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Compiler</th><th>Interpreter</th></tr></thead>
+<tbody>
+<tr><td>Unit</td><td>Whole program</td><td>One statement</td></tr>
+<tr><td>Target program</td><td><strong>Yes</strong></td><td>None</td></tr>
+<tr><td>Execution</td><td><strong>Faster</strong></td><td>Slower</td></tr>
+<tr><td><strong>Errors</strong></td><td><strong>All together, after scanning all</strong></td><td><strong>First error, then stops</strong></td></tr>
+<tr><td>Diagnostics</td><td>Weaker</td><td><strong>Better</strong></td></tr>
+<tr><td>Memory</td><td>More</td><td>Less</td></tr>
+<tr><td>Examples</td><td>C, C++, Go</td><td>Python, Ruby, JavaScript</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The language processing system &mdash; draw vertically, label what flows</span>
+  source with directives &rarr; <strong>PREPROCESSOR</strong> &rarr; <em>modified source</em> &rarr; <strong>COMPILER</strong> &rarr; <em>target assembly</em> &rarr; <strong>ASSEMBLER</strong> &rarr; <em>relocatable machine code</em> &rarr; <strong>LINKER / LOADER</strong> (&larr; libraries) &rarr; <strong>target machine code</strong>
+</div>
+
+<p><strong>Preprocessor</strong> expands macros and includes &mdash; output still high-level. <strong>Assembler</strong> &rarr; relocatable machine code (addresses relative to an unfixed start). <strong>Linker</strong> resolves external references. <strong>Loader</strong> places it in memory and fixes addresses.</p>
+
+<p><strong>Six translators:</strong> compiler &middot; interpreter &middot; assembler &middot; <strong>cross-compiler</strong> (runs on A, targets B) &middot; decompiler / disassembler &middot; preprocessor (the only one whose target = its source language). <strong>Transpiler</strong> = high-level to high-level.</p>
+
+<p><strong>Java hybrid:</strong> javac &rarr; machine-independent <strong>bytecode</strong> &rarr; interpreted by the <strong>JVM</strong>, with <strong>JIT</strong> compiling hot paths to native code.</p>
+
+<p><strong>Analysis (front end)</strong> = source-dependent, machine-independent; builds the IR and fills the symbol table. <strong>Synthesis (back end)</strong> = machine-dependent, source-independent. <strong>Payoff: m languages and n machines need m + n components, not m &times; n.</strong></p>
+
+<h2>The six phases <span class="tag">the guaranteed 10-marker</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Phase</th><th>Input &rarr; Output</th><th>Errors caught</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><strong>Lexical analysis</strong> (scanning)</td><td>Characters &rarr; <strong>tokens</strong></td><td>Illegal character, unterminated string, malformed number</td></tr>
+<tr><td class="num">2</td><td><strong>Syntax analysis</strong> (parsing)</td><td>Tokens &rarr; <strong>syntax tree</strong></td><td>Missing semicolon, unbalanced brackets</td></tr>
+<tr><td class="num">3</td><td><strong>Semantic analysis</strong></td><td>Tree &rarr; <strong>annotated tree</strong></td><td>Type mismatch, undeclared variable, wrong argument count</td></tr>
+<tr><td class="num">4</td><td><strong>Intermediate code generation</strong></td><td>Annotated tree &rarr; <strong>three-address code</strong></td><td>&mdash;</td></tr>
+<tr><td class="num">5</td><td><strong>Code optimisation</strong> &mdash; <strong>the only OPTIONAL phase</strong></td><td>IR &rarr; better IR (machine independent)</td><td>&mdash;</td></tr>
+<tr><td class="num">6</td><td><strong>Code generation</strong></td><td>IR &rarr; <strong>machine code</strong>; register allocation</td><td>&mdash;</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Errors only in phases 1, 2 and 3.</strong> <strong>Logical errors</strong> &mdash; an infinite loop, or <code>=</code> for <code>==</code> &mdash; are caught by <strong>no phase at all</strong>.</p>
+
+<div class="formula">
+  <span class="name">The trace of <code>position = initial + rate * 60</code> &mdash; memorise all six outputs</span>
+  <strong>1. Tokens:</strong> &lang;id,1&rang; &lang;=&rang; &lang;id,2&rang; &lang;+&rang; &lang;id,3&rang; &lang;*&rang; &lang;60&rang; &nbsp;<em>(1,2,3 are symbol-table pointers)</em><br><br>
+  <strong>2. Syntax tree:</strong> <code>=</code> at the root; left &lang;id,1&rang;; right <code>+</code> over &lang;id,2&rang; and (<code>*</code> over &lang;id,3&rang; and &lang;60&rang;)<br><br>
+  <strong>3. Semantic:</strong> same tree with an <strong>inttofloat</strong> node inserted above &lang;60&rang;<br><br>
+  <strong>4. Three-address code:</strong> &nbsp; t1 = inttofloat(60) &nbsp;&middot;&nbsp; t2 = id3 * t1 &nbsp;&middot;&nbsp; t3 = id2 + t2 &nbsp;&middot;&nbsp; id1 = t3<br><br>
+  <strong>5. Optimised:</strong> &nbsp; t1 = id3 * 60.0 &nbsp;&middot;&nbsp; id1 = id2 + t1 &nbsp; <em>(four instructions become two)</em><br><br>
+  <strong>6. Code:</strong> &nbsp; LDF R2, id3 &middot; MULF R2, R2, #60.0 &middot; LDF R1, id2 &middot; ADDF R1, R1, R2 &middot; STF id1, R1
+</div>
+
+<p><strong>Symbol table</strong> &mdash; a record per name with its attributes, designed for fast lookup (a <strong>hash table</strong>). Stores name, <strong>type</strong>, scope, storage size and <strong>location</strong>, and for procedures the argument count and types. <strong>Created by phase 1, filled and read by phase 3, read by phase 6.</strong></p>
+
+<p><strong>Error handler goals:</strong> report clearly and accurately &middot; recover fast enough to find further errors &middot; add little overhead to correct programs.</p>
+
+<p><strong>Phase vs pass:</strong> a <strong>phase</strong> is a logical operation transforming one representation into another &mdash; there are six. A <strong>pass</strong> is one complete traversal of the program, and <strong>several phases may share one pass</strong>. Typical: <strong>six phases in three passes</strong>. Pascal was designed for one pass, which is why declarations must precede use.</p>
+
+<h2>Compiler construction tools <span class="tag">name the phase each builds</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Tool</th><th>Input</th><th>Generates</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td><strong>Scanner generator</strong></td><td><strong>Regular expressions</strong></td><td>Lexical analyser</td><td><strong>Lex, Flex</strong></td></tr>
+<tr><td><strong>Parser generator</strong></td><td><strong>Context-free grammar</strong></td><td>Syntax analyser</td><td><strong>Yacc, Bison, ANTLR</strong></td></tr>
+<tr><td><strong>Syntax-directed translation engine</strong></td><td>Semantic rules on productions</td><td>Intermediate code generator</td><td>Yacc actions</td></tr>
+<tr><td><strong>Code generator generator</strong></td><td>Machine instruction templates</td><td>Code generator</td><td>BEG, Twig, burg</td></tr>
+<tr><td><strong>Data-flow analysis engine</strong></td><td>Data-flow equations</td><td><strong>Optimiser</strong></td><td>LLVM passes</td></tr>
+<tr><td><strong>Compiler construction toolkit</strong></td><td>&mdash;</td><td>All phases</td><td>LLVM, Eli, Cocktail</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The pattern:</strong> each tool's input is the formalism that describes its phase.</p>
+
+<h2>Evolution of programming languages</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Gen</th><th>Name</th><th>Character</th><th>Examples</th></tr></thead>
+<tbody>
+<tr><td><strong>1GL</strong></td><td>Machine language</td><td>Binary, machine dependent</td><td>Raw opcodes</td></tr>
+<tr><td><strong>2GL</strong></td><td>Assembly</td><td>Mnemonics; needs an <strong>assembler</strong></td><td>x86 asm</td></tr>
+<tr><td><strong>3GL</strong></td><td>High-level</td><td><strong>Machine independent</strong>; needs a compiler</td><td>Fortran, COBOL, Lisp, C, Java</td></tr>
+<tr><td><strong>4GL</strong></td><td>Application-specific</td><td>Domain-specific, often declarative</td><td><strong>SQL, Postscript</strong>, MATLAB</td></tr>
+<tr><td><strong>5GL</strong></td><td>Logic / constraint</td><td>Says <em>what</em>, not <em>how</em></td><td><strong>Prolog</strong>, OPS5</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Imperative</strong> = <em>HOW</em> (C, Java, Python). <strong>Declarative</strong> = <em>WHAT</em> (SQL, Prolog, Haskell). <strong>von Neumann</strong> (program counter + mutable storage) vs <strong>object-oriented</strong> (Simula 67 first). <strong>Scripting</strong> = interpreted glue languages.</p>
+
+<p><strong>Static</strong> = decidable by reading the program text (also <em>lexical scoping</em>); <strong>dynamic</strong> = needs the program running. <strong>Environment</strong> maps name &rarr; location; <strong>state</strong> maps location &rarr; value.</p>
+
+<h2>Applications of compiler technology <span class="tag">five headings</span></h2>
+
+<ol>
+<li><strong>Implementation of high-level languages</strong> &mdash; the abstraction a language can afford is limited by how well a compiler optimises it. C's <code>register</code> keyword became obsolete once register allocation was solved.</li>
+<li><strong>Optimisations for computer architectures</strong> &mdash; <strong>parallelism</strong> (instruction-level pipelining and VLIW; processor-level loop parallelisation) and <strong>memory hierarchies</strong> (loop reordering for cache locality).</li>
+<li><strong>Design of new computer architectures</strong> &mdash; <strong>RISC</strong> succeeded because compilers schedule simple instructions better than humans; VLIW, SIMD and GPUs depend entirely on compiler support.</li>
+<li><strong>Program translations</strong> &mdash; binary translation, <strong>hardware synthesis</strong> (Verilog &rarr; circuits), database query interpreters, compiled simulation.</li>
+<li><strong>Software productivity tools</strong> &mdash; type checking, bounds checking, memory-management tools such as garbage collectors and Valgrind.</li>
+</ol>
+
+<h2>Transition diagrams</h2>
+
+<p><strong>Conventions:</strong> circles are states &middot; one <strong>start</strong> state with an incoming arrow &middot; <strong>double circle</strong> = accepting, with the action beside it &middot; <strong>asterisk *</strong> = <strong>one extra character was read; retract the input pointer by one</strong> &middot; edge labelled <code>other</code> = any character not otherwise covered.</p>
+
+<p><strong>Relational operators:</strong> from state 0 on <code>&lt;</code> &rarr; 1; then <code>=</code> &rarr; LE, <code>&gt;</code> &rarr; NE, <code>other</code> &rarr; <strong>LT with retract</strong>. On <code>=</code> &rarr; EQ. On <code>&gt;</code> &rarr; 6; then <code>=</code> &rarr; GE, <code>other</code> &rarr; <strong>GT with retract</strong>.</p>
+
+<h2>Bootstrapping <span class="tag">the examinable one</span></h2>
+
+<div class="formula">
+  <span class="name">T-diagram notation and the composition rule</span>
+  A compiler is <strong>(Source, Target, Implementation)</strong> &mdash; <strong>left arm</strong> what it reads, <strong>right arm</strong> what it produces, <strong>bottom</strong> what it is written in.<br><br>
+  <strong>To RUN a compiler, its implementation language must be your machine.</strong><br><br>
+  <strong>(S, T, I) &nbsp;compiled by&nbsp; (I, M, M) &nbsp;&rarr;&nbsp; (S, T, M)</strong><br>
+  <em>Only the implementation arm changes. If your SOURCE arm ever changes, you have made a mistake.</em>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th colspan="2"><strong>Two-step bootstrap</strong> &mdash; no compiler exists for L on M</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Hand-write <strong>(S, M, M)</strong> for a small subset S of L, in machine code</td></tr>
+<tr><td>2</td><td>Write <strong>(L, M, S)</strong> &mdash; the full compiler, in the subset S</td></tr>
+<tr><td>3</td><td>Compile 2 with 1 &rarr; <strong>(L, M, M)</strong>. Then optionally rewrite in L as (L,M,L) and recompile &mdash; <strong>self-hosting</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th colspan="4"><strong>Three-step cross-compiler</strong> &mdash; have (L, A, A), want (L, B, B)</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Retarget the back end, in L</td><td><strong>(L, B, L)</strong></td><td>Runs on nothing</td></tr>
+<tr><td>2</td><td>Compile it with (L, A, A)</td><td><strong>(L, B, A)</strong></td><td><strong>The CROSS-COMPILER</strong> &mdash; runs on A, emits B</td></tr>
+<tr><td>3</td><td>Compile (L,B,L) with (L,B,A)</td><td><strong>(L, B, B)</strong></td><td>Move it to machine B</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Advantages:</strong> written in a high-level language, so easier to write and maintain &middot; <strong>it tests itself</strong> &middot; portability &mdash; retarget once. <strong>Disadvantages:</strong> the initial subset compiler must be hand-written &middot; an early bug propagates invisibly &middot; slow and awkward to debug.</p>
+
+<h2>Just-in-time compilation</h2>
+
+<p><strong>Definition:</strong> compilation performed <strong>during execution</strong>, translating bytecode into native machine code <strong>immediately before it runs</strong>, and caching the result. Also called dynamic translation.</p>
+
+<p><strong>How:</strong> AOT-compile to bytecode &rarr; VM starts <strong>interpreting</strong> &rarr; <strong>profiles</strong> execution &rarr; code crossing a threshold is a <strong>hot spot</strong> and is compiled natively &rarr; cached &rarr; run-time information allows optimisations a static compiler cannot make, guarded by <strong>deoptimisation</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>AOT</th><th>Interpreter</th><th><strong>JIT</strong></th></tr></thead>
+<tbody>
+<tr><td>Translated</td><td>Before</td><td>Never</td><td><strong>During execution</strong></td></tr>
+<tr><td>Start-up</td><td>Instant to start</td><td><strong>Instant</strong></td><td>Fast</td></tr>
+<tr><td>Steady speed</td><td><strong>Fastest</strong></td><td>Slowest</td><td>Close to AOT</td></tr>
+<tr><td>Portability</td><td>Poor</td><td><strong>Excellent</strong></td><td><strong>Excellent</strong></td></tr>
+<tr><td>Run-time info</td><td>None</td><td>Unused</td><td><strong>Exploited</strong></td></tr>
+<tr><td>Examples</td><td>gcc, Rust, Go</td><td>CPython, Ruby</td><td><strong>JVM HotSpot, .NET CLR, V8, PyPy</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>JIT costs:</strong> warm-up delay &middot; compilation time counts against run time &middot; higher memory &middot; <strong>unpredictable timing, so unsuitable for hard real-time</strong>.</p>
+
+<hr class="rule">
+
+<h2>The eight most likely questions</h2>
+
+<ol>
+<li><strong>Explain the phases of a compiler with a diagram, showing the translation of a statement.</strong> <span class="tag">L2 &mdash; guaranteed</span></li>
+<li>Differentiate compiler and interpreter. <span class="tag">L1</span></li>
+<li>Explain the language processing system with a diagram. <span class="tag">L1</span></li>
+<li><strong>What is bootstrapping? Explain with T-diagrams.</strong> <span class="tag">L4</span></li>
+<li>List and explain the compiler construction tools. <span class="tag">L3</span></li>
+<li>Explain the applications of compiler technology. <span class="tag">L3</span></li>
+<li>Differentiate phase and pass; what is the symbol table? <span class="tag">L2</span></li>
+<li>What is JIT compilation? Compare it with AOT and interpretation. <span class="tag">L4</span></li>
+</ol>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="unit2-cheat-sheet.html">Unit II sheet &rarr;</a>
+</div>
+
+</div>

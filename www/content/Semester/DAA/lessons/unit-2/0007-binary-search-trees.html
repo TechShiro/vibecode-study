@@ -1,0 +1,348 @@
+<title>Binary Search Trees</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 7 of 15</p>
+<h1>Binary Search Trees</h1>
+<p class="deck">The BST property, construction from a key sequence, the three traversals, the three deletion cases worked in full, reconstructing a tree from two traversals, and why an unbalanced BST degenerates to a linked list.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three question shapes, all mechanical. <strong>&ldquo;Construct a BST from the following keys and give its traversals&rdquo;</strong> &mdash; draw the tree neatly, then read off all three traversals; the <strong>inorder must come out sorted</strong>, which is your free self-check. <strong>&ldquo;Delete key X and redraw&rdquo;</strong> &mdash; the three cases, and the two-child case is the one that gets marked. <strong>&ldquo;Construct the tree from the given inorder and preorder&rdquo;</strong> &mdash; a standard 5-marker. Everything in Lessons 8&ndash;10 is built on this lesson, so get it solid first.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Binary Search Tree Inorder Invariant & Deletion Cases</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>BST Invariant</strong><span class="sub">Left Subtree &lt; Node &lt; Right Subtree &bull; Inorder traversal yields strictly sorted sequence</span></div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>Case 1: Leaf Node (0 children)</strong><span class="sub">Simply remove pointer from parent &bull; O(1)</span></div>
+    <div class="flow-box highlight"><strong>Case 2: 1 Child</strong><span class="sub">Bypass node and connect parent directly to child &bull; O(1)</span></div>
+    <div class="flow-box ok"><strong>Case 3: 2 Children</strong><span class="sub">Replace with Inorder Predecessor (max of left) or Inorder Successor (min of right), then delete substitute</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Binary Search Trees</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-53: Binary Search Tree Insertion and Traversal Operations</div>
+    <div class="v-desc">Clear step-by-step algorithms for recursive BST insertion, search, and the 2-children deletion case with inorder successor.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=sXABdGalFNg" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>The BST property</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>binary search tree</strong> is a binary tree in which, for every node x:<br><br>
+  <strong>every key in the left subtree of x is &lt; key(x)</strong>, and<br>
+  <strong>every key in the right subtree of x is &gt; key(x)</strong>.<br><br>
+  The property is <strong>recursive</strong> &mdash; it must hold at <em>every</em> node, not merely at the root.
+</div>
+
+<div class="box win">
+  <span class="lbl">The consequence that everything follows from</span>
+  <p><strong>An inorder traversal of a BST visits the keys in sorted order.</strong> That single fact is the definition of &ldquo;search tree&rdquo;, it is the check you run on every answer, and it is why an inorder traversal costs &Theta;(n) and gives you a sorted array for free.</p>
+</div>
+
+<h2>Construction &mdash; the worked example</h2>
+
+<div class="solve">
+  <span class="lbl">Q. Construct a BST by inserting, in this order: 45, 15, 79, 90, 10, 55, 12, 20, 50.</span>
+  <p><strong>Rule:</strong> start at the root; go left if the new key is smaller, right if larger; insert as a leaf where you fall off the tree. <strong>The first key becomes the root.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Key</th><th>Path taken</th><th>Placed</th></tr></thead>
+  <tbody>
+  <tr><td class="num">45</td><td>&mdash;</td><td><strong>Root</strong></td></tr>
+  <tr><td class="num">15</td><td>15 &lt; 45 &rarr; left</td><td>Left child of 45</td></tr>
+  <tr><td class="num">79</td><td>79 &gt; 45 &rarr; right</td><td>Right child of 45</td></tr>
+  <tr><td class="num">90</td><td>&gt; 45 &rarr; right; &gt; 79 &rarr; right</td><td>Right child of 79</td></tr>
+  <tr><td class="num">10</td><td>&lt; 45 &rarr; left; &lt; 15 &rarr; left</td><td>Left child of 15</td></tr>
+  <tr><td class="num">55</td><td>&gt; 45 &rarr; right; &lt; 79 &rarr; left</td><td>Left child of 79</td></tr>
+  <tr><td class="num">12</td><td>&lt; 45; &lt; 15; &gt; 10 &rarr; right</td><td>Right child of 10</td></tr>
+  <tr><td class="num">20</td><td>&lt; 45; &gt; 15 &rarr; right</td><td>Right child of 15</td></tr>
+  <tr><td class="num">50</td><td>&gt; 45; &lt; 79; &lt; 55 &rarr; left</td><td>Left child of 55</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <div class="formula">
+    <span class="name">The resulting tree</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>45</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>15</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>79</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<strong>10</strong>&nbsp;&nbsp;&nbsp;<strong>20</strong>&nbsp;&nbsp;<strong>55</strong>&nbsp;&nbsp;&nbsp;<strong>90</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>12</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>50</strong>
+    </div>
+  </div>
+</div>
+
+<h2>The three traversals</h2>
+
+<div class="formula">
+  <span class="name">The definitions &mdash; the position of the ROOT names the traversal</span>
+  <strong>Inorder</strong> &nbsp;&nbsp;= Left, <strong>Root</strong>, Right &nbsp;&nbsp;&rarr; <strong>gives sorted order in a BST</strong><br>
+  <strong>Preorder</strong> &nbsp;= <strong>Root</strong>, Left, Right &nbsp;&nbsp;&rarr; the root comes <em>first</em>; used to copy a tree<br>
+  <strong>Postorder</strong> = Left, Right, <strong>Root</strong> &nbsp;&nbsp;&rarr; the root comes <em>last</em>; used to delete a tree
+</div>
+
+<div class="solve">
+  <span class="lbl">The three traversals of the tree above</span>
+  <p><strong>Inorder:</strong> &nbsp; 10, 12, 15, 20, <strong>45</strong>, 50, 55, 79, 90</p>
+  <p><strong>Preorder:</strong> &nbsp; <strong>45</strong>, 15, 10, 12, 20, 79, 55, 50, 90</p>
+  <p><strong>Postorder:</strong> &nbsp; 12, 10, 20, 15, 50, 55, 90, 79, <strong>45</strong></p>
+  <p><em>Three checks, all free:</em> the <strong>inorder is sorted</strong>; the <strong>preorder begins with the root</strong>; the <strong>postorder ends with the root</strong>. Run all three before writing your final answer.</p>
+</div>
+
+<p>A fourth traversal is worth naming: <strong>level order</strong> (breadth-first), which visits nodes level by level using a <strong>queue</strong>. Here it is <strong>45, 15, 79, 10, 20, 55, 90, 12, 50</strong>. All four traversals cost <strong>&Theta;(n)</strong>.</p>
+
+<h2>Search, minimum, maximum, successor</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>How</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td><strong>Search(k)</strong></td><td>Compare with the root; go left if smaller, right if larger; stop on a match or on NULL</td><td>O(h)</td></tr>
+<tr><td><strong>Minimum</strong></td><td>Follow <strong>left</strong> child pointers until there is no left child</td><td>O(h)</td></tr>
+<tr><td><strong>Maximum</strong></td><td>Follow <strong>right</strong> child pointers until there is no right child</td><td>O(h)</td></tr>
+<tr><td><strong>Inorder successor</strong> of x</td><td>If x has a right subtree, the <strong>minimum of that right subtree</strong>. Otherwise, the lowest ancestor whose left child is also an ancestor of x</td><td>O(h)</td></tr>
+<tr><td><strong>Inorder predecessor</strong> of x</td><td>If x has a left subtree, the <strong>maximum of that left subtree</strong>. Otherwise the symmetric ancestor rule</td><td>O(h)</td></tr>
+<tr><td><strong>Insert</strong></td><td>Search for the key; insert as a leaf where the search falls off</td><td>O(h)</td></tr>
+<tr><td><strong>Delete</strong></td><td>Three cases &mdash; below</td><td>O(h)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Every BST operation costs O(h), where h is the height</strong> &mdash; so the whole game is keeping h small. That is what Lessons 8, 9 and 10 are about.</p>
+
+<h2>Deletion &mdash; the three cases</h2>
+
+<div class="formula">
+  <span class="name">The three cases, in order of difficulty</span>
+  <strong>Case 1 &mdash; the node is a leaf (no children).</strong> Simply <strong>delete it</strong> and set the parent's pointer to NULL.<br><br>
+  <strong>Case 2 &mdash; the node has exactly one child.</strong> <strong>Replace the node by its child</strong> &mdash; the child, and its whole subtree, moves up.<br><br>
+  <strong>Case 3 &mdash; the node has two children.</strong> <strong>Replace the node's key by its inorder successor</strong> (the minimum of its right subtree), then <strong>recursively delete that successor</strong> from the right subtree. The successor has at most one child, so this reduces to Case 1 or Case 2.
+</div>
+
+<div class="box">
+  <span class="lbl">The alternative that is equally correct</span>
+  <p>Case 3 may instead use the <strong>inorder predecessor</strong> &mdash; the maximum of the left subtree. Both are accepted. <strong>State which one you are using in the first line</strong>, and be consistent; examiners mark a mixed answer as wrong.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Three deletions from the tree above, done in sequence.</span>
+  <p><strong>(a) Delete 12 &mdash; Case 1 (leaf).</strong></p>
+  <p>12 is a leaf, so remove it and set 10's right pointer to NULL. Node 10 is now a leaf.</p>
+  <p><strong>(b) Delete 55 &mdash; Case 2 (one child).</strong></p>
+  <p>55 has only a left child, 50. <strong>Replace 55 by 50</strong>, so 50 becomes the left child of 79.</p>
+  <p><strong>(c) Delete 15 &mdash; Case 3 (two children).</strong></p>
+  <p>15 has children 10 and 20. Its <strong>inorder successor</strong> is the <strong>minimum of its right subtree</strong>, which is <strong>20</strong>.</p>
+  <ul>
+    <li>Copy 20's key into the node holding 15.</li>
+    <li>Recursively delete 20 from the right subtree &mdash; and 20 is a leaf, so this is Case 1.</li>
+  </ul>
+  <div class="formula">
+    <span class="name">The tree after all three deletions</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>45</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>79</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;<strong>10</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>50</strong>&nbsp;&nbsp;&nbsp;<strong>90</strong>
+    </div>
+  </div>
+  <p><strong>Check &mdash; new inorder: 10, 20, 45, 50, 79, 90.</strong> Sorted, and it is exactly the original inorder with 12, 55 and 15 removed. &check;</p>
+</div>
+
+<h2>Reconstructing a tree from two traversals</h2>
+
+<div class="box exam">
+  <span class="lbl">The rule that answers the whole question type</span>
+  <p><strong>Inorder + preorder &rarr; unique tree. Inorder + postorder &rarr; unique tree. Preorder + postorder &rarr; NOT unique.</strong></p>
+  <p><strong>Inorder is always required</strong>, because it is inorder that tells you which keys lie <em>left</em> of the root and which lie <em>right</em>. Preorder or postorder only tells you <em>which key is the root</em>.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Construct the binary tree with inorder D B E A F C G and preorder A B D E C F G.</span>
+  <p><strong>Method:</strong> the <strong>first key of the preorder is the root</strong>. Find it in the inorder; everything to its left is the left subtree, everything to its right is the right subtree. Recurse.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Root</th><th>Left part of inorder</th><th>Right part of inorder</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><strong>A</strong> (first in preorder)</td><td>D B E</td><td>F C G</td></tr>
+  <tr><td>2 &mdash; left subtree</td><td><strong>B</strong> (next in preorder)</td><td>D</td><td>E</td></tr>
+  <tr><td>3 &mdash; D and E</td><td>leaves</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td>4 &mdash; right subtree</td><td><strong>C</strong> (next unused in preorder)</td><td>F</td><td>G</td></tr>
+  <tr><td>5 &mdash; F and G</td><td>leaves</td><td>&mdash;</td><td>&mdash;</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <div class="formula">
+    <span class="name">The tree</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>A</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>B</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>C</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;<strong>D</strong>&nbsp;&nbsp;&nbsp;<strong>E</strong>&nbsp;<strong>F</strong>&nbsp;&nbsp;&nbsp;<strong>G</strong>
+    </div>
+  </div>
+  <p><strong>Check:</strong> reading inorder gives D B E A F C G &check; and preorder gives A B D E C F G &check;. The postorder, for completeness, is D E B F G C A.</p>
+</div>
+
+<h2>The height problem &mdash; why balanced trees exist</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Shape</th><th>Height h</th><th>Search / insert / delete</th><th>Arises when</th></tr></thead>
+<tbody>
+<tr><td><strong>Balanced (best case)</strong></td><td><strong>&lfloor;log<sub>2</sub>n&rfloor;</strong></td><td><strong>O(log n)</strong></td><td>Keys arrive in a well-mixed order</td></tr>
+<tr><td><strong>Random</strong></td><td>&asymp; 1.39 log<sub>2</sub>n</td><td>O(log n) expected</td><td>Keys arrive in random order</td></tr>
+<tr><td><strong>Skewed (worst case)</strong></td><td><strong>n &minus; 1</strong></td><td><strong>O(n)</strong></td><td><strong>Keys arrive already sorted</strong>, or reverse sorted</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">The degenerate case &mdash; the example to quote.</span>
+  <p>Insert <strong>10, 20, 30, 40, 50</strong> in that order:</p>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem">10 &rarr; 20 &rarr; 30 &rarr; 40 &rarr; 50 &nbsp;&nbsp;(each new key is larger, so it goes right every time)</p>
+  <p>The result is a <strong>right-skewed tree</strong> &mdash; effectively a <strong>linked list</strong> of height 4. A search for 50 costs 5 comparisons, not log<sub>2</sub>5 &asymp; 2.3.</p>
+  <p><strong>So a BST built from sorted input has O(n) operations &mdash; no better than an array, and worse than a sorted array with binary search.</strong> This is the entire motivation for AVL trees (Lesson 8), red&ndash;black trees (Lesson 9) and B-trees (Lesson 10), all of which force h = O(log n) whatever the insertion order.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>Average</th><th>Worst</th><th>Sorted array</th><th>Linked list</th></tr></thead>
+<tbody>
+<tr><td><strong>Search</strong></td><td>O(log n)</td><td><strong>O(n)</strong></td><td>O(log n)</td><td>O(n)</td></tr>
+<tr><td><strong>Insert</strong></td><td>O(log n)</td><td>O(n)</td><td>O(n)</td><td>O(1)</td></tr>
+<tr><td><strong>Delete</strong></td><td>O(log n)</td><td>O(n)</td><td>O(n)</td><td>O(1)</td></tr>
+<tr><td><strong>Get sorted order</strong></td><td>&Theta;(n)</td><td>&Theta;(n)</td><td>&Theta;(n)</td><td>&Theta;(n log n)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The BST's selling point:</strong> it is the only structure in that table with logarithmic <em>search, insert and delete</em> at once. A sorted array searches quickly but inserts slowly; a linked list inserts quickly but searches slowly.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. An inorder traversal of a binary search tree produces:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The keys in sorted ascending order</button>
+    <button class="opt">The keys in insertion order</button>
+    <button class="opt">The root first, then each subtree</button>
+    <button class="opt">The keys level by level</button>
+  </div>
+  <p class="why">It is the defining consequence of the BST property, and the free self-check on every construction and deletion answer.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. To delete a node with two children, you replace its key with:</p>
+  <div class="opts">
+    <button class="opt">The maximum of its right subtree</button>
+    <button class="opt">The root's key</button>
+    <button class="opt" data-ok="1">The minimum of its right subtree — the inorder successor</button>
+    <button class="opt">Its parent's key</button>
+  </div>
+  <p class="why">The inorder predecessor — the maximum of the <em>left</em> subtree — is equally correct. State which convention you are using and stay consistent.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Inserting 10, 20, 30, 40, 50 in that order gives a tree of height:</p>
+  <div class="opts">
+    <button class="opt">2 — a balanced tree</button>
+    <button class="opt">5</button>
+    <button class="opt">1</button>
+    <button class="opt" data-ok="1">4 — a right-skewed tree, effectively a linked list</button>
+  </div>
+  <p class="why">Every key is larger than the last, so each goes right. Operations become O(n), which is the whole reason AVL, red–black and B-trees exist.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which pair of traversals does NOT determine a binary tree uniquely?</p>
+  <div class="opts">
+    <button class="opt">Inorder and level order</button>
+    <button class="opt">Inorder and postorder</button>
+    <button class="opt">Inorder and preorder</button>
+    <button class="opt" data-ok="1">Preorder and postorder</button>
+  </div>
+  <p class="why">Inorder is essential, because only it separates the left subtree from the right. Preorder or postorder alone tells you the root but not the split.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. For the tree built from 45, 15, 79, 90, 10, 55, 12, 20, 50, the preorder is:</p>
+  <div class="opts">
+    <button class="opt">10, 12, 15, 20, 45, 50, 55, 79, 90</button>
+    <button class="opt">45, 15, 79, 10, 20, 55, 90, 12, 50</button>
+    <button class="opt" data-ok="1">45, 15, 10, 12, 20, 79, 55, 50, 90</button>
+    <button class="opt">12, 10, 20, 15, 50, 55, 90, 79, 45</button>
+  </div>
+  <p class="why">Option two is the inorder, option three the postorder, option four the level order. Preorder starts with the root and takes the whole left subtree before the right.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. All BST operations cost:</p>
+  <div class="opts">
+    <button class="opt">O(1) amortised</button>
+    <button class="opt">O(log n) always</button>
+    <button class="opt">O(n) always</button>
+    <button class="opt" data-ok="1">O(h), where h is the height of the tree</button>
+  </div>
+  <p class="why">h is log n only when the tree is balanced, and n − 1 when it is skewed. Everything that follows in this unit is about forcing h to stay O(log n).</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. The inorder successor of a node that has a right subtree is:</p>
+  <div class="opts">
+    <button class="opt">The maximum of that right subtree</button>
+    <button class="opt">Its right child, always</button>
+    <button class="opt">Its parent</button>
+    <button class="opt" data-ok="1">The minimum of that right subtree</button>
+  </div>
+  <p class="why">It is the right child only when that child has no left subtree. When a node has no right subtree at all, the successor is the lowest ancestor whose left child is also an ancestor of the node.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the BST property and its key consequence.</summary>
+    <p class="ans">For every node x, all keys in the left subtree are less than key(x) and all keys in the right subtree are greater — and the property must hold recursively at every node. The consequence is that an inorder traversal visits the keys in sorted order.</p></details>
+  <details class="card"><summary>Give the three traversals and how to remember them.</summary>
+    <p class="ans">Inorder is Left–Root–Right and gives sorted order; preorder is Root–Left–Right and starts with the root; postorder is Left–Right–Root and ends with the root. The position of the root in the name gives the order. Level order uses a queue. All are &Theta;(n).</p></details>
+  <details class="card"><summary>Give the three deletion cases.</summary>
+    <p class="ans">Leaf: delete it and null the parent's pointer. One child: replace the node by that child. Two children: replace the key by the inorder successor — the minimum of the right subtree — then recursively delete that successor, which has at most one child. The inorder predecessor may be used instead, consistently.</p></details>
+  <details class="card"><summary>Which pairs of traversals determine a tree uniquely, and why?</summary>
+    <p class="ans">Inorder with preorder, and inorder with postorder. Preorder with postorder does not. Inorder is essential because only it says which keys lie left of the root and which lie right; preorder and postorder only identify the root.</p></details>
+  <details class="card"><summary>Describe the reconstruction method from inorder and preorder.</summary>
+    <p class="ans">The first key of the preorder is the root. Locate it in the inorder: everything to its left forms the left subtree and everything to its right the right subtree. Recurse on each part, taking the next unused preorder keys as the roots. Verify by reading both traversals back off the finished tree.</p></details>
+  <details class="card"><summary>State the height in the best, average and worst case, and what causes the worst case.</summary>
+    <p class="ans">Balanced: &lfloor;log₂n&rfloor;. Random insertion order: about 1.39 log₂n. Skewed: n − 1, caused by inserting keys in sorted or reverse-sorted order, which makes the tree a linked list with O(n) operations.</p></details>
+  <details class="card"><summary>Why use a BST rather than a sorted array or a linked list?</summary>
+    <p class="ans">A BST is the only one of the three with logarithmic search, insert and delete together. A sorted array searches in O(log n) but inserts and deletes in O(n); a linked list inserts in O(1) but searches in O(n).</p></details>
+</div>
+
+<p class="ask">Next: the first way to guarantee the height stays logarithmic &mdash; AVL trees and their four rotations.</p>
+
+<div class="nav">
+  <a href="../unit-1/0006-algorithmic-paradigms.html">&larr; Unit I</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0008-avl-trees.html">Next: AVL Trees &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 17 — Node.js Fundamentals</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 17 of 24 · V8, libuv, fs, http, streams</div>
+<h1>Node.js Fundamentals</h1>
+<p class="subtitle">We leave the browser. Same JavaScript, new powers — files, sockets, processes — and a server model that handles ten thousand connections on a single thread.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 17 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Leaving the browser: what Node actually is</h2>
+<p>
+Everything before Module C ran your JS inside a browser tab. Next.js quietly ran some of it "on the server" —
+and that server was <strong>Node.js</strong>. This module opens the box. Backend Module D starts here:
+Node this lesson, Express next, so you feel exactly what Express saves you from.
+</p>
+<p>
+Node.js is <strong>a JavaScript runtime built on V8 and libuv</strong>. Unpack that:
+</p>
+<ul>
+  <li><strong>V8</strong> — Chrome's JavaScript engine, ripped out of the browser. It compiles and runs your JS, fast. Same language, same semantics you learned in Module A.</li>
+  <li><strong>libuv</strong> — a C library giving JS what browsers never allowed: files, network sockets, DNS, child processes — all through an <strong>asynchronous, non-blocking</strong> API, plus the event loop that schedules it all and a small thread pool for the few operations (like file IO) that can't be async at the OS level.</li>
+  <li><strong>Node's own APIs</strong> — <code>fs</code>, <code>http</code>, <code>path</code>, <code>process</code>… glue exposing libuv's powers to your JS.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  V8 is to JS what the JVM is to bytecode: the execution engine. Node = engine + standard library + runtime
+  services, so "Node is to JavaScript roughly what the JDK is to Java" is a fair one-liner. The deep difference
+  is the concurrency model — coming in section 3.
+</div>
+
+<h2>2 · Node vs browser — same language, different planet</h2>
+<table>
+  <thead><tr><th></th><th>Browser</th><th>Node</th></tr></thead>
+  <tbody>
+    <tr><td>Global object</td><td><code>window</code> (also <code>globalThis</code>)</td><td><code>global</code> (also <code>globalThis</code> — the portable name)</td></tr>
+    <tr><td>UI</td><td><code>document</code>, DOM, events</td><td>None — no DOM, no <code>window</code>, no <code>alert</code></td></tr>
+    <tr><td>System access</td><td>Sandboxed (no arbitrary file access)</td><td>Full: <code>fs</code>, network sockets, <code>process</code>, env vars</td></tr>
+    <tr><td>Entry point</td><td><code>&lt;script&gt;</code> in a page</td><td><code>node app.js</code> from a terminal</td></tr>
+    <tr><td>Modules</td><td>ESM in <code>&lt;script type="module"&gt;</code></td><td>CJS by default; ESM via <code>"type": "module"</code></td></tr>
+    <tr><td>Who runs it</td><td>Your users, on their machines</td><td>You, on your server</td></tr>
+  </tbody>
+</table>
+<p>
+Shared core: the language itself, <code>Promise</code>, <code>fetch</code> (built into Node since v18), timers,
+<code>console</code>, <code>JSON</code>. If your code touches <code>document</code> or
+<code>localStorage</code>, it's browser-only; if it touches <code>fs</code> or <code>process</code>, it's
+Node-only. That's the exact line behind Lesson 15's server/client component split.
+</p>
+
+<h2>3 · Why Node for servers — one thread vs a thread per request</h2>
+<p>
+The classic Java servlet model: each incoming request gets <strong>a thread</strong> from a pool. The thread
+runs your code, and when it queries the DB it <strong>blocks</strong> — sits idle holding ~1MB of stack —
+until the result returns. 10,000 concurrent requests? 10,000 mostly-sleeping threads, heavy memory, costly
+context switches.
+</p>
+<p>
+Node's model: <strong>one thread runs all your JS</strong>, and every IO operation is non-blocking.
+"Read this socket — call me back when data arrives." While the DB thinks, the thread serves other requests.
+Ten thousand waiting connections are just ten thousand cheap callbacks in a queue, not ten thousand threads.
+</p>
+
+<pre><code><span class="cmt">// The restaurant analogy:</span>
+<span class="cmt">// Java (classic): one waiter PER TABLE; each waits at the kitchen till the dish is ready.</span>
+<span class="cmt">// Node: ONE waiter for the room; drops orders at the kitchen, keeps circulating,</span>
+<span class="cmt">//       delivers each dish when the kitchen dings the bell (the callback).</span></code></pre>
+
+<p>
+Honesty section — say this in interviews and you'll stand out:
+</p>
+<ul>
+  <li><strong>IO-bound work</strong> (APIs, chat, streaming, proxies — mostly <em>waiting</em> on DB/network/disk): Node shines.</li>
+  <li><strong>CPU-bound work</strong> (video encoding, heavy crypto, big number-crunching): Node suffers — a long computation <strong>blocks the one thread</strong>, freezing every other request. Use worker threads (section 12) or a different runtime for that.</li>
+  <li>Modern Java has async NIO/virtual threads too — Node's edge is that non-blocking is the <em>default and only</em> style, plus one language across the whole stack.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Node runs JavaScript on one thread with an event loop; all IO is non-blocking, so instead of a thread per
+  request it multiplexes thousands of connections over one thread. Great for IO-bound servers; wrong for
+  CPU-bound work unless you offload to worker threads."
+</div>
+
+<h2>4 · Running code, <code>process</code>, and the REPL</h2>
+<pre><code>node                      <span class="cmt"># no args → REPL: an interactive JS prompt, like jshell</span>
+node app.js hello 42      <span class="cmt"># run a script with two arguments</span></code></pre>
+
+<pre><code><span class="cmt">// app.js — process is your window into the OS</span>
+console.log(process.argv);        <span class="cmt">// ['/path/node', '/path/app.js', 'hello', '42']</span>
+console.log(process.argv[2]);     <span class="cmt">// 'hello' — real args start at index 2</span>
+
+console.log(process.env.PORT);    <span class="cmt">// environment variables (config & secrets live here)</span>
+console.log(process.cwd());       <span class="cmt">// directory node was LAUNCHED from (not the file's dir!)</span>
+console.log(process.platform);    <span class="cmt">// 'win32', 'linux', 'darwin'</span>
+
+if (!process.env.PORT) {
+  console.error('PORT is required');
+  process.exit(1);                <span class="cmt">// nonzero = failure, same convention as System.exit</span>
+}</code></pre>
+
+<h2>5 · Modules in Node — CJS vs ESM in 30 seconds</h2>
+<p>
+Full story in Lesson 8; the Node-specific recap: Node's <em>historical</em> system is
+<strong>CommonJS</strong> (<code>require</code>/<code>module.exports</code>, synchronous). Modern
+<strong>ESM</strong> (<code>import</code>/<code>export</code>) works when you set
+<code>"type": "module"</code> in <code>package.json</code> (or name files <code>.mjs</code>).
+</p>
+<pre><code><span class="cmt">// CJS (default in a bare project)          // ESM (with "type": "module")</span>
+const fs = require('fs');                    import fs from 'node:fs';
+module.exports = { helper };                 export { helper };</code></pre>
+<p>
+This track uses ESM. The <code>node:</code> prefix (<code>node:fs</code>, <code>node:path</code>) explicitly
+marks core modules — modern style, avoids clashes with npm packages.
+</p>
+
+<h2>6 · <code>path</code> — stop concatenating strings</h2>
+<pre><code>import path from 'node:path';
+
+<span class="cmt">// WRONG: dir + '/' + file → breaks on Windows (\), duplicate slashes, '..' issues</span>
+<span class="cmt">// RIGHT:</span>
+path.join('logs', 'app', 'today.log');    <span class="cmt">// 'logs/app/today.log' (or \ on Windows)</span>
+path.resolve('logs', 'today.log');        <span class="cmt">// ABSOLUTE path from cwd: 'C:\Dev\skills\logs\today.log'</span>
+path.basename('/a/b/report.pdf');         <span class="cmt">// 'report.pdf'</span>
+path.extname('report.pdf');               <span class="cmt">// '.pdf'</span>
+path.dirname('/a/b/report.pdf');          <span class="cmt">// '/a/b'</span>
+
+<span class="cmt">// the classic pattern: paths relative to THIS FILE, not the launch dir</span>
+const dataFile = path.join(import.meta.dirname, 'data', 'users.json');</code></pre>
+<p>
+<code>join</code> glues segments with the right separator; <code>resolve</code> builds an absolute path.
+Use them because your code must survive Windows vs Linux and being launched from any directory —
+this is Java's <code>Path.of()</code>/<code>Paths.get()</code> lesson all over again.
+</p>
+
+<h2>7 · <code>fs</code> — three generations of the same read</h2>
+<p>
+The file-system module is a live museum of async style evolution — and a perfect interview demo:
+</p>
+<pre><code>import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+
+<span class="cmt">// GEN 1 — synchronous: BLOCKS the one thread. Fine in scripts, poison in servers.</span>
+const text1 = fs.readFileSync('notes.txt', 'utf8');
+
+<span class="cmt">// GEN 2 — error-first callback: non-blocking, but nesting breeds callback hell</span>
+fs.readFile('notes.txt', 'utf8', (err, text2) =&gt; {
+  if (err) return console.error('failed:', err.message);   <span class="cmt">// error ALWAYS first arg</span>
+  console.log(text2);
+});
+
+<span class="cmt">// GEN 3 — fs/promises + async/await: non-blocking AND readable. Use this.</span>
+const text3 = await fsp.readFile('notes.txt', 'utf8');
+await fsp.writeFile('out.txt', text3.toUpperCase());
+await fsp.mkdir('logs', { recursive: true });</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha</span>
+  Forget the <code>'utf8'</code> encoding and <code>readFile</code> hands you a <strong>Buffer</strong> (raw
+  bytes — section 11), not a string. And never call <code>*Sync</code> functions while serving requests: one
+  slow disk read freezes <em>every</em> connected client, because there is only one JS thread.
+</div>
+
+<p><code>os</code> in one glance: <code>os.cpus().length</code> (core count — used for clustering),
+<code>os.totalmem()</code>, <code>os.homedir()</code>, <code>os.tmpdir()</code>.</p>
+
+<h2>8 · Events — <code>EventEmitter</code></h2>
+<p>
+Browser JS had <code>addEventListener</code>; Node's equivalent backbone is <code>EventEmitter</code> —
+the observer pattern as a base class (think Swing listeners / a tiny pub-sub). Streams, servers, sockets:
+almost everything in Node <em>is</em> an emitter.
+</p>
+<pre><code>import { EventEmitter } from 'node:events';
+
+const orders = new EventEmitter();
+
+orders.on('placed', (id) =&gt; console.log(`email receipt for ${id}`));   <span class="cmt">// subscribe</span>
+orders.on('placed', (id) =&gt; console.log(`update stock for ${id}`));    <span class="cmt">// many listeners OK</span>
+orders.once('first-sale', () =&gt; console.log('🎉 celebrate — runs once, then unsubscribes'));
+
+orders.emit('placed', 'ord_42');       <span class="cmt">// fires both listeners, synchronously, in order</span>
+orders.emit('first-sale');
+orders.emit('first-sale');             <span class="cmt">// nothing — once() already detached</span>
+
+<span class="cmt">// the special 'error' event: emitted with NO listener attached → Node CRASHES the process</span>
+orders.on('error', (err) =&gt; console.error('handled:', err.message));</code></pre>
+<p>
+Remember this shape — Express's <code>app.on(...)</code>, stream events, and WebSocket handling all reuse it.
+</p>
+
+<h2>9 · <code>http</code> — a server with no framework</h2>
+<p>
+Now the payoff. Node's core <code>http</code> module can serve real traffic — and hand-rolling routing and
+body parsing once will make you <em>grateful</em> for Express next lesson.
+</p>
+<pre><code><span class="cmt">// server.js — run: node server.js  → http://localhost:3000</span>
+import http from 'node:http';
+
+const notes = [{ id: 1, text: 'learn node' }];
+
+const server = http.createServer((req, res) =&gt; {
+  <span class="cmt">// EVERY request lands in this one function. Routing = if/else on url+method.</span>
+
+  if (req.method === 'GET' &amp;&amp; req.url === '/api/notes') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });  <span class="cmt">// status + headers</span>
+    res.end(JSON.stringify(notes));                              <span class="cmt">// body, then close</span>
+
+  } else if (req.method === 'POST' &amp;&amp; req.url === '/api/notes') {
+    <span class="cmt">// the body arrives in CHUNKS (it's a stream!) — collect, then parse</span>
+    let raw = '';
+    req.on('data', (chunk) =&gt; raw += chunk);
+    req.on('end', () =&gt; {
+      try {
+        const { text } = JSON.parse(raw);
+        const note = { id: notes.length + 1, text };
+        notes.push(note);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(note));
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid JSON' }));
+      }
+    });
+
+  } else {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'not found' }));
+  }
+});
+
+server.listen(3000, () =&gt; console.log('listening on :3000'));</code></pre>
+<p>
+Feel the pain points: manual <code>if/else</code> routing, manual chunk-collecting and JSON parsing, headers
+written by hand, no URL parameters, no middleware. Express (Lesson 18) is a thin layer that fixes exactly
+this list — nothing magical, just this code factored well.
+</p>
+
+<h2>10 · Streams and pipes — why not read the whole file?</h2>
+<p>
+<code>readFile</code> loads the <em>entire</em> file into memory. For a 4GB video that's a crash; for many
+concurrent downloads it's death by RAM. A <strong>stream</strong> processes data <strong>chunk by chunk</strong>
+— constant memory no matter the file size:
+</p>
+<pre><code>import fs from 'node:fs';
+import http from 'node:http';
+
+http.createServer((req, res) =&gt; {
+  <span class="cmt">// stream a huge file: read a chunk → send a chunk → repeat. RAM stays flat.</span>
+  const file = fs.createReadStream('big-video.mp4');   <span class="cmt">// Readable stream</span>
+  file.pipe(res);                                      <span class="cmt">// res is a Writable stream!</span>
+  file.on('error', () =&gt; { res.writeHead(404); res.end(); });
+}).listen(3000);</code></pre>
+<p>
+<code>pipe</code> connects a Readable to a Writable — Unix pipes, in JS — and handles
+<strong>backpressure</strong>: if the client reads slowly, reading from disk pauses instead of buffering
+gigabytes. Chunk size is tuned by <code>highWaterMark</code> (default 64KB for file streams) — know the
+term, not the tuning. Four stream types for the record: Readable, Writable, Duplex (both, e.g. sockets),
+Transform (modifies data in flight, e.g. gzip). You already met streams disguised: <code>req</code> in
+section 9 is a Readable, <code>res</code> a Writable.
+</p>
+
+<h2>11 · Buffers — bytes, not strings</h2>
+<pre><code>const buf = Buffer.from('नमस्ते', 'utf8');  <span class="cmt">// raw bytes of the UTF-8 encoding</span>
+console.log(buf.length);                    <span class="cmt">// 18 bytes — NOT 6 characters!</span>
+console.log(buf.toString('utf8'));          <span class="cmt">// back to 'नमस्ते'</span>
+console.log(buf.toString('base64'));        <span class="cmt">// encode for transport</span></code></pre>
+<p>
+A <code>Buffer</code> is Node's container for binary data — fixed-size raw memory, like Java's
+<code>byte[]</code>. File chunks, sockets, crypto all speak Buffer; an encoding (<code>'utf8'</code>,
+<code>'base64'</code>, <code>'hex'</code>) is the translation rule between bytes and text. This is why
+un-encoded <code>readFile</code> returns a Buffer: Node won't guess your encoding.
+</p>
+
+<h2>12 · The Node event loop — interview depth</h2>
+<p>
+Lesson 6 gave you the browser loop (call stack, microtasks, macrotasks). Node's loop (in libuv) is the same
+idea with named <strong>phases</strong> cycling in order:
+</p>
+<ul>
+  <li><strong>timers</strong> — run due <code>setTimeout</code>/<code>setInterval</code> callbacks</li>
+  <li><strong>pending callbacks</strong> — leftover system-level callbacks</li>
+  <li><strong>poll</strong> — the workhorse: wait for and process IO events (sockets, file callbacks)</li>
+  <li><strong>check</strong> — run <code>setImmediate</code> callbacks</li>
+  <li><strong>close callbacks</strong> — e.g. <code>socket.on('close')</code></li>
+</ul>
+<p>
+Between every callback, two express queues jump the line:
+<strong><code>process.nextTick</code></strong> (highest priority, Node-specific) and then
+<strong>microtasks</strong> (promise <code>.then</code>/<code>await</code> continuations). The classic
+questions:
+</p>
+<pre><code>setTimeout(() =&gt; console.log('timeout'), 0);
+setImmediate(() =&gt; console.log('immediate'));
+Promise.resolve().then(() =&gt; console.log('promise'));
+process.nextTick(() =&gt; console.log('tick'));
+console.log('sync');
+
+<span class="cmt">// sync → tick → promise → then timeout/immediate</span>
+<span class="cmt">// (timeout vs immediate order is nondeterministic in main script;</span>
+<span class="cmt">//  INSIDE an IO callback, setImmediate always beats setTimeout(0) —</span>
+<span class="cmt">//  check phase comes right after poll, timers must wait for the next loop)</span></code></pre>
+
+<table>
+  <thead><tr><th>API</th><th>Runs</th><th>Queue</th></tr></thead>
+  <tbody>
+    <tr><td><code>process.nextTick(fn)</code></td><td>Before anything else, right after current code</td><td>nextTick queue (Node-only)</td></tr>
+    <tr><td><code>Promise.then</code> / <code>await</code></td><td>After nextTick, before any phase continues</td><td>Microtask queue</td></tr>
+    <tr><td><code>setTimeout(fn, 0)</code></td><td>Timers phase of a later loop iteration</td><td>Macrotask (timers)</td></tr>
+    <tr><td><code>setImmediate(fn)</code></td><td>Check phase, right after poll/IO</td><td>Macrotask (check)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">Gotcha</span>
+  Recursive <code>process.nextTick</code> can <strong>starve</strong> the event loop — the tick queue drains
+  fully before IO gets a turn, so a self-scheduling tick blocks the server as surely as an infinite while loop.
+  That's why docs say "use <code>setImmediate</code> for 'run this soon', <code>nextTick</code> only for
+  'finish this before anything else observes my state'."
+</div>
+
+<h2>13 · Scaling glance: cluster &amp; worker_threads</h2>
+<p>
+<strong>cluster</strong>: one JS thread uses one CPU core — on an 8-core box, 7 idle. The cluster module
+forks one Node <em>process</em> per core, all sharing the same port with the OS load-balancing connections.
+Process managers like PM2 do this for you; it's the standard answer to "how does Node use multiple cores?"
+</p>
+<p>
+<strong>worker_threads</strong>: real threads <em>within</em> one process, each with its own event loop,
+passing messages instead of sharing state. The answer to "what about CPU-bound work?": push the heavy
+computation (image resize, big parse) into a worker so the main loop stays free to serve requests. Cluster =
+scale <em>requests</em> across cores; workers = keep <em>computation</em> off the main thread.
+</p>
+
+<h2>14 · Dev loop: npm scripts, nodemon, watch mode</h2>
+<pre><code><span class="cmt">// package.json</span>
+{
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"     <span class="cmt">// auto-restart on save (Node 18.11+)</span>
+  }
+}</code></pre>
+<p>
+Restarting by hand after every edit gets old in minutes. <code>node --watch</code> (built-in) or the classic
+<strong>nodemon</strong> (<code>npx nodemon server.js</code>) restarts the process on file change — Node's
+answer to Vite's hot reload, at process granularity. Convention: <code>npm run dev</code> = watching dev
+server, <code>npm start</code> = plain production start.
+</p>
+
+<h2>15 · Error-first callbacks — and why promises won</h2>
+<p>
+You saw the shape in section 7: every classic Node async API calls back as <code>(err, result)</code> —
+error first, always, so no one could forget failure handling. It worked, but composition was misery: each
+step nests one level deeper (callback hell), errors must be manually forwarded at every layer, and
+<code>try/catch</code> can't cross a callback boundary. Promises won because they made async values
+<strong>first-class</strong> — returnable, chainable, aggregatable (<code>Promise.all</code>) — and
+<code>async/await</code> restored straight-line code with real <code>try/catch</code>. Legacy callback APIs
+convert via <code>util.promisify</code>, and modern core modules ship promise versions
+(<code>fs/promises</code>) natively. Full story: Lessons 6–7.
+</p>
+
+<h2>16 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "What is Node.js?"</strong><br>
+  A JavaScript runtime outside the browser: V8 executes the JS, libuv provides the event loop and non-blocking
+  IO (files, sockets), and Node's core modules (<code>fs</code>, <code>http</code>, <code>path</code>…) expose
+  system capabilities browsers sandbox away.</li>
+  <li><strong>Q. "Single-threaded Node vs multi-threaded Java servers?"</strong><br>
+  Classic Java blocks a pooled thread per request during IO; Node multiplexes all requests on one thread with
+  non-blocking IO and callbacks. Fewer resources for IO-bound loads; CPU-bound work blocks Node's only thread,
+  so it goes to worker threads. (libuv also keeps an internal thread pool for file IO/crypto — "single-threaded"
+  means your JS, not the whole process.)</li>
+  <li><strong>Q. "setTimeout(fn, 0) vs setImmediate vs process.nextTick?"</strong><br>
+  nextTick runs first — before microtasks, before any phase continues. Promise callbacks next. setTimeout runs
+  in the timers phase; setImmediate in the check phase. Inside an IO callback setImmediate fires before
+  setTimeout(0), because check follows poll directly.</li>
+  <li><strong>Q. "Why streams over readFile?"</strong><br>
+  readFile buffers the entire file in memory; a stream processes fixed-size chunks (highWaterMark), so a 4GB
+  file serves in constant memory. pipe() connects readable to writable and manages backpressure when the
+  consumer is slower than the producer.</li>
+  <li><strong>Q. "What is a Buffer?"</strong><br>
+  Node's raw binary container — like Java's <code>byte[]</code>. Streams, sockets, and un-encoded file reads
+  produce Buffers; an encoding like utf8 or base64 converts between bytes and strings.</li>
+  <li><strong>Q. "What is an error-first callback?"</strong><br>
+  Node's classic async convention: <code>callback(err, result)</code> with the error as first argument, forcing
+  explicit handling. Superseded in practice by promises/async-await, which compose and support try/catch.</li>
+  <li><strong>Q. "How does Node use multiple CPU cores?"</strong><br>
+  cluster (or PM2) forks one process per core sharing a port for request throughput; worker_threads offload
+  CPU-heavy jobs from the main event loop within a process.</li>
+</ul>
+
+<h2>17 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A request handler calls <code>fs.readFileSync</code> on a slow disk. What do other connected clients experience?</div>
+  <button class="opt">Nothing unusual — Node automatically moves sync calls to the libuv thread pool</button>
+  <button class="opt">They all freeze — the single JS thread is blocked, so no other callbacks can run</button>
+  <button class="opt">Only requests to the same route are delayed; others proceed on separate threads</button>
+  <div class="fb" data-correct="One JS thread runs ALL handlers. A blocking call anywhere stalls the entire event loop — every client waits. That's the whole reason async fs APIs exist, and why *Sync belongs only in startup scripts and CLIs." data-wrong="Node never rescues a Sync call — 'Sync' means 'block the JS thread until done'. And there are no per-route threads: one loop serves everyone, so one blocked handler freezes all clients."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Inside an <code>fs.readFile</code> callback you schedule <code>setTimeout(f, 0)</code> and <code>setImmediate(g)</code>. Which runs first?</div>
+  <button class="opt"><code>f</code> — timers always have the highest priority in libuv</button>
+  <button class="opt">Unpredictable, same as in the main script</button>
+  <button class="opt"><code>g</code> — after IO (poll phase), the check phase runs before the loop returns to timers</button>
+  <div class="fb" data-correct="An IO callback executes in the poll phase, and the very next phase is check — home of setImmediate. Timers must wait for the next loop iteration. (In the MAIN script, with no IO context, the order is genuinely nondeterministic.)" data-wrong="Context is everything: inside an IO callback the loop is in poll, and check (setImmediate) comes immediately after — before the loop cycles back to the timers phase. The 'unpredictable' answer applies only to the top-level script."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Your server must send a 4GB video file. The right approach?</div>
+  <button class="opt"><code>fs.createReadStream('v.mp4').pipe(res)</code> — chunked transfer, constant memory, backpressure handled</button>
+  <button class="opt"><code>const buf = await fsp.readFile('v.mp4'); res.end(buf)</code> — simplest and equally efficient</button>
+  <button class="opt">Read the file inside a worker thread, then <code>res.end()</code> the result from there</button>
+  <div class="fb" data-correct="Streaming reads and sends ~64KB chunks (highWaterMark), pausing the disk read whenever the client can't keep up. Memory stays flat regardless of file size — the textbook streams use case." data-wrong="readFile would materialize all 4GB in RAM per request — a few concurrent viewers would kill the process. Workers don't help either (the problem is memory, not CPU). Chunk-by-chunk streaming with pipe is the answer."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">An <code>EventEmitter</code> emits <code>'error'</code> and no listener is attached. What happens?</div>
+  <button class="opt">The event is silently dropped, like any other unlistened event</button>
+  <button class="opt">Node throws — an unhandled <code>'error'</code> event crashes the process</button>
+  <button class="opt">It is automatically logged to stderr and execution continues</button>
+  <div class="fb" data-correct="'error' is the one special event name: with no listener, Node treats the emit as an uncaught exception and the process dies. Servers and streams emit it, so always attach an 'error' handler on anything long-lived." data-wrong="Every OTHER event vanishes quietly when unlistened — but 'error' is special-cased to crash the process, on the theory that ignored errors are worse than crashes. This exact behaviour is a favourite Node interview check."></div>
+</div>
+
+<h2>18 · Do this next</h2>
+<ul>
+  <li>Build the section-9 notes API from scratch (no peeking after the first read): GET list, POST with chunked JSON body parsing, 404 fallback. Add <code>GET /api/notes/&lt;id&gt;</code> by splitting <code>req.url</code> — feel exactly how manual routing gets ugly. Test with <code>curl</code> or Postman. Keep this file: next lesson you rebuild it in Express in a quarter of the code.</li>
+  <li>Write <code>copy.js</code> that copies a file two ways: <code>readFile</code>+<code>writeFile</code>, and <code>createReadStream().pipe(createWriteStream())</code>. Generate a ~1GB test file, run both under watch (Task Manager / <code>process.memoryUsage()</code>), and compare peak memory.</li>
+  <li>Predict the full output order of the section-12 snippet on paper, then run it — once at top level, once wrapped inside <code>fs.readFile('x', () =&gt; { ... })</code> — and explain the difference in one sentence.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Event-loop phases feeling abstract, or unsure why one thread can beat a thread pool, or where Buffers meet
+  streams? Ask me in chat — we can trace any snippet line by line. When you can explain non-blocking IO and
+  the nextTick → microtask → phases ordering unaided, say <strong>"next"</strong> for
+  Lesson 18: Express — REST APIs &amp; Middleware.
+</div>
+
+<div class="nav">
+  <span><a href="0016-nextjs-data-server-actions.html">← Data &amp; Server Actions</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0018-express-rest-middleware.html">Express: REST &amp; Middleware →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

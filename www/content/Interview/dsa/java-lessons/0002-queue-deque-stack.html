@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Java Essentials 02 — Queue, Deque &amp; Stack</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Java Essentials · Lesson 02 of 03 · the right container for BFS/DFS</div>
+<h1>Queue, Deque &amp; Stack</h1>
+<p class="subtitle">Four names, two of them contracts and two of them classes. Untangle them once and you'll never hesitate over <code>offer</code> vs <code>push</code> in a live interview again.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> graphs are ~25% of your target interviews, and every BFS/DFS needs the right container.
+  This is Java Essentials 2 of 3. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Two of these four names are <strong>interfaces</strong> (contracts that say <em>what</em> operations exist) and two are
+<strong>classes</strong> (implementations that say <em>how</em>). You declare a variable with the <em>interface</em> and
+construct it with a <em>class</em>. For 99% of interview code the answer is the same single class —
+<code>ArrayDeque</code> — wearing two different hats: a queue hat and a stack hat.
+</p>
+
+<table>
+  <thead><tr><th>Name</th><th>Kind</th><th>What it gives you</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td><code>Queue&lt;E&gt;</code></td><td>interface</td><td>FIFO contract: <code>offer</code> / <code>poll</code> / <code>peek</code></td><td>BFS frontier, level-order, any "process in arrival order"</td></tr>
+    <tr><td><code>Deque&lt;E&gt;</code></td><td>interface</td><td>Double-ended: <code>addFirst/addLast</code>, <code>pollFirst/pollLast</code>, plus <code>push/pop</code></td><td>Stack, sliding-window deque, 0-1 BFS</td></tr>
+    <tr><td><code>ArrayDeque&lt;E&gt;</code></td><td><strong>class</strong></td><td>The DEFAULT implementation of both <code>Queue</code> and <code>Deque</code></td><td>Use this for stack <em>and</em> queue. Fast, array-backed.</td></tr>
+    <tr><td><code>LinkedList&lt;E&gt;</code></td><td>class</td><td>Also a <code>Deque</code>, but a node per element (pointer overhead)</td><td>Only when you also need <code>List</code> indexing / it's already a list</td></tr>
+    <tr><td><code>java.util.Stack</code></td><td>legacy class</td><td>LIFO via <code>push/pop/peek</code></td><td><strong>Avoid</strong> — synchronized, slow, extends the obsolete <code>Vector</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">The rule that ends the confusion</span>
+  Need a <strong>stack</strong>? <code>Deque&lt;T&gt; st = new ArrayDeque&lt;&gt;();</code> then <code>push</code> / <code>pop</code> / <code>peek</code>.<br>
+  Need a <strong>queue</strong>? <code>Queue&lt;T&gt; q = new ArrayDeque&lt;&gt;();</code> then <code>offer</code> / <code>poll</code> / <code>peek</code>.<br>
+  <strong>One class — <code>ArrayDeque</code> — answers both.</strong> You almost never type <code>LinkedList</code> or <code>Stack</code> again.
+</div>
+
+<h2>2 · Decoding <code>Queue&lt;int[]&gt; q = new ArrayDeque&lt;&gt;();</code></h2>
+<p>This single line appears in nearly every grid-BFS solution. Read it piece by piece:</p>
+
+<div class="callout">
+  <span class="label">Left to right, one token at a time</span>
+  <ul>
+    <li><code>Queue</code> — the <strong>interface</strong> (the declared type). You promise only to use FIFO operations on <code>q</code>.</li>
+    <li><code>&lt;int[]&gt;</code> — the generic <strong>element type</strong>: each item in the queue is <em>one</em> <code>int</code> array, e.g. <code>{row, col}</code>.</li>
+    <li><code>q</code> — the variable name.</li>
+    <li><code>new ArrayDeque&lt;&gt;()</code> — the concrete <strong>implementation</strong> you actually build. <code>ArrayDeque</code> implements <code>Queue</code>, so this is legal.</li>
+    <li><code>&lt;&gt;</code> — the diamond: "same element type as the left side", so you don't repeat <code>&lt;int[]&gt;</code>.</li>
+  </ul>
+  <strong>There is NO class called <code>ArrayQueue</code>.</strong> The array-backed implementation of a queue is literally named <code>ArrayDeque</code> — a deque can do everything a queue can, so Java ships one class for both.
+</div>
+
+<p>
+Why pack coordinates into an <code>int[]</code>? A queue slot holds <strong>one object</strong>. A grid cell is two
+numbers (row and column) that must travel together, so you bundle them into a single object — an <code>int[]{r, c}</code>.
+You then unpack with <code>cell[0]</code> and <code>cell[1]</code>. (A small class or <code>int[]{r, c, dist}</code> works too
+when you need to carry distance along.)
+</p>
+
+<pre><code>Queue&lt;int[]&gt; q = new ArrayDeque&lt;&gt;();
+q.offer(new int[]{r, c});       <span class="cmt">// enqueue one cell as a 2-element array</span>
+int[] cell = q.poll();          <span class="cmt">// dequeue it</span>
+int row = cell[0], col = cell[1]; <span class="cmt">// unpack the bundle</span></code></pre>
+
+<h2>3 · The method cheat table</h2>
+<p>
+The same physical class exposes three vocabularies. Pick <em>one</em> per use and stay consistent — mixing
+<code>push</code> with <code>poll</code> on the same structure is how you confuse yourself at the whiteboard.
+</p>
+
+<table>
+  <thead><tr><th>Role</th><th>Add</th><th>Remove</th><th>Look</th><th>End that's used</th></tr></thead>
+  <tbody>
+    <tr><td>Queue (FIFO)</td><td><code>offer(x)</code></td><td><code>poll()</code></td><td><code>peek()</code></td><td>add at tail, remove at head</td></tr>
+    <tr><td>Stack (LIFO)</td><td><code>push(x)</code></td><td><code>pop()</code></td><td><code>peek()</code></td><td>both at head (front)</td></tr>
+    <tr><td>Deque (both ends)</td><td><code>offerFirst</code> / <code>offerLast</code></td><td><code>pollFirst</code> / <code>pollLast</code></td><td><code>peekFirst</code> / <code>peekLast</code></td><td>whichever you name</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">null vs exception on an empty container</span>
+  Two families do the "same" thing but disagree when the structure is <strong>empty</strong>:
+  <ul>
+    <li><code>poll()</code>, <code>peek()</code>, <code>pollFirst()</code>, <code>peekFirst()</code> → return <strong><code>null</code></strong> on empty.</li>
+    <li><code>remove()</code>, <code>element()</code>, <code>pop()</code> → <strong>throw</strong> <code>NoSuchElementException</code> on empty.</li>
+  </ul>
+  In interview loops you guard with <code>while (!q.isEmpty())</code>, so either works — but know that an unguarded
+  <code>pop()</code> blows up where an unguarded <code>poll()</code> quietly hands you <code>null</code>.
+</div>
+
+<h3>Stack with ArrayDeque (the right way to do a stack)</h3>
+<pre><code>Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();
+st.push(10);                <span class="cmt">// = addFirst(10)</span>
+st.push(20);
+int top = st.peek();        <span class="cmt">// 20, doesn't remove</span>
+int out = st.pop();         <span class="cmt">// 20, removes (throws if empty)</span></code></pre>
+
+<h3>Queue with ArrayDeque</h3>
+<pre><code>Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+q.offer(10);                <span class="cmt">// = addLast(10)</span>
+q.offer(20);
+int head = q.peek();        <span class="cmt">// 10, doesn't remove</span>
+int out  = q.poll();        <span class="cmt">// 10, removes (null if empty)</span></code></pre>
+
+<h2>4 · When you actually need a Deque (both ends)</h2>
+<p>
+A plain queue or stack uses one end. A few important patterns need <em>both</em> ends of the same structure —
+that's when you declare the variable as <code>Deque</code> and reach for the <code>First</code>/<code>Last</code> methods.
+</p>
+
+<table>
+  <thead><tr><th>Pattern</th><th>Why a deque</th><th>Key calls</th></tr></thead>
+  <tbody>
+    <tr><td>0-1 BFS</td><td>0-weight edges jump to the front (same distance), 1-weight to the back</td><td><code>offerFirst</code> / <code>offerLast</code> + <code>pollFirst</code></td></tr>
+    <tr><td>Sliding Window Maximum (LC 239)</td><td>Monotonic deque of indices: drop from the back, expire from the front</td><td><code>pollLast</code> (drop smaller) / <code>pollFirst</code> (expire) / <code>peekFirst</code></td></tr>
+  </tbody>
+</table>
+
+<pre><code><span class="cmt">// Monotonic deque core (Sliding Window Maximum): store INDICES, decreasing by value</span>
+Deque&lt;Integer&gt; dq = new ArrayDeque&lt;&gt;();
+for (int i = 0; i &lt; nums.length; i++) {
+    while (!dq.isEmpty() &amp;&amp; nums[dq.peekLast()] &lt;= nums[i])
+        dq.pollLast();                 <span class="cmt">// back: drop indices that can never be the max</span>
+    dq.offerLast(i);
+    if (dq.peekFirst() &lt;= i - k)
+        dq.pollFirst();                <span class="cmt">// front: expire the index that left the window</span>
+    <span class="cmt">// nums[dq.peekFirst()] is the window max once i &gt;= k - 1</span>
+}</code></pre>
+
+<div class="callout">
+  <span class="label">Forward reference — PriorityQueue is a Queue too, but NOT FIFO</span>
+  <code>PriorityQueue&lt;E&gt;</code> also implements <code>Queue</code>, so it has <code>offer</code> / <code>poll</code> / <code>peek</code> —
+  but it is <strong>heap-ordered</strong>, not arrival-ordered: <code>poll()</code> returns the smallest (or your comparator's
+  "best") element, not the oldest. Don't reach for it when you mean a plain FIFO frontier. It gets its own lesson next.
+</div>
+
+<h3>Worked example — dry run</h3>
+<p>One <code>ArrayDeque</code> used as a <strong>stack</strong> (LIFO): <code>push(1)</code>, <code>push(2)</code>,
+<code>push(3)</code>, then <code>pop()</code> and <code>peek()</code>. Boxes grow toward the right; the
+right end is the <code>top</code> (where <code>push</code>/<code>pop</code> act). Final state after the pop:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 220 90" role="img" aria-label="A deque drawn as a row of two boxes holding 1 and 2, with the right box marked as the top">
+  <rect class="cell"     x="20"  y="25" width="60" height="40" rx="4"/><text class="lbl" x="50"  y="45">1</text>
+  <rect class="cell cur" x="90"  y="25" width="60" height="40" rx="4"/><text class="lbl" x="120" y="45">2</text>
+  <text class="wt" x="120" y="80">top</text>
+</svg>
+<figcaption>ArrayDeque is both stack (push/pop, one end) and queue (offer/poll, opposite ends).</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">push(1) → deque [1]</span>
+<span class="step">push(2) → deque [1,2]</span>
+<span class="step">push(3) → deque [1,2,3]</span>
+<span class="step now">pop() → returns <span class="ptr">3</span>, deque [1,2]</span>
+<span class="step now">peek() → returns <span class="ptr">2</span>, deque unchanged [1,2]</span>
+<span class="step">contrast — as a QUEUE: offer(1), offer(2), poll() returns <span class="ptr">1</span> (FIFO) — same ArrayDeque, but it removes from the opposite end</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Empty container:</strong> <code>poll</code>/<code>peek</code> give <code>null</code>; <code>pop</code>/<code>remove</code>/<code>element</code> <em>throw</em>. Guard with <code>isEmpty()</code> either way.</li>
+  <li><strong>Don't use <code>Stack</code> / <code>Vector</code>:</strong> legacy, synchronized (lock overhead), and <code>Stack</code>'s iteration order is bottom-to-top — surprising. Use <code>Deque&lt;T&gt; = new ArrayDeque&lt;&gt;()</code>.</li>
+  <li><strong><code>ArrayDeque</code> rejects <code>null</code>:</strong> <code>offer(null)</code> / <code>push(null)</code> throw <code>NullPointerException</code> (it uses <code>null</code> internally to mean "empty"). <code>LinkedList</code> <em>allows</em> <code>null</code> elements — a rare reason to prefer it, but usually a code smell.</li>
+  <li><strong>Pick one vocabulary:</strong> treat a given structure as <em>either</em> a stack (<code>push/pop</code>) <em>or</em> a queue (<code>offer/poll</code>) — never both at once.</li>
+  <li><strong>Stack direction:</strong> on <code>ArrayDeque</code>, <code>push</code> adds to the FRONT and <code>pop</code> removes from the FRONT (LIFO). If you accidentally <code>offer</code> (tail) and <code>pop</code> (front), you've built a queue by mistake.</li>
+  <li><strong>Element type is one object per slot:</strong> bundle coordinates as <code>int[]{r, c}</code> (or a small record/class); you can't enqueue two loose ints.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In <code>Queue&lt;int[]&gt; q = new ArrayDeque&lt;&gt;();</code>, what is <code>ArrayDeque</code>?</div>
+  <button class="opt">An interface that <code>Queue</code> extends to add array support</button>
+  <button class="opt">A class named for the fact that it can only behave as a stack</button>
+  <button class="opt">The concrete class (implementation) that backs the <code>Queue</code> interface here</button>
+  <div class="fb" data-correct="Right: Queue is the interface (declared type) and ArrayDeque is the concrete implementation you construct. There is no class called ArrayQueue." data-wrong="Queue is the interface (the contract); ArrayDeque is the concrete class implementing it. The variable is typed by the interface, built by the class."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You call <code>poll()</code> on an empty <code>ArrayDeque</code> used as a queue. What happens?</div>
+  <button class="opt">It returns <code>null</code></button>
+  <button class="opt">It throws <code>NoSuchElementException</code></button>
+  <button class="opt">It blocks until an element is added</button>
+  <div class="fb" data-correct="poll and peek return null on empty; it's remove/element/pop that throw. Blocking is a different family (BlockingQueue)." data-wrong="poll (and peek) return null on an empty container. The throwing versions are remove(), element(), and pop()."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You need a plain LIFO stack for an interview. The recommended declaration is:</div>
+  <button class="opt"><code>Stack&lt;Integer&gt; st = new Stack&lt;&gt;();</code></button>
+  <button class="opt"><code>Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();</code> using <code>push/pop/peek</code></button>
+  <button class="opt"><code>Queue&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();</code> using <code>offer/poll</code></button>
+  <div class="fb" data-correct="ArrayDeque as a Deque with push/pop/peek is the modern, fast stack. java.util.Stack is legacy/synchronized; offer/poll would make it a queue, not a stack." data-wrong="Use Deque<T> = new ArrayDeque<>() with push/pop/peek. java.util.Stack is legacy and slow; offer/poll gives FIFO, not LIFO."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (docs):</strong> read the official <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Deque.html">java.util.Deque</a> and <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Queue.html">java.util.Queue</a> Javadocs — specifically the tables of "throws vs returns special value" methods. They are the authoritative null-vs-exception reference.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 20 (Valid Parentheses — stack) → LC 232 / 225 (queue via stacks, stack via queues) → LC 239 (Sliding Window Maximum — monotonic deque) → LC 739 (Daily Temperatures — stack of indices). Code each from a blank file using <code>ArrayDeque</code>.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure whether a problem wants a stack or a queue, why <code>ArrayDeque</code> rejects <code>null</code>, or how the
+  monotonic deque actually slides? Ask in the chat. When you can write a stack and a queue with <code>ArrayDeque</code>
+  from memory and recall which methods return <code>null</code> vs throw, say <strong>"next"</strong> and we move to
+  Java Essentials 03: PriorityQueue &amp; Comparators.
+</div>
+
+<div class="nav">
+  <span><a href="0001-int-vs-integer.html">← int vs Integer</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-priorityqueue-and-comparators.html">PriorityQueue &amp; Comparators →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

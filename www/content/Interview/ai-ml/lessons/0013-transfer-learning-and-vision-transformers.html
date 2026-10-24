@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 13 – Transfer Learning & Vision Transformers</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module D · Lesson 13 of 17 · Advanced Vision</div>
+  <h1>Transfer Learning & Vision Transformers (ViT)</h1>
+  <p class="subtitle">Standing on the shoulders of giants: pretrained backbones, fine-tuning recipes, and attention applied to image patches.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Computer Vision</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Training a deep vision model from scratch requires millions of labeled images (ImageNet) and weeks of cluster compute. In industry, 95% of computer vision tasks are solved via <strong>Transfer Learning</strong>: taking a model pre-trained on ImageNet that already knows universal visual representations (textures, edges, shapes) and fine-tuning only the final classification head on your specific domain dataset (e.g. medical X-rays or manufacturing defects).</p>
+
+  <h2>2 · Transfer Learning Strategies</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Strategy</th><th>When to Use</th><th>Implementation Mechanism</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Feature Extraction (Linear Probing)</strong></td>
+        <td>Small custom dataset (&lt; 1,000 images); target domain similar to ImageNet.</td>
+        <td><strong>Freeze all backbone weights</strong> (<code>param.requires_grad = False</code>); replace and train only the final linear classification layer.</td>
+      </tr>
+      <tr>
+        <td><strong>Full Fine-Tuning</strong></td>
+        <td>Medium to large custom dataset; target domain differs from ImageNet.</td>
+        <td>Unfreeze entire network, but use a <strong>very small learning rate</strong> (e.g. <code>1e-5</code>) to avoid catastrophic forgetting of learned visual features.</td>
+      </tr>
+      <tr>
+        <td><strong>Differential Learning Rates</strong></td>
+        <td>Gold standard for high accuracy.</td>
+        <td>Apply <code>lr=1e-5</code> to early layers, <code>lr=1e-4</code> to middle layers, and <code>lr=1e-3</code> to the newly initialized classifier head.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Production PyTorch Transfer Learning Code</h2>
+  <pre><code>import torch
+import torch.nn as nn
+from torchvision import models
+
+def get_finetuned_resnet(num_classes):
+    # 1. Load weights pretrained on ImageNet
+    model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+
+    # 2. Freeze all convolutional backbone layers
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # 3. Replace final fully connected layer (model.fc)
+    in_features = model.fc.in_features
+    model.fc = nn.Sequential(
+        nn.Linear(in_features, 256),
+        nn.ReLU(),
+        nn.Dropout(0.3),
+        nn.Linear(256, num_classes)
+    )
+    # Note: Only model.fc parameters will have requires_grad = True!
+    return model
+
+model = get_finetuned_resnet(num_classes=5)
+# Pass only trainable parameters to optimizer
+optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-3)</code></pre>
+
+  <h2>4 · Vision Transformers (ViT): An Image is Worth 16x16 Words</h2>
+  <p>Introduced by Dosovitskiy et al. (Google Brain, 2020), <strong>Vision Transformers (ViT)</strong> discard convolutions entirely and treat images like sequences of text tokens:</p>
+  <div class="arch-flow">
+    <div class="box">Image (224 &times; 224 &times; 3)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Cut into 16 &times; 16 Patches (196 Tokens)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Linear Projection + Positional Embed</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Standard Transformer Encoder</div>
+  </div>
+
+  <div class="callout info">
+    <h4>CNN vs ViT Trade-offs</h4>
+    <ul>
+      <li><strong>CNNs</strong> have built-in <strong>Inductive Bias</strong>: translation equivariance and local spatial awareness. They train exceptionally well on small-to-medium datasets.</li>
+      <li><strong>ViTs</strong> have almost zero inductive bias; they must learn spatial relationships from scratch using Global Self-Attention. When pre-trained on massive datasets (JFT-300M), ViTs outperform CNNs significantly.</li>
+    </ul>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0012-convolutional-neural-networks-and-modern-architectures.html">← Lesson 12: CNNs & ResNets</a>
+    <a href="0014-nlp-foundations-embeddings-and-rnns.html">Lesson 14: NLP Foundations & Embeddings →</a>
+  </nav>
+</body>
+</html>

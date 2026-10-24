@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 18 — Express: REST APIs &amp; Middleware</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 18 of 24 · express, REST, middleware, errors</div>
+<h1>Express: REST APIs &amp; Middleware</h1>
+<p class="subtitle">Last lesson you built an HTTP server with your bare hands — now meet the framework that turns those 60 lines of routing pain into 6, and the one concept (middleware) that powers every Node backend you'll ever touch.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 18 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · From raw <code>http</code> to Express — what exactly does it abstract?</h2>
+<p>
+In Lesson 17 you wrote this kind of thing with the core <code>http</code> module:
+</p>
+
+<pre><code><span class="cmt">// Lesson 17 flashback — raw http server. Every server is ONE giant callback.</span>
+import http from "node:http";
+
+const server = http.createServer((req, res) =&gt; {
+  <span class="cmt">// 1. Routing by hand: if-else on method + URL string parsing</span>
+  if (req.method === "GET" &amp;&amp; req.url === "/notes") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify([{ id: 1, text: "hi" }]));
+  } else if (req.method === "POST" &amp;&amp; req.url === "/notes") {
+    <span class="cmt">// 2. Body parsing by hand: collect stream chunks, join, JSON.parse, try/catch</span>
+    let body = "";
+    req.on("data", chunk =&gt; body += chunk);
+    req.on("end", () =&gt; { <span class="cmt">/* parse, validate, respond... */</span> });
+  } else {
+    res.writeHead(404); res.end("Not found");
+  }
+});
+server.listen(3000);</code></pre>
+
+<p>
+That works, but three chores repeat in <em>every</em> route and grow ugly fast:
+</p>
+<ul>
+  <li><strong>Routing</strong> — matching method + URL, extracting <code>/notes/42</code>-style params with regex.</li>
+  <li><strong>Parsing</strong> — reading the body stream, parsing JSON, parsing the query string.</li>
+  <li><strong>Chaining cross-cutting logic</strong> — logging, auth, error handling that must run for many routes without copy-paste.</li>
+</ul>
+<p>
+Express is a thin layer over <code>http.createServer</code> that industrialises exactly these three things.
+It is <em>not</em> a different server — under the hood the same <code>req</code> and <code>res</code> objects from
+Lesson 17 flow through, just decorated with helper methods. That's why understanding raw <code>http</code>
+first was worth it: nothing Express does is magic to you now.
+</p>
+
+<div class="callout tip">
+  <span class="label">Java parallel</span>
+  Raw <code>http</code> is like writing a server on bare <code>java.net.ServerSocket</code> / <code>com.sun.net.httpserver</code>.
+  Express is roughly the Servlet API + a routing layer — comparable to Spark Java or a very stripped-down Spring MVC.
+  It gives you routing and request/response conveniences but <em>no opinions</em> about architecture (NestJS, Lesson 20, adds the Spring-style opinions).
+</div>
+
+<h2>2 · Install and hello world</h2>
+
+<pre><code><span class="cmt"># new project, ES modules on</span>
+mkdir notes-api &amp;&amp; cd notes-api
+npm init -y
+npm pkg set type=module
+npm install express</code></pre>
+
+<pre><code><span class="cmt">// server.js — the whole hello world</span>
+import express from "express";
+
+const app = express();          <span class="cmt">// app is a function: (req, res) =&gt; ... plus helper methods</span>
+
+app.get("/", (req, res) =&gt; {    <span class="cmt">// method + path + handler. That's a "route".</span>
+  res.send("Hello from Express");
+});
+
+app.listen(3000, () =&gt; console.log("http://localhost:3000"));</code></pre>
+
+<p>
+Compare with Lesson 17: no manual <code>writeHead</code>, no if-else ladder. <code>app.listen</code> literally calls
+<code>http.createServer(app).listen(...)</code> for you — <code>app</code> itself is a valid request handler function.
+</p>
+
+<h2>3 · Routing: methods, params, queries, and the req/res API</h2>
+
+<pre><code>app.get("/notes", handler);        <span class="cmt">// read collection</span>
+app.post("/notes", handler);       <span class="cmt">// create</span>
+app.get("/notes/:id", handler);    <span class="cmt">// :id is a PATH PARAM — matches /notes/42, /notes/abc</span>
+app.put("/notes/:id", handler);    <span class="cmt">// full replace</span>
+app.patch("/notes/:id", handler);  <span class="cmt">// partial update</span>
+app.delete("/notes/:id", handler); <span class="cmt">// delete</span></code></pre>
+
+<p><strong>Path params</strong> identify a resource; <strong>query strings</strong> tweak how you read it (filters, sorting, paging):</p>
+
+<pre><code><span class="cmt">// GET /notes/42?fields=text  →  params and query are pre-parsed objects</span>
+app.get("/notes/:id", (req, res) =&gt; {
+  req.params.id;      <span class="cmt">// "42" — ALWAYS a string, convert with Number() yourself</span>
+  req.query.fields;   <span class="cmt">// "text"  (Lesson 17 made you parse this with URLSearchParams)</span>
+});
+
+<span class="cmt">// GET /notes?done=true&amp;sort=createdAt&amp;page=2</span>
+app.get("/notes", (req, res) =&gt; {
+  const { done, sort, page = "1" } = req.query;  <span class="cmt">// destructuring + default, Lesson 4 style</span>
+});</code></pre>
+
+<p>The response helpers you'll use daily:</p>
+
+<pre><code>res.send("text or html or Buffer");        <span class="cmt">// guesses Content-Type</span>
+res.json({ ok: true });                    <span class="cmt">// JSON.stringify + Content-Type: application/json</span>
+res.status(201).json(newNote);             <span class="cmt">// chainable — set code, then body</span>
+res.sendStatus(204);                       <span class="cmt">// status + standard text, no body</span>
+res.set("X-Request-Id", "abc");            <span class="cmt">// response header</span>
+req.get("Authorization");                  <span class="cmt">// read a request header (case-insensitive)</span>
+res.redirect(301, "/v2/notes");            <span class="cmt">// Location header + status</span></code></pre>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Sending a response does <strong>not</strong> stop your function. After <code>res.json(...)</code>, code keeps running —
+  and a second <code>res.send</code> throws <em>"Cannot set headers after they are sent"</em> (you met the reason in
+  Lesson 17: headers go out first on the wire, and the stream is finished). Habit: <code>return res.status(404).json(...)</code> —
+  the <code>return</code> is for control flow, Express ignores the return value.
+</div>
+
+<h2>4 · REST, done properly</h2>
+<p>
+REST (REpresentational State Transfer) is not a library — it's a set of conventions for using HTTP the way it was designed.
+The core idea: your API exposes <strong>resources</strong> (nouns: notes, users, orders), and the <strong>HTTP verb</strong>
+carries the action. You never write <code>/getNotes</code> or <code>/deleteNote?id=5</code> — the verb is already in the request line.
+</p>
+
+<table>
+  <thead><tr><th>Verb</th><th>Meaning</th><th>Idempotent?</th><th>Typical success</th></tr></thead>
+  <tbody>
+    <tr><td><code>GET</code></td><td>Read; never changes state (safe)</td><td>Yes</td><td>200 with body</td></tr>
+    <tr><td><code>POST</code></td><td>Create a new resource / trigger an action</td><td><strong>No</strong> — repeat = duplicate</td><td>201 + Location header</td></tr>
+    <tr><td><code>PUT</code></td><td><em>Replace</em> the whole resource at that URL</td><td>Yes — same body twice = same state</td><td>200 or 204</td></tr>
+    <tr><td><code>PATCH</code></td><td>Partial update (only sent fields change)</td><td>Usually yes in practice, not guaranteed</td><td>200</td></tr>
+    <tr><td><code>DELETE</code></td><td>Remove the resource</td><td>Yes — deleting twice leaves same state</td><td>204, no body</td></tr>
+  </tbody>
+</table>
+
+<p>
+<strong>Idempotency</strong> — the interview word — means <em>doing it N times has the same effect as doing it once</em>.
+It matters because networks fail: if a client times out and retries, retrying a <code>PUT</code> or <code>DELETE</code> is harmless,
+but retrying a <code>POST</code> can create two orders. That's why payment APIs make you send an "idempotency key" with POSTs.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "PUT replaces the entire resource and is idempotent; PATCH modifies part of it. GET is <em>safe</em> (no side effects)
+  <em>and</em> idempotent; POST is neither, which is why browsers warn you before re-submitting a form."
+</div>
+
+<h3>Status codes that actually matter</h3>
+<table>
+  <thead><tr><th>Code</th><th>Name</th><th>When to use it</th></tr></thead>
+  <tbody>
+    <tr><td>200</td><td>OK</td><td>Successful GET/PUT/PATCH with a response body</td></tr>
+    <tr><td>201</td><td>Created</td><td>Successful POST; ideally include the new resource + <code>Location</code> header</td></tr>
+    <tr><td>204</td><td>No Content</td><td>Success, nothing to say — typical for DELETE</td></tr>
+    <tr><td>301</td><td>Moved Permanently</td><td>Resource lives at a new URL forever; browsers cache it</td></tr>
+    <tr><td>400</td><td>Bad Request</td><td>Malformed request — broken JSON, missing required field</td></tr>
+    <tr><td>401</td><td>Unauthorized</td><td>Misnamed — really "un<em>authenticated</em>": who are you? No/invalid credentials</td></tr>
+    <tr><td>403</td><td>Forbidden</td><td>I know who you are, and you're still not allowed (authorization failure)</td></tr>
+    <tr><td>404</td><td>Not Found</td><td>No such resource (also used to hide resources you can't reveal exist)</td></tr>
+    <tr><td>409</td><td>Conflict</td><td>State clash — e.g. registering an email that already exists</td></tr>
+    <tr><td>422</td><td>Unprocessable Entity</td><td>Syntax fine, semantics wrong — validation failures (many teams use 400 instead; pick one, be consistent)</td></tr>
+    <tr><td>500</td><td>Internal Server Error</td><td>Your bug. Never leak stack traces to clients</td></tr>
+  </tbody>
+</table>
+
+<h3>URL design + versioning glance</h3>
+<pre><code>GET    /api/v1/notes            <span class="cmt">// plural nouns, lowercase, hyphens if multiword</span>
+GET    /api/v1/notes/42
+GET    /api/v1/users/7/notes    <span class="cmt">// nesting shows ownership — keep it max 2 levels</span>
+GET    /api/v1/notes?done=true&amp;page=2&amp;limit=20   <span class="cmt">// filtering/paging = query, not path</span>
+
+<span class="cmt">// BAD: verbs in URLs, singular/plural chaos</span>
+POST   /api/createNote
+GET    /api/note_list</code></pre>
+<p>
+The <code>/v1/</code> prefix is <strong>URL versioning</strong> — the most common scheme. When you must break the contract
+(rename fields, change shapes), you ship <code>/v2/</code> alongside and let old clients keep working. Alternatives
+(header-based, media-type versioning) exist; know they exist, use URL versioning in projects.
+</p>
+
+<h2>5 · Middleware — THE core concept</h2>
+<p>
+Everything in Express is middleware. A middleware is just a function with the signature
+<code>(req, res, next)</code>. Express keeps an ordered list of them; each request walks the list top to bottom.
+Each function can: (a) do work (log, parse, attach data to <code>req</code>), then call <code>next()</code> to pass the baton;
+or (b) end the story by sending a response; or (c) call <code>next(err)</code> to jump to error handling.
+</p>
+<p>
+Mental model: an <strong>assembly line</strong> — or, closer to home, exactly the
+<strong>Servlet Filter chain</strong> from Java: <code>doFilter(request, response, chain)</code> where you call
+<code>chain.doFilter(...)</code> to continue. Same pattern, same "order matters" rule, same use cases (auth, logging, compression).
+</p>
+
+<pre><code><span class="cmt">// A logger middleware — runs for EVERY request because of app.use</span>
+function logger(req, res, next) {
+  console.log(`${req.method} ${req.url}`);
+  next();                                   <span class="cmt">// forget this and the request HANGS forever</span>
+}
+
+<span class="cmt">// A timer — shows the trick of hooking the response 'finish' event</span>
+function timer(req, res, next) {
+  const start = Date.now();
+  res.on("finish", () =&gt; {                  <span class="cmt">// res is a stream (Lesson 17!) — it emits events</span>
+    console.log(`  → ${res.statusCode} in ${Date.now() - start}ms`);
+  });
+  next();
+}
+
+app.use(logger);          <span class="cmt">// ORDER MATTERS: these run in registration order</span>
+app.use(timer);
+app.use(express.json());  <span class="cmt">// built-in: parses JSON bodies into req.body</span>
+
+app.get("/notes", (req, res) =&gt; res.json(notes));  <span class="cmt">// a route handler is just the LAST middleware</span></code></pre>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Register <code>express.json()</code> <em>after</em> your routes and <code>req.body</code> is <code>undefined</code> inside them —
+  the pipeline already reached the route before the parser existed in its path. "Middleware order bug" is the
+  single most common beginner Express bug, and a favourite debugging interview question.
+</div>
+
+<h3>The built-ins you actually use</h3>
+<ul>
+  <li><code>express.json()</code> — reads the body stream, <code>JSON.parse</code>s it, sets <code>req.body</code>. (This is the chore you did by hand in Lesson 17.)</li>
+  <li><code>express.urlencoded({ extended: true })</code> — parses classic HTML form posts (<code>a=1&amp;b=2</code>).</li>
+  <li><code>express.static("public")</code> — serves files from a folder (images, a built React app) with correct MIME types and caching headers.</li>
+</ul>
+
+<h3>Route-level and third-party middleware</h3>
+<pre><code><span class="cmt">// Route-level: runs only for this route — perfect for auth on specific endpoints</span>
+function requireAuth(req, res, next) {
+  if (!req.get("Authorization")) return res.status(401).json({ error: "Login required" });
+  next();
+}
+app.delete("/notes/:id", requireAuth, deleteNote);   <span class="cmt">// any number of middlewares before the handler</span>
+
+<span class="cmt">// Mount-path: runs only for URLs starting with /admin</span>
+app.use("/admin", requireAuth);
+
+<span class="cmt">// Third-party: npm install morgan cors</span>
+import morgan from "morgan";
+import cors from "cors";
+app.use(morgan("dev"));    <span class="cmt">// battle-tested request logger (more in Lesson 19)</span>
+app.use(cors());           <span class="cmt">// cross-origin headers (explained properly in Lesson 19)</span></code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Middleware is a function <code>(req, res, next)</code> in a pipeline. Each one can transform the request, end the
+  response, or pass control with <code>next()</code>; <code>next(err)</code> skips ahead to error-handling middleware.
+  Order of registration is order of execution — it's Chain of Responsibility, the same pattern as Java's servlet filters."
+</div>
+
+<h2>6 · <code>express.Router</code> — modular routes</h2>
+<p>
+One file with 40 <code>app.get(...)</code> calls doesn't scale. A <code>Router</code> is a mini-app: it has its own
+middleware and routes, and you mount it at a prefix.
+</p>
+
+<pre><code><span class="cmt">// src/routes/notes.routes.js</span>
+import { Router } from "express";
+const router = Router();
+
+router.get("/", listNotes);        <span class="cmt">// paths are RELATIVE to the mount point</span>
+router.post("/", createNote);
+router.get("/:id", getNote);
+
+export default router;
+
+<span class="cmt">// server.js</span>
+import notesRouter from "./src/routes/notes.routes.js";
+app.use("/api/v1/notes", notesRouter);   <span class="cmt">// router.get("/") now serves GET /api/v1/notes</span></code></pre>
+
+<h2>7 · Project structure — routes / controllers / services</h2>
+<p>
+This is the layered architecture you already know from Java, with different hats:
+</p>
+
+<table>
+  <thead><tr><th>Layer</th><th>Job</th><th>Java / Spring equivalent</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Route</strong></td><td>Map URL + verb → controller function; attach route middleware</td><td><code>@RequestMapping</code> annotations / web.xml</td></tr>
+    <tr><td><strong>Controller</strong></td><td>HTTP translation only: pull data from req, call service, pick status code, send response</td><td><code>@RestController</code></td></tr>
+    <tr><td><strong>Service</strong></td><td>Business logic, knows nothing about HTTP — pure functions on data</td><td><code>@Service</code></td></tr>
+    <tr><td><strong>Data layer</strong></td><td>Talks to the DB (arrives in Lessons 21–23)</td><td><code>@Repository</code> / DAO</td></tr>
+  </tbody>
+</table>
+
+<p>
+<strong>Why keep controllers thin?</strong> Because business logic buried in a controller is welded to Express —
+you can't unit-test it without faking <code>req</code>/<code>res</code>, can't reuse it from a CLI script or a cron job,
+and can't swap Express for Nest later. A service that takes plain arguments and returns plain values is trivially testable.
+Exactly the reason Spring separates <code>@RestController</code> from <code>@Service</code>.
+</p>
+
+<h2>8 · Error handling — the 4-arg middleware</h2>
+<p>
+Express treats a middleware with <strong>four</strong> parameters — <code>(err, req, res, next)</code> — as an
+error handler. Arity is the signal; the names don't matter, the count does. Whenever any middleware calls
+<code>next(err)</code> or a synchronous handler throws, Express skips every normal middleware and jumps to the
+first 4-arg one. That gives you a <strong>single centralized place</strong> to convert errors into HTTP responses —
+the equivalent of Spring's <code>@ControllerAdvice</code> + <code>@ExceptionHandler</code>.
+</p>
+
+<pre><code><span class="cmt">// src/middleware/error.js</span>
+export class ApiError extends Error {            <span class="cmt">// custom error carrying a status (Lesson 9 custom errors)</span>
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export function notFound(req, res, next) {       <span class="cmt">// 404 catcher: mounted AFTER all routes,</span>
+  next(new ApiError(404, `No route: ${req.method} ${req.originalUrl}`));  <span class="cmt">// reached only if nothing matched</span>
+}
+
+export function errorHandler(err, req, res, next) {   <span class="cmt">// FOUR args = error middleware</span>
+  const status = err.status ?? 500;
+  if (status &gt;= 500) console.error(err);         <span class="cmt">// log real bugs server-side...</span>
+  res.status(status).json({                      <span class="cmt">// ...but never leak stack traces to the client</span>
+    error: status &gt;= 500 ? "Internal server error" : err.message,
+  });
+}</code></pre>
+
+<h3>The async trap</h3>
+<p>
+In Express 4, a <em>rejected promise</em> inside an <code>async</code> handler is <strong>not</strong> caught —
+the request hangs and the error escapes. Two fixes:
+</p>
+
+<pre><code><span class="cmt">// Fix 1 (Express 4): a tiny wrapper that forwards rejections to next()</span>
+const asyncWrap = (fn) =&gt; (req, res, next) =&gt; fn(req, res, next).catch(next);
+
+app.get("/notes/:id", asyncWrap(async (req, res) =&gt; {
+  const note = await notesService.getById(req.params.id);   <span class="cmt">// throws ApiError(404) if missing</span>
+  res.json(note);
+}));
+
+<span class="cmt">// Fix 2: Express 5 (now the default on npm) catches async rejections automatically —</span>
+<span class="cmt">// a thrown/rejected error in an async handler goes straight to your error middleware.</span></code></pre>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Mount order for the endgame is fixed: <em>all routes → notFound → errorHandler</em>. Put <code>errorHandler</code>
+  before the routes and it never sees their errors; forget <code>notFound</code> and unknown URLs get Express's default
+  HTML error page instead of your JSON.
+</div>
+
+<h2>9 · Validation — never trust input</h2>
+<p>
+Everything in <code>req.body</code>, <code>req.params</code>, <code>req.query</code> comes from a stranger's keyboard
+(or a script). Types are wrong, fields are missing, extra fields smuggle in. Validating at the boundary — before the
+service runs — is non-negotiable in real APIs. The modern choice is <strong>zod</strong>: you declare a schema, and it
+both validates and <em>strips unknown fields</em>. (<code>express-validator</code> is the older chain-style alternative.)
+</p>
+
+<pre><code>npm install zod</code></pre>
+
+<pre><code><span class="cmt">// src/middleware/validate.js — a reusable schema-checking middleware FACTORY</span>
+export const validate = (schema) =&gt; (req, res, next) =&gt; {
+  const result = schema.safeParse(req.body);     <span class="cmt">// safeParse never throws — returns a result object</span>
+  if (!result.success) {
+    return res.status(422).json({
+      error: "Validation failed",
+      details: result.error.issues.map(i =&gt; `${i.path.join(".")}: ${i.message}`),
+    });
+  }
+  req.body = result.data;                        <span class="cmt">// parsed + cleaned: unknown keys removed, defaults applied</span>
+  next();
+};
+
+<span class="cmt">// src/schemas/notes.schema.js</span>
+import { z } from "zod";
+export const createNoteSchema = z.object({
+  text: z.string().min(1).max(500),
+  done: z.boolean().default(false),
+});
+
+<span class="cmt">// wire it: router.post("/", validate(createNoteSchema), createNote);</span></code></pre>
+
+<h2>10 · Dev setup — auto-restart</h2>
+<pre><code><span class="cmt">// package.json scripts — pick one:</span>
+"scripts": {
+  "dev": "node --watch server.js",   <span class="cmt">// built into modern Node — zero deps</span>
+  "dev:nodemon": "nodemon server.js" <span class="cmt">// the classic tool (npm i -D nodemon); same idea</span>
+}</code></pre>
+<p>Either restarts the process on file save — Node has no hot-reload like Vite; the process simply reruns.</p>
+
+<h2>11 · Capstone: a full in-memory notes CRUD API</h2>
+<p>Every file, wired together. This exact shape is what you'll rebuild in NestJS in Lesson 20, line-by-line comparable.</p>
+
+<pre><code><span class="cmt">// ── src/services/notes.service.js — pure logic, zero HTTP knowledge</span>
+import { ApiError } from "../middleware/error.js";
+
+let notes = [{ id: 1, text: "Learn Express", done: false }];
+let nextId = 2;
+
+export const notesService = {
+  list()          { return notes; },
+  getById(id) {
+    const note = notes.find(n =&gt; n.id === id);
+    if (!note) throw new ApiError(404, `Note ${id} not found`);
+    return note;
+  },
+  create(data)    {
+    const note = { id: nextId++, ...data };
+    notes.push(note);
+    return note;
+  },
+  update(id, data) {                       <span class="cmt">// PATCH semantics: merge only sent fields</span>
+    const note = this.getById(id);         <span class="cmt">// reuse → 404 for free</span>
+    Object.assign(note, data);
+    return note;
+  },
+  remove(id) {
+    this.getById(id);
+    notes = notes.filter(n =&gt; n.id !== id);
+  },
+};</code></pre>
+
+<pre><code><span class="cmt">// ── src/controllers/notes.controller.js — HTTP translation only, stays THIN</span>
+import { notesService } from "../services/notes.service.js";
+import { ApiError } from "../middleware/error.js";
+
+const parseId = (raw) =&gt; {
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id &lt;= 0) throw new ApiError(400, "id must be a positive integer");
+  return id;
+};
+
+export const listNotes  = (req, res) =&gt; res.json(notesService.list());
+export const getNote    = (req, res) =&gt; res.json(notesService.getById(parseId(req.params.id)));
+export const createNote = (req, res) =&gt;
+  res.status(201).json(notesService.create(req.body));            <span class="cmt">// 201 for creation</span>
+export const updateNote = (req, res) =&gt;
+  res.json(notesService.update(parseId(req.params.id), req.body));
+export const deleteNote = (req, res) =&gt; {
+  notesService.remove(parseId(req.params.id));
+  res.sendStatus(204);                                            <span class="cmt">// 204: success, no body</span>
+};</code></pre>
+
+<pre><code><span class="cmt">// ── src/routes/notes.routes.js</span>
+import { Router } from "express";
+import { listNotes, getNote, createNote, updateNote, deleteNote } from "../controllers/notes.controller.js";
+import { validate } from "../middleware/validate.js";
+import { createNoteSchema, updateNoteSchema } from "../schemas/notes.schema.js";
+
+const router = Router();
+router.get("/", listNotes);
+router.post("/", validate(createNoteSchema), createNote);
+router.get("/:id", getNote);
+router.patch("/:id", validate(updateNoteSchema), updateNote);
+router.delete("/:id", deleteNote);
+export default router;
+
+<span class="cmt">// updateNoteSchema (add to notes.schema.js): all fields optional for PATCH</span>
+<span class="cmt">// export const updateNoteSchema = createNoteSchema.partial();</span></code></pre>
+
+<pre><code><span class="cmt">// ── server.js — composition root: everything mounts here, in the right ORDER</span>
+import express from "express";
+import morgan from "morgan";
+import notesRouter from "./src/routes/notes.routes.js";
+import { notFound, errorHandler } from "./src/middleware/error.js";
+
+const app = express();
+
+app.use(morgan("dev"));                    <span class="cmt">// 1. logging first — sees everything</span>
+app.use(express.json());                   <span class="cmt">// 2. body parsing before any route needs req.body</span>
+
+app.use("/api/v1/notes", notesRouter);     <span class="cmt">// 3. feature routes</span>
+
+app.use(notFound);                         <span class="cmt">// 4. nothing matched → 404</span>
+app.use(errorHandler);                     <span class="cmt">// 5. all errors funnel here — LAST</span>
+
+app.listen(3000, () =&gt; console.log("API on http://localhost:3000"));</code></pre>
+
+<h3>Test it — curl / Postman / REST client</h3>
+<pre><code><span class="cmt"># create</span>
+curl -X POST http://localhost:3000/api/v1/notes \
+     -H "Content-Type: application/json" \
+     -d '{"text":"buy milk"}'
+<span class="cmt"># → 201 {"id":2,"text":"buy milk","done":false}</span>
+
+curl http://localhost:3000/api/v1/notes           <span class="cmt"># list → 200</span>
+curl -X PATCH http://localhost:3000/api/v1/notes/2 \
+     -H "Content-Type: application/json" -d '{"done":true}'
+curl -X DELETE http://localhost:3000/api/v1/notes/2 -i   <span class="cmt"># -i shows "204 No Content"</span>
+curl http://localhost:3000/api/v1/notes/999 -i           <span class="cmt"># → 404 {"error":"Note 999 not found"}</span>
+curl -X POST http://localhost:3000/api/v1/notes \
+     -H "Content-Type: application/json" -d '{"text":""}' -i  <span class="cmt"># → 422 validation error</span></code></pre>
+<p>
+GUI alternatives: <strong>Postman</strong> (save request collections; standard in internships) or the VS Code
+<strong>REST Client</strong> extension (a <code>requests.http</code> file in the repo — requests live with the code).
+</p>
+
+<h2>12 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What is middleware in Express?"</strong><br>
+  A function <code>(req, res, next)</code> in an ordered pipeline that every request flows through. It can modify req/res,
+  end the response, or call <code>next()</code> to continue (or <code>next(err)</code> to reach error handlers).
+  Registration order is execution order. Used for parsing, logging, auth, CORS — it's the Chain of Responsibility pattern.</li>
+  <li><strong>"PUT vs PATCH vs POST?"</strong><br>
+  POST creates (not idempotent), PUT replaces the whole resource at a known URL (idempotent), PATCH partially updates.
+  Idempotent = repeating the request leaves the same final state, which makes retries safe.</li>
+  <li><strong>"401 vs 403?"</strong><br>
+  401 Unauthorized = not authenticated (we don't know who you are / bad token). 403 Forbidden = authenticated but not
+  allowed (we know exactly who you are, and the answer is still no).</li>
+  <li><strong>"How does Express error handling work?"</strong><br>
+  A middleware with four parameters <code>(err, req, res, next)</code> is an error handler. <code>next(err)</code> or a
+  throw skips all normal middleware and jumps there. Centralize it last in the stack; in Express 4, async errors need a
+  wrapper that <code>.catch(next)</code>es (Express 5 forwards async rejections automatically).</li>
+  <li><strong>"Why separate controllers from services?"</strong><br>
+  Controllers translate HTTP ↔ function calls; services hold business logic with no HTTP knowledge. That makes logic
+  unit-testable without mocking req/res, reusable outside HTTP, and framework-swappable — the same reason Spring separates
+  <code>@RestController</code> from <code>@Service</code>.</li>
+  <li><strong>"What does <code>express.json()</code> do and why does its position matter?"</strong><br>
+  It's built-in middleware that reads the request body stream, parses JSON, and sets <code>req.body</code>. It must be
+  registered before any route that reads <code>req.body</code>, because the pipeline runs in order.</li>
+</ul>
+
+<h2>13 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A route handler runs but <code>req.body</code> is <code>undefined</code> for a JSON POST. Most likely cause?</div>
+  <button class="opt">The client forgot the <code>Accept: application/json</code> header</button>
+  <button class="opt"><code>express.json()</code> is missing or registered after the route in the middleware order</button>
+  <button class="opt">Express only supports bodies on PUT requests, not POST</button>
+  <div class="fb" data-correct="Body parsing is middleware, and the pipeline runs in registration order — if the parser isn't before the route, req.body is never populated. (Also check the client sends Content-Type: application/json.)" data-wrong="Express supports bodies on any method, and Accept only describes what the client wants back. The classic cause: express.json() missing or mounted after the routes — order is execution order."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Which request is safe to blindly retry after a network timeout, and why?</div>
+  <button class="opt"><code>POST /orders</code> — POST is the standard verb so retries are expected</button>
+  <button class="opt">None — no HTTP request may ever be retried</button>
+  <button class="opt"><code>DELETE /orders/42</code> — DELETE is idempotent, so repeating it leaves the same final state</button>
+  <div class="fb" data-correct="GET, PUT and DELETE are idempotent: N repeats end in the same state as one. POST is not — a retry can create a duplicate order, which is why payment APIs add idempotency keys." data-wrong="Idempotency is the key: DELETE (and GET, PUT) leave the same state however many times they run. POST is the dangerous one to retry — it can create duplicates."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">How does Express recognize error-handling middleware?</div>
+  <button class="opt">By its parameter count — exactly four: <code>(err, req, res, next)</code></button>
+  <button class="opt">By registering it with the special <code>app.error()</code> method</button>
+  <button class="opt">By the function being named <code>errorHandler</code></button>
+  <div class="fb" data-correct="Arity is the signal: a 4-parameter function is treated as an error handler and is only invoked when next(err) is called or a handler throws. Names are irrelevant; there is no app.error()." data-wrong="Express inspects fn.length — the number of declared parameters. Four params = error middleware. Names don't matter and app.error() doesn't exist."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Your API design review flags <code>GET /api/deleteUser?id=5</code>. What's the RESTful fix?</div>
+  <button class="opt"><code>POST /api/users/delete/5</code> — actions belong in POST URLs</button>
+  <button class="opt"><code>DELETE /api/users/5</code> — the verb carries the action, the URL names the resource</button>
+  <button class="opt"><code>GET /api/users/5?action=delete</code> — keep GET but make the action explicit</button>
+  <div class="fb" data-correct="REST: nouns in URLs, actions in HTTP verbs. Bonus horror in the original: GET must be safe (no side effects) — crawlers and prefetchers issue GETs freely and would delete your users." data-wrong="Verbs never belong in the URL, and GET must never mutate (prefetchers and crawlers fire GETs). The resource is /users/5; the action is the HTTP method DELETE."></div>
+</div>
+
+<h2>14 · Do this next</h2>
+<ul>
+  <li>Build the notes API from section 11 yourself, file by file, and exercise every route with curl or Postman — including the failure paths (bad id, missing text, unknown URL). Watch morgan log each status code.</li>
+  <li>Add a second resource, <code>/api/v1/tags</code> (id + name, unique names), with its own router/controller/service and zod schema. Return <strong>409 Conflict</strong> when a duplicate name is posted.</li>
+  <li>Write a <code>requestId</code> middleware: attach <code>req.id = crypto.randomUUID()</code>, send it back as an <code>X-Request-Id</code> header, and include it in the error handler's JSON. You've just built distributed tracing's baby version.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure why <code>next()</code> exists at all, when to answer 422 vs 400, or how the asyncWrap one-liner actually works?
+  Ask in the chat — we can also step through the capstone together. When you can explain the middleware pipeline,
+  idempotency, and the 4-arg error handler in your own words, say <strong>"next"</strong> for
+  Lesson 19: Express — Auth, Validation &amp; Security.
+</div>
+
+<div class="nav">
+  <span><a href="0017-node-fundamentals.html">← Node.js Fundamentals</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0019-express-auth-security.html">Auth &amp; Security →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

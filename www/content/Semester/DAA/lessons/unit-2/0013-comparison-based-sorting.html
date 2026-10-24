@@ -1,0 +1,399 @@
+<title>Comparison-Based Sorting</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 13 of 15</p>
+<h1>Comparison-Based Sorting</h1>
+<p class="deck">Merge sort, quick sort and heap sort &mdash; each traced in full, each analysed by recurrence in the best, average and worst case &mdash; plus the decision-tree proof that no comparison sort can beat n log n.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>This is the highest-value lesson in Unit II.</strong> Four questions recur: <strong>&ldquo;Sort the following array using merge sort / quick sort / heap sort, showing all steps&rdquo;</strong>; <strong>&ldquo;Derive the worst-case and average-case complexity of quick sort&rdquo;</strong> (a 10-marker &mdash; write the recurrence, then solve it); <strong>&ldquo;Compare the sorting algorithms&rdquo;</strong> (the table at the end); and <strong>&ldquo;Prove the &Omega;(n log n) lower bound&rdquo;</strong> (the decision-tree argument, worth 5 marks and rarely prepared). Learn all four.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Comparison-Based Sorting & Decision Tree Lower Bound &Omega;(n log n)</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Decision Tree Model for n Elements</strong>
+      <span class="sub">Each internal node represents a comparison A[i] &le; A[j] &bull; Each leaf represents one of n! possible sorted permutations</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>Binary Tree with L &ge; n! Leaves has Height h &ge; log<sub>2</sub>(n!)</strong>
+      <span class="sub">By Stirling's approximation: log<sub>2</sub>(n!) = n log<sub>2</sub>(n) - n log<sub>2</sub>(e) = <strong>&Omega;(n log n)</strong> comparisons minimum!</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 21 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Sorting Algorithms & Lower Bound</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">2.7.2 Merge Sort & 2.8.1 QuickSort In-Depth Analysis</div>
+    <div class="v-desc">Thorough analysis of partitioning schemes, recursion depth, auxiliary space, stability, and the formal lower bound proof.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=mB5HXBb_HY8" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>1. Merge sort</h2>
+
+<p><strong>Divide and conquer.</strong> Split the array in half, sort each half recursively, then <strong>merge</strong> the two sorted halves. All the work is in the merge.</p>
+
+<div class="formula">
+  <span class="name">The algorithm</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  MERGE-SORT(A, p, r)<br>
+  &nbsp;&nbsp; if (p &lt; r) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; <strong>q = &lfloor;(p + r) / 2&rfloor;;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* DIVIDE */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; MERGE-SORT(A, p, q);&nbsp;&nbsp;&nbsp;&nbsp;/* CONQUER */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; MERGE-SORT(A, q+1, r);<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; <strong>MERGE(A, p, q, r);</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* COMBINE — &Theta;(n) */<br>
+  &nbsp;&nbsp; }
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Sort A = [38, 27, 43, 3, 9, 82, 10] by merge sort.</span>
+  <p><strong>DIVIDE phase</strong> &mdash; keep halving until every piece has one element:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Level</th><th>Pieces</th></tr></thead>
+  <tbody>
+  <tr><td>0</td><td>[38, 27, 43, 3, 9, 82, 10]</td></tr>
+  <tr><td>1</td><td>[38, 27, 43, 3] &nbsp;&nbsp; [9, 82, 10]</td></tr>
+  <tr><td>2</td><td>[38, 27] &nbsp; [43, 3] &nbsp;&nbsp; [9, 82] &nbsp; [10]</td></tr>
+  <tr><td>3</td><td>[38] [27] &nbsp; [43] [3] &nbsp;&nbsp; [9] [82] &nbsp; [10]</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>MERGE phase</strong> &mdash; combine upward, comparing the fronts of the two lists:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Merging</th><th>Result</th></tr></thead>
+  <tbody>
+  <tr><td>[38] + [27]</td><td><strong>[27, 38]</strong></td></tr>
+  <tr><td>[43] + [3]</td><td><strong>[3, 43]</strong></td></tr>
+  <tr><td>[9] + [82]</td><td><strong>[9, 82]</strong></td></tr>
+  <tr><td>[27, 38] + [3, 43]</td><td><strong>[3, 27, 38, 43]</strong></td></tr>
+  <tr><td>[9, 82] + [10]</td><td><strong>[9, 10, 82]</strong></td></tr>
+  <tr><td>[3, 27, 38, 43] + [9, 10, 82]</td><td><strong>[3, 9, 10, 27, 38, 43, 82]</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Sorted: [3, 9, 10, 27, 38, 43, 82]</strong> &check;</p>
+  <p><em>The final merge, step by step, is what earns the marks:</em> compare 3 and 9 &rarr; take 3; compare 27 and 9 &rarr; take 9; compare 27 and 10 &rarr; take 10; compare 27 and 82 &rarr; take 27; then 38, then 43; the right list's remaining 82 is appended.</p>
+</div>
+
+<div class="formula">
+  <span class="name">Analysis</span>
+  <strong>T(n) = 2T(n/2) + &Theta;(n)</strong> &nbsp;&mdash;&nbsp; two halves, plus a linear merge.<br>
+  By the Master theorem, a = 2, b = 2, k = 1, so b<sup>k</sup> = 2 = a &rarr; <strong>Case 2</strong>.<br><br>
+  <strong>T(n) = &Theta;(n log n)</strong> &mdash; in the <strong>best, average AND worst case alike</strong>, because the split is always exactly in half regardless of the data.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Merge sort</th></tr></thead>
+<tbody>
+<tr><td><strong>Time (all cases)</strong></td><td><strong>&Theta;(n log n)</strong></td></tr>
+<tr><td><strong>Auxiliary space</strong></td><td><strong>O(n)</strong> &mdash; the temporary array. This is its main weakness</td></tr>
+<tr><td><strong>Stable?</strong></td><td><strong>Yes</strong> &mdash; take from the left list on ties</td></tr>
+<tr><td><strong>In place?</strong></td><td>No</td></tr>
+<tr><td><strong>Best for</strong></td><td><strong>Linked lists</strong> (no extra space needed, since merging relinks pointers) and <strong>external sorting</strong> of data too large for memory</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>2. Quick sort</h2>
+
+<p><strong>Divide and conquer with the work in the DIVIDE step.</strong> Choose a <strong>pivot</strong>, <strong>partition</strong> the array so that everything smaller is on its left and everything larger on its right, then sort the two sides recursively. <strong>There is no combine step</strong> &mdash; once both sides are sorted, the array is sorted.</p>
+
+<div class="formula">
+  <span class="name">Lomuto partition, with the LAST element as pivot</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  PARTITION(A, low, high)<br>
+  &nbsp;&nbsp; pivot = A[high];<br>
+  &nbsp;&nbsp; i = low &minus; 1;<br>
+  &nbsp;&nbsp; for (j = low; j &lt; high; j++)<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; if (A[j] &le; pivot) { i++; swap A[i], A[j]; }<br>
+  &nbsp;&nbsp; swap A[i+1], A[high];<br>
+  &nbsp;&nbsp; return i + 1;&nbsp;&nbsp;/* the pivot's final position */
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Sort A = [10, 80, 30, 90, 40, 50, 70] by quick sort, with the last element as pivot. (Indices are 0-based.)</span>
+  <p><strong>First partition &mdash; pivot = 70, i = &minus;1.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">j</th><th class="num">A[j]</th><th>A[j] &le; 70?</th><th>Action</th><th>Array after</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td class="num">10</td><td>Yes</td><td>i = 0, swap A[0] with A[0]</td><td>10, 80, 30, 90, 40, 50, 70</td></tr>
+  <tr><td class="num">1</td><td class="num">80</td><td>No</td><td>&mdash;</td><td>10, 80, 30, 90, 40, 50, 70</td></tr>
+  <tr><td class="num">2</td><td class="num">30</td><td>Yes</td><td>i = 1, swap A[1] &harr; A[2]</td><td>10, <strong>30, 80</strong>, 90, 40, 50, 70</td></tr>
+  <tr><td class="num">3</td><td class="num">90</td><td>No</td><td>&mdash;</td><td>10, 30, 80, 90, 40, 50, 70</td></tr>
+  <tr><td class="num">4</td><td class="num">40</td><td>Yes</td><td>i = 2, swap A[2] &harr; A[4]</td><td>10, 30, <strong>40, 90, 80</strong>, 50, 70</td></tr>
+  <tr><td class="num">5</td><td class="num">50</td><td>Yes</td><td>i = 3, swap A[3] &harr; A[5]</td><td>10, 30, 40, <strong>50, 80, 90</strong>, 70</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Final step:</strong> swap A[i+1] = A[4] with the pivot A[6]:</p>
+  <p style="text-align:center; font-family:ui-monospace,monospace"><strong>[10, 30, 40, 50, &nbsp;<u>70</u>&nbsp;, 90, 80]</strong> &nbsp;&mdash; the pivot 70 is now at index 4, its final place.</p>
+  <p><em>Check the invariant:</em> everything left of 70 is smaller (10, 30, 40, 50) and everything right is larger (90, 80). &check;</p>
+
+  <p><strong>Recurse on the left, [10, 30, 40, 50], pivot = 50.</strong> Every element is &le; 50, so i advances with j throughout and the pivot ends at its own index. The sub-array is unchanged, and we recurse on [10, 30, 40] with pivot 40 &mdash; again already correct &mdash; then [10, 30] with pivot 30, then [10]. <strong>Left side sorted: [10, 30, 40, 50].</strong></p>
+
+  <p><strong>Recurse on the right, [90, 80], pivot = 80.</strong> j = 0: 90 &gt; 80, so no swap; i stays at &minus;1. Then swap A[i+1] = A[0] with the pivot: <strong>[80, 90]</strong>.</p>
+
+  <p><strong>Final sorted array: [10, 30, 40, 50, 70, 80, 90]</strong> &check;</p>
+  <p><em>Note the left side:</em> it was already sorted, and quick sort still recursed four levels deep on it, doing n&minus;1, n&minus;2, &hellip; comparisons. <strong>That is the worst case in miniature</strong> &mdash; and it is exactly what the next section analyses.</p>
+</div>
+
+<h3>The analysis &mdash; the 10-mark derivation</h3>
+
+<div class="solve">
+  <span class="lbl">BEST CASE &mdash; the pivot always lands in the middle.</span>
+  <p>Each partition splits n elements into two halves of n/2, and partitioning costs &Theta;(n).</p>
+  <p style="text-align:center"><strong>T(n) = 2T(n/2) + &Theta;(n)</strong></p>
+  <p>Master theorem Case 2 &rarr; <strong>T(n) = &Theta;(n log n)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">WORST CASE &mdash; the pivot is always the smallest or largest element.</span>
+  <p>The partition splits n into <strong>0 and n &minus; 1</strong>. Partitioning still costs &Theta;(n).</p>
+  <p style="text-align:center"><strong>T(n) = T(n &minus; 1) + T(0) + &Theta;(n) = T(n &minus; 1) + &Theta;(n)</strong></p>
+  <p>Solve by back-substitution:</p>
+  <p>T(n) = T(n&minus;1) + n = T(n&minus;2) + (n&minus;1) + n = &hellip; = 1 + 2 + &hellip; + n = <strong>n(n+1)/2</strong></p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n&sup2;)</strong></p>
+  <p><strong>When does it happen?</strong> With the first or last element as pivot, on an array that is <strong>already sorted, or sorted in reverse</strong> &mdash; the most common real-world input, which is the irony of quick sort.</p>
+  <p><em>Also note the space:</em> the recursion depth becomes n, so the <strong>stack space is O(n)</strong> in the worst case rather than O(log n).</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">AVERAGE CASE &mdash; the pivot is equally likely to be any rank.</span>
+  <p>If the pivot ends at position i, the two subproblems have sizes i and n&minus;1&minus;i. Averaging over all n equally likely positions:</p>
+  <p style="text-align:center"><strong>T(n) = (1/n) &Sigma;<sub>i=0</sub><sup>n&minus;1</sup> [ T(i) + T(n&minus;1&minus;i) ] + &Theta;(n)</strong></p>
+  <p>Solving this gives <strong>T(n) &asymp; 1.39 n log<sub>2</sub> n</strong>, so</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n log n)</strong></p>
+  <p><strong>The intuitive argument, which earns the same marks in less time:</strong> even a permanently lopsided <strong>9-to-1 split</strong> gives the recurrence T(n) = T(9n/10) + T(n/10) + n, whose recursion tree has every level costing n and a height of log<sub>10/9</sub>n &mdash; still &Theta;(n log n). <strong>Only a split that is unbalanced by a <em>constant number of elements</em>, rather than a constant ratio, produces n&sup2;</strong> &mdash; and that is very unlikely by chance.</p>
+</div>
+
+<div class="box win">
+  <span class="lbl">The three fixes for the worst case &mdash; name them</span>
+  <p><strong>1. Randomised quick sort:</strong> pick the pivot <strong>at random</strong> and swap it to the end. No <em>particular</em> input is then bad; the expected time is &Theta;(n log n) for <em>every</em> input.</p>
+  <p><strong>2. Median-of-three:</strong> take the median of the first, middle and last elements as pivot. Cheap, and it makes sorted input the <em>best</em> case rather than the worst.</p>
+  <p><strong>3. Introsort:</strong> start with quick sort and <strong>switch to heap sort</strong> if the recursion depth exceeds about 2 log n. This is what the C++ STL <code>std::sort</code> actually does, giving a genuine O(n log n) worst case.</p>
+</div>
+
+<h2>3. Heap sort</h2>
+
+<div class="formula">
+  <span class="name">The algorithm &mdash; two phases</span>
+  <strong>Phase 1.</strong> <strong>BUILD-MAX-HEAP(A)</strong> &mdash; O(n).<br>
+  <strong>Phase 2.</strong> For i = n down to 2:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>swap A[1] and A[i]</strong> &mdash; the maximum moves to its final position;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>reduce the heap size by 1</strong>;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>MAX-HEAPIFY(A, 1)</strong> &mdash; O(log n).
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Sort A = [4, 10, 3, 5, 1] by heap sort.</span>
+  <p><strong>Phase 1 &mdash; build the max-heap</strong> (done in full in Lesson 12): <strong>[10, 5, 3, 4, 1]</strong>.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Swap</th><th>Array after swap</th><th>Heapify result</th><th>Sorted part</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>A[1] &harr; A[5]: 10 &harr; 1</td><td>1, 5, 3, 4 | <strong>10</strong></td><td>[5, 4, 3, 1]</td><td><strong>10</strong></td></tr>
+  <tr><td>2</td><td>A[1] &harr; A[4]: 5 &harr; 1</td><td>1, 4, 3 | <strong>5, 10</strong></td><td>[4, 1, 3]</td><td><strong>5, 10</strong></td></tr>
+  <tr><td>3</td><td>A[1] &harr; A[3]: 4 &harr; 3</td><td>3, 1 | <strong>4, 5, 10</strong></td><td>[3, 1]</td><td><strong>4, 5, 10</strong></td></tr>
+  <tr><td>4</td><td>A[1] &harr; A[2]: 3 &harr; 1</td><td>1 | <strong>3, 4, 5, 10</strong></td><td>&mdash;</td><td><strong>3, 4, 5, 10</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Sorted: [1, 3, 4, 5, 10]</strong> &check;</p>
+  <p><em>Step 1's heapify in detail:</em> root is 1 with children 5 and 3; the largest is 5, so swap &rarr; [5, 1, 3, 4]; then at index 2, the child A[4] = 4 &gt; 1, so swap &rarr; [5, 4, 3, 1]. <strong>Show this working for at least one step</strong> &mdash; that is where the marks are.</p>
+  <p><em>The pattern to state:</em> <strong>the sorted portion grows from the RIGHT end of the array</strong>, and it is built in increasing order because the largest remaining element is extracted each time. This is why a <em>max</em>-heap produces <em>ascending</em> order.</p>
+</div>
+
+<div class="formula">
+  <span class="name">Analysis</span>
+  Phase 1: <strong>O(n)</strong>. &nbsp; Phase 2: <strong>(n &minus; 1) calls to MAX-HEAPIFY, each O(log n) &rarr; O(n log n)</strong>.<br><br>
+  <strong>T(n) = O(n) + O(n log n) = &Theta;(n log n)</strong> &mdash; in <strong>all</strong> cases, and with <strong>O(1) auxiliary space</strong>.
+</div>
+
+<h2>The &Omega;(n log n) lower bound</h2>
+
+<div class="box exam">
+  <span class="lbl">The question: &ldquo;Prove that any comparison-based sorting algorithm requires &Omega;(n log n) comparisons in the worst case.&rdquo;</span>
+</div>
+
+<div class="solve">
+  <span class="lbl">The decision-tree argument.</span>
+  <p><strong>Step 1 &mdash; the model.</strong> A <strong>comparison sort</strong> determines the sorted order using only comparisons between elements: a<sub>i</sub> &lt; a<sub>j</sub>, a<sub>i</sub> &le; a<sub>j</sub>, and so on. It never inspects the values in any other way.</p>
+  <p><strong>Step 2 &mdash; the decision tree.</strong> Represent the algorithm as a <strong>binary tree</strong>: each <strong>internal node</strong> is one comparison, with the two branches for the two outcomes; each <strong>leaf</strong> is one possible output permutation.</p>
+  <p><strong>Step 3 &mdash; the leaves.</strong> The algorithm must be able to produce <strong>every one of the n! permutations</strong> of the input, since any of them could be the correct answer. So the tree has</p>
+  <p style="text-align:center"><strong>at least n! reachable leaves.</strong></p>
+  <p><strong>Step 4 &mdash; the height.</strong> A binary tree of height h has at most <strong>2<sup>h</sup></strong> leaves. Therefore</p>
+  <p style="text-align:center"><strong>2<sup>h</sup> &ge; n! &nbsp;&rArr;&nbsp; h &ge; log<sub>2</sub>(n!)</strong></p>
+  <p><strong>Step 5 &mdash; Stirling's approximation.</strong> n! &asymp; &radic;(2&pi;n) (n/e)<sup>n</sup>, so</p>
+  <p style="text-align:center">log<sub>2</sub>(n!) = n log<sub>2</sub>n &minus; n log<sub>2</sub>e + O(log n) = <strong>&Theta;(n log n)</strong></p>
+  <p><strong>Step 6 &mdash; the conclusion.</strong> The height of the decision tree is the <strong>number of comparisons in the worst case</strong>. Hence</p>
+  <p style="text-align:center"><strong>Any comparison-based sort makes &Omega;(n log n) comparisons in the worst case.</strong> &#8718;</p>
+  <p><strong>The two consequences to state:</strong></p>
+  <ul>
+    <li><strong>Merge sort and heap sort are ASYMPTOTICALLY OPTIMAL</strong> &mdash; they achieve the bound.</li>
+    <li>The bound applies <strong>only to comparison sorts</strong>. Counting, radix and bucket sort escape it by <strong>not comparing elements to each other</strong> &mdash; which is exactly the subject of Lesson 14.</li>
+  </ul>
+  <p><em>A simpler version of Step 5, if Stirling is not to hand:</em> n! &ge; (n/2)<sup>n/2</sup>, so log<sub>2</sub>(n!) &ge; (n/2)log<sub>2</sub>(n/2) = &Omega;(n log n). That suffices for the bound.</p>
+</div>
+
+<h2>The master comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Best</th><th>Average</th><th>Worst</th><th>Space</th><th>Stable</th><th>In place</th><th>Method</th></tr></thead>
+<tbody>
+<tr><td><strong>Merge sort</strong></td><td>&Theta;(n log n)</td><td>&Theta;(n log n)</td><td><strong>&Theta;(n log n)</strong></td><td><strong>O(n)</strong></td><td><strong>Yes</strong></td><td>No</td><td>Divide &amp; conquer</td></tr>
+<tr><td><strong>Quick sort</strong></td><td>&Omega;(n log n)</td><td>&Theta;(n log n)</td><td><strong>O(n&sup2;)</strong></td><td>O(log n) avg, O(n) worst</td><td><strong>No</strong></td><td>Yes</td><td>Divide &amp; conquer</td></tr>
+<tr><td><strong>Heap sort</strong></td><td>&Omega;(n log n)</td><td>&Theta;(n log n)</td><td><strong>&Theta;(n log n)</strong></td><td><strong>O(1)</strong></td><td><strong>No</strong></td><td>Yes</td><td>Selection, using a heap</td></tr>
+<tr><td>Insertion sort</td><td><strong>&Omega;(n)</strong></td><td>&Theta;(n&sup2;)</td><td>O(n&sup2;)</td><td>O(1)</td><td>Yes</td><td>Yes</td><td>Incremental</td></tr>
+<tr><td>Bubble sort</td><td>&Omega;(n)</td><td>&Theta;(n&sup2;)</td><td>O(n&sup2;)</td><td>O(1)</td><td>Yes</td><td>Yes</td><td>Exchange</td></tr>
+<tr><td>Selection sort</td><td>&Omega;(n&sup2;)</td><td>&Theta;(n&sup2;)</td><td>O(n&sup2;)</td><td>O(1)</td><td>No</td><td>Yes</td><td>Selection</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The paradox to explain, because it is a favourite question</span>
+  <p><strong>&ldquo;If quick sort's worst case is n&sup2; and heap sort's is n log n, why is quick sort the one used in practice?&rdquo;</strong></p>
+  <p>Three reasons: its <strong>constant factor is the smallest</strong> of the three &mdash; its inner loop is extremely tight; it is <strong>in place</strong>, unlike merge sort; and it has <strong>excellent cache locality</strong>, since it works on contiguous ranges, whereas heap sort jumps all over the array. <strong>The worst case is also easy to avoid</strong> with a randomised or median-of-three pivot. Real libraries hedge with introsort.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Choose</th><th>When</th></tr></thead>
+<tbody>
+<tr><td><strong>Merge sort</strong></td><td>Stability is required; the data is a <strong>linked list</strong>; or the data is too large for memory (<strong>external sorting</strong>)</td></tr>
+<tr><td><strong>Quick sort</strong></td><td>The general default for arrays in memory &mdash; fastest in practice</td></tr>
+<tr><td><strong>Heap sort</strong></td><td><strong>O(1) space</strong> is required and an <strong>O(n log n) worst-case guarantee</strong> is required &mdash; the only algorithm here offering both</td></tr>
+<tr><td><strong>Insertion sort</strong></td><td>n is small (under about 20), or the array is <strong>nearly sorted</strong>. Real implementations switch to it for small sub-arrays</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Merge sort's worst-case time is:</p>
+  <div class="opts">
+    <button class="opt">O(n²)</button>
+    <button class="opt">Θ(n² log n)</button>
+    <button class="opt" data-ok="1">Θ(n log n) — the same as its best case</button>
+    <button class="opt">Θ(n)</button>
+  </div>
+  <p class="why">The split is always exactly in half regardless of the data, so no input is worse than any other. Its real weakness is the O(n) auxiliary array.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Quick sort's worst case arises when:</p>
+  <div class="opts">
+    <button class="opt">n is a power of two</button>
+    <button class="opt">All elements are distinct</button>
+    <button class="opt" data-ok="1">The pivot is always the smallest or largest element — typically on already sorted input</button>
+    <button class="opt">The array is in random order</button>
+  </div>
+  <p class="why">The partition splits n into 0 and n−1, giving T(n) = T(n−1) + n = Θ(n²). The irony is that sorted input is the most common real-world case.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A permanently 9-to-1 unbalanced split in quick sort gives:</p>
+  <div class="opts">
+    <button class="opt">Θ(n)</button>
+    <button class="opt">Θ(n²)</button>
+    <button class="opt" data-ok="1">Θ(n log n) — a constant-ratio split is still logarithmic in depth</button>
+    <button class="opt">Θ(n^1.9)</button>
+  </div>
+  <p class="why">Every level still costs n and the height is log_{10/9}n. Only a split unbalanced by a constant <em>number</em> of elements, not a constant ratio, produces n².</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Heap sort's auxiliary space is:</p>
+  <div class="opts">
+    <button class="opt">O(log n)</button>
+    <button class="opt">O(n)</button>
+    <button class="opt">O(n log n)</button>
+    <button class="opt" data-ok="1">O(1)</button>
+  </div>
+  <p class="why">It sorts within the array itself. That, plus its Θ(n log n) worst case, makes it the only one of the three with both guarantees — which is why introsort falls back to it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. In the decision-tree lower-bound proof, the number of leaves must be at least:</p>
+  <div class="opts">
+    <button class="opt">2ⁿ</button>
+    <button class="opt">n²</button>
+    <button class="opt">n log n</button>
+    <button class="opt" data-ok="1">n!</button>
+  </div>
+  <p class="why">Every one of the n! permutations must be a reachable output. A binary tree of height h has at most 2^h leaves, so 2^h ≥ n! and h ≥ log₂(n!) = Θ(n log n).</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which of these sorts is stable?</p>
+  <div class="opts">
+    <button class="opt">Selection sort</button>
+    <button class="opt">Heap sort</button>
+    <button class="opt" data-ok="1">Merge sort</button>
+    <button class="opt">Quick sort</button>
+  </div>
+  <p class="why">Merge sort is stable if you take from the left list on ties. Quick sort's partition swaps distant elements, and heap sort's swaps do the same, so both destroy the original order of equal keys.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Quick sort is preferred in practice despite its O(n²) worst case because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">It has the smallest constant factor, is in place, and has excellent cache locality</button>
+    <button class="opt">It uses less asymptotic time than merge sort</button>
+    <button class="opt">It is stable</button>
+    <button class="opt">Its worst case never actually occurs</button>
+  </div>
+  <p class="why">The worst case is real but easy to avoid with a randomised or median-of-three pivot, and libraries hedge further with introsort, which switches to heap sort past a depth of about 2 log n.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give merge sort's recurrence, complexity and trade-offs.</summary>
+    <p class="ans">T(n) = 2T(n/2) + &Theta;(n), Master theorem Case 2, so &Theta;(n log n) in every case because the split never depends on the data. It needs O(n) auxiliary space, is stable, is not in place, and is the right choice for linked lists and external sorting.</p></details>
+  <details class="card"><summary>Derive quick sort's best, worst and average cases.</summary>
+    <p class="ans">Best: the pivot lands in the middle, T(n) = 2T(n/2) + &Theta;(n) = &Theta;(n log n). Worst: the pivot is always smallest or largest, T(n) = T(n−1) + &Theta;(n) = n(n+1)/2 = &Theta;(n&sup2;), which happens on already sorted or reverse-sorted input with a first or last pivot. Average: T(n) = (1/n)&Sigma;[T(i) + T(n−1−i)] + &Theta;(n) ≈ 1.39 n log₂n = &Theta;(n log n).</p></details>
+  <details class="card"><summary>Name the three fixes for quick sort's worst case.</summary>
+    <p class="ans">Randomised pivot selection, so no particular input is bad; median-of-three, which turns sorted input into the best case; and introsort, which switches to heap sort past a recursion depth of about 2 log n — this is what the C++ STL sort does.</p></details>
+  <details class="card"><summary>Describe heap sort and its complexity.</summary>
+    <p class="ans">Build a max-heap in O(n), then repeatedly swap the root with the last heap element, shrink the heap by one and heapify the root — n − 1 times at O(log n) each. Total &Theta;(n log n) in all cases, with O(1) auxiliary space. The sorted portion grows from the right end of the array, in ascending order.</p></details>
+  <details class="card"><summary>Prove the &Omega;(n log n) lower bound.</summary>
+    <p class="ans">Model the algorithm as a binary decision tree, each internal node a comparison and each leaf an output permutation. It must be able to produce all n! permutations, so it has at least n! leaves. A binary tree of height h has at most 2^h leaves, so 2^h ≥ n! and h ≥ log₂(n!) = &Theta;(n log n) by Stirling. The height is the worst-case comparison count. Merge sort and heap sort achieve this bound and so are asymptotically optimal; counting, radix and bucket sort escape it because they do not compare elements to each other.</p></details>
+  <details class="card"><summary>Give the master comparison table.</summary>
+    <p class="ans">Merge sort: n log n in all cases, O(n) space, stable, not in place. Quick sort: n log n best and average, n&sup2; worst, O(log n) stack, not stable, in place. Heap sort: n log n in all cases, O(1) space, not stable, in place. Insertion and bubble sort: &Omega;(n) best, n&sup2; otherwise, O(1) space, stable. Selection sort: n&sup2; always, O(1) space, not stable.</p></details>
+  <details class="card"><summary>Why is quick sort used in practice despite its worst case?</summary>
+    <p class="ans">Its constant factor is the smallest — the inner loop is very tight; it is in place, unlike merge sort; and its cache locality is excellent because it works on contiguous ranges, while heap sort jumps around the array. The worst case is easy to avoid with randomisation or median-of-three.</p></details>
+</div>
+
+<p class="ask">Next: the sorts that beat the n log n bound by not comparing at all &mdash; counting, radix and bucket sort.</p>
+
+<div class="nav">
+  <a href="0012-heaps-and-priority-queues.html">&larr; Heaps</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0014-linear-time-sorting.html">Next: Sorting in Linear Time &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

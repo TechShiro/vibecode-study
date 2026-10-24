@@ -1,0 +1,278 @@
+<title>Recursive Descent Parsing</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit III &middot; Lesson 12 of 17</p>
+<h1>Recursive Descent Parsing</h1>
+<p class="deck">Top-down parsing mechanics, recursive procedures for each non-terminal, the problem of backtracking, and how predictive grammars eliminate trial-and-error parsing.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Write a recursive descent parser for the given grammar&rdquo;</strong> is a common 5&ndash;10 mark university question. Examiners look for: <strong>one procedure per non-terminal</strong>, a working <strong><code>match()</code> helper function</strong> that advances the input lookahead pointer, explicit handling of <code>&epsilon;</code>-productions (do nothing), and error reporting. You must also be able to explain <strong>why backtracking is inefficient</strong> and how LL(1) grammars eliminate it.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Recursive Descent Parser Implementation</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Recursive Descent Parser in Compiler Design with Solved Example</a>
+    <span class="v-meta">Gate Smashers &middot; 11:20</span>
+    <div class="v-why">Varun Singla demonstrates writing pseudocode procedures for E, E', T, T', F and tracing execution on arithmetic expressions.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Backtracking &amp; LL(1) Transition</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Top-Down Parsing &amp; The Backtracking Problem</a>
+    <span class="v-meta">Neso Academy &middot; 14:15</span>
+    <div class="v-why">Step-by-step visual demonstration of input pointer rewinding during backtracking and why LL(1) grammars ensure deterministic parsing.</div>
+  </div>
+</div>
+
+<h2>1. Top-Down Parsing Principles</h2>
+
+<p><strong>Top-down parsing</strong> attempts to construct the parse tree starting at the <strong>root (start symbol $S$)</strong> and working down toward the <strong>leaves (input terminal string $w$)</strong>. This corresponds directly to searching for a <strong>leftmost derivation</strong> of the input string:</p>
+<div class="formula">
+  S = &gamma;<sub>0</sub> &rArr;<sub>lm</sub> &gamma;<sub>1</sub> &rArr;<sub>lm</sub> &gamma;<sub>2</sub> &rArr;<sub>lm</sub> &hellip; &rArr;<sub>lm</sub> w
+</div>
+
+<h2>2. Recursive Descent Architecture</h2>
+
+<p>A <strong>Recursive Descent Parser</strong> is a top-down parser composed of a set of <strong>mutually recursive procedures</strong> &mdash; exactly one procedure for each non-terminal in the grammar.</p>
+
+<!-- FLOWCHART: RECURSIVE DESCENT PROCEDURE EXECUTION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">System Architecture: Recursive Descent Execution Flow</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:1.2rem; flex-wrap:wrap;">
+    <div class="flow-box highlight">
+      <strong>Global Input Pointer</strong><br>
+      <code>lookahead = getNextToken();</code>
+      <span class="sub">Tracks current unconsumed token</span>
+    </div>
+
+    <span class="flow-arrow-right">&rarr;</span>
+
+    <div class="flow-box ok">
+      <strong>Helper Function <code>match(t)</code></strong>
+      <div style="font-family:ui-monospace,monospace; font-size:.78rem; text-align:left; margin-top:.3rem;">
+        if (lookahead == t)<br>
+        &nbsp;&nbsp;lookahead = getNextToken();<br>
+        else error("Syntax Error");
+      </div>
+    </div>
+
+    <span class="flow-arrow-right">&rarr;</span>
+
+    <div class="flow-box">
+      <strong>Non-Terminal Procedures</strong><br>
+      <code>void E() { T(); E_prime(); }</code>
+      <span class="sub">One procedure per variable in V</span>
+    </div>
+  </div>
+</div>
+
+<h2>3. Complete Worked Implementation: Arithmetic Expressions</h2>
+
+<div class="solve">
+  <span class="lbl">Exam Question &middot; Write a complete Recursive Descent Parser for arithmetic expressions</span>
+  
+  <p><strong>Grammar (Left-recursion eliminated):</strong></p>
+  <code>E &rarr; T E'</code><br>
+  <code>E' &rarr; + T E' | &epsilon;</code><br>
+  <code>T &rarr; F T'</code><br>
+  <code>T' &rarr; * F T' | &epsilon;</code><br>
+  <code>F &rarr; ( E ) | id</code>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Grammar Rule</th><th>C-Style Parser Procedure</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><code>E &rarr; T E'</code></td>
+    <td>
+      <pre class="mono">void E() {
+    T();
+    E_prime();
+}</pre>
+    </td>
+  </tr>
+  <tr>
+    <td><code>E' &rarr; + T E' | &epsilon;</code></td>
+    <td>
+      <pre class="mono">void E_prime() {
+    if (lookahead == '+') {
+        match('+');
+        T();
+        E_prime();
+    }
+    /* else &epsilon;: do nothing and return */
+}</pre>
+    </td>
+  </tr>
+  <tr>
+    <td><code>T &rarr; F T'</code></td>
+    <td>
+      <pre class="mono">void T() {
+    F();
+    T_prime();
+}</pre>
+    </td>
+  </tr>
+  <tr>
+    <td><code>T' &rarr; * F T' | &epsilon;</code></td>
+    <td>
+      <pre class="mono">void T_prime() {
+    if (lookahead == '*') {
+        match('*');
+        F();
+        T_prime();
+    }
+    /* else &epsilon;: do nothing */
+}</pre>
+    </td>
+  </tr>
+  <tr>
+    <td><code>F &rarr; ( E ) | id</code></td>
+    <td>
+      <pre class="mono">void F() {
+    if (lookahead == '(') {
+        match('(');
+        E();
+        match(')');
+    } else if (lookahead == ID) {
+        match(ID);
+    } else {
+        error("Syntax error in factor");
+    }
+}</pre>
+    </td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<h2>4. The Problem of Backtracking</h2>
+
+<div class="formula">
+  <span class="name">Definition of Backtracking</span>
+  <strong>Backtracking</strong> occurs when a non-terminal procedure has multiple production alternatives and makes a tentative choice. If that choice fails downstream, the parser must <strong>undo parse tree construction</strong>, <strong>rewind the input pointer</strong>, and try the next alternative.
+</div>
+
+<!-- FLOWCHART: BACKTRACKING ATTEMPT AND REWIND -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Trace: Backtracking During Top-Down Parsing</span>
+  
+  <p style="text-align:center; font-size:.84rem; color:var(--ink-soft); margin-top:0;">
+    Grammar: <code>S &rarr; cAd</code>, <code>A &rarr; ab | a</code> &middot; Input string: <code>cad</code>
+  </p>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.2rem;">
+    <!-- Attempt 1 -->
+    <div style="border:1.5px solid var(--warn); border-radius:6px; padding:1rem; background:var(--warn-bg);">
+      <strong style="color:var(--warn); display:block; font-size:.88rem; margin-bottom:.4rem;">Attempt 1 &middot; Try A &rarr; ab</strong>
+      <ol style="font-size:.82rem; margin:0 0 0 1.2rem; line-height:1.5;">
+        <li>Procedure <code>S()</code> matches terminal <code>c</code>. (Input pointer at 'a').</li>
+        <li>Procedure <code>A()</code> chooses first production: <code>A &rarr; ab</code>.</li>
+        <li>Matches <code>a</code>. Next symbol expected is <code>b</code>.</li>
+        <li>Input sees <code>d</code> &ne; <code>b</code> &rarr; <strong>MISMATCH / FAILURE!</strong></li>
+      </ol>
+      <div style="margin-top:.6rem; background:var(--paper); padding:.4rem; border-radius:4px; font-size:.78rem; font-weight:700; color:var(--accent); text-align:center;">
+        &larr; BACKTRACK: Rewind input pointer back to 'a'
+      </div>
+    </div>
+
+    <!-- Attempt 2 -->
+    <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--ok-bg);">
+      <strong style="color:var(--ok); display:block; font-size:.88rem; margin-bottom:.4rem;">Attempt 2 &middot; Try A &rarr; a</strong>
+      <ol style="font-size:.82rem; margin:0 0 0 1.2rem; line-height:1.5;">
+        <li>Procedure <code>A()</code> chooses second production: <code>A &rarr; a</code>.</li>
+        <li>Matches <code>a</code>. Procedure <code>A()</code> succeeds and returns.</li>
+        <li>Control returns to <code>S()</code>, which expects <code>d</code>.</li>
+        <li>Matches <code>d</code> &rarr; <strong>SUCCESSFUL PARSE!</strong></li>
+      </ol>
+      <div style="margin-top:.6rem; background:var(--paper); padding:.4rem; border-radius:4px; font-size:.78rem; font-weight:700; color:var(--ok); text-align:center;">
+        Parse accepted without further rewind
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why Production Compilers Disallow Backtracking</span>
+  <p>General backtracking parsers suffer from three fatal drawbacks:</p>
+  <ul>
+    <li><strong>Exponential Time Complexity:</strong> In the worst case, backtracking takes $O(k^n)$ time where $n$ is sentence length.</li>
+    <li><strong>Buffer Management Overhead:</strong> Discarded characters must remain buffered in memory so pointers can rewind arbitrarily far.</li>
+    <li><strong>Semantic Side Effects:</strong> If actions have already altered the symbol table or output files, rolling them back is prohibitively difficult.</li>
+  </ul>
+  <p><strong>The Solution:</strong> By transforming grammars to be <strong>LL(1) (Predictive)</strong>, the parser can predict the exact correct production using strictly <strong>one lookahead token</strong> &mdash; eliminating backtracking completely!</p>
+</div>
+
+<div class="quiz">
+<h3>Check Yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In a recursive descent parser, each non-terminal in the grammar corresponds to:</p>
+  <div class="opts">
+    <button class="opt">One row in an LR parsing table</button>
+    <button class="opt">One state in a deterministic finite automaton</button>
+    <button class="opt" data-ok="1">One recursive procedure or function</button>
+    <button class="opt">One terminal token in the lexical analyser</button>
+  </div>
+  <p class="why">Recursive descent directly implements grammar variables as program functions that call each other recursively.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. When a recursive descent parser encounters an &epsilon;-production (e.g. E' &rarr; &epsilon;), the procedure should:</p>
+  <div class="opts">
+    <button class="opt">Push the empty string onto the call stack</button>
+    <button class="opt">Advance the input pointer by one character</button>
+    <button class="opt" data-ok="1">Execute no matching and return successfully</button>
+    <button class="opt">Report a syntax error</button>
+  </div>
+  <p class="why">&epsilon; represents the empty string. It consumes zero input tokens, so the procedure simply returns control to its caller.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Backtracking in top-down parsing can be eliminated by:</p>
+  <div class="opts">
+    <button class="opt">Converting the grammar to Chomsky Normal Form</button>
+    <button class="opt" data-ok="1">Eliminating left recursion, left factoring, and verifying the grammar is LL(1)</button>
+    <button class="opt">Adding ambiguity to the grammar</button>
+    <button class="opt">Using larger buffer sizes</button>
+  </div>
+  <p class="why">An LL(1) grammar allows the parser to determine the single correct production deterministically from a single lookahead token without trial and error.</p>
+</div>
+
+</div>
+
+<h2>Recall Without Looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>What is recursive descent parsing?</summary>
+    <p class="ans">A top-down parsing technique where each non-terminal in the grammar is implemented as a distinct recursive procedure. Procedures call each other to match productions against input tokens.</p></details>
+  <details class="card"><summary>What is the purpose of the match() function?</summary>
+    <p class="ans">It checks whether the current lookahead token matches the expected terminal symbol. If it matches, it advances the lookahead pointer via getNextToken(); otherwise, it triggers a syntax error.</p></details>
+  <details class="card"><summary>Why is backtracking undesirable in compiler design?</summary>
+    <p class="ans">It leads to worst-case exponential parsing time, requires large lookahead buffers to rewind pointers, and makes rolling back symbol table side effects extremely complex.</p></details>
+</div>
+
+<p class="ask">Next: Predictive Parsing &mdash; FIRST, FOLLOW sets, and constructing the LL(1) parsing table.</p>
+
+<div class="nav">
+  <a href="0011-cfg-and-syntax-specification.html">&larr; CFGs &amp; Ambiguity</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0013-predictive-parsing.html">Next: Predictive Parsing &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

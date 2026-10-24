@@ -1,0 +1,319 @@
+<title>Fuzzification and Defuzzification</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit II &middot; Lesson 8 of 10</p>
+<h1>Fuzzification and Defuzzification</h1>
+<p class="deck">Crisp in, crisp out. Seven defuzzification methods with their formulas, and four fully worked numericals &mdash; centroid, weighted average, mean of maxima and centre of sums.</p>
+
+<div class="box exam">
+  <span class="lbl">Why this matters tomorrow</span>
+  <p>Defuzzification is the <strong>highest-yield numerical in Unit&nbsp;II</strong>. "Find the defuzzified value using the centroid method" is close to guaranteed. The arithmetic is one division — the marks are lost on setting up &sum;&mu;&middot;z correctly, so do the worked examples with a pen, not by reading.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Defuzzification Methods Overview</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=_po4FxxE9c8" target="_blank">Fuzzification and Defuzzification Methods Overview</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 8:10</span>
+    <div class="v-why">Comprehensive taxonomy contrasting Centroid (COG), Bisector, Weighted Average, Mean of Maximum (MOM), Smallest of Maximum (SOM), and Largest of Maximum (LOM).</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Centre of Gravity (COG) Solved Numerical</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=im8Tp68EadY" target="_blank">Centre of Gravity (COG / Centroid) Method Solved Example</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 9:45</span>
+    <div class="v-why">Step-by-step solved numerical calculating the centroid $z^* = \frac{\int z \cdot \mu(z) dz}{\int \mu(z) dz}$ across discrete and composite geometric shapes.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: DEFUZZIFICATION SPECTRUM -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Taxonomy: The 5 Primary Defuzzification Strategies</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1rem;">
+    <div class="flow-box highlight" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--accent);">1. Centre of Gravity (COG)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Balance point / center of area. Most popular, smooth, mathematically rigorous.</span>
+    </div>
+    <div class="flow-box" style="min-width:auto; text-align:left; border-color:var(--rule);">
+      <strong style="color:var(--ink);">2. Bisector Method</strong>
+      <span class="sub" style="margin-top:0.3rem;">Vertical line dividing the aggregated membership area into two strictly equal halves.</span>
+    </div>
+    <div class="flow-box warn" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--warn);">3. Mean of Maxima (MOM)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Arithmetic average of all points in the universe that achieve peak membership ($\mu_{\max}$).</span>
+    </div>
+    <div class="flow-box ok" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--ok);">4. SOM &amp; LOM</strong>
+      <span class="sub" style="margin-top:0.3rem;">Smallest / Largest domain point achieving peak membership value. Fast, discontinuous.</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>Where these two steps sit</h2>
+
+<p>A fuzzy system talks to the real world, and the real world is crisp. Sensors give numbers; actuators need numbers. Fuzzy reasoning happens strictly in between:</p>
+
+<div class="formula">
+  <span class="name">The pipeline</span>
+  crisp input &nbsp;&rarr;&nbsp; <strong>FUZZIFICATION</strong> &nbsp;&rarr;&nbsp; fuzzy input<br>
+  &rarr;&nbsp; inference over the rule base &nbsp;&rarr;&nbsp; fuzzy output<br>
+  &rarr;&nbsp; <strong>DEFUZZIFICATION</strong> &nbsp;&rarr;&nbsp; crisp output
+</div>
+
+<h2>Fuzzification</h2>
+
+<p><em class="term">Fuzzification</em> is converting a crisp input value into degrees of membership in the relevant fuzzy sets. A temperature reading of 37&deg;C might become <em>warm</em> to degree 0.3 and <em>hot</em> to degree 0.7 &mdash; one number becomes several partial memberships.</p>
+
+<h3>Methods of fuzzification</h3>
+
+<p>Asked as a list question. Seven methods, one line each:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>How membership functions are obtained</th></tr></thead>
+<tbody>
+<tr><td><strong>Intuition</strong></td><td>From human expertise and semantic understanding — the expert simply draws the shapes</td></tr>
+<tr><td><strong>Inference</strong></td><td>Deduced from known facts and existing knowledge about the problem</td></tr>
+<tr><td><strong>Rank ordering</strong></td><td>Built from pairwise comparisons, polls or preference surveys</td></tr>
+<tr><td><strong>Angular fuzzy sets</strong></td><td>Defined on the unit circle; used for variables that are naturally cyclic or polar</td></tr>
+<tr><td><strong>Neural networks</strong></td><td>An ANN learns the membership functions from training data</td></tr>
+<tr><td><strong>Genetic algorithms</strong></td><td>A GA searches for the membership function parameters that maximise performance</td></tr>
+<tr><td><strong>Inductive reasoning</strong></td><td>Derived from data by minimising entropy — partitions chosen to be maximally informative</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>In practice, <strong>singleton fuzzification</strong> is most common in control: the crisp measurement x&#8320; becomes a fuzzy singleton with &mu;(x&#8320;)&nbsp;=&nbsp;1 and 0 everywhere else. It is cheap and it simplifies the inference arithmetic considerably.</p>
+
+<h2>Defuzzification</h2>
+
+<p><em class="term">Defuzzification</em> is the reverse: collapsing the aggregated output fuzzy set into a single crisp number the actuator can use. Every method is a different answer to "which single point best represents this shape?"</p>
+
+<h3>The seven methods</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>Formula / rule</th><th>Character</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Max-membership</strong><br>(height method)</td><td>z* = the z at which &mu;(z) is maximum</td><td>Fastest; only valid when the peak is a single point</td></tr>
+<tr><td><strong>2. Centroid</strong><br>(COG / centre of area)</td><td>z* = &sum;&mu;(z)&middot;z / &sum;&mu;(z)&nbsp;&nbsp;(discrete)<br>z* = &int;&mu;(z)&middot;z dz / &int;&mu;(z) dz&nbsp;&nbsp;(continuous)</td><td>Most widely used and most accurate; costliest to compute</td></tr>
+<tr><td><strong>3. Weighted average</strong></td><td>z* = &sum;&mu;(z&#772;<sub>i</sub>)&middot;z&#772;<sub>i</sub> / &sum;&mu;(z&#772;<sub>i</sub>)</td><td>Fast, but <em>valid only for symmetric</em> output MFs; z&#772;<sub>i</sub> is each MF's centre</td></tr>
+<tr><td><strong>4. Mean of maxima</strong> (MOM)</td><td>z* = (a + b) / 2, where [a,b] is the interval over which &mu; is maximum</td><td>Fast; ignores the shape entirely</td></tr>
+<tr><td><strong>5. First / Last of maxima</strong><br>(SOM / LOM)</td><td>z* = a &nbsp;(smallest z at max) &nbsp;or&nbsp; z* = b &nbsp;(largest z at max)</td><td>Used when a conservative or aggressive bias is wanted</td></tr>
+<tr><td><strong>6. Centre of sums</strong> (COS)</td><td>z* = &sum;A<sub>i</sub>&middot;z&#772;<sub>i</sub> / &sum;A<sub>i</sub>, where A<sub>i</sub> is each output MF's area</td><td>Much faster than centroid; overlapping regions counted twice</td></tr>
+<tr><td><strong>7. Centre of largest area</strong></td><td>Apply the centroid to the largest connected sub-region only</td><td>For output sets that come out disconnected</td></tr>
+<tr><td><strong>8. &lambda;-cut method</strong></td><td>Take A<sub>&lambda;</sub> = {z | &mu;(z) &ge; &lambda;}, giving a crisp set</td><td>Produces a crisp <em>set</em>, not a single value</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">If a question does not name a method</span>
+  <p>Use the <strong>centroid method</strong> and say so explicitly in your first line. It is the default in almost every textbook and in MATLAB's Fuzzy Logic Toolbox, and no examiner will mark it wrong.</p>
+</div>
+
+<h2>Worked numerical 1 — centroid method</h2>
+
+<div class="solve">
+  <span class="lbl">Centroid, discrete universe</span>
+  <p><strong>Given</strong> the aggregated output fuzzy set:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>z</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th></tr></thead>
+  <tbody>
+  <tr><td><strong>&mu;(z)</strong></td><td class="num">0.1</td><td class="num">0.3</td><td class="num">0.6</td><td class="num">1.0</td><td class="num">0.8</td><td class="num">0.4</td><td class="num">0.2</td></tr>
+  <tr><td><strong>&mu;&middot;z</strong></td><td class="num">0.1</td><td class="num">0.6</td><td class="num">1.8</td><td class="num">4.0</td><td class="num">4.0</td><td class="num">2.4</td><td class="num">1.4</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Step 1:</strong> &sum;&mu;&middot;z = 0.1 + 0.6 + 1.8 + 4.0 + 4.0 + 2.4 + 1.4 = <strong>14.3</strong></p>
+  <p><strong>Step 2:</strong> &sum;&mu; = 0.1 + 0.3 + 0.6 + 1.0 + 0.8 + 0.4 + 0.2 = <strong>3.4</strong></p>
+  <p><strong>Step 3:</strong> z* = 14.3 / 3.4 = <strong>4.21</strong></p>
+  <p><strong>Sanity check:</strong> z* must lie inside the support (1 to 7) and be pulled toward the heavy side. The peak is at 4 and there is more mass to its right (0.8, 0.4, 0.2) than left (0.6, 0.3, 0.1), so an answer slightly above 4 is exactly right. Any result outside [1,7] means an arithmetic error.</p>
+</div>
+
+<h2>Worked numerical 2 — weighted average</h2>
+
+<div class="solve">
+  <span class="lbl">Weighted average, symmetric output sets</span>
+  <p><strong>Given</strong> two symmetric output membership functions, fired to these degrees:</p>
+  <ul>
+    <li><em>Medium</em>, centred at z&#772;&#8321; = 4, clipped at &mu; = 0.8</li>
+    <li><em>High</em>, centred at z&#772;&#8322; = 7, clipped at &mu; = 0.5</li>
+  </ul>
+  <p>z* = (0.8 &times; 4 + 0.5 &times; 7) / (0.8 + 0.5) = (3.2 + 3.5) / 1.3 = 6.7 / 1.3 = <strong>5.15</strong></p>
+  <p><strong>Note the shortcut being taken:</strong> the method uses only each MF's <em>centre</em> and its firing strength — the shapes are never integrated. That is why it is fast, and why it is <strong>only valid when the output MFs are symmetric</strong>. Say that in the exam; it is often a mark on its own.</p>
+</div>
+
+<h2>Worked numerical 3 — mean of maxima</h2>
+
+<div class="solve">
+  <span class="lbl">MOM, and its cousins SOM and LOM</span>
+  <p><strong>Given</strong>:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>z</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th></tr></thead>
+  <tbody>
+  <tr><td><strong>&mu;(z)</strong></td><td class="num">0.2</td><td class="num">0.5</td><td class="num">0.8</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">0.6</td><td class="num">0.3</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p>Maximum membership is 1.0, attained over the interval [4, 5]. Therefore:</p>
+  <ul>
+    <li><strong>MOM</strong> = (4 + 5) / 2 = <strong>4.5</strong></li>
+    <li><strong>SOM</strong> (smallest / first of maxima) = <strong>4</strong></li>
+    <li><strong>LOM</strong> (largest / last of maxima) = <strong>5</strong></li>
+  </ul>
+  <p><strong>Why max-membership fails here.</strong> The height method needs a <em>unique</em> peak; this set has a plateau, so it cannot pick one. That ambiguity is exactly the reason MOM, SOM and LOM exist. If asked "when does the max-membership principle fail?", this is the answer.</p>
+</div>
+
+<h2>Worked numerical 4 — centre of sums</h2>
+
+<div class="solve">
+  <span class="lbl">COS, using areas</span>
+  <p><strong>Given</strong> two triangular output sets after clipping:</p>
+  <ul>
+    <li>Set 1: base from 1 to 5 (width 4), height 0.5 &rarr; A&#8321; = &frac12; &times; 4 &times; 0.5 = <strong>1.0</strong>, centroid z&#772;&#8321; = <strong>3</strong></li>
+    <li>Set 2: base from 4 to 10 (width 6), height 0.8 &rarr; A&#8322; = &frac12; &times; 6 &times; 0.8 = <strong>2.4</strong>, centroid z&#772;&#8322; = <strong>7</strong></li>
+  </ul>
+  <p>z* = (A&#8321;z&#772;&#8321; + A&#8322;z&#772;&#8322;) / (A&#8321; + A&#8322;) = (1.0&times;3 + 2.4&times;7) / (1.0 + 2.4) = (3 + 16.8) / 3.4 = 19.8 / 3.4 = <strong>5.82</strong></p>
+  <p><strong>COS vs centroid.</strong> COS takes the areas of the individual output sets <em>before</em> aggregation, so the region where they overlap (4 to 5 here) is counted <strong>twice</strong>. The centroid method aggregates first by max and therefore counts it once. That double-counting is the entire difference between the two methods — and it is the standard 2-mark follow-up question.</p>
+</div>
+
+<h2>Choosing a method</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Criterion</th><th>Best choice</th></tr></thead>
+<tbody>
+<tr><td>Accuracy and smooth control response</td><td>Centroid</td></tr>
+<tr><td>Speed / real-time embedded control</td><td>MOM, max-membership, or COS</td></tr>
+<tr><td>Symmetric output MFs, want speed without much loss</td><td>Weighted average</td></tr>
+<tr><td>Output set comes out disconnected</td><td>Centre of largest area</td></tr>
+<tr><td>You need a crisp <em>set</em> rather than a single value</td><td>&lambda;-cut method</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Two properties a good defuzzifier should have, worth naming: <strong>continuity</strong> (a small change in the fuzzy set causes only a small change in z*) and <strong>plausibility</strong> (z* lies near the middle of the support and has a high membership).</p>
+
+
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. For &mu; = (0.2, 0.6, 0.2) at z = (2, 4, 6), the centroid z* equals:</p>
+  <div class="opts">
+    <button class="opt">4.8</button>
+    <button class="opt">3.0</button>
+    <button class="opt">2.0</button>
+    <button class="opt" data-ok="1">4.0</button>
+  </div>
+  <p class="why">&sum;&mu;z = 0.4 + 2.4 + 1.2 = 4.0; &sum;&mu; = 1.0; z* = 4.0. The set is symmetric about z = 4, so the centroid must land exactly on the peak — a useful check.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The weighted average method is valid only when the output membership functions are:</p>
+  <div class="opts">
+    <button class="opt">Normal, having a height of exactly one</button>
+    <button class="opt">Convex and also strictly non-overlapping</button>
+    <button class="opt">Discrete, defined on a finite universe</button>
+    <button class="opt" data-ok="1">Symmetric about their own centres</button>
+  </div>
+  <p class="why">The method replaces each MF by its centre point. That is only faithful if the shape is balanced about that centre — otherwise the true centroid sits elsewhere and the answer is wrong.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Maximum membership 1.0 occurs over z &isin; [6, 10]. The MOM defuzzified value is:</p>
+  <div class="opts">
+    <button class="opt">4</button>
+    <button class="opt" data-ok="1">8</button>
+    <button class="opt">10</button>
+    <button class="opt">6</button>
+  </div>
+  <p class="why">MOM = (6+10)/2 = 8. Answering 6 gives SOM (first of maxima) and 10 gives LOM (last of maxima) — read which one the question asks for.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The essential difference between centre of sums and the centroid method is that COS:</p>
+  <div class="opts">
+    <button class="opt">Uses only the peak of each set, ignoring the areas entirely</button>
+    <button class="opt" data-ok="1">Counts overlapping areas twice, as it sums before aggregating</button>
+    <button class="opt">Counts overlapping areas once, as it aggregates before summing</button>
+    <button class="opt">Uses the largest connected region, discarding all the others</button>
+  </div>
+  <p class="why">COS adds the individual output areas, so an overlap contributes to both. The centroid aggregates by max first, which merges the overlap into a single region. COS is faster; the centroid is more faithful.</p>
+</div>
+
+<div class="q">
+  <p class="stem">The weighted-average method is valid only when:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The output membership functions are symmetric</button>
+    <button class="opt">All rules fire equally</button>
+    <button class="opt">The output set has a single peak</button>
+    <button class="opt">The universe is continuous</button>
+  </div>
+  <p class="why">It uses only each MF&rsquo;s centre and firing strength, never integrating the shape &mdash; which is exactly why asymmetry would break it. It is the fastest method after max-membership.</p>
+</div>
+
+<div class="q">
+  <p class="stem">For &mu; = 0.2, 0.5, 0.8, 1.0, 1.0, 0.6, 0.3 over z = 1&hellip;7, the MOM is:</p>
+  <div class="opts">
+    <button class="opt">4.21</button>
+    <button class="opt">5</button>
+    <button class="opt">4</button>
+    <button class="opt" data-ok="1">4.5</button>
+  </div>
+  <p class="why">The maximum 1.0 is attained over [4,5], so MOM = (4+5)/2 = 4.5, SOM = 4 and LOM = 5. Max-membership fails here entirely, because there is no unique peak.</p>
+</div>
+
+<div class="q">
+  <p class="stem">Centre of sums differs from the centroid method in that it:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Counts overlapping regions more than once, because it uses each output set&rsquo;s area separately</button>
+    <button class="opt">Counts overlaps only once</button>
+    <button class="opt">Ignores the areas entirely</button>
+    <button class="opt">Requires symmetric membership functions</button>
+  </div>
+  <p class="why">That is also why it is much faster &mdash; no aggregated set has to be built first. The centroid works on the single aggregated set, so overlaps are counted once.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Write the centroid formula, discrete and continuous.</summary>
+    <p class="ans">Discrete: z* = &sum;&mu;(z)z / &sum;&mu;(z). Continuous: z* = &int;&mu;(z)z dz / &int;&mu;(z) dz.</p></details>
+  <details class="card"><summary>Name seven defuzzification methods.</summary>
+    <p class="ans">Max-membership (height), centroid, weighted average, mean of maxima, first/last of maxima, centre of sums, centre of largest area. Plus the &lambda;-cut method, which yields a crisp set.</p></details>
+  <details class="card"><summary>Name the seven fuzzification methods.</summary>
+    <p class="ans">Intuition, inference, rank ordering, angular fuzzy sets, neural networks, genetic algorithms, inductive reasoning.</p></details>
+  <details class="card"><summary>When does the max-membership principle fail, and what replaces it?</summary>
+    <p class="ans">When the maximum is attained over an interval rather than a single point. MOM, SOM or LOM resolve the plateau.</p></details>
+</div>
+
+<p class="ask">Send me any defuzzification problem from your notes and I will check your working line by line.</p>
+
+<div class="nav">
+  <a href="0007-fuzzy-if-then-rules-and-reasoning.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0009-fuzzy-inference-systems.html">Next: Mamdani, Sugeno, Tsukamoto &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

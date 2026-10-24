@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 16 - Cache Write Policies | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 16 of 66 · Cache-Aside, Write-Through, Write-Behind</div>
+  
+  <h1>Cache Write Policies</h1>
+  <p class="subtitle">Deciding how and when data flows between your cache and your database during write operations.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module D — Caching</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Whenever an update occurs (e.g., a user changes their username), you have two distinct storage systems holding that value: the in-memory cache and the persistent database. If you don't update them in a coordinated manner, your system will suffer from <strong>data inconsistency</strong> (readers seeing stale, outdated data). <strong>Cache Write Policies</strong> dictate the exact choreography of writes.</p>
+
+  <h2>2 · The 4 Major Write Patterns</h2>
+
+  <h3>1. Cache-Aside (Lazy Loading) — The Industry Standard</h3>
+  <p>The application directly manages both the cache and the database.</p>
+  <ul>
+    <li><strong>Reads:</strong> App checks cache. If hit, return. If miss, app reads DB, stores in cache, and returns.</li>
+    <li><strong>Writes:</strong> App writes directly to the DB, and then <strong>evicts (deletes) the key from the cache</strong>. (The next read will repopulate it fresh).</li>
+    <li><strong>Why delete instead of update cache?</strong> Updating cache directly can cause race conditions between concurrent writes. Deleting the key is safe and idempotent!</li>
+  </ul>
+
+  <h3>2. Write-Through</h3>
+  <p>The application treats the cache as the main data store. When a write occurs, the application writes to the cache, and the cache synchronously writes to the database before acknowledging success.</p>
+  <div class="arch-flow">
+    <div class="box">App</div>
+    <div class="arrow-right"></div>
+    <div class="box cache">Cache (Updates)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Database (Updates)</div>
+  </div>
+  <p><strong>Pros:</strong> Data in cache is never stale.<br>
+  <strong>Cons:</strong> High write latency because every write must wait for both cache and disk write.</p>
+
+  <h3>3. Write-Behind (Write-Back)</h3>
+  <p>The application writes only to the cache, which acknowledges success immediately. The cache then asynchronously batches and writes the data to the database in the background (e.g., every 10 seconds).</p>
+  <p><strong>Pros:</strong> Insanely fast write speeds; absorbs massive spikes of write traffic.<br>
+  <strong>Cons:</strong> Risk of data loss! If the cache server crashes or loses power before flushing dirty pages to the database, recent writes vanish forever.</p>
+
+  <h3>4. Write-Around</h3>
+  <p>The application writes directly to the database, completely bypassing the cache. Only subsequent reads (if configured as cache-aside) will pull the data into the cache.</p>
+  <p><strong>Pros:</strong> Prevents the cache from being flooded with data that is written once and never read again (e.g., real-time audit logs).<br>
+  <strong>Cons:</strong> A read immediately following a write results in a cache miss.</p>
+
+  <h2>3 · Comparison Table</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Strategy</th>
+        <th>Write Latency</th>
+        <th>Data Loss Risk</th>
+        <th>Best Used For</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Cache-Aside</strong></td>
+        <td>Medium</td>
+        <td>None</td>
+        <td>General purpose web applications (User profiles, catalogues).</td>
+      </tr>
+      <tr>
+        <td><strong>Write-Through</strong></td>
+        <td>Highest (waits for DB)</td>
+        <td>None</td>
+        <td>Systems where stale reads cannot be tolerated (e-commerce orders).</td>
+      </tr>
+      <tr>
+        <td><strong>Write-Behind</strong></td>
+        <td>Lowest (instant in RAM)</td>
+        <td>High (if cache crashes)</td>
+        <td>High-frequency write systems (IoT telemetry, video view counters, game state).</td>
+      </tr>
+      <tr>
+        <td><strong>Write-Around</strong></td>
+        <td>Medium (hits DB)</td>
+        <td>None</td>
+        <td>Write-heavy data that is rarely read immediately (e.g., log dumps).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Memory is finite. What happens when your Redis instance runs out of RAM? Next up: Cache Replacement Policies (LRU, LFU, etc.).</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0015-caching-fundamentals.html">← Previous: Caching Fundamentals</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0017-cache-replacement-policies.html">Next: Cache Replacement Policies →</a>
+  </div>
+</body>
+</html>

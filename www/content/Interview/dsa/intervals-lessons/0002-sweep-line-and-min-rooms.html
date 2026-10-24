@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intervals Lesson 02 — Sweep Line &amp; Min Rooms</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Intervals Track · Lesson 2 of 2 · min rooms, greedy selection, free time</div>
+<h1>Sweep Line &amp; Minimum Rooms</h1>
+<p class="subtitle">"How many rooms?" is really "what's the maximum number of intervals alive at one instant?" — answer it with a heap of end times or a +1/−1 event sweep. Then learn when to sort by <em>end</em> instead.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Meeting Rooms II is one of the most-asked interval questions at big tech, and the
+  sort-by-end greedy behind 435/452 is a classic OA problem. Lesson 2 of 2 in the intervals track.
+  <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1 merged intervals into blocks. This lesson asks two new questions. <strong>(1) Peak concurrency:</strong> how
+many intervals overlap at the busiest instant? Track it either by reusing rooms (a min-heap of end times) or by
+sweeping time and counting <code>+1</code> at every start and <code>−1</code> at every end. <strong>(2) Maximum
+selection:</strong> how many disjoint intervals can you keep? Sort by <strong>end</strong> and greedily take whatever
+finishes earliest — finishing early leaves the most room for the rest.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Minimum number of rooms / platforms / servers / resources" → peak concurrency → heap or event sweep.
+  "Maximum meetings you can attend / minimum intervals to remove / minimum arrows" → selection →
+  <strong>sort by end + greedy</strong>. "Common free time / gaps" → merge everything (Lesson 1), then read the gaps.
+</div>
+
+<h2>2 · Two cores — Meeting Rooms II (LC 253)</h2>
+<p>Know both solutions; interviewers routinely ask for the second after you give the first.</p>
+
+<h3>Core A — min-heap of end times</h3>
+<p>
+Sort meetings by start. The heap holds the end time of every meeting currently running — one entry per occupied room.
+For each meeting: if the room that frees up <em>earliest</em> (heap top) is done by our start, reuse it (pop);
+either way, push our end time. The heap's maximum size is the answer.
+</p>
+<pre><code>int minMeetingRooms(int[][] intervals) {
+    Arrays.sort(intervals, (a, b) -&gt; Integer.compare(a[0], b[0])); <span class="cmt">// by START</span>
+    PriorityQueue&lt;Integer&gt; ends = new PriorityQueue&lt;&gt;();  <span class="cmt">// min-heap of end times = occupied rooms</span>
+    for (int[] m : intervals) {
+        if (!ends.isEmpty() &amp;&amp; ends.peek() &lt;= m[0])
+            ends.poll();               <span class="cmt">// earliest-freeing room is free by our start → reuse it</span>
+        ends.offer(m[1]);              <span class="cmt">// occupy a room (reused or brand new) until m[1]</span>
+    }
+    return ends.size();                <span class="cmt">// rooms never shrink below the peak — heap size IS the answer</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log n). <strong>Space</strong> O(n) for the heap.</p>
+
+<div class="callout tip">
+  <span class="label">Why checking only the heap top is enough</span>
+  The top is the room that frees <em>earliest</em>. If even that one isn't free by our start
+  (<code>peek() &gt; start</code>), no room is — we genuinely need a new one. And note
+  <code>peek() &lt;= m[0]</code>: a meeting ending at 10 frees the room for a 10:00 start (the touching rule from
+  Lesson 1, decided consciously).
+</div>
+
+<h3>Core B — chronological event sweep (+1 / −1)</h3>
+<p>
+Forget which meeting is which. Turn every interval into two events — <code>(start, +1)</code> and
+<code>(end, −1)</code> — sort all events by time, and sweep, tracking a running count. The maximum count is the
+answer. This view generalizes to "max concurrent logins", "min platforms", calendar booking (LC 731/732), and
+anything shaped like peak load.
+</p>
+<pre><code>int minMeetingRooms(int[][] intervals) {
+    int n = intervals.length;
+    int[] starts = new int[n], ends = new int[n];
+    for (int i = 0; i &lt; n; i++) { starts[i] = intervals[i][0]; ends[i] = intervals[i][1]; }
+    Arrays.sort(starts);
+    Arrays.sort(ends);                 <span class="cmt">// two sorted timelines instead of explicit (time, ±1) pairs</span>
+    int rooms = 0, peak = 0, e = 0;
+    for (int s = 0; s &lt; n; s++) {
+        while (e &lt; n &amp;&amp; ends[e] &lt;= starts[s]) { rooms--; e++; } <span class="cmt">// release EVERY room freed by this start (tie: end first)</span>
+        rooms++;                       <span class="cmt">// this meeting takes a room</span>
+        peak = Math.max(peak, rooms);
+    }
+    return peak;
+}</code></pre>
+<p><strong>Time</strong> O(n log n). <strong>Space</strong> O(n).</p>
+
+<div class="callout trap">
+  <span class="label">The tie-break IS the touching rule</span>
+  When an end and a start share the same timestamp, process the <strong>end first</strong> (the
+  <code>ends[e] &lt;= starts[s]</code> above does exactly that). Otherwise <code>[1,10],[10,20]</code> counts as 2
+  simultaneous rooms — off by one. If a problem ever says touching <em>does</em> conflict, flip to
+  <code>&lt;</code>. The tie-break in an event sweep is where the <code>&lt;=</code>/<code>&lt;</code> decision from
+  Lesson 1 lives.
+</div>
+
+<h3>Worked example — dry run (Core B)</h3>
+<p>Meetings <code>[[0,30],[5,10],[15,20]]</code> → starts <code>[0,5,15]</code>, ends <code>[10,20,30]</code>.</p>
+<div class="trace">
+<span class="step">start 0: no end ≤ 0 → rooms = <span class="ptr">1</span>, peak = 1</span>
+<span class="step now">start 5: earliest end 10 &gt; 5 → no release → rooms = <span class="ptr">2</span>, peak = 2</span>
+<span class="step now">start 15: end 10 ≤ 15 → release one → rooms 2→1, then take → rooms = 2, peak stays <span class="ptr">2</span></span>
+<span class="step">answer: 2 rooms — [0,30] overlaps each of the others, but [5,10] and [15,20] share a room</span>
+</div>
+
+<h2>3 · Sort by start vs sort by end — the decision rule</h2>
+<table>
+  <thead><tr><th>You sort by…</th><th>Because you're…</th><th>Problems</th></tr></thead>
+  <tbody>
+    <tr><td><strong>start</strong></td><td><strong>Merging / measuring coverage or concurrency.</strong> You must see every interval that could extend or stack on the current block, in the order they begin.</td><td>56, 57, 252, 253, 759</td></tr>
+    <tr><td><strong>end</strong></td><td><strong>Selecting a maximum set of disjoint intervals.</strong> Greedy: always keep the interval that finishes earliest — it constrains the future least. (Exchange argument: any optimal answer can swap its first pick for the earliest-ending one without losing.)</td><td>435, 452</td></tr>
+  </tbody>
+</table>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Min rooms (peak overlap)</td><td>LC 253</td><td>Both cores above. Heap of ends, or +1/−1 sweep with end-first tie-break.</td></tr>
+    <tr><td>Min removals to make disjoint</td><td>LC 435</td><td>Sort by end; count how many you can <em>keep</em>; answer = n − kept. Touching OK.</td></tr>
+    <tr><td>Min arrows to burst all</td><td>LC 452</td><td>Same greedy, but touching counts as overlap: an arrow at x bursts balloons with <code>start &lt;= x</code>.</td></tr>
+    <tr><td>Common free time</td><td>LC 759</td><td>Flatten all schedules, merge (Lesson 1), then emit the <em>gaps</em> between merged blocks.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Non-overlapping Intervals (LC 435) — sort-by-end greedy</h3>
+<p>
+"Minimum removals so none overlap" = n minus "maximum you can keep." Sort by end; keep an interval iff it starts at
+or after the last kept end (touching is fine here).
+</p>
+<pre><code>int eraseOverlapIntervals(int[][] intervals) {
+    Arrays.sort(intervals, (a, b) -&gt; Integer.compare(a[1], b[1])); <span class="cmt">// by END — greedy selection</span>
+    int kept = 0, lastEnd = Integer.MIN_VALUE;
+    for (int[] cur : intervals) {
+        if (cur[0] &gt;= lastEnd) {       <span class="cmt">// no overlap with last kept ([1,2],[2,3] compatible)</span>
+            kept++;
+            lastEnd = cur[1];          <span class="cmt">// earliest possible end → most room for the rest</span>
+        }                              <span class="cmt">// else: overlaps → this one is removed (skip it)</span>
+    }
+    return intervals.length - kept;    <span class="cmt">// removals = total − max keepable</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log n), <strong>Space</strong> O(1).</p>
+
+<h3>Case: Minimum Number of Arrows (LC 452)</h3>
+<p>
+Identical greedy skeleton, opposite touching rule: balloons are closed ranges, so an arrow at <code>x</code> bursts
+every balloon whose <code>start &lt;= x</code>. Shoot each arrow at the end of the first unburst balloon.
+</p>
+<pre><code>int findMinArrowShots(int[][] points) {
+    Arrays.sort(points, (a, b) -&gt; Integer.compare(a[1], b[1])); <span class="cmt">// Integer.compare — coords hit ±2³¹−1, a[1]-b[1] overflows</span>
+    int arrows = 0;
+    long arrowPos = Long.MIN_VALUE;    <span class="cmt">// sentinel below every possible coordinate</span>
+    for (int[] b : points) {
+        if (b[0] &gt; arrowPos) {         <span class="cmt">// current arrow misses this balloon (STRICT: start == arrowPos still bursts)</span>
+            arrows++;
+            arrowPos = b[1];           <span class="cmt">// new arrow at this balloon's end — bursts the max of what follows</span>
+        }
+    }
+    return arrows;
+}</code></pre>
+<p><strong>Time</strong> O(n log n), <strong>Space</strong> O(1). Compare with 435: the only differences are the comparison direction on ties and what you count.</p>
+
+<h3>Case: Employee Free Time (LC 759)</h3>
+<p>
+Every employee has sorted disjoint intervals; find gaps common to <em>all</em>. Flatten every schedule into one list,
+run the Lesson-1 merge, then the free time is exactly the space <em>between</em> consecutive merged blocks.
+</p>
+<pre><code><span class="cmt">// LC 759 uses class Interval { int start, end; }</span>
+List&lt;Interval&gt; employeeFreeTime(List&lt;List&lt;Interval&gt;&gt; schedule) {
+    List&lt;Interval&gt; all = new ArrayList&lt;&gt;();
+    for (List&lt;Interval&gt; emp : schedule) all.addAll(emp);   <span class="cmt">// flatten — whose meeting it is doesn't matter</span>
+    all.sort((a, b) -&gt; Integer.compare(a.start, b.start)); <span class="cmt">// Lesson-1 merge begins</span>
+    List&lt;Interval&gt; free = new ArrayList&lt;&gt;();
+    int busyEnd = all.get(0).end;
+    for (Interval cur : all) {
+        if (cur.start &gt; busyEnd) {     <span class="cmt">// a real gap between merged busy blocks</span>
+            free.add(new Interval(busyEnd, cur.start));
+            busyEnd = cur.end;
+        } else {
+            busyEnd = Math.max(busyEnd, cur.end); <span class="cmt">// still busy — extend the block (max: nesting!)</span>
+        }
+    }
+    return free;                       <span class="cmt">// gaps before the first / after the last block are unbounded — excluded</span>
+}</code></pre>
+<p><strong>Time</strong> O(N log N) for N total intervals (a k-way-merge heap gets O(N log k) if asked to optimize). <strong>Space</strong> O(N).</p>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Event-sweep tie-break.</strong> End before start at equal timestamps (rooms), unless the problem says touching conflicts. Getting this backwards inflates the peak by exactly 1 — a maddening off-by-one.</li>
+  <li><strong>435 vs 452 touching rule is opposite.</strong> 435 keeps <code>[1,2],[2,3]</code> (compatible, <code>&gt;=</code>); 452's arrow at 2 bursts both (overlap, strict <code>&gt;</code> to start a new arrow).</li>
+  <li><strong>Overflow.</strong> LC 452 coordinates span the full int range: <code>a[1] - b[1]</code> in a comparator overflows. Always <code>Integer.compare</code>.</li>
+  <li><strong>Count what's asked.</strong> 435 asks for removals (<code>n − kept</code>), not the kept count. Easy to return the wrong number after solving the hard part.</li>
+  <li><strong>Heap answer = final size, not a running max poll count.</strong> In Core A the heap only grows past the peak, never shrinks below it, since we pop at most one per push.</li>
+  <li><strong>759's unbounded ends.</strong> Free time before the first meeting and after the last is infinite — don't emit it.</li>
+  <li><strong>One meeting / empty input.</strong> One meeting → 1 room, 0 removals, 1 arrow. Sanity-check your loop bounds and sentinel initialization against it.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the Meeting Rooms II heap solution, what does <code>ends.peek() &lt;= m[0]</code> being true mean?</div>
+  <button class="opt">The current meeting overlaps every running meeting, so a new room is required</button>
+  <button class="opt">The room that frees earliest is done by our start, so we reuse it instead of opening a new one</button>
+  <button class="opt">The heap is corrupted, because end times must always exceed start times</button>
+  <div class="fb" data-correct="The heap top is the earliest-freeing room. If it's free by our start we pop (reuse) it; if even IT is still busy, no room is free and heap size grows — that growth is how the peak is recorded." data-wrong="peek() is the SMALLEST end time in the heap — the room that frees up first. If that end is ≤ our start, that room is available and we reuse it (poll, then offer our end)."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why does the maximum-disjoint-intervals greedy (LC 435) sort by <em>end</em> rather than start?</div>
+  <button class="opt">Sorting by end is faster because end values are usually smaller than start values</button>
+  <button class="opt">Sorting by start would visit intervals in the wrong order for the removal count</button>
+  <button class="opt">Keeping the earliest-ending interval leaves the most room for future picks — an exchange argument shows it's never worse than any other choice</button>
+  <div class="fb" data-correct="That's the greedy proof: swap any optimal solution's first pick for the earliest-ending interval and it still fits everything after — so earliest-end is always safe. Sort by start and a long interval like [1,100] could greedily block everything." data-wrong="Think about [1,100],[2,3],[4,5]: sorted by start you'd meet [1,100] first and it blocks the other two. Sorted by end, [2,3] then [4,5] are kept and only [1,100] is removed. Earliest end constrains the future least."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In an event sweep for min rooms, meetings <code>[1,10]</code> and <code>[10,20]</code> produce events at time 10. What's the correct handling?</div>
+  <button class="opt">Process the −1 (end) before the +1 (start): the room frees exactly in time, so the peak stays 1</button>
+  <button class="opt">Process the +1 before the −1: a starting meeting always claims a room before one is released</button>
+  <button class="opt">Order doesn't matter, since +1 and −1 at the same time cancel in the final count</button>
+  <div class="fb" data-correct="Back-to-back meetings share a room, so ends release before starts claim at equal timestamps — the ends[e] &lt;= starts[s] condition encodes exactly this. Flip the tie only if the problem says touching conflicts." data-wrong="The FINAL count is the same either way, but the PEAK isn't — +1 first momentarily shows 2 concurrent meetings and the answer comes out one too high. Tie-break: end before start."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/meeting-schedule-ii">NeetCode — Meeting Rooms II</a> (both solutions), then <a href="https://neetcode.io/problems/non-overlapping-intervals">NeetCode — Non-overlapping Intervals</a> for the sort-by-end greedy.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 253 (heap first, then re-solve with the sweep) → LC 435 (greedy keep) → LC 452 (same greedy, flipped touching rule) → LC 759 (flatten + merge + gaps) → LC 731/732 My Calendar II/III (the event sweep as a booking counter, stretch goal). Before each, state your sort key and your touching rule out loud.</li>
+</ul>
+
+<h2>8 · Intervals cheat sheet</h2>
+<p>The whole track on one card. Print it (the toggle and nav disappear in print).</p>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Merge overlaps</td><td>"merge / combine ranges"</td><td>Sort by start; <code>cur.start &lt;= prev.end</code> → <code>prev.end = max(prev.end, cur.end)</code></td><td>O(n log n) / O(n)</td><td>56</td></tr>
+    <tr><td>Insert into sorted</td><td>"insert &amp; keep merged" (sorted input)</td><td>Copy all ending before new; absorb all starting ≤ new.end via min/max; copy rest</td><td>O(n) / O(n)</td><td>57</td></tr>
+    <tr><td>Intersect two lists</td><td>two sorted interval lists</td><td>Two pointers: emit <code>[max starts, min ends]</code> if valid; advance earlier-ender</td><td>O(m+n) / O(1)</td><td>986</td></tr>
+    <tr><td>Any conflict?</td><td>"attend all meetings?"</td><td>Sort by start; any <code>cur.start &lt; prev.end</code> → false (touching OK)</td><td>O(n log n) / O(1)</td><td>252</td></tr>
+    <tr><td>Min rooms (peak)</td><td>"minimum rooms / platforms"</td><td>Sort by start; min-heap of ends — pop if <code>top &lt;= start</code>, push end; or +1/−1 sweep, end first on ties</td><td>O(n log n) / O(n)</td><td>253</td></tr>
+    <tr><td>Max disjoint / min removals</td><td>"remove fewest to make disjoint"</td><td>Sort by end; keep if <code>start &gt;= lastEnd</code>; removals = n − kept</td><td>O(n log n) / O(1)</td><td>435</td></tr>
+    <tr><td>Min arrows / stabs</td><td>"one shot pops all it touches"</td><td>Sort by end; new arrow when <code>start &gt; arrowPos</code>, place at cur end (touching bursts)</td><td>O(n log n) / O(1)</td><td>452</td></tr>
+    <tr><td>Common free time</td><td>"gaps shared by all schedules"</td><td>Flatten → merge by start → emit gaps between merged blocks (drop unbounded ends)</td><td>O(N log N) / O(N)</td><td>759</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run the heap on your own example, re-derive the exchange argument for sort-by-end, or drill the
+  <code>&lt;=</code>/<code>&lt;</code> tie rules until they stick? Ask in the chat. When both LC 253 solutions and the
+  435 greedy flow from memory, say <strong>"next"</strong> and we start the LinkedList Reversal track.
+</div>
+
+<div class="nav">
+  <span><a href="0001-merge-and-insert.html">← Merge &amp; Insert</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../linkedlist-reversal-lessons/0001-reversal-template.html">LinkedList Reversal →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

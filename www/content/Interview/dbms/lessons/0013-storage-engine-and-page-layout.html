@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 13 – Storage Engine & Page Layout</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module D · Lesson 13 of 17 · Disk Block Management</div>
+  <h1>Storage Engine Architecture & Slotted Pages</h1>
+  <p class="subtitle">How database bytes are physically organized on disk and loaded into memory pages.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Storage & Indexing</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Operating systems read and write to disk in 4KB blocks. Database engines organize persistent tables into fixed-size units called <strong>Pages</strong> (or Blocks) — typically <strong>8KB in PostgreSQL</strong> and <strong>16KB in MySQL InnoDB</strong>. When a query accesses a single row, the entire page containing that row is transferred from persistent disk/NVMe into the DBMS <strong>Buffer Pool</strong> in RAM. How bytes are arranged inside that page determines storage efficiency, tuple search speed, and update fragmentation.</p>
+
+  <h2>2 · The Slotted Page Architecture</h2>
+  <p>If rows were stored in a simple contiguous array, deleting row 2 or updating row 3 with a longer string would require shifting thousands of bytes and updating external pointers everywhere. The universal industry solution is the <strong>Slotted Page Architecture</strong>:</p>
+
+  <div class="arch-flow">
+    <div class="box">Page Header (LSN, Slot Count)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Slot Array (Grows &darr;)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Free Space (Middle)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Tuple Records (Grows &uarr;)</div>
+  </div>
+
+  <ul>
+    <li><strong>Header</strong>: Stores PageLSN, total number of slots, and pointer to the start of free space.</li>
+    <li><strong>Slot Array</strong>: Located at the top of the page, growing <em>downwards</em>. Each slot entry is small (4 bytes) and contains: <code>{byte_offset_of_tuple, tuple_length}</code>.</li>
+    <li><strong>Tuple Storage</strong>: Located at the bottom of the page, growing <em>upwards</em>. Contains the actual row bytes.</li>
+    <li><strong>Free Space Gap</strong>: Sits in the middle between the slot array and tuple records. The page is full when the slot array meets the tuple storage.</li>
+  </ul>
+
+  <div class="callout info">
+    <h4>Why Slotted Pages Are Brilliant (Indirection / RID)</h4>
+    <p>A tuple's physical address is its <strong>Record ID (RID)</strong> or <strong>Tuple ID (TID / ctid)</strong>: <code>(Page_ID, Slot_Number)</code>. If row 4 is updated and grows, it can be moved anywhere inside the page. Only its entry in the slot array is updated with the new byte offset! The external index pointer (Page 42, Slot 3) remains 100% valid. No index rebuild is required!</p>
+  </div>
+
+  <h2>3 · Anatomy of a Tuple Record</h2>
+  <p>Inside the raw bytes of a single tuple:</p>
+  <ul>
+    <li><strong>Tuple Header</strong>: Visibility metadata (<code>xmin, xmax</code> in Postgres), number of columns, NULL bitmap (1 bit per column indicating if value is NULL, avoiding storing null bytes).</li>
+    <li><strong>Fixed-Length Columns</strong>: <code>INT</code>, <code>BIGINT</code>, <code>FLOAT</code>, <code>TIMESTAMP</code> stored at fixed known byte offsets.</li>
+    <li><strong>Variable-Length Columns</strong>: <code>VARCHAR</code>, <code>TEXT</code>, <code>BLOB</code>. The header contains length offsets pointing to the variable byte payloads at the end of the record.</li>
+    <li><strong>TOAST (The Oversized-Attribute Storage Technique)</strong>: If a single column exceeds page size (e.g. 5MB image or text), PostgreSQL breaks it into compressed chunks stored out-of-line in a secondary TOAST table.</li>
+  </ul>
+
+  <h2>4 · Row-Store (NSM) vs Column-Store (DSM)</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Criterion</th><th>Row Store (N-ary Storage Model)</th><th>Column Store (Decomposition Storage Model)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Layout on Disk</strong></td><td>Entire row stored contiguously: <code>[id1, name1, salary1], [id2, name2, salary2]</code></td><td>Columns stored separately: <code>[id1, id2...], [salary1, salary2...]</code></td></tr>
+      <tr><td><strong>Best For</strong></td><td><strong>OLTP</strong>: Rapid single-row inserts, updates, and primary key lookups.</td><td><strong>OLAP</strong>: Analytical queries aggregating few columns over millions of rows (<code>SUM(salary)</code>).</td></tr>
+      <tr><td><strong>Compression</strong></td><td>Low; mixed data types in same block.</td><td>Extremely high (10x); identical types enable Run-Length & Bit-packing encoding.</td></tr>
+      <tr><td><strong>Engines</strong></td><td>Postgres, MySQL, Oracle, SQLite.</td><td>ClickHouse, Snowflake, DuckDB, AWS Redshift.</td></tr>
+    </tbody>
+  </table>
+
+  <nav class="bottom-nav">
+    <a href="0012-database-recovery-and-wal-aries.html">← Lesson 12: Database Recovery & ARIES</a>
+    <a href="0014-indexing-foundations-clustered-vs-secondary.html">Lesson 14: Indexing Foundations: Clustered vs Secondary →</a>
+  </nav>
+</body>
+</html>

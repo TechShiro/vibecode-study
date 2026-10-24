@@ -1,0 +1,315 @@
+<title>PCC Unit II Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul,ol{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Reference &middot; print this one</p>
+<h1>Unit II &mdash; Exam Sheet</h1>
+<p class="deck">The lexical analyser, input buffering, token specification, and the full conversion chain RE &rarr; NFA &rarr; DFA &rarr; minimal DFA plus the direct method &mdash; with every worked answer from the six lessons.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>RE &rarr; NFA by Thompson &middot; NFA &rarr; DFA by subset construction &middot; DFA minimisation &middot; direct RE &rarr; DFA by followpos</strong> &mdash; four mechanical conversions, and usually two of them appear on one paper. Then: <strong>token vs pattern vs lexeme</strong> &middot; <strong>input buffering with sentinels</strong> &middot; <strong>structure of a Lex program</strong> &middot; <strong>Lex conflict resolution</strong> &middot; regular expressions for given languages &middot; token counting. <strong>Practise the four conversions with a pen; reading them does nothing.</strong></p>
+</div>
+
+<hr class="rule">
+
+<h2>The lexical analyser</h2>
+
+<p><strong>Primary task:</strong> read the character stream, group characters into <strong>lexemes</strong>, and emit a <strong>token &lang;token-name, attribute-value&rang;</strong> for each. It runs as a <strong>subroutine of the parser</strong> (called via <code>getNextToken</code>), <strong>not</strong> a separate pass.</p>
+
+<p><strong>Other jobs:</strong> strip whitespace and comments &middot; <strong>count newlines</strong> so errors get line numbers &middot; enter identifiers into the symbol table &middot; sometimes expand macros.</p>
+
+<div class="formula">
+  <span class="name">Token, pattern, lexeme &mdash; the one-line test</span>
+  <strong>PATTERN = the RULE</strong> (a regular expression). &nbsp; <strong>LEXEME = the actual TEXT in the file.</strong> &nbsp; <strong>TOKEN = the CATEGORY the parser is told about.</strong><br><br>
+  <em>&ldquo;The lexeme</em> <code>count</code> <em>matches the pattern for identifiers, so the analyser emits the token &lang;id, ptr&rang;.&rdquo;</em>
+</div>
+
+<p><strong>Attributes:</strong> identifier &rarr; <strong>pointer to its symbol-table entry</strong> &middot; number &rarr; its value &middot; comparison operator &rarr; a code (LT, LE, EQ, NE, GT, GE) &middot; keywords and punctuation &rarr; <strong>none</strong>.</p>
+
+<p><strong>Each keyword is its OWN token</strong>; <strong>all comparison operators share one token</strong>, distinguished by attribute.</p>
+
+<div class="formula">
+  <span class="name">Three reasons to separate lexical from syntax analysis</span>
+  <strong>SIMPLICITY</strong> of design &middot; <strong>EFFICIENCY</strong> &mdash; specialised <em>buffering</em> can be applied to the character-reading task &middot; <strong>PORTABILITY</strong> &mdash; input-device and character-set peculiarities are confined to one phase.<br><br>
+  <em>The deeper reason:</em> tokens form a <strong>regular</strong> language recognisable by a finite automaton; syntax is <strong>context-free</strong> and needs a stack.
+</div>
+
+<h3>Token counting <span class="tag">four rules</span></h3>
+
+<p><strong>1.</strong> A double-quoted string literal is <strong>ONE token</strong>, however long. <strong>2.</strong> Every punctuation mark counts separately. <strong>3.</strong> Multi-character operators (<code>&lt;=</code>, <code>==</code>, <code>++</code>, <code>**</code>) are <strong>one token each</strong>. <strong>4.</strong> Whitespace and comments are <strong>not tokens</strong>. Check whether the question says <em>distinct</em>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Input</th><th class="num">Tokens</th><th>Trap</th></tr></thead>
+<tbody>
+<tr><td><code>x = a + 15;</code></td><td class="num"><strong>6</strong></td><td>&mdash;</td></tr>
+<tr><td><code>printf("i = %d, &amp;i = %x", i, &amp;i);</code></td><td class="num"><strong>10</strong></td><td>Everything inside the quotes is <strong>one</strong> token</td></tr>
+<tr><td><code>int max(int a, int b);</code></td><td class="num"><strong>10</strong></td><td>Each <code>int</code> counts separately (6 if <em>distinct</em>)</td></tr>
+<tr><td><code>if (a &gt;= b) count++; /* tally */</code></td><td class="num"><strong>9</strong></td><td><code>&gt;=</code> and <code>++</code> are one each; the comment is nothing</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Lexical errors</strong> occur <strong>only when no pattern matches</strong> &mdash; illegal character, unterminated string, malformed number. <code>fi</code> for <code>if</code> is <strong>not</strong> a lexical error (it is a valid identifier). <strong>Recovery:</strong> <strong>panic mode</strong> &mdash; delete characters until a well-formed token appears (simplest and most used) &middot; minimal-distance: <strong>delete, insert, replace, transpose</strong> one character.</p>
+
+<h2>Input buffering</h2>
+
+<p><strong>Why:</strong> <strong>speed</strong> (the only phase reading character by character) and <strong>lookahead</strong> (cannot decide the token without reading past the lexeme, then retracting).</p>
+
+<p><strong>One buffer fails</strong> when a lexeme straddles the end &mdash; a reload destroys the scanned part.</p>
+
+<div class="formula">
+  <span class="name">Buffer pairs</span>
+  <strong>Two halves of N characters</strong>, N = <strong>one disk block</strong> (1024 or 4096), each filled by <strong>one read command</strong>, used alternately and cyclically.<br>
+  <strong>lexemeBegin</strong> &mdash; start of the current lexeme. &nbsp; <strong>forward</strong> &mdash; scans ahead.<br>
+  <strong>Cost: TWO tests per character.</strong> Requires no lexeme longer than N.
+</div>
+
+<div class="formula">
+  <span class="name">With sentinels &mdash; the code, and the point</span>
+  Each half becomes <strong>N + 1</strong> characters, the extra one holding <strong>eof</strong>, which cannot appear in the source.<br><br>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+  forward = forward + 1;<br>
+  <strong>if ( *forward == eof ) {</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;if (at end of first half) { reload second half; forward++; }<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;else if (at end of second half) { reload first half; forward = start of first half; }<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>else terminate lexical analysis;</strong>&nbsp;&nbsp;/* real eof */<br>
+  }
+  </div>
+  <span style="font-size:.9em; display:block; margin-top:.4rem"><strong>Two tests per character become ONE.</strong> And the same test detects genuine end of input.</span>
+</div>
+
+<p><strong>Numerical &mdash; 100,000 characters, N = 4096:</strong> reads = &lceil;100000/4096&rceil; = <strong>25, the same either way</strong>. Tests without sentinels = 2 &times; 100000 = <strong>200,000</strong>; with sentinels = 100000 + 2&times;25 = <strong>100,050</strong>. Saving &asymp; <strong>50 %</strong>. Character-at-a-time reading would need <strong>100,000 system calls instead of 25</strong>.</p>
+
+<h2>Specification of tokens</h2>
+
+<p><strong>Alphabet &Sigma;</strong> = finite set of symbols. <strong>String</strong> = finite sequence from it; <strong>&epsilon;</strong> has length 0. <strong>Language</strong> = any countable set of strings. <strong>&empty; &ne; {&epsilon;}</strong> &mdash; sizes 0 and 1.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Quantity, for a string of length n</th><th>Formula</th><th><code>banana</code></th></tr></thead>
+<tbody>
+<tr><td>Prefixes / suffixes (with &epsilon; and the whole)</td><td><strong>n + 1</strong></td><td class="num">7</td></tr>
+<tr><td><strong>Proper</strong> prefixes / suffixes</td><td><strong>n &minus; 1</strong></td><td class="num">5</td></tr>
+<tr><td>Non-empty substrings, <strong>by position</strong></td><td><strong>n(n+1)/2</strong></td><td class="num">21 (15 <em>distinct</em>)</td></tr>
+<tr><td>Subsequences</td><td><strong>2<sup>n</sup></strong></td><td class="num">64</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Substring</strong> = contiguous; <strong>subsequence</strong> = order kept, contiguity not required.</p>
+
+<p><strong>Operations:</strong> union &middot; concatenation LM &middot; <strong>L* = &cup;L<sup>i</sup> from 0, always contains &epsilon;</strong> &middot; <strong>L<sup>+</sup> = &cup;L<sup>i</sup> from 1</strong>. &nbsp; <strong>L* = L<sup>+</sup> &cup; {&epsilon;}</strong>, &nbsp; <strong>L<sup>+</sup> = LL* = L*L</strong>.</p>
+
+<div class="formula">
+  <span class="name">Regular expressions</span>
+  <strong>Basis:</strong> &epsilon; denotes {&epsilon;}; each symbol a denotes {a}.<br>
+  <strong>Induction:</strong> (r)|(s) &rarr; L(r) &cup; L(s) &middot; (r)(s) &rarr; L(r)L(s) &middot; (r)* &rarr; (L(r))* &middot; (r) &rarr; L(r).<br><br>
+  <strong>Precedence, highest first: * &nbsp;&gt;&nbsp; concatenation &nbsp;&gt;&nbsp; |</strong> &mdash; all left-associative. So <code>a | b*c</code> means <em>a, or zero-or-more b's then c</em>.<br><br>
+  <strong>Laws:</strong> | is commutative, associative, idempotent &middot; concatenation is associative and <strong>distributes over |</strong> &middot; &epsilon;r = r&epsilon; = r &middot; r** = r* &middot; r* = (r|&epsilon;)*. <strong>Concatenation is NOT commutative.</strong>
+</div>
+
+<div class="formula">
+  <span class="name">Regular definitions &mdash; write exactly like this</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.86rem; text-align:left; line-height:1.6">
+  letter_ &rarr; A | &hellip; | Z | a | &hellip; | z | _<br>
+  digit&nbsp;&nbsp;&nbsp; &rarr; 0 | 1 | &hellip; | 9<br>
+  <strong>id&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &rarr; letter_ ( letter_ | digit )*</strong><br><br>
+  digits&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &rarr; digit digit*<br>
+  optFraction &rarr; . digits | <strong>&epsilon;</strong><br>
+  optExponent &rarr; E ( + | &minus; | &epsilon; ) digits | <strong>&epsilon;</strong><br>
+  <strong>number&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &rarr; digits optFraction optExponent</strong>
+  </div>
+  <span style="font-size:.88em; display:block; margin-top:.4rem">Each d<sub>i</sub> may use only &Sigma; and <strong>earlier</strong> definitions &mdash; that keeps them <strong>non-recursive</strong>, so the result stays regular.</span>
+</div>
+
+<p><strong>Shorthands:</strong> <strong>r<sup>+</sup></strong> = rr* &middot; <strong>r?</strong> = r|&epsilon; &middot; <strong>[abc]</strong>, <strong>[a&ndash;z]</strong> character classes. <strong>They add no expressive power.</strong></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Language over {a,b}</th><th>Regular expression</th></tr></thead>
+<tbody>
+<tr><td>All strings</td><td>(a|b)*</td></tr>
+<tr><td>Ending in <code>ab</code></td><td>(a|b)*ab</td></tr>
+<tr><td>Begins <code>a</code>, ends <code>b</code></td><td>a(a|b)*b</td></tr>
+<tr><td>At least one <code>a</code></td><td>(a|b)*a(a|b)*</td></tr>
+<tr><td><strong>Exactly two <code>a</code>'s</strong></td><td><strong>b*ab*ab*</strong> &mdash; two a's, <strong>three gaps</strong></td></tr>
+<tr><td>Even length</td><td>((a|b)(a|b))*</td></tr>
+<tr><td>Length divisible by 3</td><td>((a|b)(a|b)(a|b))*</td></tr>
+<tr><td><strong>No substring <code>ab</code></strong></td><td><strong>b*a*</strong></td></tr>
+<tr><td>Even number of <code>a</code>'s</td><td>b*(ab*ab*)*</td></tr>
+<tr><td>Every <code>a</code> immediately followed by <code>b</code></td><td>(b|ab)*</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Templates:</strong> &ldquo;contains x&rdquo; &rarr; &Sigma;*x&Sigma;* &middot; &ldquo;starts with x&rdquo; &rarr; x&Sigma;* &middot; &ldquo;ends with x&rdquo; &rarr; &Sigma;*x &middot; &ldquo;exactly k a's&rdquo; &rarr; b* with k a's in k+1 gaps &middot; &ldquo;length divisible by k&rdquo; &rarr; (&Sigma;&hellip;&Sigma;)* with k copies.</p>
+
+<p><strong>Not regular:</strong> balanced parentheses, a<sup>n</sup>b<sup>n</sup> &mdash; a finite automaton has no stack.</p>
+
+<h2>Finite automata</h2>
+
+<p><strong>(Q, &Sigma;, &delta;, q<sub>0</sub>, F)</strong> &mdash; states, alphabet (never containing &epsilon;), transition function, one start state, accepting states.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>NFA</th><th>DFA</th></tr></thead>
+<tbody>
+<tr><td>&epsilon;-transitions</td><td><strong>Allowed</strong></td><td>Not allowed</td></tr>
+<tr><td>&delta;(q,a)</td><td>A <strong>set</strong> of states</td><td>A <strong>single</strong> state</td></tr>
+<tr><td>Easier to</td><td><strong>Build</strong></td><td><strong>Simulate</strong></td></tr>
+<tr><td>States</td><td>&le; <strong>2|r|</strong></td><td>up to <strong>2<sup>n</sup></strong></td></tr>
+<tr><td>Simulation</td><td>O(|r| &times; |x|)</td><td><strong>O(|x|)</strong></td></tr>
+<tr><td>Power</td><td colspan="2" style="text-align:center"><strong>Exactly equal</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The four conversions <span class="tag">all worked on (a|b)*abb</span></h2>
+
+<div class="formula">
+  <span class="name">1. Thompson's construction &mdash; RE to NFA</span>
+  <strong>&epsilon;</strong> and <strong>a</strong>: two states with that edge. &nbsp; <strong>s|t</strong>: new start with &epsilon; to both sub-starts, &epsilon; from both sub-finals to a new final. &nbsp; <strong>st</strong>: <strong>merge</strong> N(s)'s final with N(t)'s start &mdash; <strong>no new states</strong>. &nbsp; <strong>s*</strong>: new start i and final f, with &epsilon; i&rarr;start, &epsilon; final&rarr;start (loop), &epsilon; final&rarr;f, &epsilon; <strong>i&rarr;f (bypass)</strong>.<br><br>
+  <strong>Properties:</strong> one start and one accepting state &middot; no edge in to start, none out of final &middot; at most two edges leave any state &middot; <strong>at most 2|r| states</strong>.
+</div>
+
+<p><strong>NFA for (a|b)*abb</strong> &mdash; 11 states, start 0, accepting 10:<br>
+<code>0&rarr;&epsilon;&rarr;1,7 &middot; 1&rarr;&epsilon;&rarr;2,4 &middot; 2&rarr;a&rarr;3 &middot; 3&rarr;&epsilon;&rarr;6 &middot; 4&rarr;b&rarr;5 &middot; 5&rarr;&epsilon;&rarr;6 &middot; 6&rarr;&epsilon;&rarr;1,7 &middot; 7&rarr;a&rarr;8 &middot; 8&rarr;b&rarr;9 &middot; 9&rarr;b&rarr;10</code></p>
+
+<div class="formula">
+  <span class="name">2. Subset construction &mdash; NFA to DFA</span>
+  <strong>&epsilon;-closure(s)</strong> = states reachable from s on &epsilon; alone, <strong>including s</strong>. &nbsp; <strong>move(T, a)</strong> = states reachable on a, <strong>following no &epsilon;</strong>.<br><br>
+  Start = <strong>&epsilon;-closure(s<sub>0</sub>)</strong>. For each unmarked T and symbol a: <strong>U = &epsilon;-closure(move(T, a))</strong> &mdash; <strong>move FIRST, then close</strong>. A state is <strong>accepting iff it contains any accepting NFA state</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>DFA state</th><th>NFA states</th><th class="num">a</th><th class="num">b</th></tr></thead>
+<tbody>
+<tr><td><strong>A</strong> start</td><td>{0,1,2,4,7}</td><td class="num">B</td><td class="num">C</td></tr>
+<tr><td>B</td><td>{1,2,3,4,6,7,8}</td><td class="num">B</td><td class="num">D</td></tr>
+<tr><td>C</td><td>{1,2,4,5,6,7}</td><td class="num">B</td><td class="num">C</td></tr>
+<tr><td>D</td><td>{1,2,4,5,6,7,9}</td><td class="num">B</td><td class="num">E</td></tr>
+<tr><td><strong>E</strong> accepting</td><td>{1,2,4,5,6,7,<strong>10</strong>}</td><td class="num">B</td><td class="num">C</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">3. Minimisation by partitioning</span>
+  Two states are <strong>equivalent</strong> if no string distinguishes them. <strong>The minimal DFA is unique.</strong><br><br>
+  <strong>&Pi;<sub>0</sub> = { non-accepting, accepting }</strong>; split any group whose members go to <strong>different groups</strong> on some symbol; stop when a full pass causes no split; then remove dead and unreachable states.
+</div>
+
+<p><strong>Worked:</strong> &Pi;<sub>0</sub> = {{A,B,C,D},{E}} &rarr; on <code>b</code>, D reaches E, so &Pi;<sub>1</sub> = {{A,B,C},{D},{E}} &rarr; on <code>b</code>, B reaches {D}, so &Pi;<sub>2</sub> = <strong>{{A,C},{B},{D},{E}}</strong>, stable. <strong>Five states become four; A and C merge.</strong></p>
+
+<div class="formula">
+  <span class="name">4. Direct method &mdash; RE to DFA in one pass (what Lex uses)</span>
+  <strong>1.</strong> Augment to <strong>(r)#</strong>. <strong>2.</strong> Build the syntax tree, <strong>numbering leaves left to right</strong>. <strong>3.</strong> nullable / firstpos / lastpos bottom-up. <strong>4.</strong> followpos. <strong>5.</strong> Start = <strong>firstpos(root)</strong>; from S on a, next = <strong>&cup; followpos(p) for every p in S whose symbol is a</strong>; accepting iff it contains the <strong>#</strong> position.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Node</th><th>nullable</th><th>firstpos</th><th>lastpos</th></tr></thead>
+<tbody>
+<tr><td>Leaf &epsilon;</td><td>true</td><td>&empty;</td><td>&empty;</td></tr>
+<tr><td>Leaf i</td><td>false</td><td>{i}</td><td>{i}</td></tr>
+<tr><td>c<sub>1</sub>|c<sub>2</sub></td><td>or</td><td>union</td><td>union</td></tr>
+<tr><td>c<sub>1</sub>c<sub>2</sub></td><td>and</td><td><strong>if c<sub>1</sub> nullable</strong>: union, else firstpos(c<sub>1</sub>)</td><td><strong>if c<sub>2</sub> nullable</strong>: union, else lastpos(c<sub>2</sub>)</td></tr>
+<tr><td>c<sub>1</sub>*</td><td><strong>always true</strong></td><td>firstpos(c<sub>1</sub>)</td><td>lastpos(c<sub>1</sub>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>followpos &mdash; only two rules.</strong> <strong>cat node:</strong> for each i in lastpos(c<sub>1</sub>), add firstpos(c<sub>2</sub>) to followpos(i). <strong>star node:</strong> for each i in lastpos(n), add firstpos(n) to followpos(i). <strong>The | node contributes NOTHING.</strong></p>
+
+<p><strong>For (a|b)*abb#</strong> &mdash; positions 1=a, 2=b, 3=a, 4=b, 5=b, 6=#:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th class="num">p</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th></tr></thead>
+<tbody>
+<tr><td><strong>followpos</strong></td><td class="num">{1,2,3}</td><td class="num">{1,2,3}</td><td class="num">{4}</td><td class="num">{5}</td><td class="num">{6}</td><td class="num"><strong>&empty;</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Direct DFA</th><th>Positions</th><th class="num">a</th><th class="num">b</th></tr></thead>
+<tbody>
+<tr><td><strong>A</strong> start</td><td>{1,2,3}</td><td class="num">B</td><td class="num">A</td></tr>
+<tr><td>B</td><td>{1,2,3,4}</td><td class="num">B</td><td class="num">C</td></tr>
+<tr><td>C</td><td>{1,2,3,5}</td><td class="num">B</td><td class="num">D</td></tr>
+<tr><td><strong>D</strong> accepting</td><td>{1,2,3,<strong>6</strong>}</td><td class="num">B</td><td class="num">A</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The cross-check:</strong> this is <strong>isomorphic to the minimised DFA</strong> under A&prime;&rarr;A, B&prime;&rarr;B, D&prime;&rarr;C, E&prime;&rarr;D. <strong>The direct method produced the minimal DFA in one pass</strong>, skipping both the NFA and the minimisation step.</p>
+
+<h2>Lex</h2>
+
+<div class="formula">
+  <span class="name">Structure &mdash; three sections, separated by %%</span>
+  <strong>declarations</strong> (regular definitions; C code in <code>%{ &hellip; %}</code> copied verbatim)<br>
+  <strong>%%</strong><br>
+  <strong>translation rules</strong> &mdash; <em>Pattern&nbsp;&nbsp;&nbsp;{ Action }</em><br>
+  <strong>%%</strong><br>
+  <strong>auxiliary functions</strong> (C, often <code>main()</code>)<br><br>
+  <span style="font-size:.9em">Pipeline: <code>lex.l</code> &rarr; Lex compiler &rarr; <code>lex.yy.c</code> &rarr; C compiler &rarr; <code>a.out</code> &rarr; input &rarr; tokens.</span>
+</div>
+
+<p><strong>Names:</strong> <strong>yytext</strong> = the lexeme matched &middot; <strong>yyleng</strong> = its length &middot; <strong>yylval</strong> = the attribute for the parser &middot; <strong>yylex()</strong> = the generated scanner &middot; <strong>yywrap()</strong> &mdash; <strong>1 = stop, 0 = another file follows</strong> &middot; <strong>yyin/yyout</strong> &middot; <strong>ECHO</strong> = default action &middot; <strong>yyless(n)</strong> pushes back.</p>
+
+<div class="formula">
+  <span class="name">Conflict resolution &mdash; in this order</span>
+  <strong>RULE 1: LONGEST MATCH.</strong> &nbsp;&nbsp; <strong>RULE 2: FIRST RULE LISTED</strong>, only to break a tie.<br><br>
+  <strong>Input <code>if</code></strong> &rarr; both match 2 chars &rarr; tie &rarr; <strong>rule 2 &rarr; IF</strong>.<br>
+  <strong>Input <code>ifx</code></strong> &rarr; {id} matches 3 vs 2 &rarr; <strong>rule 1 &rarr; ID</strong>.<br>
+  <em>Hence keyword rules must be listed BEFORE the identifier rule.</em>
+</div>
+
+<p><strong>How Lex works:</strong> Thompson NFA per pattern &rarr; combined under a <strong>new start with &epsilon; to each</strong>, accepting states <strong>labelled with their pattern</strong> &rarr; subset construction (or direct followpos). <strong>Rule 2</strong> = label a multi-accepting DFA state with the <strong>earliest</strong> pattern. <strong>Rule 1</strong> = keep running past accepting states, <strong>remember the last one and retract to it</strong>.</p>
+
+<p><strong>Lookahead <code>r1 / r2</code></strong> matches r1 only when followed by r2, and r2 is not part of the lexeme (the Fortran <code>DO</code> case).</p>
+
+<hr class="rule">
+
+<h2>The ten most likely questions</h2>
+
+<ol>
+<li><strong>Convert the regular expression to an NFA (Thompson's construction).</strong> <span class="tag">L8</span></li>
+<li><strong>Convert the NFA to a DFA (subset construction).</strong> <span class="tag">L8</span></li>
+<li><strong>Minimise the given DFA.</strong> <span class="tag">L9</span></li>
+<li><strong>Construct a DFA directly from the regular expression (followpos).</strong> <span class="tag">L9</span></li>
+<li>Define token, pattern and lexeme with examples. <span class="tag">L5</span></li>
+<li>Why is lexical analysis separated from syntax analysis? <span class="tag">L5</span></li>
+<li><strong>Explain input buffering with sentinels.</strong> <span class="tag">L6</span></li>
+<li>Write regular expressions / a regular definition for the given language. <span class="tag">L7</span></li>
+<li><strong>Explain the structure of a Lex program; how does Lex resolve conflicts?</strong> <span class="tag">L10</span></li>
+<li>Draw transition diagrams for identifiers, numbers and relational operators. <span class="tag">L4, L8</span></li>
+</ol>
+
+<div class="nav">
+  <a href="unit1-cheat-sheet.html">&larr; Unit I sheet</a>
+  <a href="../index.html">All lessons</a>
+</div>
+
+</div>

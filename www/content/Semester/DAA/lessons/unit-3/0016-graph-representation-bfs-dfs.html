@@ -1,0 +1,284 @@
+<title>Graph Representation, BFS and DFS</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit III &middot; Lesson 16 of 19</p>
+<h1>Graph Representation, BFS and DFS</h1>
+<p class="deck">Adjacency matrix vs adjacency list, breadth-first search with a queue, depth-first search with a stack / recursion, edge classification &mdash; tree, back, forward, cross &mdash; and the time complexities that decide which to use.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Trace BFS / DFS on the given graph&rdquo;</strong> is a guaranteed 5&ndash;10 marker. You must show the <strong>queue (BFS) or stack (DFS) contents at every step</strong>, the discovery/finish times for DFS, and the resulting tree. Know the <strong>O(V+E)</strong> complexity and when to use which.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Graph Traversals: BFS (Queue) vs DFS (Stack/Recursion)</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>BFS (Breadth-First Search)</strong><span class="sub">FIFO Queue &bull; Level-by-level frontier expansion</span></div>
+      <div class="flow-box">Discovers shortest path in unweighted graphs &bull; Produces BFS tree with cross-edges &bull; Time: O(V + E)</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>DFS (Depth-First Search)</strong><span class="sub">LIFO Stack / Recursion &bull; Explores deepest branch first</span></div>
+      <div class="flow-box">Computes discovery d[u] and finish f[u] timestamps &bull; Classifies tree, back, forward, and cross edges &bull; Time: O(V + E)</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 19 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Graph Traversals</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Graph Traversals &mdash; Breadth First Search (BFS) & Depth First Search (DFS)</div>
+    <div class="v-desc">Thorough walkthrough of queue state in BFS and recursive activation frames in DFS with edge classification.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=pcKY4hjDrxk" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>Graph representation</h2>
+
+<h3>Adjacency matrix</h3>
+<p>A V&times;V matrix A where A[i][j] = 1 if edge (i,j) exists, 0 otherwise (for unweighted). For weighted graphs, store the weight instead of 1.</p>
+<ul>
+<li><strong>Space:</strong> &Theta;(V&sup2;) &mdash; wasteful for sparse graphs.</li>
+<li><strong>Edge lookup:</strong> O(1).</li>
+<li><strong>Finding all neighbours:</strong> &Theta;(V).</li>
+<li><strong>Best for:</strong> dense graphs, quick edge existence checks.</li>
+</ul>
+
+<h3>Adjacency list</h3>
+<p>An array of V linked lists. List[i] contains all vertices adjacent to i.</p>
+<ul>
+<li><strong>Space:</strong> &Theta;(V+E).</li>
+<li><strong>Edge lookup:</strong> O(degree(v)).</li>
+<li><strong>Finding all neighbours:</strong> O(degree(v)).</li>
+<li><strong>Best for:</strong> sparse graphs, traversals (BFS/DFS).</li>
+</ul>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Adjacency Matrix</th><th>Adjacency List</th></tr></thead>
+<tbody>
+<tr><td><strong>Space</strong></td><td>&Theta;(V&sup2;)</td><td>&Theta;(V + E)</td></tr>
+<tr><td><strong>Edge query</strong></td><td>O(1)</td><td>O(degree)</td></tr>
+<tr><td><strong>List neighbours</strong></td><td>&Theta;(V)</td><td>O(degree)</td></tr>
+<tr><td><strong>Add edge</strong></td><td>O(1)</td><td>O(1)</td></tr>
+<tr><td><strong>Suited for</strong></td><td>Dense graphs</td><td>Sparse graphs (most real)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Breadth-First Search (BFS)</h2>
+
+<div class="formula">
+  <span class="name">BFS algorithm</span>
+  <strong>Input:</strong> Graph G = (V, E), source vertex s.<br>
+  <strong>Data structure:</strong> Queue Q.<br><br>
+  1. Mark all vertices white. Set d[s] = 0, &pi;[s] = NIL. Enqueue s.<br>
+  2. While Q is not empty:<br>
+  &nbsp;&nbsp; u = Dequeue(Q)<br>
+  &nbsp;&nbsp; For each neighbour v of u:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; If v is white: colour v grey, d[v] = d[u]+1, &pi;[v] = u, Enqueue(v)<br>
+  &nbsp;&nbsp; Colour u black.<br><br>
+  <strong>Time: O(V + E)</strong> &nbsp;&nbsp; <strong>Space: O(V)</strong>
+</div>
+
+<div class="box win">
+  <span class="lbl">What BFS gives you</span>
+  <p><strong>Shortest path (unweighted)</strong> from s to every reachable vertex. d[v] = minimum number of edges from s to v. The BFS tree is a <strong>shortest-path tree</strong>.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; BFS trace</span>
+  <p>Graph (undirected): edges {(A,B), (A,C), (B,D), (B,E), (C,F), (D,E)}. Source = A.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Dequeue</th><th>Visit neighbours</th><th>Queue after</th><th>d[]</th></tr></thead>
+  <tbody>
+  <tr><td>0</td><td>&mdash;</td><td>Enqueue A</td><td>[A]</td><td>A=0</td></tr>
+  <tr><td>1</td><td>A</td><td>B(new,d=1), C(new,d=1)</td><td>[B, C]</td><td>B=1, C=1</td></tr>
+  <tr><td>2</td><td>B</td><td>D(new,d=2), E(new,d=2), A(seen)</td><td>[C, D, E]</td><td>D=2, E=2</td></tr>
+  <tr><td>3</td><td>C</td><td>F(new,d=2), A(seen)</td><td>[D, E, F]</td><td>F=2</td></tr>
+  <tr><td>4</td><td>D</td><td>B(seen), E(seen)</td><td>[E, F]</td><td>&mdash;</td></tr>
+  <tr><td>5</td><td>E</td><td>B(seen), D(seen)</td><td>[F]</td><td>&mdash;</td></tr>
+  <tr><td>6</td><td>F</td><td>C(seen)</td><td>[ ]</td><td>&mdash;</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>BFS order:</strong> A, B, C, D, E, F. <strong>BFS tree edges:</strong> (A,B), (A,C), (B,D), (B,E), (C,F).</p>
+</div>
+
+<h2>Depth-First Search (DFS)</h2>
+
+<div class="formula">
+  <span class="name">DFS algorithm</span>
+  <strong>Data:</strong> Discovery time d[v], finish time f[v], global timer.<br><br>
+  DFS(G):<br>
+  &nbsp;&nbsp; For each vertex u: colour u white<br>
+  &nbsp;&nbsp; time = 0<br>
+  &nbsp;&nbsp; For each vertex u: if u is white, DFS-Visit(u)<br><br>
+  DFS-Visit(u):<br>
+  &nbsp;&nbsp; time++; d[u] = time; colour u grey<br>
+  &nbsp;&nbsp; For each neighbour v of u:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; If v is white: &pi;[v] = u, DFS-Visit(v)<br>
+  &nbsp;&nbsp; colour u black; time++; f[u] = time<br><br>
+  <strong>Time: &Theta;(V + E)</strong> &nbsp;&nbsp; <strong>Space: O(V)</strong> (recursion stack)
+</div>
+
+<h3>Edge classification in DFS</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Edge type</th><th>Condition when (u,v) is explored</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Tree edge</strong></td><td>v is white</td><td>Part of the DFS tree</td></tr>
+<tr><td><strong>Back edge</strong></td><td>v is grey (ancestor)</td><td><strong>Indicates a cycle</strong></td></tr>
+<tr><td><strong>Forward edge</strong></td><td>v is black, d[u] &lt; d[v]</td><td>Goes to a descendant (not via tree)</td></tr>
+<tr><td><strong>Cross edge</strong></td><td>v is black, d[u] &gt; d[v]</td><td>Goes to a different subtree</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The cycle-detection rule</span>
+  <p><strong>A directed graph has a cycle if and only if DFS produces a back edge.</strong> For undirected graphs, every non-tree edge is a back edge.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; DFS with timestamps</span>
+  <p>Directed graph: edges A&rarr;B, A&rarr;C, B&rarr;D, C&rarr;D, D&rarr;A. Start at A (alphabetical order).</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Action</th><th>Vertex</th><th>d[]</th><th>f[]</th><th>Notes</th></tr></thead>
+  <tbody>
+  <tr><td>Visit</td><td>A</td><td>1</td><td></td><td>A grey</td></tr>
+  <tr><td>Visit</td><td>B</td><td>2</td><td></td><td>Tree edge A&rarr;B</td></tr>
+  <tr><td>Visit</td><td>D</td><td>3</td><td></td><td>Tree edge B&rarr;D</td></tr>
+  <tr><td>Check</td><td>A</td><td></td><td></td><td>D&rarr;A: A is grey &rArr; <strong>back edge (cycle!)</strong></td></tr>
+  <tr><td>Finish</td><td>D</td><td>3</td><td>4</td><td>D black</td></tr>
+  <tr><td>Finish</td><td>B</td><td>2</td><td>5</td><td>B black</td></tr>
+  <tr><td>Visit</td><td>C</td><td>6</td><td></td><td>Tree edge A&rarr;C</td></tr>
+  <tr><td>Check</td><td>D</td><td></td><td></td><td>C&rarr;D: D is black, d[C]=6 &gt; d[D]=3 &rArr; <strong>cross edge</strong></td></tr>
+  <tr><td>Finish</td><td>C</td><td>6</td><td>7</td><td>C black</td></tr>
+  <tr><td>Finish</td><td>A</td><td>1</td><td>8</td><td>A black</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>DFS order:</strong> A(1/8), B(2/5), D(3/4), C(6/7). Back edge D&rarr;A confirms cycle A&rarr;B&rarr;D&rarr;A.</p>
+</div>
+
+<h2>BFS vs DFS</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>BFS</th><th>DFS</th></tr></thead>
+<tbody>
+<tr><td><strong>Data structure</strong></td><td>Queue</td><td>Stack / recursion</td></tr>
+<tr><td><strong>Order</strong></td><td>Level by level</td><td>Deep as possible first</td></tr>
+<tr><td><strong>Shortest path</strong></td><td><strong>Yes</strong> (unweighted)</td><td>No</td></tr>
+<tr><td><strong>Cycle detection</strong></td><td>Possible but awkward</td><td><strong>Natural</strong> (back edge)</td></tr>
+<tr><td><strong>Topological sort</strong></td><td>Kahn&rsquo;s algorithm</td><td><strong>Reverse finish order</strong></td></tr>
+<tr><td><strong>Time</strong></td><td>O(V + E)</td><td>&Theta;(V + E)</td></tr>
+<tr><td><strong>Applications</strong></td><td>Shortest path, connected components, bipartiteness</td><td>Cycle detection, topological sort, SCC, biconnected components</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The time complexity of BFS and DFS on an adjacency list is:</p>
+  <div class="opts">
+    <button class="opt">O(V&sup2;)</button>
+    <button class="opt">O(V &middot; E)</button>
+    <button class="opt">O(E&sup2;)</button>
+    <button class="opt" data-ok="1">O(V + E)</button>
+  </div>
+  <p class="why">Each vertex is processed once and each edge is examined once (twice for undirected). On an adjacency matrix, it would be O(V&sup2;).</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. BFS uses which data structure?</p>
+  <div class="opts">
+    <button class="opt">Hash table</button>
+    <button class="opt">Stack (LIFO)</button>
+    <button class="opt" data-ok="1">Queue (FIFO)</button>
+    <button class="opt">Priority queue</button>
+  </div>
+  <p class="why">BFS explores level by level using a queue. DFS uses a stack (or recursion).</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A back edge in DFS indicates:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A cycle exists in the graph</button>
+    <button class="opt">A shortest path has been found</button>
+    <button class="opt">The graph is bipartite</button>
+    <button class="opt">The graph is disconnected</button>
+  </div>
+  <p class="why">A back edge connects a vertex to its ancestor in the DFS tree, forming a cycle.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Adjacency list representation uses space:</p>
+  <div class="opts">
+    <button class="opt">&Theta;(V)</button>
+    <button class="opt">&Theta;(E&sup2;)</button>
+    <button class="opt">&Theta;(V&sup2;)</button>
+    <button class="opt" data-ok="1">&Theta;(V + E)</button>
+  </div>
+  <p class="why">V list headers + E list entries total. Adjacency matrix uses &Theta;(V&sup2;) regardless of edge count.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. BFS finds shortest paths in:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Unweighted graphs &mdash; shortest in terms of number of edges</button>
+    <button class="opt">Only directed acyclic graphs</button>
+    <button class="opt">All graphs regardless of weights</button>
+    <button class="opt">Weighted graphs with negative edges</button>
+  </div>
+  <p class="why">BFS gives shortest hop count. For weighted graphs, use Dijkstra (non-negative) or Bellman-Ford (general).</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. In DFS, a vertex coloured grey means:</p>
+  <div class="opts">
+    <button class="opt">It has not been discovered yet</button>
+    <button class="opt" data-ok="1">It has been discovered but not all its descendants are finished</button>
+    <button class="opt">It is in the queue waiting to be processed</button>
+    <button class="opt">It has been fully processed</button>
+  </div>
+  <p class="why">White = undiscovered. Grey = in progress (on the recursion stack). Black = finished.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Adjacency matrix vs adjacency list &mdash; when to use each.</summary>
+    <p class="ans">Matrix: O(1) edge lookup, &Theta;(V&sup2;) space &mdash; use for dense graphs. List: O(degree) lookup, &Theta;(V+E) space &mdash; use for sparse graphs and traversals.</p></details>
+  <details class="card"><summary>State the BFS algorithm in 4 lines.</summary>
+    <p class="ans">Enqueue source. While queue not empty: dequeue u, for each unvisited neighbour v set d[v]=d[u]+1 and enqueue v. Time O(V+E). Gives shortest paths in unweighted graphs.</p></details>
+  <details class="card"><summary>Name the four DFS edge types and what each means.</summary>
+    <p class="ans">Tree (part of DFS tree), back (to ancestor = cycle), forward (to descendant via non-tree path), cross (to different subtree). Back edges detect cycles.</p></details>
+  <details class="card"><summary>BFS vs DFS &mdash; three key differences.</summary>
+    <p class="ans">BFS: queue, level-order, finds shortest unweighted paths. DFS: stack/recursion, deep-first, naturally detects cycles and does topological sort.</p></details>
+</div>
+
+<div class="nav">
+  <a href="../unit-2/0015-string-matching.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0017-connected-components-and-topological-sort.html">Next: Connected Components &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

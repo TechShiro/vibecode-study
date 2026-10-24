@@ -1,0 +1,332 @@
+<title>Attribute Reduction and Core</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit III &middot; Lesson 13 of 14</p>
+<h1>Attribute Reduction and Core</h1>
+<p class="deck">Dispensable and indispensable attributes, reducts, core, and the discernibility matrix &mdash; the rough-set method for <strong>feature selection</strong>, with a full worked example finding the reduct and core from a decision table.</p>
+
+<div class="box exam">
+  <span class="lbl">Why this matters tomorrow</span>
+  <p>Attribute reduction is the most practically important topic in Unit&nbsp;III. The examiner will give you a small decision table and ask: <strong>which attributes are dispensable? What is the reduct? What is the core?</strong> This lesson teaches the method step by step.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Reduct and Core Computation</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=92Tq4T3Bvfc" target="_blank">L8: Reduct and Core with Solved Example | Rough Set Theory</a>
+    <span class="v-meta">Dr. P. Swathi &middot; 14:20</span>
+    <div class="v-why">High-scoring numerical guide calculating all minimal attribute reducts $RED(B)$ and extracting the core $CORE(B) = \bigcap RED(B)$ from a decision table.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Dispensable vs Indispensable Attributes</span>
+      <span class="best-tag">Top Exam Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=9ML1kx7fsCI" target="_blank">Dispensable and Indispensable Attributes &amp; Discernibility Matrix</a>
+    <span class="v-meta">Dr. K. N. Rao &middot; 11:10</span>
+    <div class="v-why">Formal definitions showing why an attribute $a \in B$ is indispensable if $IND(B) \ne IND(B - \{a\})$, and how to construct the discernibility matrix $M(i, j)$.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: REDUCT AND CORE LIFECYCLE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Attribute Reduction and Core Formation</span>
+  <div class="flow-col">
+    <div class="flow-box">
+      <strong>Full Attribute Set $A$ ($m$ features)</strong>
+      <span class="sub">Often contains redundant, irrelevant, or dispensable attributes</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Find Minimal Subsets Preserving Indiscernibility: $IND(R) = IND(A)$</span>
+    
+    <div class="flow-row" style="gap:1rem;">
+      <div class="flow-box highlight" style="min-width:11rem;">
+        <strong>Reduct 1 ($R_1$)</strong>
+        <span class="sub">Minimal sufficient subset A</span>
+      </div>
+      <div class="flow-box highlight" style="min-width:11rem;">
+        <strong>Reduct 2 ($R_2$)</strong>
+        <span class="sub">Minimal sufficient subset B</span>
+      </div>
+      <div class="flow-box highlight" style="min-width:11rem;">
+        <strong>Reduct $k$ ($R_k$)</strong>
+        <span class="sub">Minimal sufficient subset $k$</span>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Take Intersection of ALL Reducts: $\bigcap_{i} R_i$</span>
+    <div class="flow-box ok" style="min-width:22rem; border-width:2px;">
+      <strong>★ THE CORE ($CORE(A) = \bigcap RED(A)$)</strong>
+      <span class="sub">The set of all strictly <strong>indispensable</strong> attributes. Cannot be removed by ANY reduct without destroying classification power.</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>Why reduce attributes?</h2>
+
+<ul>
+<li>Real datasets contain <strong>redundant attributes</strong> that do not help classification.</li>
+<li>Removing them <strong>simplifies the model</strong> without losing information.</li>
+<li>This is the rough-set approach to <strong>dimensionality reduction / feature selection</strong>.</li>
+<li>Unlike statistical methods, rough sets need <strong>no domain knowledge, no distance metric, and no parameters</strong>.</li>
+</ul>
+
+<h2>Dispensable vs indispensable</h2>
+
+<div class="formula">
+  <span class="name">Dispensable attribute</span>
+  Attribute a &isin; P is <strong>dispensable</strong> in P if:<br>
+  IND(P) = IND(P &minus; {a})<br><br>
+  Removing it does not change the equivalence classes.
+</div>
+
+<div class="formula">
+  <span class="name">Indispensable attribute</span>
+  Attribute a &isin; P is <strong>indispensable</strong> in P if:<br>
+  IND(P) &ne; IND(P &minus; {a})<br><br>
+  Removing it <strong>merges</strong> some equivalence classes that were separate.
+</div>
+
+<p>A set P is <em class="term">independent</em> if <strong>every</strong> attribute in it is indispensable &mdash; no attribute can be removed without coarsening the partition.</p>
+
+<h2>Reduct</h2>
+
+<div class="formula">
+  <span class="name">Reduct</span>
+  A <strong>reduct</strong> of P (relative to a decision d) is a <strong>minimal subset</strong> R &sube; P such that:<br>
+  &bull; R preserves the same positive region as P &nbsp;(POS<sub>R</sub>(d) = POS<sub>P</sub>(d))<br>
+  &bull; No proper subset of R has this property (minimality)
+</div>
+
+<ul>
+<li>A decision system may have <strong>multiple reducts</strong>.</li>
+<li>Every reduct gives a <strong>sufficient set of attributes</strong> for correct classification.</li>
+<li>Finding all reducts is <strong>NP-hard</strong> in general, but exam tables are small enough for hand computation.</li>
+</ul>
+
+<h2>Core</h2>
+
+<div class="formula">
+  <span class="name">Core</span>
+  CORE(P) = intersection of ALL reducts<br><br>
+  These are the <strong>absolutely essential</strong> attributes &mdash; present in every reduct.
+</div>
+
+<div class="box win">
+  <span class="lbl">The containment to remember</span>
+  <p><strong>CORE &sube; every REDUCT &sube; P</strong></p>
+  <p>The core is always a subset of every reduct, and every reduct is always a subset of the full attribute set. The core may be empty (if no single attribute appears in every reduct).</p>
+</div>
+
+<h2>The discernibility matrix</h2>
+
+<p>A systematic way to find reducts and core from a decision table.</p>
+
+<ul>
+<li>Build an n&times;n matrix where entry (i, j) lists <strong>the attributes that have different values</strong> for objects i and j.</li>
+<li>Only fill entries for pairs <strong>with different decisions</strong>.</li>
+<li><strong>Core = attributes that appear as singleton entries</strong> &mdash; they are the only attribute distinguishing that pair, so they cannot be removed.</li>
+<li>A reduct must contain <strong>at least one attribute from every entry</strong> in the matrix.</li>
+</ul>
+
+<h2>Worked example &mdash; finding reduct and core</h2>
+
+<div class="solve">
+  <span class="lbl">Full worked example</span>
+  <p><strong>Decision table:</strong></p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Object</th><th>Colour</th><th>Size</th><th>Shape</th><th>Decision</th></tr></thead>
+  <tbody>
+  <tr><td>x1</td><td>Red</td><td>Small</td><td>Circle</td><td><strong>Yes</strong></td></tr>
+  <tr><td>x2</td><td>Red</td><td>Large</td><td>Circle</td><td><strong>Yes</strong></td></tr>
+  <tr><td>x3</td><td>Blue</td><td>Small</td><td>Square</td><td>No</td></tr>
+  <tr><td>x4</td><td>Green</td><td>Large</td><td>Circle</td><td>No</td></tr>
+  <tr><td>x5</td><td>Blue</td><td>Small</td><td>Circle</td><td>No</td></tr>
+  <tr><td>x6</td><td>Red</td><td>Small</td><td>Square</td><td>No</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p>X = {x1, x2} (Decision = Yes). Condition attributes P = {Colour, Size, Shape}.</p>
+
+  <p><strong>Step 1: Equivalence classes with all attributes.</strong></p>
+  <p>All six rows are unique &rArr; IND(P) = {{x1}, {x2}, {x3}, {x4}, {x5}, {x6}}</p>
+
+  <p><strong>Step 2: Check each attribute for dispensability.</strong></p>
+
+  <p><strong>Remove Colour &rArr; IND({Size, Shape})</strong></p>
+  <p>x1=(Small,Circle), x2=(Large,Circle), x3=(Small,Square), x4=(Large,Circle), x5=(Small,Circle), x6=(Small,Square)</p>
+  <p>&bull; <strong>{x1, x5}</strong> merge &mdash; x1=Yes, x5=No &rArr; <strong>MIXED!</strong><br>
+  &bull; POS changes &rArr; <strong>Colour is INDISPENSABLE</strong></p>
+
+  <p><strong>Remove Size &rArr; IND({Colour, Shape})</strong></p>
+  <p>x1=(Red,Circle), x2=(Red,Circle), x3=(Blue,Square), x4=(Green,Circle), x5=(Blue,Circle), x6=(Red,Square)</p>
+  <p>&bull; <strong>{x1, x2}</strong> merge &mdash; both Yes &check;<br>
+  &bull; All others are singletons with consistent decisions &check;<br>
+  &bull; Classification preserved &rArr; <strong>Size is DISPENSABLE</strong></p>
+
+  <p><strong>Remove Shape &rArr; IND({Colour, Size})</strong></p>
+  <p>x1=(Red,Small), x2=(Red,Large), x3=(Blue,Small), x4=(Green,Large), x5=(Blue,Small), x6=(Red,Small)</p>
+  <p>&bull; <strong>{x1, x6}</strong> merge &mdash; x1=Yes, x6=No &rArr; <strong>MIXED!</strong><br>
+  &bull; POS changes &rArr; <strong>Shape is INDISPENSABLE</strong></p>
+
+  <p><strong>Step 3: Find the reduct.</strong></p>
+  <p>Indispensable: {Colour, Shape}. Check if this is sufficient:</p>
+  <p>IND({Colour, Shape}): {x1,x2}=(Red,Circle) both Yes &check;, {x3}=(Blue,Square) No &check;, {x4}=(Green,Circle) No &check;, {x5}=(Blue,Circle) No &check;, {x6}=(Red,Square) No &check;</p>
+  <p><strong>{Colour, Shape} preserves classification &rArr; it is a REDUCT</strong> (and the only one).</p>
+
+  <p><strong>Step 4: Core.</strong></p>
+  <p>Only one reduct = {Colour, Shape}, so <strong>CORE = {Colour, Shape}</strong>.</p>
+  <p><strong>Dispensable = {Size}</strong> &mdash; it can be removed without affecting classification.</p>
+</div>
+
+<h3>Discernibility matrix verification</h3>
+
+<div class="solve">
+  <span class="lbl">Discernibility matrix for pairs with different decisions</span>
+  <p>Pairs (Yes vs No): (x1,x3), (x1,x4), (x1,x5), (x1,x6), (x2,x3), (x2,x4), (x2,x5), (x2,x6)</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Pair</th><th>Attributes that differ</th></tr></thead>
+  <tbody>
+  <tr><td>(x1, x3)</td><td>{Colour, Shape}</td></tr>
+  <tr><td>(x1, x4)</td><td>{Colour, Size}</td></tr>
+  <tr><td>(x1, x5)</td><td><strong>{Colour}</strong> &larr; singleton!</td></tr>
+  <tr><td>(x1, x6)</td><td><strong>{Shape}</strong> &larr; singleton!</td></tr>
+  <tr><td>(x2, x3)</td><td>{Colour, Size, Shape}</td></tr>
+  <tr><td>(x2, x4)</td><td><strong>{Colour}</strong> &larr; singleton!</td></tr>
+  <tr><td>(x2, x5)</td><td>{Colour, Size}</td></tr>
+  <tr><td>(x2, x6)</td><td>{Size, Shape}</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Singleton entries:</strong> {Colour} appears in (x1,x5) and (x2,x4); {Shape} appears in (x1,x6).</p>
+  <p>&rArr; <strong>CORE = {Colour, Shape}</strong> &check; &mdash; matches our earlier finding.</p>
+  <p><em>Size never appears as a singleton &mdash; it is always accompanied by another attribute, so it is never the sole distinguisher for any pair.</em></p>
+</div>
+
+<div class="box">
+  <span class="lbl">The practical shortcut</span>
+  <p>For exam problems: <strong>(1)</strong> Build the discernibility matrix for pairs with different decisions. <strong>(2)</strong> Core = all singleton entries. <strong>(3)</strong> Check if core alone is a reduct; if not, add attributes from remaining entries. This is faster than testing every subset.</p>
+</div>
+
+
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. An attribute a is dispensable in P if:</p>
+  <div class="opts">
+    <button class="opt">It appears in the core</button>
+    <button class="opt">It has the most distinct values</button>
+    <button class="opt" data-ok="1">IND(P) = IND(P &minus; {a}) &mdash; removing it doesn&rsquo;t change the partition</button>
+    <button class="opt">IND(P) &ne; IND(P &minus; {a}) &mdash; removing it changes the partition</button>
+  </div>
+  <p class="why">Dispensable means the attribute can be removed without affecting the equivalence classes. The second option describes an indispensable attribute.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A reduct is:</p>
+  <div class="opts">
+    <button class="opt">The largest possible subset of attributes</button>
+    <button class="opt">Always a single attribute</button>
+    <button class="opt">The set of all indispensable attributes</button>
+    <button class="opt" data-ok="1">A minimal subset of attributes that preserves the same positive region as the full set</button>
+  </div>
+  <p class="why">A reduct preserves classification power and is minimal &mdash; removing any attribute from it would change the positive region. The set of all indispensable attributes is the core, not necessarily a reduct.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The core of a set of attributes is:</p>
+  <div class="opts">
+    <button class="opt">Any single reduct chosen at random</button>
+    <button class="opt">The union of all reducts</button>
+    <button class="opt" data-ok="1">The intersection of all reducts &mdash; attributes present in every reduct</button>
+    <button class="opt">The set of all dispensable attributes</button>
+  </div>
+  <p class="why">CORE = &cap; (all reducts). These are the absolutely essential attributes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In the discernibility matrix, core attributes are identified as:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Attributes that appear as singleton entries &mdash; the only attribute distinguishing some pair</button>
+    <button class="opt">Attributes that appear in every entry</button>
+    <button class="opt">Attributes in the largest entries</button>
+    <button class="opt">Attributes that never appear in any entry</button>
+  </div>
+  <p class="why">A singleton entry means that attribute is the ONLY one distinguishing that pair, so removing it would make them indiscernible &mdash; it must be in every reduct.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Removing an indispensable attribute causes:</p>
+  <div class="opts">
+    <button class="opt">No change to the classification</button>
+    <button class="opt">The partition to become finer</button>
+    <button class="opt">The core to become larger</button>
+    <button class="opt" data-ok="1">Some equivalence classes to merge, potentially mixing decision values</button>
+  </div>
+  <p class="why">Indispensable means removing it changes IND(P) &mdash; classes merge. If objects with different decisions merge, classification is lost.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Can a decision system have multiple reducts?</p>
+  <div class="opts">
+    <button class="opt">No &mdash; every system has exactly one reduct</button>
+    <button class="opt" data-ok="1">Yes &mdash; there may be several minimal subsets that preserve classification</button>
+    <button class="opt">Only if all attributes are dispensable</button>
+    <button class="opt">Only if the core is empty</button>
+  </div>
+  <p class="why">Multiple reducts are common. Each represents a different minimal feature set that works. The core is the intersection of all of them.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. The correct containment relationship is:</p>
+  <div class="opts">
+    <button class="opt">CORE = REDUCT = P always</button>
+    <button class="opt">P &sube; REDUCT &sube; CORE</button>
+    <button class="opt" data-ok="1">CORE &sube; every REDUCT &sube; full attribute set P</button>
+    <button class="opt">REDUCT &sube; CORE &sube; P</button>
+  </div>
+  <p class="why">Core is the smallest (intersection of reducts), each reduct is larger, and P is the full set. CORE &sube; REDUCT &sube; P.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define reduct and core.</summary>
+    <p class="ans">Reduct: minimal subset of attributes preserving the positive region (same classification as the full set). Core: intersection of all reducts &mdash; the absolutely essential attributes. CORE &sube; REDUCT &sube; P.</p></details>
+  <details class="card"><summary>Dispensable vs indispensable.</summary>
+    <p class="ans">Dispensable: removing it doesn&rsquo;t change IND(P). Indispensable: removing it merges classes, potentially losing classification. Core attributes are always indispensable.</p></details>
+  <details class="card"><summary>How to find core from the discernibility matrix.</summary>
+    <p class="ans">Build the matrix for pairs with different decisions. Core = set of attributes that appear as singleton entries &mdash; they are the sole distinguisher for some pair.</p></details>
+  <details class="card"><summary>Why does attribute reduction matter?</summary>
+    <p class="ans">Removes redundant features without losing classification power. No parameters, no domain knowledge needed. The reduct IS the selected feature set.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0012-approximations-and-boundary-region.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0014-applications-of-rough-sets.html">Next: Applications &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

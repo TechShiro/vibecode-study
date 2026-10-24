@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 18 - Content Delivery Networks (CDNs) | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 18 of 66 · Edge Servers, Anycast, Push vs Pull</div>
+  
+  <h1>Content Delivery Networks (CDNs)</h1>
+  <p class="subtitle">Placing content physically close to your global users so images, videos, and APIs load in milliseconds.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module D — Caching</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Light in fiber optic cables travels at roughly 200,000 km/s. If your origin server is in Virginia (US) and a user is browsing from Sydney (Australia), a network round trip takes a physical minimum of <strong>150–200 milliseconds</strong> just for the packets to cross the ocean. A <strong>CDN</strong> solves this by deploying thousands of <strong>Edge Servers (Points of Presence / PoPs)</strong> in cities all over the world, caching your static assets right next to the user.</p>
+
+  <div class="arch-flow">
+    <div class="box">User in Sydney</div>
+    <div class="arrow-right"></div>
+    <div class="box cache">Sydney Edge PoP (10ms)</div>
+    <div class="arrow-right"></div>
+    <div class="box db" style="opacity:0.3">Origin in US (180ms - skipped!)</div>
+  </div>
+
+  <h2>2 · How CDNs Route Traffic: Anycast DNS</h2>
+  <p>How does a user in Tokyo automatically connect to the Tokyo CDN edge while a user in London connects to the London edge? Modern CDNs use <strong>Anycast Routing</strong>.</p>
+  <ul>
+    <li>The exact same IP address (e.g., <code>1.1.1.1</code>) is advertised by hundreds of CDN servers across the entire world via BGP (Border Gateway Protocol).</li>
+    <li>Internet Service Providers automatically route packets along the shortest physical network path to the nearest geographic node advertising that IP.</li>
+  </ul>
+
+  <h2>3 · Push vs Pull CDN</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>How It Works</th>
+        <th>Best For</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Pull CDN (Origin-Pull)</strong></td>
+        <td>The CDN edge starts empty. When a user requests <code>logo.png</code>, the edge pulls it from your origin server, caches it locally for future users, and returns it.</td>
+        <td>Websites with high traffic, blogs, e-commerce catalogues with millions of images. (Most common).</td>
+      </tr>
+      <tr>
+        <td><strong>Push CDN</strong></td>
+        <td>Your deployment pipeline explicitly uploads (pushes) new files to the CDN edge storage whenever you release new code or assets.</td>
+        <td>Software release downloads, OS updates, apps with predictable release cycles.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Cache Invalidation: The Hard Problem</h2>
+  <p>What happens when you update your CSS file or product price, but the CDN edge has cached the old file for 24 hours?</p>
+  <ol>
+    <li><strong>URL Fingerprinting / Versioning (Recommended):</strong> Instead of <code>styles.css</code>, name the file <code>styles.a8f29c.css</code>. When code changes, the HTML references a brand new URL, causing an immediate instant pull with zero stale cache bugs.</li>
+    <li><strong>Purge API:</strong> Issue an API call to Cloudflare or CloudFront to purge <code>/api/products/*</code>. Can take 1–30 seconds to propagate worldwide.</li>
+  </ol>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We now move to Module E: Networking. How do data packets actually move across the wire? Up next: TCP vs UDP.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0017-cache-replacement-policies.html">← Previous: Cache Replacement</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0019-tcp-vs-udp.html">Next: TCP vs UDP →</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,353 @@
+<title>Complexity Analysis of Algorithms</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit I &middot; Lesson 3 of 15</p>
+<h1>Complexity Analysis of Algorithms</h1>
+<p class="deck">The four rules for reading complexity off code, then twenty worked fragments &mdash; simple loops, dependent loops, multiplying and dividing counters, the harmonic-series case, the &radic;n cases, and recursion.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Find the time complexity of the following code&rdquo; is worth 2&ndash;5 marks and appears in every paper, often three times over.</strong> It is pure pattern recognition &mdash; there are only about eight distinct patterns, and they are all below. <strong>Learn to spot the counter's update rule first</strong>: <code>i++</code> gives n, <code>i = i*2</code> gives log n, <code>i = i+i</code> also gives log n, <code>i*i &le; n</code> gives &radic;n, and <code>j = j+i</code> inside an i-loop gives n log n. Everything else is those five combined.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Iterative Loop Complexity Classification Hierarchy</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>Linear Step: for(i=0; i&lt;n; i++)</strong><span class="sub">Executes n times &bull; O(n)</span></div>
+    <div class="flow-box highlight"><strong>Logarithmic Step: for(i=1; i&lt;n; i*=2)</strong><span class="sub">Executes log<sub>2</sub>(n) times &bull; O(log n)</span></div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>Nested Independent: for i / for j</strong><span class="sub">Multiplicative rule: n &times; n = O(n<sup>2</sup>)</span></div>
+    <div class="flow-box ok"><strong>Nested Triangular: for j=0 to i</strong><span class="sub">Sum of series &sum; i = n(n+1)/2 = O(n<sup>2</sup>)</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Loop Complexity Analysis</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">How to Calculate Time Complexity of Any Iterative Algorithm</div>
+    <div class="v-desc">Step-by-step mathematical summations for nested loops, multiplying/dividing iterators, and dependent inner loop index bounds.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=o1NP-oW_OmI" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>The four rules</h2>
+
+<div class="formula">
+  <span class="name">Everything reduces to these</span>
+  <strong>1. Sequential statements &rarr; ADD, then take the MAXIMUM.</strong> A &Theta;(n) block followed by a &Theta;(n&sup2;) block is &Theta;(n&sup2;).<br>
+  <strong>2. Nested loops &rarr; MULTIPLY.</strong> An n-loop containing an m-loop is &Theta;(nm).<br>
+  <strong>3. If&ndash;else &rarr; take the MAXIMUM of the two branches</strong> (for worst-case analysis).<br>
+  <strong>4. A loop's cost = (number of iterations) &times; (cost of the body).</strong>
+</div>
+
+<p><strong>So the entire task is: for each loop, how many times does it run?</strong> That question has a small number of standard answers.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Counter update</th><th>Loop runs</th><th>Complexity</th></tr></thead>
+<tbody>
+<tr><td><code>i = i + 1</code></td><td>n times</td><td><strong>&Theta;(n)</strong></td></tr>
+<tr><td><code>i = i + k</code> (k constant)</td><td>n/k times</td><td>&Theta;(n)</td></tr>
+<tr><td><code>i = i * 2</code></td><td>log<sub>2</sub>n times</td><td><strong>&Theta;(log n)</strong></td></tr>
+<tr><td><code>i = i * k</code></td><td>log<sub>k</sub>n times</td><td>&Theta;(log n)</td></tr>
+<tr><td><code>i = i / 2</code></td><td>log<sub>2</sub>n times</td><td>&Theta;(log n)</td></tr>
+<tr><td><code>i = i * i</code> (squaring)</td><td>log log n times</td><td>&Theta;(log log n)</td></tr>
+<tr><td>Condition <code>i * i &le; n</code></td><td>&radic;n times</td><td><strong>&Theta;(&radic;n)</strong></td></tr>
+<tr><td><code>p = p + i</code> with condition <code>p &le; n</code></td><td>&radic;(2n) times</td><td>&Theta;(&radic;n)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Group A &mdash; single loops</h2>
+
+<div class="solve">
+  <span class="lbl">1. The basic loop</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i++)<br>&nbsp;&nbsp; statement;</p>
+  <p>The statement executes <strong>n</strong> times. &nbsp; <strong>T(n) = &Theta;(n)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">2. Constant step</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i = i + 5)<br>&nbsp;&nbsp; statement;</p>
+  <p>Runs <strong>n/5</strong> times. Constants are discarded. &nbsp; <strong>T(n) = &Theta;(n)</strong></p>
+  <p><em>The trap:</em> students often answer &Theta;(n/5). <strong>&Theta;(n/5) = &Theta;(n)</strong> &mdash; write the simplified form.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">3. Multiplying counter &mdash; the logarithm</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 1; i &lt;= n; i = i * 2)<br>&nbsp;&nbsp; statement;</p>
+  <p>i takes the values 1, 2, 4, 8, &hellip;, 2<sup>k</sup>. The loop stops when 2<sup>k</sup> &gt; n, that is when <strong>k &gt; log<sub>2</sub>n</strong>.</p>
+  <p><strong>T(n) = &Theta;(log<sub>2</sub> n) = &Theta;(log n)</strong></p>
+  <p><em>With <code>i = i * 3</code> it is log<sub>3</sub>n</em> &mdash; still &Theta;(log n), since the base is only a constant factor.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">4. Dividing counter</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = n; i &gt;= 1; i = i / 2)<br>&nbsp;&nbsp; statement;</p>
+  <p>i takes n, n/2, n/4, &hellip;, 1 &mdash; the same sequence read backwards. &nbsp; <strong>T(n) = &Theta;(log n)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">5. The &radic;n condition</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 1; i * i &lt;= n; i++)<br>&nbsp;&nbsp; statement;</p>
+  <p>The loop continues while i&sup2; &le; n, i.e. while <strong>i &le; &radic;n</strong>. &nbsp; <strong>T(n) = &Theta;(&radic;n)</strong></p>
+  <p><em>This is the primality-test-by-trial-division pattern.</em></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">6. The accumulating counter &mdash; also &radic;n</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">p = 0;<br>for (i = 1; p &lt;= n; i++)<br>&nbsp;&nbsp; p = p + i;</p>
+  <p>After k iterations, p = 1 + 2 + &hellip; + k = <strong>k(k+1)/2</strong>. The loop stops when p &gt; n, so</p>
+  <p style="text-align:center">k(k+1)/2 &gt; n &nbsp;&rArr;&nbsp; k&sup2; &asymp; 2n &nbsp;&rArr;&nbsp; <strong>k &asymp; &radic;(2n)</strong></p>
+  <p><strong>T(n) = &Theta;(&radic;n)</strong></p>
+  <p><em>Sanity check with n = 50:</em> k(k+1)/2 &gt; 50 first at k = 10, since 10&middot;11/2 = 55. And &radic;(2&middot;50) = 10. Exact.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">7. Squaring counter &mdash; log log n</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 2; i &lt;= n; i = i * i)<br>&nbsp;&nbsp; statement;</p>
+  <p>i takes 2, 4, 16, 256, &hellip; that is 2<sup>1</sup>, 2<sup>2</sup>, 2<sup>4</sup>, 2<sup>8</sup>, &hellip;, 2<sup>2<sup>k</sup></sup>. It stops when 2<sup>2<sup>k</sup></sup> &gt; n, so 2<sup>k</sup> &gt; log n, so <strong>k &gt; log log n</strong>.</p>
+  <p><strong>T(n) = &Theta;(log log n)</strong></p>
+  <p><em>Sanity check with n = 65536:</em> i = 2, 4, 16, 256, 65536 &mdash; five iterations. log log 65536 = log 16 = 4. Correct to within the constant.</p>
+</div>
+
+<h2>Group B &mdash; nested loops</h2>
+
+<div class="solve">
+  <span class="lbl">8. Independent nesting</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i++)<br>&nbsp;&nbsp; for (j = 0; j &lt; n; j++)<br>&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p>n &times; n. &nbsp; <strong>T(n) = &Theta;(n&sup2;)</strong> &mdash; the matrix-addition pattern.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">9. Dependent nesting &mdash; the triangle</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i++)<br>&nbsp;&nbsp; for (j = 0; j &lt; i; j++)<br>&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p>The inner loop runs 0, 1, 2, &hellip;, n&minus;1 times, so the total is</p>
+  <p style="text-align:center">0 + 1 + 2 + &hellip; + (n&minus;1) = <strong>n(n&minus;1)/2 = (n&sup2; &minus; n)/2</strong></p>
+  <p><strong>T(n) = &Theta;(n&sup2;)</strong> &mdash; <em>half</em> of the previous one, but the same order. This is the bubble-sort and selection-sort pattern.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">10. Nested log &mdash; n log n</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i++)<br>&nbsp;&nbsp; for (j = 1; j &lt; n; j = j * 2)<br>&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p>Outer n, inner log n, independent. &nbsp; <strong>T(n) = &Theta;(n log n)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">11. Two logs nested &mdash; log&sup2; n</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 1; i &lt; n; i = i * 2)<br>&nbsp;&nbsp; for (j = 1; j &lt; n; j = j * 2)<br>&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p><strong>T(n) = &Theta;(log n &times; log n) = &Theta;(log&sup2; n)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">12. The harmonic case &mdash; the one that catches people</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 1; i &lt;= n; i++)<br>&nbsp;&nbsp; for (j = 1; j &lt;= n; j = j + i)<br>&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p><strong>The inner loop steps by i</strong>, so for a given i it runs about <strong>n/i</strong> times. The total is</p>
+  <p style="text-align:center">n/1 + n/2 + n/3 + &hellip; + n/n = n &middot; (1 + &frac12; + &#8531; + &hellip; + 1/n) = <strong>n &middot; H<sub>n</sub></strong></p>
+  <p>and the harmonic number <strong>H<sub>n</sub> &asymp; ln n = &Theta;(log n)</strong>. Therefore</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n log n)</strong></p>
+  <p><em>The trap:</em> it <em>looks</em> like a double loop over n, so the instinctive answer is &Theta;(n&sup2;) &mdash; and that is wrong. <strong>Whenever the inner step size depends on the outer counter, expect a harmonic series and an answer of n log n.</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">13. Triple nesting</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i++)<br>&nbsp;&nbsp; for (j = 0; j &lt; n; j++)<br>&nbsp;&nbsp;&nbsp;&nbsp; for (k = 0; k &lt; n; k++)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p><strong>T(n) = &Theta;(n&sup3;)</strong> &mdash; the matrix-multiplication and Floyd&ndash;Warshall pattern.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">14. Dependent triple nesting</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 1; i &lt;= n; i++)<br>&nbsp;&nbsp; for (j = 1; j &lt;= i; j++)<br>&nbsp;&nbsp;&nbsp;&nbsp; for (k = 1; k &lt;= j; k++)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p>The statement runs once for each triple with 1 &le; k &le; j &le; i &le; n. The number of such triples is</p>
+  <p style="text-align:center"><strong>C(n + 2, 3) = n(n+1)(n+2)/6</strong></p>
+  <p><strong>T(n) = &Theta;(n&sup3;)</strong> &mdash; one sixth of the independent version, same order.</p>
+  <p><em>Sanity check with n = 3:</em> 3&middot;4&middot;5/6 = 10. Enumerating: i=1 gives 1 triple, i=2 gives 3, i=3 gives 6 &mdash; total 10. &check;</p>
+</div>
+
+<h2>Group C &mdash; while loops, sequential blocks and conditionals</h2>
+
+<div class="solve">
+  <span class="lbl">15. Halving while loop</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">while (n &gt; 1)<br>&nbsp;&nbsp; n = n / 2;</p>
+  <p><strong>T(n) = &Theta;(log n)</strong> &mdash; the binary-search pattern.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">16. Sequential blocks &mdash; take the maximum</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i++)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* block A */<br>&nbsp;&nbsp; statement;<br><br>for (i = 0; i &lt; n; i++)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* block B */<br>&nbsp;&nbsp; for (j = 0; j &lt; n; j++)<br>&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p>T(n) = &Theta;(n) + &Theta;(n&sup2;) = <strong>&Theta;(max(n, n&sup2;)) = &Theta;(n&sup2;)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">17. If&ndash;else &mdash; take the worse branch</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">if (condition)<br>&nbsp;&nbsp; for (i = 0; i &lt; n; i++) statement;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* &Theta;(n) */<br>else<br>&nbsp;&nbsp; for (i = 0; i &lt; n; i++)<br>&nbsp;&nbsp;&nbsp;&nbsp; for (j = 0; j &lt; n; j++) statement;&nbsp;/* &Theta;(n&sup2;) */</p>
+  <p><strong>Worst case T(n) = &Theta;(n&sup2;); best case &Theta;(n).</strong> If the question just says &ldquo;find the complexity&rdquo;, give the worst case and say so.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">18. Inner loop independent of the outer counter &mdash; a common trick question</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">for (i = 0; i &lt; n; i++)<br>&nbsp;&nbsp; for (j = 0; j &lt; 100; j++)<br>&nbsp;&nbsp;&nbsp;&nbsp; statement;</p>
+  <p>The inner loop runs a <strong>constant</strong> 100 times, whatever n is. Total = 100n. &nbsp; <strong>T(n) = &Theta;(n)</strong>, not &Theta;(n&sup2;).</p>
+  <p><em>Always check whether the inner bound actually involves n.</em></p>
+</div>
+
+<h2>Group D &mdash; recursive fragments</h2>
+
+<div class="solve">
+  <span class="lbl">19. Linear recursion</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">int fact(int n) {<br>&nbsp;&nbsp; if (n &lt;= 1) return 1;<br>&nbsp;&nbsp; return n * fact(n - 1);<br>}</p>
+  <p><strong>Recurrence:</strong> T(n) = T(n&minus;1) + 1, with T(1) = 1.</p>
+  <p>Expanding: T(n) = T(n&minus;2) + 2 = T(n&minus;3) + 3 = &hellip; = T(1) + (n&minus;1) = <strong>n</strong>.</p>
+  <p><strong>T(n) = &Theta;(n)</strong> time, and <strong>&Theta;(n) space</strong> for the recursion stack.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">20. Binary recursion &mdash; Tower of Hanoi</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">void hanoi(int n, char a, char b, char c) {<br>&nbsp;&nbsp; if (n == 0) return;<br>&nbsp;&nbsp; hanoi(n-1, a, c, b);<br>&nbsp;&nbsp; move(a, c);<br>&nbsp;&nbsp; hanoi(n-1, b, a, c);<br>}</p>
+  <p><strong>Recurrence:</strong> T(n) = 2T(n&minus;1) + 1, with T(0) = 0.</p>
+  <p>Expanding: T(n) = 2(2T(n&minus;2) + 1) + 1 = 4T(n&minus;2) + 3 = 8T(n&minus;3) + 7 = &hellip; = 2<sup>n</sup>T(0) + (2<sup>n</sup> &minus; 1)</p>
+  <p><strong>T(n) = 2<sup>n</sup> &minus; 1 = &Theta;(2<sup>n</sup>)</strong> &mdash; the exact number of moves, which is why the question is a favourite.</p>
+  <p><em>Sanity check:</em> n = 3 gives 7 moves, which anyone can verify by hand. <strong>Space is only &Theta;(n)</strong>, the depth of the recursion.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">21. Divide and conquer &mdash; binary search</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem; background:var(--formula-bg); padding:.5rem .7rem; border-radius:4px">bsearch(a, low, high, x) {<br>&nbsp;&nbsp; if (low &gt; high) return -1;<br>&nbsp;&nbsp; mid = (low + high) / 2;<br>&nbsp;&nbsp; if (a[mid] == x) return mid;<br>&nbsp;&nbsp; if (a[mid] &gt; x) return bsearch(a, low, mid-1, x);<br>&nbsp;&nbsp; return bsearch(a, mid+1, high, x);<br>}</p>
+  <p><strong>Recurrence:</strong> T(n) = T(n/2) + 1. &nbsp; Only <strong>one</strong> of the two halves is searched.</p>
+  <p><strong>T(n) = &Theta;(log n)</strong> &mdash ; solved in full in Lessons 4 and 5.</p>
+</div>
+
+<h2>The summary table &mdash; the eight patterns</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Pattern</th><th>Complexity</th><th>Where you meet it</th></tr></thead>
+<tbody>
+<tr><td>Single loop, <code>i++</code></td><td><strong>&Theta;(n)</strong></td><td>Linear search, array sum</td></tr>
+<tr><td>Loop with <code>i = i*2</code> or <code>i = i/2</code></td><td><strong>&Theta;(log n)</strong></td><td>Binary search</td></tr>
+<tr><td>Loop with <code>i*i &le; n</code></td><td><strong>&Theta;(&radic;n)</strong></td><td>Primality by trial division</td></tr>
+<tr><td>Loop with <code>i = i*i</code></td><td><strong>&Theta;(log log n)</strong></td><td>Rare &mdash; but a favourite objective question</td></tr>
+<tr><td>Two independent loops nested</td><td><strong>&Theta;(n&sup2;)</strong></td><td>Matrix addition, bubble sort</td></tr>
+<tr><td>Dependent nesting, <code>j &lt; i</code></td><td><strong>&Theta;(n&sup2;)</strong> &mdash; n(n&minus;1)/2</td><td>Selection sort</td></tr>
+<tr><td>Outer n, inner log n</td><td><strong>&Theta;(n log n)</strong></td><td>Heap sort's build phase</td></tr>
+<tr><td>Inner step depends on outer, <code>j += i</code></td><td><strong>&Theta;(n log n)</strong> &mdash; harmonic series</td><td>Sieve-like algorithms</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. <code>for (i = 1; i &lt;= n; i = i * 3) statement;</code> has complexity:</p>
+  <div class="opts">
+    <button class="opt">Θ(n/3)</button>
+    <button class="opt" data-ok="1">Θ(log n)</button>
+    <button class="opt">Θ(n)</button>
+    <button class="opt">Θ(√n)</button>
+  </div>
+  <p class="why">It is log₃n, and the base is only a constant factor, so it is Θ(log n). Multiplying the counter always gives a logarithm.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. <code>for (i = 1; i &lt;= n; i++) for (j = 1; j &lt;= n; j = j + i) statement;</code> is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Θ(n log n)</button>
+    <button class="opt">Θ(n)</button>
+    <button class="opt">Θ(log² n)</button>
+    <button class="opt">Θ(n²)</button>
+  </div>
+  <p class="why">The inner loop runs n/i times, so the total is n(1 + ½ + ⅓ + … + 1/n) = n·Hₙ ≈ n ln n. Whenever the inner step depends on the outer counter, look for the harmonic series.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. <code>p = 0; for (i = 1; p &lt;= n; i++) p = p + i;</code> runs how many times?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">About √(2n) — so Θ(√n)</button>
+    <button class="opt">log n</button>
+    <button class="opt">n</button>
+    <button class="opt">n/2</button>
+  </div>
+  <p class="why">After k iterations p = k(k+1)/2, which exceeds n when k ≈ √(2n). At n = 50 the loop stops at k = 10, and √100 = 10.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. <code>for (i = 0; i &lt; n; i++) for (j = 0; j &lt; 100; j++) statement;</code> is:</p>
+  <div class="opts">
+    <button class="opt">Θ(n²)</button>
+    <button class="opt" data-ok="1">Θ(n)</button>
+    <button class="opt">Θ(1)</button>
+    <button class="opt">Θ(100n²)</button>
+  </div>
+  <p class="why">The inner bound does not involve n, so it contributes a constant factor of 100. Always check whether the inner limit actually depends on n.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. <code>for (i = 2; i &lt;= n; i = i * i) statement;</code> is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Θ(log log n)</button>
+    <button class="opt">Θ(log n)</button>
+    <button class="opt">Θ(√n)</button>
+    <button class="opt">Θ(n)</button>
+  </div>
+  <p class="why">i takes 2, 4, 16, 256, … = 2^(2^k), so the loop ends when 2^k &gt; log n, that is when k &gt; log log n. At n = 65536 there are five iterations.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The Tower of Hanoi recurrence T(n) = 2T(n−1) + 1 gives exactly:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">2ⁿ − 1 moves</button>
+    <button class="opt">2ⁿ moves</button>
+    <button class="opt">n log n moves</button>
+    <button class="opt">n² moves</button>
+  </div>
+  <p class="why">Expanding gives 2ⁿT(0) + (2ⁿ − 1), and T(0) = 0. Check: n = 3 needs 7 moves, which you can verify by hand.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. <code>for (i = 1; i &lt;= n; i++) for (j = 1; j &lt;= i; j++) for (k = 1; k &lt;= j; k++)</code> is:</p>
+  <div class="opts">
+    <button class="opt">Θ(n²)</button>
+    <button class="opt">Θ(n³ log n)</button>
+    <button class="opt">Θ(n)</button>
+    <button class="opt" data-ok="1">Θ(n³) — exactly n(n+1)(n+2)/6</button>
+  </div>
+  <p class="why">It counts triples with 1 ≤ k ≤ j ≤ i ≤ n, which is C(n+2, 3). At n = 3 that is 10, matching a hand count of 1 + 3 + 6.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the four rules for reading complexity off code.</summary>
+    <p class="ans">Sequential statements: add, then take the maximum. Nested loops: multiply. If–else: take the maximum branch for the worst case. A loop costs the number of iterations times the cost of the body.</p></details>
+  <details class="card"><summary>Give the complexity for each counter update rule.</summary>
+    <p class="ans">i = i + 1 or i + k gives &Theta;(n); i = i*2 or i/2 gives &Theta;(log n); i = i*i gives &Theta;(log log n); condition i*i &le; n gives &Theta;(&radic;n); p = p + i with condition p &le; n gives &Theta;(&radic;n).</p></details>
+  <details class="card"><summary>Why is <code>for i&le;n { for j&le;n step i }</code> n log n and not n&sup2;?</summary>
+    <p class="ans">The inner loop steps by i, so it runs about n/i times. Summing n/i for i = 1 to n gives n times the harmonic number Hₙ, and Hₙ ≈ ln n. So the total is &Theta;(n log n). Whenever the inner step size depends on the outer counter, expect a harmonic series.</p></details>
+  <details class="card"><summary>How many iterations does <code>p = 0; for (i = 1; p &le; n; i++) p += i;</code> perform?</summary>
+    <p class="ans">After k iterations p = k(k+1)/2, so the loop ends when k(k+1)/2 &gt; n, giving k ≈ &radic;(2n) and complexity &Theta;(&radic;n).</p></details>
+  <details class="card"><summary>Give the eight standard patterns with their complexities.</summary>
+    <p class="ans">Single loop &Theta;(n); multiplying or dividing counter &Theta;(log n); i*i &le; n gives &Theta;(&radic;n); i = i*i gives &Theta;(log log n); independent double nesting &Theta;(n&sup2;); dependent nesting j &lt; i also &Theta;(n&sup2;) but n(n−1)/2; outer n with inner log n gives &Theta;(n log n); inner step depending on the outer counter gives &Theta;(n log n).</p></details>
+  <details class="card"><summary>Solve T(n) = T(n−1) + 1 and T(n) = 2T(n−1) + 1 by expansion.</summary>
+    <p class="ans">The first gives T(1) + (n−1) = &Theta;(n) — the factorial pattern. The second gives 2ⁿT(0) + (2ⁿ − 1) = 2ⁿ − 1 = &Theta;(2ⁿ) — Tower of Hanoi, whose space is only &Theta;(n).</p></details>
+</div>
+
+<p class="ask">Next: solving those recurrences properly &mdash; substitution, back-substitution and the recursion tree.</p>
+
+<div class="nav">
+  <a href="0002-asymptotic-notations.html">&larr; Asymptotic Notations</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0004-recurrence-relations.html">Next: Recurrence Relations &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

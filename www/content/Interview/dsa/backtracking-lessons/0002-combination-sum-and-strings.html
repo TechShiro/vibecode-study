@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtracking Lesson 02 — Combination Sum &amp; String Backtracking</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Backtracking Track · Lesson 2 of 3 · budgets, reuse, and building strings</div>
+<h1>Combination Sum &amp; String Backtracking</h1>
+<p class="subtitle">Same choose→explore→unchoose skeleton, two new levers: a numeric budget that prunes branches, and strings where each "choice" is the next chunk you consume or the next character you append.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Combination Sum and Generate Parentheses are two of the most-reported backtracking
+  questions in big-tech OAs — and both are 15-line solutions once you see the knobs.
+  This is Lesson 2 of the 3-lesson backtracking track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1's template enumerated <em>structures</em> (subsets, permutations). This lesson adds a <strong>goal and a
+budget</strong>: carry the <em>remaining target</em> down the tree, succeed when it hits 0, and <strong>prune</strong>
+any branch that already overshot. The single most-tested detail: when an element may be <strong>reused</strong>, recurse
+with <code>i</code> (stay on the same candidate); when it's <strong>use-once</strong>, recurse with <code>i + 1</code>.
+For strings, nothing conceptually changes — the "path" is a <code>StringBuilder</code> or a list of chunks, and a
+choice is either "append this char" or "consume this prefix."
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "All combinations that sum to target," "all ways to split / partition this string," "generate all valid
+  strings (parentheses, IPs, phone letters)." The tell: the answer is a <strong>set of sequences</strong>, and each
+  sequence is built left-to-right by repeatedly choosing what comes next. If any prefix can be proven invalid early
+  (sum too big, more <code>')'</code> than <code>'('</code>, segment &gt; 255) — that's your pruning, and pruning is
+  where the marks are.
+</div>
+
+<h2>2 · Core template — Combination Sum (LC 39)</h2>
+<p>
+Distinct positive candidates, <strong>unlimited reuse</strong>, find all combinations summing to <code>target</code>.
+Sort first so one <code>break</code> kills every too-big sibling at once.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+
+List&lt;List&lt;Integer&gt;&gt; combinationSum(int[] cand, int target) {
+    Arrays.sort(cand);                    <span class="cmt">// enables the break-prune below</span>
+    backtrack(cand, 0, target, new ArrayList&lt;&gt;());
+    return res;
+}
+
+void backtrack(int[] cand, int start, int remain, List&lt;Integer&gt; path) {
+    if (remain == 0) {                    <span class="cmt">// budget exactly spent → record a leaf</span>
+        res.add(new ArrayList&lt;&gt;(path));
+        return;
+    }
+    for (int i = start; i &lt; cand.length; i++) {
+        if (cand[i] &gt; remain) break;      <span class="cmt">// PRUNE: sorted, so every later cand is too big too</span>
+        path.add(cand[i]);                <span class="cmt">// CHOOSE</span>
+        backtrack(cand, i, remain - cand[i], path); <span class="cmt">// EXPLORE with i (NOT i+1): reuse allowed</span>
+        path.remove(path.size() - 1);     <span class="cmt">// UNCHOOSE</span>
+    }
+}</code></pre>
+<p>
+<strong>Time</strong> — branching ≤ n, depth ≤ <code>target / min(cand)</code>, so O(n<sup>target/min</sup>) in the worst
+case; state it as "exponential in target/min, output-sensitive in practice." <strong>Space</strong> O(target/min) recursion depth.
+</p>
+
+<div class="callout tip">
+  <span class="label">Why <code>i</code> keeps it duplicate-free even with reuse</span>
+  Recursing with <code>i</code> allows <code>[2,2,3]</code> (stay on index 0, then move on) but still forbids revisiting
+  <em>earlier</em> indices — so <code>[3,2,2]</code> is never built. Non-decreasing index order = one canonical ordering
+  per combination. Reuse and dedup are handled by the same single character: <code>i</code> vs <code>i + 1</code>.
+</div>
+
+<h2>3 · All the cases</h2>
+<p>Two numeric variants, four string builders. The table is the whole lesson — the snippets show the one knob each turns.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Sum, unlimited reuse</td><td>LC 39</td><td>Core template: recurse with <code>i</code>, <code>break</code> when <code>cand[i] &gt; remain</code>.</td></tr>
+    <tr><td>Sum, use once + input dups</td><td>LC 40</td><td>Recurse with <code>i + 1</code>, add the Lesson-1 dedup skip <code>if (i &gt; start &amp;&amp; a[i] == a[i-1]) continue;</code></td></tr>
+    <tr><td>Valid parentheses strings</td><td>LC 22</td><td>Choices are <code>'('</code> / <code>')'</code> gated by counts: <code>open &lt; n</code>, <code>close &lt; open</code>. Pure constraint pruning.</td></tr>
+    <tr><td>Phone-keypad letters</td><td>LC 17</td><td>One choice-set per digit position; depth = digits.length. No pruning needed.</td></tr>
+    <tr><td>Split into palindromes</td><td>LC 131</td><td>Choice = next <em>prefix chunk</em>; recurse only if the chunk is a palindrome.</td></tr>
+    <tr><td>Split into a valid IP</td><td>LC 93</td><td>Chunks of length 1–3, each 0–255, no leading zeros, exactly 4 parts.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Combination Sum II — use once, duplicates in input (LC 40)</h3>
+<p>
+Two changes from the core, both from Lesson 1's toolkit: <code>i + 1</code> (each array element used at most once)
+and the dedup skip (equal <em>siblings</em> would rebuild the same combination).
+</p>
+<pre><code>void backtrack(int[] cand, int start, int remain, List&lt;Integer&gt; path) {
+    if (remain == 0) { res.add(new ArrayList&lt;&gt;(path)); return; }
+    for (int i = start; i &lt; cand.length; i++) {
+        if (cand[i] &gt; remain) break;                          <span class="cmt">// same sorted prune</span>
+        if (i &gt; start &amp;&amp; cand[i] == cand[i - 1]) continue;    <span class="cmt">// dedup-skip idiom (input sorted)</span>
+        path.add(cand[i]);
+        backtrack(cand, i + 1, remain - cand[i], path);       <span class="cmt">// i+1: this element is spent</span>
+        path.remove(path.size() - 1);
+    }
+}</code></pre>
+<div class="callout trap">
+  <span class="label">39 vs 40 in one breath</span>
+  Reuse allowed → <code>i</code>, no dedup needed (candidates distinct). Use-once with duplicate values →
+  <code>i + 1</code> <em>and</em> sort + skip. Interviewers ask for the diff verbally — practice saying it.
+</div>
+
+<h3>Case: Generate Parentheses — constraint pruning (LC 22)</h3>
+<p>
+Build the string one char at a time. A prefix stays extendable-to-valid iff you've used at most <code>n</code> opens
+and never have more closes than opens. Enforce that <em>before</em> recursing and every leaf you reach is automatically
+valid — zero wasted work.
+</p>
+<pre><code>List&lt;String&gt; res = new ArrayList&lt;&gt;();
+
+List&lt;String&gt; generateParenthesis(int n) {
+    bt(new StringBuilder(), 0, 0, n);
+    return res;
+}
+void bt(StringBuilder sb, int open, int close, int n) {
+    if (sb.length() == 2 * n) {           <span class="cmt">// invariants held all the way → valid leaf</span>
+        res.add(sb.toString());
+        return;
+    }
+    if (open &lt; n) {                       <span class="cmt">// may still open</span>
+        sb.append('(');
+        bt(sb, open + 1, close, n);
+        sb.deleteCharAt(sb.length() - 1); <span class="cmt">// unchoose = delete last char</span>
+    }
+    if (close &lt; open) {                   <span class="cmt">// close only what's already open — the pruning</span>
+        sb.append(')');
+        bt(sb, open, close + 1, n);
+        sb.deleteCharAt(sb.length() - 1);
+    }
+}</code></pre>
+<p><strong>Time</strong> O(4ⁿ/√n) — the n-th Catalan number of leaves, each of length 2n. <strong>Space</strong> O(n) depth. Contrast: generate all 2<sup>2n</sup> strings and filter = TLE; prune prefixes = pass. That contrast is Lesson 3's theme.</p>
+
+<h3>Case: Letter Combinations of a Phone Number (LC 17)</h3>
+<p>
+The simplest string builder: position <code>idx</code> in <code>digits</code> is the depth, and the choice-set is
+that digit's letters. Product of choice-set sizes = number of leaves.
+</p>
+<pre><code>String[] KEYS = {"", "", "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"};
+List&lt;String&gt; res = new ArrayList&lt;&gt;();
+
+List&lt;String&gt; letterCombinations(String digits) {
+    if (digits.isEmpty()) return res;     <span class="cmt">// EDGE: "" → [] (not [""])</span>
+    bt(digits, 0, new StringBuilder());
+    return res;
+}
+void bt(String digits, int idx, StringBuilder sb) {
+    if (idx == digits.length()) { res.add(sb.toString()); return; }
+    for (char c : KEYS[digits.charAt(idx) - '0'].toCharArray()) {
+        sb.append(c);                     <span class="cmt">// CHOOSE a letter for this digit</span>
+        bt(digits, idx + 1, sb);
+        sb.deleteCharAt(sb.length() - 1); <span class="cmt">// UNCHOOSE</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n·4ⁿ) worst case (digits 7 and 9 have 4 letters) · <strong>Space</strong> O(n).</p>
+
+<h3>Case: Palindrome Partitioning — choice = the next chunk (LC 131)</h3>
+<p>
+Mental shift: instead of choosing one character, choose <strong>where the current piece ends</strong>. From
+<code>start</code>, try every end; recurse only if <code>s[start..end]</code> is a palindrome. Reaching
+<code>start == s.length()</code> means the whole string was consumed by valid pieces.
+</p>
+<pre><code>void bt(String s, int start, List&lt;String&gt; path) {
+    if (start == s.length()) {            <span class="cmt">// consumed everything → path is a full partition</span>
+        res.add(new ArrayList&lt;&gt;(path));
+        return;
+    }
+    for (int end = start; end &lt; s.length(); end++) {
+        if (!isPal(s, start, end)) continue;  <span class="cmt">// invalid chunk → prune this branch</span>
+        path.add(s.substring(start, end + 1)); <span class="cmt">// CHOOSE the chunk</span>
+        bt(s, end + 1, path);                  <span class="cmt">// EXPLORE the rest of the string</span>
+        path.remove(path.size() - 1);          <span class="cmt">// UNCHOOSE</span>
+    }
+}
+boolean isPal(String s, int l, int r) {
+    while (l &lt; r) if (s.charAt(l++) != s.charAt(r--)) return false;
+    return true;
+}</code></pre>
+<p><strong>Time</strong> O(n·2ⁿ) — up to 2<sup>n−1</sup> partitions, O(n) per copy/check. <strong>Space</strong> O(n). Follow-up interviewers love: precompute an <code>isPal[i][j]</code> table with DP in O(n²) so each check is O(1) — your first taste of "backtracking + DP" before Lesson 3.</p>
+
+<h3>Case: Restore IP Addresses (LC 93)</h3>
+<p>
+Same consume-a-chunk shape with harder chunk rules: exactly 4 segments, each 1–3 chars, value ≤ 255, no leading zero
+(<code>"0"</code> is fine, <code>"01"</code> is not).
+</p>
+<pre><code>void bt(String s, int start, int parts, StringBuilder sb) {
+    if (parts == 4) {                     <span class="cmt">// 4 segments placed…</span>
+        if (start == s.length())          <span class="cmt">// …and every char consumed → valid IP</span>
+            res.add(sb.substring(0, sb.length() - 1)); <span class="cmt">// drop the trailing '.'</span>
+        return;
+    }
+    <span class="cmt">// PRUNE: remaining chars must fit in the remaining segments (1–3 chars each)</span>
+    int left = s.length() - start, need = 4 - parts;
+    if (left &lt; need || left &gt; 3 * need) return;
+    for (int len = 1; len &lt;= 3 &amp;&amp; start + len &lt;= s.length(); len++) {
+        String seg = s.substring(start, start + len);
+        if (seg.length() &gt; 1 &amp;&amp; seg.charAt(0) == '0') break;  <span class="cmt">// leading zero → longer is worse too</span>
+        if (Integer.parseInt(seg) &gt; 255) break;               <span class="cmt">// too big → longer is bigger</span>
+        int mark = sb.length();
+        sb.append(seg).append('.');       <span class="cmt">// CHOOSE segment + dot</span>
+        bt(s, start + len, parts + 1, sb);
+        sb.setLength(mark);               <span class="cmt">// UNCHOOSE by truncating — cleaner than two deletes</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(1) for the fixed problem — at most 3⁴ = 81 segment-length patterns on a ≤ 12-char string; say "constant bounded, 3^4 branches." <strong>Space</strong> O(1) beyond output.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong><code>i</code> vs <code>i + 1</code> is the whole difference between LC 39 and 40.</strong> Reuse → <code>i</code>; spent → <code>i + 1</code>. Never <code>start</code> unchanged and never <code>i</code> with duplicates in input unless you dedup.</li>
+  <li><strong><code>break</code> vs <code>continue</code> when pruning:</strong> <code>break</code> only when the array is <em>sorted</em> and the disqualifier is monotone (too big ⇒ all later too big). Leading-zero and &gt;255 in LC 93 justify <code>break</code> because longer segments only get worse.</li>
+  <li><strong>Empty string input (LC 17):</strong> <code>""</code> must return <code>[]</code>, not <code>[""]</code> — guard before recursing.</li>
+  <li><strong>StringBuilder unchoose:</strong> either <code>deleteCharAt(length-1)</code> per char appended, or record <code>mark = sb.length()</code> and <code>sb.setLength(mark)</code> — the mark trick is safer when you append multi-char chunks.</li>
+  <li><strong>Success ≠ "budget small", success = "budget exactly 0" / "string fully consumed".</strong> LC 93's double condition (<code>parts == 4</code> AND <code>start == length</code>) is the classic miss.</li>
+  <li><strong>Negative or zero candidates would break the prune</strong> — LC 39/40 guarantee positives; say that assumption out loud in an interview.</li>
+  <li><strong>Single characters are palindromes</strong>, so LC 131 always has at least one partition — no "no answer" branch needed.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Combination Sum (LC 39), why does recursing with <code>i</code> (not <code>i + 1</code>) still avoid duplicate combinations like <code>[3,2,2]</code> after <code>[2,2,3]</code>?</div>
+  <button class="opt">Because the index passed down never decreases, every combination is built in one canonical non-decreasing order</button>
+  <button class="opt">Because the results list is checked with <code>contains()</code> before each insert</button>
+  <button class="opt">Because sorting the candidates removes all duplicate values from the input first</button>
+  <div class="fb" data-correct="Right — 'stay at i or move right' means the path's indices never go backward, so each multiset of values is produced in exactly one order. Reuse and canonical ordering come from the same parameter." data-wrong="No scanning of results happens (that would be O(answers) per leaf), and sorting is only for the break-prune. The dedup comes from the non-decreasing start index: paths can repeat i or move right, never left."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In Generate Parentheses, why is the close-gate <code>close &lt; open</code> rather than <code>close &lt; n</code>?</div>
+  <button class="opt"><code>close &lt; n</code> would generate too few strings because closes get blocked early</button>
+  <button class="opt">The two gates are interchangeable since both counts end at n</button>
+  <button class="opt"><code>close &lt; n</code> permits prefixes like <code>")("</code> where a close has no matching open, so invalid strings reach the leaves</button>
+  <div class="fb" data-correct="Exactly. A prefix is salvageable iff closes never exceed opens. close &lt; n alone lets ')' lead, producing 2^(2n)-style garbage you'd have to filter — the whole point of the gate is pruning invalid prefixes at birth." data-wrong="Both counts do end at n, but validity is about every PREFIX: closes must never outnumber opens along the way. close &lt; open enforces that; close &lt; n doesn't (it allows a leading ')')."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Palindrome Partitioning (LC 131), what exactly is one "choice" in the decision tree?</div>
+  <button class="opt">Whether to include character <code>s[start]</code> in the answer or discard it</button>
+  <button class="opt">Where the current piece ends — i.e. which palindromic prefix of the remaining string to cut off next</button>
+  <button class="opt">Which two characters to swap so the remaining string becomes a palindrome</button>
+  <div class="fb" data-correct="Yes — the branching factor is 'how long is my next chunk', filtered to palindromic chunks. Same skeleton as subsets, but a choice consumes a variable-length prefix instead of one element." data-wrong="Every character must be used (it's a partition — nothing is discarded, nothing swapped). A choice is the END position of the next piece: try each prefix of the remainder, recurse only when it's a palindrome."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/combination-target-sum">NeetCode — Combination Sum</a>, then <a href="https://neetcode.io/problems/generate-parentheses">NeetCode — Generate Parentheses</a> for constraint pruning drawn as a tree.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 39 (core: <code>i</code> + break-prune) → LC 40 (flip to <code>i + 1</code> + dedup) → LC 22 (count gates) → LC 17 (keypad map) → LC 131 (chunk consumption) → LC 93 (chunk rules + double success condition). For 39 vs 40, write both, then diff them by eye — the delta should be exactly two lines.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry run of LC 40 on <code>[1,1,2,5]</code>, target 8? Not sure why <code>break</code> is safe after sorting, or
+  how the <code>setLength</code> unchoose works? Ask in the chat. When you can state the 39-vs-40 delta in one sentence and
+  write Generate Parentheses cold, say <strong>"next"</strong> for Lesson 3: grids, N-Queens, Sudoku — and the cheat sheet.
+</div>
+
+<div class="nav">
+  <span><a href="0001-choose-explore-unchoose.html">← Choose, Explore, Unchoose</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-grid-and-constraint-puzzles.html">Grid &amp; Constraint Puzzles →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

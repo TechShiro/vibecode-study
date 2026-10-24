@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 12 - Exception Handling Architecture | OOPS Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">OOPS · Advanced Foundations · Lesson 12 of 15 · Checked vs Unchecked, AutoCloseable</div>
+  
+  <h1>Exception Handling Architecture &amp; Anti-Patterns</h1>
+  <p class="subtitle">Designing clean error hierarchies and avoiding catastrophic production debugging traps.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Advanced OOP Internals</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Exceptions in OOP are not just debugging logs — they are a formal architectural mechanism to signal that a method <strong>cannot fulfill its promised contract</strong>. Poor exception handling (swallowing errors, returning null, or catch-all logging) produces phantom production bugs where failures are masked until data corruption occurs hours later.</p>
+
+  <h2>2 · The Java Throwable Hierarchy</h2>
+  <div class="arch-flow">
+    <div class="box">Throwable</div>
+  </div>
+  <div class="arch-flow">
+    <div class="arrow-right"></div>
+    <div class="box" style="border-color:red">Error (OutOfMemory, StackOverflow) - Never Catch!</div>
+  </div>
+  <div class="arch-flow">
+    <div class="arrow-right"></div>
+    <div class="box">Exception</div>
+  </div>
+  <div class="arch-flow">
+    <div class="arrow-right"></div>
+    <div class="box">Checked Exception (IOException, SQLException)</div>
+    <div class="box good">RuntimeException / Unchecked (NullPointer, IllegalState)</div>
+  </div>
+
+  <h2>3 · The 4 Deadly Exception Anti-Patterns</h2>
+  <ol>
+    <li><strong>Swallowing Exceptions (The Black Hole):</strong> <code>catch (Exception e) {}</code>. The error is completely erased from history. Never do this!</li>
+    <li><strong>Log and Re-throw:</strong> <code>catch (Exception e) { log.error(e); throw e; }</code>. In a 5-layer call stack, this dumps 5 duplicate error traces into your logs for a single failure!</li>
+    <li><strong>Catching <code>Throwable</code> or <code>Error</code>:</strong> Catches <code>OutOfMemoryError</code> or <code>ThreadDeath</code>, leaving the JVM in an undefined, corrupted zombie state.</li>
+    <li><strong>Losing the Cause:</strong> <code>catch (SQLException e) { throw new ServiceException("Failed"); }</code>. The original root cause stack trace is wiped out! Always pass <code>e</code> as the cause: <code>new ServiceException("Failed", e);</code>!</li>
+  </ol>
+
+  <h2>4 · Try-With-Resources &amp; <code>AutoCloseable</code></h2>
+  <pre><code><span class="cmt">// Automatically closes file stream even if an exception strikes!</span>
+try (BufferedReader reader = new BufferedReader(new FileReader("config.json"))) {
+    return reader.readLine();
+} <span class="cmt">// reader.close() invoked automatically by JVM!</span></code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do frameworks like Spring Boot inspect classes and inject dependencies at runtime? Next: Reflection, Annotations &amp; Metaprogramming.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0011-generics-type-erasure-and-pecs.html">← Previous: Generics &amp; PECS</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0013-reflection-annotations-and-metaprogramming.html">Next: Reflection &amp; Metaprogramming →</a>
+  </div>
+</body>
+</html>

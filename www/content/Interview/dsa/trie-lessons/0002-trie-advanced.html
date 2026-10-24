@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trie Lesson 02 — Word Search II &amp; Binary Trie</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Trie Track · Lesson 2 of 2 · trie + grid DFS · binary trie for max XOR</div>
+<h1>Trie Advanced — Word Search II &amp; Maximum XOR</h1>
+<p class="subtitle">Two famous hard problems, one shared insight: walk the trie <em>and</em> something else (a grid, the bits of a number) in lockstep, and prune the instant the trie says "no word goes this way."</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Word Search II is a classic big-tech hard, and the binary-trie trick behind Maximum
+  XOR is the standard tool for a whole family of XOR problems. Lesson 2 of 2 in the trie track.
+  <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1 walked the trie along a <em>query string</em>. The advanced move is to walk it along <strong>something you're
+exploring</strong>: each step of a grid DFS or each bit of an integer advances a matching trie pointer. The trie then
+acts as an oracle — "does any dictionary word continue with this letter?" / "does any number have this bit here?" —
+and the moment it says no, you cut the entire branch. Searching for a thousand words costs one traversal, not a
+thousand.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  <strong>Many words, one search space</strong>: "find all dictionary words in this grid/stream" → build a trie of the
+  words, DFS the space with a trie pointer riding along. <strong>Maximize XOR / find best XOR partner</strong> →
+  binary trie over the bits, greedy from the most significant bit down.
+</div>
+
+<h2>2 · Core template A — Word Search II (LC 212): trie + grid DFS</h2>
+<p>
+Running LC 79's word-search DFS once per word is O(words × grid-DFS) — too slow. Instead, insert <em>all</em> words
+into one trie and DFS the grid <strong>once from every cell</strong>, moving the trie pointer with each step. Store
+the full word on its terminal node (instead of a bare <code>isEnd</code>) so emitting a match needs no path
+reconstruction.
+</p>
+<pre><code>class Solution {
+    static class TrieNode {
+        TrieNode[] children = new TrieNode[26];
+        String word = null;            <span class="cmt">// non-null ⇒ a whole word ends here (replaces isEnd + rebuild)</span>
+    }
+    List&lt;String&gt; result = new ArrayList&lt;&gt;();
+
+    public List&lt;String&gt; findWords(char[][] board, String[] words) {
+        TrieNode root = new TrieNode();
+        for (String w : words) {       <span class="cmt">// build the trie of ALL words</span>
+            TrieNode cur = root;
+            for (char c : w.toCharArray()) {
+                int i = c - 'a';
+                if (cur.children[i] == null) cur.children[i] = new TrieNode();
+                cur = cur.children[i];
+            }
+            cur.word = w;
+        }
+        for (int r = 0; r &lt; board.length; r++)
+            for (int c = 0; c &lt; board[0].length; c++)
+                dfs(board, r, c, root); <span class="cmt">// one multi-word DFS per start cell</span>
+        return result;
+    }
+
+    void dfs(char[][] b, int r, int c, TrieNode parent) {
+        if (r &lt; 0 || r &gt;= b.length || c &lt; 0 || c &gt;= b[0].length) return;
+        char ch = b[r][c];
+        if (ch == '#') return;                    <span class="cmt">// visited on the current path</span>
+        TrieNode node = parent.children[ch - 'a'];
+        if (node == null) return;                 <span class="cmt">// THE PRUNE: no word continues this way</span>
+        if (node.word != null) {
+            result.add(node.word);                <span class="cmt">// found a whole word</span>
+            node.word = null;                     <span class="cmt">// dedupe: never report it twice</span>
+        }
+        b[r][c] = '#';                            <span class="cmt">// mark visited (O(1) space vs a visited[][])</span>
+        dfs(b, r + 1, c, node); dfs(b, r - 1, c, node);
+        dfs(b, r, c + 1, node); dfs(b, r, c - 1, node);
+        b[r][c] = ch;                             <span class="cmt">// un-choose (backtracking)</span>
+
+        if (node.word == null &amp;&amp; isLeaf(node))    <span class="cmt">// PRUNE HARDER: node is spent —</span>
+            parent.children[ch - 'a'] = null;     <span class="cmt">// delete it so future DFS stops one step earlier</span>
+    }
+    boolean isLeaf(TrieNode n) {
+        for (TrieNode c : n.children) if (c != null) return false;
+        return true;
+    }
+}</code></pre>
+<p>
+<strong>Time</strong> O(total word chars) to build + O(M·N·4·3<sup>L−1</sup>) worst-case DFS (L = longest word; each
+step after the first has ≤ 3 unvisited neighbors) — but the two prunes make it fast in practice.
+<strong>Space</strong> O(total word chars) for the trie + O(L) recursion.
+</p>
+
+<div class="callout tip">
+  <span class="label">Why the node-deletion prune matters</span>
+  Once a word is reported, its trie path is dead weight — every later DFS that wanders down it does useless work. When
+  a node has no word and no children left, unlink it from its parent; the deletion cascades upward as parents empty
+  out in turn (each level's check happens as its own recursive call returns). On LeetCode's adversarial tests this
+  prune is the difference between accepted and TLE.
+</div>
+
+<div class="callout trap">
+  <span class="label">Two classic 212 bugs</span>
+  <strong>(1) Duplicate results:</strong> a word reachable from two cells gets added twice — null out
+  <code>node.word</code> at the moment you report it (cheaper than a result <code>Set</code>).
+  <strong>(2) Un-mark on the way out:</strong> forgetting <code>b[r][c] = ch</code> after the four recursive calls
+  poisons every later path through that cell. Choose → explore → un-choose, always.
+</div>
+
+<h2>3 · Core template B — Maximum XOR of Two Numbers (LC 421): binary trie</h2>
+<p>
+XOR is maximized bit by bit from the top: a 1 in bit 30 beats 1s in all lower bits combined
+(2<sup>30</sup> &gt; 2<sup>30</sup> − 1). So treat each number as a 31-bit string (bit 30 → bit 0; LC constrains inputs
+to non-negative ints, so bit 31 is 0) and insert into a <strong>binary trie</strong> — children
+<code>[0]</code> and <code>[1]</code>. For each number, walk down greedily choosing the <strong>opposite</strong> bit
+whenever that branch exists; the path you walk is the best possible partner for that number.
+</p>
+<pre><code>class Solution {
+    static class Node { Node[] next = new Node[2]; } <span class="cmt">// binary trie: alphabet {0,1}</span>
+
+    public int findMaximumXOR(int[] nums) {
+        Node root = new Node();
+        int best = 0;
+        for (int x : nums) {
+            Node ins = root, qry = root;
+            int xorWithBest = 0;
+            for (int b = 30; b &gt;= 0; b--) {      <span class="cmt">// MSB first — high bits dominate</span>
+                int bit = (x &gt;&gt; b) &amp; 1;
+                <span class="cmt">// -- insert x's bit path --</span>
+                if (ins.next[bit] == null) ins.next[bit] = new Node();
+                ins = ins.next[bit];
+                <span class="cmt">// -- query best partner: prefer the OPPOSITE bit --</span>
+                int want = 1 - bit;
+                if (qry.next[want] != null) {
+                    xorWithBest |= (1 &lt;&lt; b);     <span class="cmt">// opposite exists ⇒ this XOR bit is 1</span>
+                    qry = qry.next[want];
+                } else {
+                    qry = qry.next[bit];         <span class="cmt">// forced to match ⇒ this XOR bit is 0</span>
+                }
+            }
+            best = Math.max(best, xorWithBest);  <span class="cmt">// best partner for x among numbers seen so far</span>
+        }
+        return best;                             <span class="cmt">// insert-then-query same loop: every pair is tried once</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n · 31) — each number does one 31-step insert and one 31-step query. <strong>Space</strong> O(n · 31) nodes worst case. Compare O(n²) brute force.</p>
+
+<h3>Worked example — dry run</h3>
+<p><code>nums = [3, 10, 5]</code>, using 4 bits for readability: 3 = <code>0011</code>, 10 = <code>1010</code>, 5 = <code>0101</code>.</p>
+<div class="trace">
+<span class="step">insert 3 (0011); query: trie has only 3 → XOR 3^3 = 0. best = 0</span>
+<span class="step now">insert 10 (1010); query 10: want 0→have, want 1→have, want 0→have, want 1→have → partner 0011 = 3 → 10^3 = <span class="ptr">9</span> (1001). best = 9</span>
+<span class="step now">insert 5 (0101); query 5: want 1(bit3)→have (10's path), want 0→forced 0... walks to 1010 → 5^10 = <span class="ptr">15</span> (1111). best = 15</span>
+<span class="step">answer: 15 — the greedy found the complementary pair (0101, 1010) without checking all pairs</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Why greedy-by-bit is safe</span>
+  Suppose at bit b you <em>can</em> take the opposite branch but don't. The best you can then earn from bits
+  b−1…0 is 2<sup>b</sup> − 1 — strictly less than the 2<sup>b</sup> you gave up. So taking the opposite bit whenever
+  possible is never wrong. The same argument powers every "maximize a number bit by bit" greedy.
+</div>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Many words in a grid</td><td>LC 212</td><td>Trie of words + grid DFS; store <code>word</code> on nodes; prune missing children, null after report, delete spent leaves.</td></tr>
+    <tr><td>Max XOR pair</td><td>LC 421</td><td>Binary trie over bits 30→0; greedy opposite-bit walk; insert-then-query in one pass.</td></tr>
+    <tr><td>Max XOR with constraints</td><td>LC 1707 <span class="cmt">(stretch)</span></td><td>Same binary trie, but sort numbers/queries and insert only elements ≤ limit before each query.</td></tr>
+  </tbody>
+</table>
+<p>
+Both cores are the <em>same</em> template with a different alphabet: 26 letters over grid steps, 2 bits over bit
+positions. If an interviewer swaps in a new search space (a word stream, a DNA alphabet, 32-bit keys), you change the
+<code>children</code> array size and the step rule — nothing else.
+</p>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Duplicate words in the result (212):</strong> the same word found via two paths — set <code>node.word = null</code> when reporting.</li>
+  <li><strong>Restore the cell (212):</strong> <code>b[r][c] = ch</code> after the four DFS calls, or later searches are corrupted.</li>
+  <li><strong>A cell may not be reused within one path</strong>, but may be reused across different words — which is exactly what mark/unmark gives you.</li>
+  <li><strong>One word is a prefix of another (212)</strong> ("app", "apple"): report at the interior node and <em>keep descending</em> — don't return early, and don't delete a node that still has children.</li>
+  <li><strong>Bit width (421):</strong> bits 30→0 for non-negative ints. Include negatives (bit 31 = sign) and you must go 31→0 — know which your input allows.</li>
+  <li><strong>Single-element array (421):</strong> the insert-then-query order makes the first query pair x with itself → XOR 0, the right answer for n = 1. Query-before-insert on an empty trie would NPE instead.</li>
+  <li><strong>Forced branch (421):</strong> when the opposite child is missing you must follow the matching child — it always exists, because at least one full path (the one you just inserted) reaches the bottom.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Word Search II, why build one trie of all words instead of running LC 79's single-word DFS once per word?</div>
+  <button class="opt">The trie stores the grid cells, so each word lookup skips the grid entirely</button>
+  <button class="opt">One grid DFS can extend all words that share the current prefix at once, and a missing trie child kills the branch for every word simultaneously</button>
+  <button class="opt">A trie is required for correctness — per-word DFS returns wrong answers on overlapping words</button>
+  <div class="fb" data-correct="Words sharing a prefix share trie nodes, so 'the'/'them'/'they' cost ONE walk down t-h-e. And when no child matches the next cell, that single null check prunes the branch for the entire dictionary." data-wrong="Per-word DFS is correct, just slow: it re-walks the same grid prefixes once per word. The trie merges all shared prefixes into one walk and prunes all words with one null-child check."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In the max-XOR binary trie, you're at bit b of number x and the child for the <em>opposite</em> bit exists. Why take it, even if all lower bits then match badly?</div>
+  <button class="opt">Because opposite branches are rarer, so exploring them first is a heuristic speed-up</button>
+  <button class="opt">Because equal bits would make the whole XOR zero regardless of the other bits</button>
+  <button class="opt">Because winning bit b is worth 2^b, which is more than the 2^b − 1 that ALL lower bits together could contribute</button>
+  <div class="fb" data-correct="That's the exchange argument: 2^b &gt; 2^(b−1) + … + 1 = 2^b − 1, so a high bit outweighs every bit below it combined. Greedy MSB-first is therefore provably optimal, not a heuristic." data-wrong="It's a strict dominance argument: the single bit b contributes 2^b to the XOR, while bits b−1…0 max out at 2^b − 1 combined. Taking the opposite branch can never be beaten by anything below."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In LC 212, after reporting a word you set <code>node.word = null</code>, and after the DFS returns you delete child nodes that are word-less leaves. What do these two moves buy?</div>
+  <button class="opt">The null stops duplicate reports of the same word; the deletion shrinks the trie so future DFS branches die one step earlier</button>
+  <button class="opt">They are both required for correctness — without them the DFS returns words not on the board</button>
+  <button class="opt">They cut memory only; the running time is unchanged because the DFS still visits the same cells</button>
+  <div class="fb" data-correct="Exactly: nulling word is the dedupe (the word may be reachable from many cells), and unlinking spent leaves means later DFS hits a null child sooner — a pure speed prune that avoids TLE on big tests." data-wrong="Correctness survives without deletion (and a result Set could dedupe) — these are a cheap dedupe plus a PERFORMANCE prune: a smaller trie makes the null-child check fire earlier, killing dead branches sooner."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/search-for-word-ii">NeetCode — Word Search II</a> (watch the pruning discussion twice), then a walkthrough of <a href="https://leetcode.com/problems/maximum-xor-of-two-numbers-in-an-array/">LC 421 — Maximum XOR</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 79 (plain word search, warm-up) → LC 212 (add the trie, then add both prunes and compare runtimes) → LC 421 (binary trie) → LC 1707 (max XOR with element limit, stretch) → revisit LC 211 and notice it's the same "walk trie alongside a pattern" move.</li>
+</ul>
+
+<h2>8 · Trie cheat sheet</h2>
+<p>The whole track on one card. Print it (the toggle and nav disappear in print).</p>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Build a trie</td><td>"prefix / startsWith / autocomplete"</td><td><code>children[26]</code> + <code>isEnd</code>; insert/search/startsWith walk one path</td><td>O(L) per op</td><td>208</td></tr>
+    <tr><td>Wildcard search</td><td>query contains <code>'.'</code></td><td>DFS(node, i): literal → one child; <code>'.'</code> → try all 26 non-null children</td><td>O(26<sup>d</sup>·L) worst</td><td>211</td></tr>
+    <tr><td>Shortest root prefix</td><td>"replace word with its root"</td><td>Insert roots; walk each word, return at <em>first</em> <code>isEnd</code></td><td>O(total chars)</td><td>648</td></tr>
+    <tr><td>All prefixes are words</td><td>"buildable one char at a time"</td><td>DFS entering only children with <code>isEnd</code>; a→z order breaks ties</td><td>O(total chars)</td><td>720</td></tr>
+    <tr><td>Many words in a grid</td><td>"find all dictionary words in board"</td><td>Trie of words + grid DFS in lockstep; store <code>word</code> at node; null on report; delete spent leaves</td><td>O(MN·4·3<sup>L−1</sup>) pruned</td><td>212</td></tr>
+    <tr><td>Max XOR pair</td><td>"maximize a XOR b"</td><td>Binary trie bits 30→0; insert, then greedy walk taking the <em>opposite</em> bit when it exists</td><td>O(31n) / O(31n)</td><td>421</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want to trace the node-deletion cascade on a tiny board, re-derive why 2<sup>b</sup> beats all lower bits, or see how
+  LC 1707 layers a sort onto the binary trie? Ask in the chat. When you can write both cores from memory — the lockstep
+  grid DFS and the opposite-bit walk — say <strong>"next"</strong> and we start the Bit Manipulation track.
+</div>
+
+<div class="nav">
+  <span><a href="0001-trie-basics.html">← Trie Basics</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../bit-manipulation-lessons/0001-operators-and-tricks.html">Bit Manipulation →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<title>Switching</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 12 of 27</p>
+<h1>Switching</h1>
+<p class="deck">Circuit switching, packet switching (datagram and virtual circuit) and message switching. One comparison table carries this topic, plus a delay numerical that shows exactly why packet switching won.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Compare circuit switching and packet switching"</strong> is a certainty &mdash; 5 to 10 marks, answered as a table of 8&ndash;10 rows. The sub-question that separates good answers from average ones is <strong>datagram vs virtual circuit</strong>, so keep three rows for it. Draw the <strong>three phases of circuit switching</strong> (setup, data transfer, teardown) as a timeline; it is quick and it is worth a mark.</p>
+</div>
+
+<h2>What switching is</h2>
+
+<p>A network is a set of connected devices. Connecting every device to every other is impractical (mesh: n(n&minus;1)/2 links), so instead we use <strong>switches</strong> &mdash; devices capable of creating temporary connections between two or more devices linked to them. A <em class="term">switched network</em> is a series of interlinked nodes; some are connected to end systems, others are used only for routing.</p>
+
+<p>Three methods, and the syllabus names all three:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>What is reserved</th><th>Layer</th></tr></thead>
+<tbody>
+<tr><td><strong>Circuit switching</strong></td><td>A <strong>dedicated physical path</strong> for the whole session</td><td>Physical layer</td></tr>
+<tr><td><strong>Packet switching</strong></td><td>Nothing &mdash; resources are allocated <strong>on demand</strong></td><td>Network layer (datagram) or data link layer (virtual circuit)</td></tr>
+<tr><td><strong>Message switching</strong></td><td>Nothing &mdash; the whole message is stored and forwarded hop by hop</td><td>Application layer (obsolete)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Circuit switching</h2>
+
+<p>A <strong>dedicated communication path is established between sender and receiver for the entire duration of the conversation</strong>, and held whether or not data is actually flowing.</p>
+
+<h3>The three phases</h3>
+
+<div class="formula">
+  <span class="name">Circuit switching timeline</span>
+  1. <strong>Setup phase</strong> &mdash; a request travels to the destination and a circuit is reserved hop by hop; an acknowledgement returns.<br>
+  2. <strong>Data transfer phase</strong> &mdash; data flows continuously along the reserved circuit, with <em>no</em> addressing or routing decisions.<br>
+  3. <strong>Teardown phase</strong> &mdash; a disconnect signal releases the reserved resources.
+</div>
+
+<ul>
+<li><strong>Resources are reserved during setup and stay reserved until teardown</strong>, even during silent periods &mdash; which is the central inefficiency.</li>
+<li>Because the path is fixed, <strong>data arrives in order and delay is constant</strong>. There is no per-packet addressing, no routing decision at each hop, and no reordering at the receiver.</li>
+<li><strong>The classic example is the traditional telephone network.</strong></li>
+</ul>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+<tbody>
+<tr><td>Guaranteed, constant bandwidth once established</td><td><strong>Inefficient</strong> &mdash; the channel is idle whenever neither party is sending, but stays reserved</td></tr>
+<tr><td>No packet ordering problem &mdash; data arrives in sequence</td><td><strong>Long setup delay</strong> before any data can flow</td></tr>
+<tr><td>Constant delay, so it suits real-time voice</td><td>No error or flow control at the switching layer</td></tr>
+<tr><td>Simple, with no per-packet overhead</td><td>If the path fails, the whole call fails &mdash; no rerouting</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Message switching</h2>
+
+<p>Also called <strong>store-and-forward</strong>. The <strong>entire message</strong> is sent to the first switch, which stores it completely, then forwards it to the next switch when a link becomes free, and so on to the destination.</p>
+
+<ul>
+<li>No dedicated path is set up. Each hop is independent.</li>
+<li><strong>Advantages:</strong> efficient use of links (no reservation), messages can be prioritised, and a switch can hold a message if the destination is busy.</li>
+<li><strong>Disadvantages:</strong> each switch needs <strong>enough storage for a whole message</strong>, and the store-and-forward delay accumulates at every hop. <strong>Unsuitable for real-time or interactive traffic.</strong></li>
+<li><strong>Effectively obsolete</strong> &mdash; but examiners ask for it as the third method, and the standard example is the old telegraph network.</li>
+</ul>
+
+<h2>Packet switching</h2>
+
+<p>The message is <strong>divided into fixed- or variable-size packets</strong>, each of which is switched independently. <strong>No resources are allocated in advance</strong> &mdash; they are granted on demand, first come first served. If a switch is busy, packets wait in a <strong>queue</strong>, which is why packet-switched networks have variable delay.</p>
+
+<h3>Datagram approach (connectionless)</h3>
+
+<ul>
+<li>Each packet is treated <strong>independently of all others</strong>, and is called a <strong>datagram</strong>.</li>
+<li><strong>Packets of the same message may travel by different routes</strong> and may therefore <strong>arrive out of order</strong>, or be lost, or be delayed.</li>
+<li>Each packet must carry the <strong>full destination address</strong>, and each switch consults a <strong>routing table</strong> based on that address.</li>
+<li>Reordering and recovery are the responsibility of a <strong>higher layer</strong> &mdash; typically TCP at the transport layer.</li>
+<li>Works at the <strong>network layer</strong>. <strong>The Internet uses this approach.</strong></li>
+</ul>
+
+<h3>Virtual circuit approach (connection-oriented)</h3>
+
+<ul>
+<li>A <strong>route is set up before any packet is sent</strong>, and <strong>all packets of the message follow the same route</strong>, arriving <strong>in order</strong>.</li>
+<li>Packets carry a short <strong>virtual circuit identifier (VCI)</strong> rather than a full destination address. The VCI has only <strong>local</strong> significance &mdash; it changes at every switch, using each switch's own table.</li>
+<li>Has <strong>setup, data transfer and teardown phases</strong>, like circuit switching &mdash; but resources are <em>not</em> physically reserved; they are still shared.</li>
+<li>Works at the <strong>data link layer</strong>. Examples: <strong>Frame Relay, ATM, X.25, MPLS.</strong></li>
+</ul>
+
+<h4>Two Types of Virtual Circuits: SVC vs PVC</h4>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Switched Virtual Circuit (SVC)</th><th>Permanent Virtual Circuit (PVC)</th></tr></thead>
+<tbody>
+<tr><td><strong>Establishment</strong></td><td>Created <strong>dynamically on-demand</strong> whenever communication is initiated.</td><td>Provisioned <strong>statically</strong> by the network service provider / administrator.</td></tr>
+<tr><td><strong>Phases Required</strong></td><td>Requires all three distinct phases: <strong>Setup</strong> &rarr; <strong>Data Transfer</strong> &rarr; <strong>Teardown</strong>.</td><td>Only requires <strong>Data Transfer</strong>. Connection is permanently open; no setup or teardown delay.</td></tr>
+<tr><td><strong>Signaling Protocol</strong></td><td>Uses signaling messages (Setup Request and Setup Acknowledgment frames).</td><td>No signaling needed during runtime; configured via network management consoles.</td></tr>
+<tr><td><strong>Analogy</strong></td><td>Like placing a dial-up phone call: dial &rarr; converse &rarr; hang up.</td><td>Like a dedicated leased line: the circuit is perpetually hot and ready.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>VCI Translation &amp; The Virtual Circuit Switching Table</h4>
+<p>Unlike datagram routing where routers look up full 32-bit destination IP addresses, a Virtual Circuit switch routes packets using a compact <strong>Virtual Circuit Identifier (VCI)</strong> that is local to each physical link. To avoid global coordination of IDs across an entire network, each switch rewrites (swaps) the VCI on egress using an internal switching table:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th colspan="2" style="text-align:center; background:var(--panel);">Incoming Packet</th><th colspan="2" style="text-align:center; background:var(--panel);">Outgoing Packet</th><th rowspan="2">Action Performed by Switch</th></tr>
+<tr><th>Incoming Port</th><th>Incoming VCI</th><th>Outgoing Port</th><th>Outgoing VCI</th></tr></thead>
+<tbody>
+<tr><td><strong>Port 1</strong></td><td><strong>14</strong></td><td><strong>Port 3</strong></td><td><strong>22</strong></td><td>Packet arriving on Port 1 with VCI 14 has its header rewritten to VCI 22 and forwarded out Port 3</td></tr>
+<tr><td><strong>Port 1</strong></td><td><strong>77</strong></td><td><strong>Port 2</strong></td><td><strong>41</strong></td><td>Packet arriving on Port 1 with VCI 77 has its header rewritten to VCI 41 and forwarded out Port 2</td></tr>
+<tr><td><strong>Port 2</strong></td><td><strong>22</strong></td><td><strong>Port 4</strong></td><td><strong>88</strong></td><td>Packet arriving on Port 2 with VCI 22 has its header rewritten to VCI 88 and forwarded out Port 4</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The line that separates virtual circuit from circuit switching</span>
+  <p>Both have setup, data transfer and teardown phases, and both deliver packets in order &mdash; so students conflate them. The difference: <strong>circuit switching physically reserves a dedicated path and its bandwidth for the whole session; a virtual circuit only fixes the <em>route</em>, and the links along it remain shared with other traffic.</strong> Virtual circuit is packet switching with a plan, not circuit switching.</p>
+</div>
+
+<h2>The comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Circuit switching</th><th>Datagram packet switching</th><th>Virtual circuit packet switching</th></tr></thead>
+<tbody>
+<tr><td><strong>Dedicated path</strong></td><td><strong>Yes</strong> &mdash; physical, for the session</td><td>No</td><td>No &mdash; a fixed <em>route</em>, but shared links</td></tr>
+<tr><td><strong>Resource reservation</strong></td><td>At setup, held throughout</td><td>None &mdash; on demand</td><td>None &mdash; on demand</td></tr>
+<tr><td><strong>Setup phase</strong></td><td>Required</td><td><strong>Not required</strong></td><td>Required</td></tr>
+<tr><td><strong>Addressing</strong></td><td>None during transfer</td><td><strong>Full destination address</strong> in every packet</td><td>Short <strong>VCI</strong>, locally significant</td></tr>
+<tr><td><strong>Route of packets</strong></td><td>All on the one fixed circuit</td><td><strong>May differ per packet</strong></td><td>All on the same route</td></tr>
+<tr><td><strong>Order of arrival</strong></td><td>In order</td><td><strong>May be out of order</strong></td><td>In order</td></tr>
+<tr><td><strong>Delay</strong></td><td>Constant; long initial setup</td><td><strong>Variable</strong> &mdash; queuing at each switch</td><td>Variable, but less so</td></tr>
+<tr><td><strong>Bandwidth efficiency</strong></td><td>Low &mdash; wasted while idle</td><td><strong>High</strong></td><td>High</td></tr>
+<tr><td><strong>Reliability of order/recovery</strong></td><td>Handled by the circuit</td><td>Left to a higher layer (TCP)</td><td>Handled by the virtual circuit</td></tr>
+<tr><td><strong>OSI layer</strong></td><td>Physical</td><td>Network</td><td>Data link</td></tr>
+<tr><td><strong>Example</strong></td><td>Telephone network</td><td><strong>The Internet</strong></td><td>Frame Relay, ATM, X.25</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; why packet switching wins</span>
+  <p><strong>Q.</strong> A message of 3000 bits is sent from source to destination through <strong>two intermediate switches</strong> (so three links). Each link is 1 Mbps. Setup time for a circuit is 5 ms; propagation is negligible. Compare the total time for (a) circuit switching, (b) packet switching with the message split into three packets of 1000 bits.</p>
+
+  <p><strong>(a) Circuit switching.</strong> Once the circuit is set up, the bits stream through the whole path continuously &mdash; no store-and-forward at the switches.</p>
+  <p>Setup = 5 ms<br>
+  Transmission of the whole message = 3000 / 10<sup>6</sup> = 3 ms<br>
+  <strong>Total = 5 + 3 = 8 ms</strong></p>
+
+  <p><strong>(b) Packet switching.</strong> Each switch must receive a whole packet before forwarding it (store and forward). No setup phase.</p>
+  <p>Time per packet per link = 1000 / 10<sup>6</sup> = 1 ms<br>
+  The <em>first</em> packet must cross all three links: 3 &times; 1 = 3 ms<br>
+  The remaining 2 packets follow in a pipeline, one per millisecond on the last link: + 2 ms<br>
+  <strong>Total = 3 + 2 = 5 ms</strong></p>
+
+  <p><strong>Conclusion:</strong> packet switching finished in 5 ms against circuit switching's 8 ms, <em>and</em> it did not tie up the links exclusively. The pipelining effect &mdash; later packets moving on earlier links while the first packet is still travelling &mdash; is the whole reason packet switching dominates.</p>
+
+  <p><em>The general formula, worth memorising:</em> for <strong>p</strong> packets over <strong>L</strong> links with per-packet transmission time <strong>t</strong>,<br>
+  <strong>Total time = (L + p &minus; 1) &times; t</strong>. Here (3 + 3 &minus; 1) &times; 1 ms = 5 ms. &#10003;</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Switching Paradigms Comparison Architecture</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>Circuit Switching</strong><span class="sub">Dedicated end-to-end copper path reserved before transfer (Setup &rarr; Transfer &rarr; Teardown). Constant delay, wasted idle capacity.</span></div>
+    <div class="flow-box highlight"><strong>Packet Switching: Datagram</strong><span class="sub">Connectionless; packets routed independently via destination IP. Out-of-order delivery possible; high link efficiency.</span></div>
+    <div class="flow-box ok"><strong>Packet Switching: Virtual Circuit</strong><span class="sub">Connection-oriented; virtual circuit ID (VCI) setup. In-order packet delivery without dedicated physical link.</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Switching Techniques</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-17 & Lec-18: Circuit Switching vs Packet Switching</div>
+    <div class="v-desc">Complete comparison of circuit, packet, and virtual circuit networks with latency graphs and buffering requirements.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=Cug52cpjM_g" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In circuit switching, resources are reserved:</p>
+  <div class="opts">
+    <button class="opt">Only at the moments when data is actually flowing</button>
+    <button class="opt">Never &mdash; the switches simply store and forward data</button>
+    <button class="opt">On demand at each switch, first come first served</button>
+    <button class="opt" data-ok="1">During setup, and held until teardown even when idle</button>
+  </div>
+  <p class="why">Holding resources through silent periods is exactly what makes circuit switching wasteful, and exactly what guarantees its constant delay. The other three options describe packet switching or message switching.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which is true of the datagram approach but not the virtual circuit approach?</p>
+  <div class="opts">
+    <button class="opt">Resources are allocated on demand rather than reserved</button>
+    <button class="opt">It divides the message into packets before transmission</button>
+    <button class="opt">It requires a setup phase before any data is transmitted</button>
+    <button class="opt" data-ok="1">Packets may take different routes and arrive out of order</button>
+  </div>
+  <p class="why">Both are packet switching, so both split the message and allocate on demand. Independent routing with possible reordering is the datagram signature; a setup phase belongs to virtual circuits.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A virtual circuit identifier (VCI) differs from a destination address in that it:</p>
+  <div class="opts">
+    <button class="opt">Is used only during setup and removed for data transfer</button>
+    <button class="opt" data-ok="1">Has only local significance and changes at every switch</button>
+    <button class="opt">Is longer, because it must encode the whole route</button>
+    <button class="opt">Identifies the final destination host across the network</button>
+  </div>
+  <p class="why">The VCI is short precisely because it is local: each switch maps an incoming VCI to an outgoing one using its own table. That is why virtual circuits carry less per-packet overhead than datagrams.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Message switching is unsuitable for interactive traffic because:</p>
+  <div class="opts">
+    <button class="opt">Messages may arrive at the destination out of their order</button>
+    <button class="opt">It cannot deliver messages larger than a single packet</button>
+    <button class="opt" data-ok="1">Each switch stores the whole message before forwarding it</button>
+    <button class="opt">It reserves a dedicated physical path for the entire session</button>
+  </div>
+  <p class="why">Store-and-forward of a complete message means the full transmission delay is paid at every hop, and switches need storage for entire messages. That accumulated delay rules out real-time and interactive use.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Four packets travel over three links, each taking 2 ms per link. The total time is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">12 ms &mdash; (3 + 4 − 1) × 2</button>
+    <button class="opt">8 ms &mdash; 4 packets × 2 ms on the final link</button>
+    <button class="opt">24 ms &mdash; 4 packets × 3 links × 2 ms</button>
+    <button class="opt">6 ms &mdash; only the first packet's journey counts</button>
+  </div>
+  <p class="why">Total = (L + p − 1) × t = (3 + 4 − 1) × 2 = 12 ms. Multiplying packets by links (24 ms) ignores pipelining — later packets move along earlier links while the first is still in flight, and that overlap is the point.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the three switching methods and the layer each works at.</summary>
+    <p class="ans">Circuit switching — physical layer. Packet switching — network layer (datagram) or data link layer (virtual circuit). Message switching — application layer, now obsolete.</p></details>
+  <details class="card"><summary>Describe the three phases of circuit switching.</summary>
+    <p class="ans">Setup — a request travels to the destination reserving a circuit hop by hop, and an acknowledgement returns. Data transfer — data flows continuously along the reserved circuit with no addressing or routing decisions. Teardown — a disconnect signal releases the resources.</p></details>
+  <details class="card"><summary>Give five differences between circuit and packet switching.</summary>
+    <p class="ans">Dedicated path (yes/no); resource reservation (at setup/on demand); setup phase (required/not for datagram); addressing (none during transfer/full address per packet); delay (constant with long setup/variable due to queuing); efficiency (low/high); example (telephone network/the Internet).</p></details>
+  <details class="card"><summary>Datagram vs virtual circuit — four differences.</summary>
+    <p class="ans">Datagram: no setup, full destination address in each packet, packets may take different routes and arrive out of order, network layer, used by the Internet. Virtual circuit: setup/transfer/teardown phases, short locally significant VCI, all packets take the same route and arrive in order, data link layer, used by Frame Relay and ATM.</p></details>
+  <details class="card"><summary>How does a virtual circuit differ from circuit switching?</summary>
+    <p class="ans">Circuit switching physically reserves a dedicated path and its bandwidth for the whole session. A virtual circuit fixes only the route; the links along it stay shared with other traffic and nothing is physically reserved.</p></details>
+  <details class="card"><summary>State the packet-switching delay formula.</summary>
+    <p class="ans">Total time = (L + p − 1) × t, for p packets over L links with per-packet transmission time t. The −1 captures the pipelining of later packets behind the first.</p></details>
+</div>
+
+<p class="ask">Want three more switching-delay numericals with propagation delay included as well? Ask &mdash; papers sometimes add it, and the formula changes shape.</p>
+
+<div class="nav">
+  <a href="0011-transmission-media.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0013-error-detection-and-correction.html">Next: Error Detection and Correction &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

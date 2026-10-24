@@ -1,0 +1,424 @@
+<title>Algorithmic Paradigms</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit I &middot; Lesson 6 of 15</p>
+<h1>Introduction to the Algorithmic Paradigms</h1>
+<p class="deck">Divide and conquer, greedy, backtracking and branch and bound &mdash; the control abstraction of each, one fully worked example apiece, and the comparison table that answers &ldquo;differentiate&rdquo; questions.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>The syllabus says <strong>&ldquo;basic introduction to algorithmic paradigms&rdquo;</strong> &mdash; so Unit I asks you to <em>describe and compare</em> them, not to solve large instances. Units III and IV do that. The two question shapes here are <strong>&ldquo;explain the divide-and-conquer / greedy / backtracking strategy with an example&rdquo;</strong> and <strong>&ldquo;differentiate backtracking and branch and bound&rdquo;</strong> &mdash; which is by far the most-asked comparison in the whole subject. <strong>Learn the four control abstractions and the two comparison tables, and one worked example each.</strong></p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Core Algorithmic Design Paradigms Comparison</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>Divide and Conquer</strong><span class="sub">Divide into independent subproblems, solve recursively, combine (Merge Sort, Binary Search)</span></div>
+    <div class="flow-box highlight"><strong>Greedy Method</strong><span class="sub">Locally optimal choice at each step; never backtracks (Kruskal, Huffman)</span></div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box ok"><strong>Dynamic Programming</strong><span class="sub">Overlapping subproblems + optimal substructure; memoizes solutions in table (MCM, LCS)</span></div>
+    <div class="flow-box warn"><strong>Backtracking & Branch/Bound</strong><span class="sub">Systematic state-space tree search with bounding functions & pruning (N-Queens, TSP)</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Algorithmic Paradigms</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Divide and Conquer vs Dynamic Programming vs Greedy Strategy</div>
+    <div class="v-desc">High-level structural contrast showing problem eligibility criteria, optimality proofs, and time-space trade-offs.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=2Rr2tW9zvRg" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>1. Divide and conquer</h2>
+
+<div class="formula">
+  <span class="name">The three steps</span>
+  <strong>DIVIDE</strong> &mdash; break the problem into <strong>a number of subproblems that are smaller instances of the same problem</strong>.<br>
+  <strong>CONQUER</strong> &mdash; solve the subproblems <strong>recursively</strong>. If a subproblem is small enough, solve it directly &mdash; the <strong>base case</strong>.<br>
+  <strong>COMBINE</strong> &mdash; combine the subproblem solutions into the solution for the original problem.
+</div>
+
+<div class="formula">
+  <span class="name">Control abstraction</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  DandC(P) {<br>
+  &nbsp;&nbsp; if (Small(P)) return S(P);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* base case, solved directly */<br>
+  &nbsp;&nbsp; else {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; divide P into smaller instances P<sub>1</sub>, P<sub>2</sub>, &hellip;, P<sub>k</sub>;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; <strong>return Combine( DandC(P<sub>1</sub>), DandC(P<sub>2</sub>), &hellip;, DandC(P<sub>k</sub>) );</strong><br>
+  &nbsp;&nbsp; }<br>
+  }
+  </div>
+</div>
+
+<p>The running time is always a recurrence of the shape <strong>T(n) = a T(n/b) + f(n)</strong> &mdash; which is precisely why Lesson 5's Master theorem exists.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Recurrence</th><th>Complexity</th></tr></thead>
+<tbody>
+<tr><td><strong>Binary search</strong></td><td>T(n) = T(n/2) + 1</td><td>&Theta;(log n)</td></tr>
+<tr><td><strong>Merge sort</strong></td><td>T(n) = 2T(n/2) + n</td><td>&Theta;(n log n)</td></tr>
+<tr><td><strong>Quick sort</strong> (best)</td><td>T(n) = 2T(n/2) + n</td><td>&Theta;(n log n)</td></tr>
+<tr><td><strong>Strassen's matrix multiplication</strong></td><td>T(n) = 7T(n/2) + n&sup2;</td><td>&Theta;(n<sup>2.807</sup>)</td></tr>
+<tr><td><strong>Max&ndash;min by divide and conquer</strong></td><td>T(n) = 2T(n/2) + 2</td><td>&Theta;(n), with 3n/2 &minus; 2 comparisons</td></tr>
+<tr><td><strong>Karatsuba integer multiplication</strong></td><td>T(n) = 3T(n/2) + n</td><td>&Theta;(n<sup>1.585</sup>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; binary search for x = 23 in A = [4, 8, 15, 16, 23, 42, 50, 61], n = 8.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Step</th><th class="num">low</th><th class="num">high</th><th class="num">mid</th><th class="num">A[mid]</th><th>Action</th></tr></thead>
+  <tbody>
+  <tr><td class="num">1</td><td class="num">1</td><td class="num">8</td><td class="num">4</td><td class="num">16</td><td>16 &lt; 23 &rarr; discard the left half, <strong>low = 5</strong></td></tr>
+  <tr><td class="num">2</td><td class="num">5</td><td class="num">8</td><td class="num">6</td><td class="num">42</td><td>42 &gt; 23 &rarr; discard the right half, <strong>high = 5</strong></td></tr>
+  <tr><td class="num">3</td><td class="num">5</td><td class="num">5</td><td class="num">5</td><td class="num">23</td><td><strong>Found at index 5.</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>3 comparisons</strong> for 8 elements, against up to 8 for linear search. And &lceil;log<sub>2</sub>8&rceil; + 1 = 4 is the worst case, so 3 is consistent.</p>
+  <p><em>The essential feature:</em> <strong>only one of the two halves is searched</strong>, which is why the recurrence is T(n/2) + 1 and not 2T(n/2) + 1.</p>
+</div>
+
+<h2>2. Greedy</h2>
+
+<div class="formula">
+  <span class="name">The strategy</span>
+  Build the solution <strong>one piece at a time</strong>, always choosing the piece that <strong>looks best at this moment</strong> &mdash; the locally optimal choice &mdash; <strong>and never reconsidering it</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property required</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Greedy-choice property</strong></td><td>A globally optimal solution can be reached by making a locally optimal choice at each step. <em>The choice may depend on choices already made, but not on choices still to come.</em></td></tr>
+<tr><td><strong>Optimal substructure</strong></td><td>An optimal solution to the problem contains within it optimal solutions to the subproblems</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Control abstraction</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  Greedy(a, n) {&nbsp;&nbsp;/* a[1..n] is the input set */<br>
+  &nbsp;&nbsp; solution = &empty;;<br>
+  &nbsp;&nbsp; for (i = 1; i &lt;= n; i++) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; x = <strong>Select(a);</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* pick the locally best item */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; if (<strong>Feasible</strong>(solution, x))&nbsp;&nbsp;/* does it keep the solution legal? */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; solution = <strong>Union</strong>(solution, x);<br>
+  &nbsp;&nbsp; }<br>
+  &nbsp;&nbsp; return solution;<br>
+  }
+  </div>
+  <span style="font-size:.85em">Three functions define any greedy algorithm: <strong>Select</strong>, <strong>Feasible</strong> and <strong>Union</strong>.</span>
+</div>
+
+<div class="box win">
+  <span class="lbl">The crucial warning &mdash; include it in every greedy answer</span>
+  <p><strong>Greedy does not always give the optimal solution.</strong> It is optimal for <strong>fractional knapsack, activity selection, Huffman coding, Prim's, Kruskal's and Dijkstra's</strong>. It <strong>fails</strong> for the <strong>0/1 knapsack</strong> problem &mdash; which needs dynamic programming &mdash; and for the travelling salesman problem, and for shortest paths with negative edges.</p>
+  <p><strong>The contrast to quote:</strong> fractional knapsack is solved greedily because an item can be cut; 0/1 knapsack cannot, because taking a high-ratio item may block a better combination.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; fractional knapsack. n = 7, capacity W = 15.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Item</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Profit p<sub>i</sub></strong></td><td class="num">10</td><td class="num">5</td><td class="num">15</td><td class="num">7</td><td class="num">6</td><td class="num">18</td><td class="num">3</td></tr>
+  <tr><td><strong>Weight w<sub>i</sub></strong></td><td class="num">2</td><td class="num">3</td><td class="num">5</td><td class="num">7</td><td class="num">1</td><td class="num">4</td><td class="num">1</td></tr>
+  <tr><td><strong>Ratio p<sub>i</sub>/w<sub>i</sub></strong></td><td class="num">5.00</td><td class="num">1.67</td><td class="num">3.00</td><td class="num">1.00</td><td class="num"><strong>6.00</strong></td><td class="num">4.50</td><td class="num">3.00</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Step 1 &mdash; the greedy choice is the highest profit-to-weight ratio.</strong> Sorted order: <strong>5, 1, 6, 3, 7, 2, 4</strong>.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Take</th><th class="num">w</th><th class="num">Remaining capacity</th><th>Fraction</th><th class="num">Profit added</th></tr></thead>
+  <tbody>
+  <tr><td>Item 5</td><td class="num">1</td><td class="num">15 &rarr; 14</td><td>1</td><td class="num">6</td></tr>
+  <tr><td>Item 1</td><td class="num">2</td><td class="num">14 &rarr; 12</td><td>1</td><td class="num">10</td></tr>
+  <tr><td>Item 6</td><td class="num">4</td><td class="num">12 &rarr; 8</td><td>1</td><td class="num">18</td></tr>
+  <tr><td>Item 3</td><td class="num">5</td><td class="num">8 &rarr; 3</td><td>1</td><td class="num">15</td></tr>
+  <tr><td>Item 7</td><td class="num">1</td><td class="num">3 &rarr; 2</td><td>1</td><td class="num">3</td></tr>
+  <tr><td><strong>Item 2</strong></td><td class="num">3</td><td class="num">2 &rarr; 0</td><td><strong>2/3</strong></td><td class="num"><strong>5 &times; 2/3 = 3.33</strong></td></tr>
+  <tr><td>Item 4</td><td class="num">&mdash;</td><td class="num">0</td><td>0</td><td class="num">0</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Solution vector x = (1, 2/3, 1, 0, 1, 1, 1)</strong></p>
+  <p><strong>Maximum profit = 6 + 10 + 18 + 15 + 3 + 3.33 = 55.33</strong></p>
+  <p><em>Sanity check &mdash; do it every time:</em> the weights used are 1 + 2 + 4 + 5 + 1 + 2 = <strong>15 = W exactly</strong>, so the knapsack is full, as it must be when a fraction is taken. And the profit must exceed the ratio of the worst item times W; it does comfortably.</p>
+</div>
+
+<h2>3. Backtracking</h2>
+
+<div class="formula">
+  <span class="name">The strategy</span>
+  A <strong>systematic, refined brute force</strong>: build the solution <strong>one component at a time</strong>, and as soon as a partial solution <strong>cannot possibly be completed into a valid one</strong>, <strong>abandon it and back up</strong> to the previous component &mdash; <em>backtrack</em>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>State-space tree</strong></td><td>The tree of all partial solutions. Backtracking performs a <strong>depth-first traversal</strong> of it</td></tr>
+<tr><td><strong>Bounding function</strong></td><td>The test that decides whether a partial solution can lead to a complete one</td></tr>
+<tr><td><strong>Promising node</strong></td><td>A partial solution that <em>may</em> still lead to a complete solution &mdash; explore its children</td></tr>
+<tr><td><strong>Non-promising node</strong></td><td>One that cannot &mdash; <strong>prune the whole subtree</strong> and backtrack</td></tr>
+<tr><td><strong>Live node</strong> / <strong>E-node</strong> / <strong>dead node</strong></td><td>Generated but not fully explored / currently being expanded / cannot be expanded further</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Classic problems:</strong> N-queens, graph colouring, Hamiltonian cycle, subset sum, sum of subsets, the knight's tour, and Sudoku.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; the 4-queens problem.</span>
+  <p><strong>The problem:</strong> place 4 queens on a 4&times;4 board so that no two share a row, a column or a diagonal.</p>
+  <p><strong>The formulation:</strong> since no two queens may share a row, put queen i in row i and let x<sub>i</sub> be its column. The solution is a vector (x<sub>1</sub>, x<sub>2</sub>, x<sub>3</sub>, x<sub>4</sub>).</p>
+  <div class="formula">
+    <span class="name">The bounding function &mdash; two conditions</span>
+    Queens at (i, x<sub>i</sub>) and (j, x<sub>j</sub>) conflict if<br>
+    <strong>x<sub>i</sub> = x<sub>j</sub></strong> &nbsp;(same column) &nbsp;&nbsp;or&nbsp;&nbsp; <strong>|x<sub>i</sub> &minus; x<sub>j</sub>| = |i &minus; j|</strong> &nbsp;(same diagonal)
+  </div>
+  <p><strong>The trace:</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Partial solution</th><th>Verdict</th></tr></thead>
+  <tbody>
+  <tr><td>(1)</td><td>Queen 1 in column 1. Promising.</td></tr>
+  <tr><td>(1, 1) (1, 2)</td><td>Column 1 clashes; column 2 is on the diagonal (|2&minus;1| = |2&minus;1|). <strong>Both dead.</strong></td></tr>
+  <tr><td>(1, 3)</td><td>OK. Promising.</td></tr>
+  <tr><td>(1, 3, 1) (1, 3, 2) (1, 3, 3) (1, 3, 4)</td><td>1 clashes with x<sub>1</sub>; 2 is diagonal to x<sub>2</sub>=3; 3 clashes with x<sub>2</sub>; 4 is diagonal to x<sub>2</sub>=3. <strong>All four dead &mdash; backtrack.</strong></td></tr>
+  <tr><td>(1, 4)</td><td>OK. Promising.</td></tr>
+  <tr><td>(1, 4, 2)</td><td>OK. Promising.</td></tr>
+  <tr><td>(1, 4, 2, ?)</td><td>Columns 1, 2, 4 are used or diagonal; 3 is diagonal to x<sub>3</sub>=2. <strong>Dead &mdash; backtrack all the way to queen 1.</strong></td></tr>
+  <tr><td>(2)</td><td>Restart with queen 1 in column 2.</td></tr>
+  <tr><td>(2, 4)</td><td>OK. Promising.</td></tr>
+  <tr><td>(2, 4, 1)</td><td>OK. Promising.</td></tr>
+  <tr><td><strong>(2, 4, 1, 3)</strong></td><td><strong>All four placed &mdash; SOLUTION.</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Answer: x = (2, 4, 1, 3)</strong>, meaning queens at (1,2), (2,4), (3,1), (4,3). The second solution is its mirror, <strong>(3, 1, 4, 2)</strong>, and there are exactly two for n = 4.</p>
+  <p><em>Verify the diagonals of (2,4,1,3):</em> |2&minus;4| = 2 &ne; |1&minus;2| = 1 &check;; |2&minus;1| = 1 &ne; |1&minus;3| = 2 &check;; |2&minus;3| = 1 &ne; |1&minus;4| = 3 &check;; |4&minus;1| = 3 &ne; |2&minus;3| = 1 &check;; |4&minus;3| = 1 &ne; |2&minus;4| = 2 &check;; |1&minus;3| = 2 &ne; |3&minus;4| = 1 &check;. All six pairs clear.</p>
+  <p><em>The saving:</em> brute force would test 4<sup>4</sup> = 256 placements (or 4! = 24 with the one-per-row rule). Backtracking examined about a dozen nodes. <strong>That pruning is the entire point.</strong></p>
+</div>
+
+<h2>4. Branch and bound</h2>
+
+<div class="formula">
+  <span class="name">The strategy</span>
+  Like backtracking, it searches a <strong>state-space tree</strong> &mdash; but it is used for <strong>optimisation problems</strong>, not just feasibility. At each node it computes a <strong>bound</strong> on the best value obtainable in that subtree, and <strong>prunes any subtree whose bound is worse than the best complete solution found so far</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Search strategy</th><th>How the next live node is chosen</th></tr></thead>
+<tbody>
+<tr><td><strong>FIFO branch and bound</strong></td><td>A queue &mdash; a <strong>breadth-first</strong> search of the state-space tree</td></tr>
+<tr><td><strong>LIFO branch and bound</strong></td><td>A stack &mdash; a <strong>depth-first</strong> search, closest to backtracking</td></tr>
+<tr><td><strong>Least-cost (LC) branch and bound</strong></td><td>A <strong>priority queue</strong> on the bound &mdash; expand the <strong>most promising</strong> node first. Usually the fastest</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Classic problems:</strong> 0/1 knapsack, travelling salesman, job assignment, and 15-puzzle.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; 0/1 knapsack by branch and bound (upper-bound pruning). n = 4, W = 10.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Item</th><th class="num">Profit</th><th class="num">Weight</th><th class="num">Ratio</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td class="num">40</td><td class="num">4</td><td class="num">10</td></tr>
+  <tr><td>2</td><td class="num">42</td><td class="num">7</td><td class="num">6</td></tr>
+  <tr><td>3</td><td class="num">25</td><td class="num">5</td><td class="num">5</td></tr>
+  <tr><td>4</td><td class="num">12</td><td class="num">3</td><td class="num">4</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>Items are already in decreasing ratio order, which is required for the bound to be valid.</em></p>
+  <p><strong>The bounding function.</strong> At any node, the <strong>upper bound</strong> is the profit already secured plus the <strong>fractional-knapsack</strong> value of the remaining capacity using the remaining items. Since the fractional relaxation can never do worse than the 0/1 answer, this is a genuine upper bound.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Node</th><th>Decision</th><th class="num">Profit</th><th class="num">Weight</th><th class="num">Upper bound</th><th>Action</th></tr></thead>
+  <tbody>
+  <tr><td>Root</td><td>&mdash;</td><td class="num">0</td><td class="num">0</td><td class="num">40 + 42 &times; 6/7 = <strong>76</strong></td><td>Expand</td></tr>
+  <tr><td>A</td><td>Take 1</td><td class="num">40</td><td class="num">4</td><td class="num">40 + 42&times;6/7 = <strong>76</strong></td><td>Expand first &mdash; higher bound</td></tr>
+  <tr><td>B</td><td>Take 1, 2</td><td class="num">82</td><td class="num">11 &gt; 10</td><td class="num">&mdash;</td><td><strong>Infeasible &mdash; prune</strong></td></tr>
+  <tr><td>C</td><td>Take 1, skip 2</td><td class="num">40</td><td class="num">4</td><td class="num">40 + 25 + 12&times;1/3 = <strong>69</strong></td><td>Expand</td></tr>
+  <tr><td>D</td><td>Take 1, 3</td><td class="num">65</td><td class="num">9</td><td class="num">65 + 12&times;1/3 = <strong>69</strong></td><td>Expand</td></tr>
+  <tr><td>E</td><td>Take 1, 3, skip 4</td><td class="num"><strong>65</strong></td><td class="num">9</td><td class="num">&mdash;</td><td><strong>Complete solution: 65</strong></td></tr>
+  <tr><td>F</td><td>Skip 1</td><td class="num">0</td><td class="num">0</td><td class="num">42 + 25 &times; 3/5 = <strong>57</strong></td><td><strong>57 &lt; 65 &rarr; prune the whole subtree</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Optimal solution: take items 1 and 3, profit = 65, weight = 9.</strong></p>
+  <p><em>Sanity check:</em> the alternatives are 1+4 = 52 (w 7), 2+3 = 67 but weight 12 &gt; 10, 2+4 = 54 (w 10), 3+4 = 37 (w 8), 1+3+4 = 77 but weight 12 &gt; 10. So <strong>65 is indeed the best feasible value.</strong> &check;</p>
+  <p><em>Note how the greedy answer would fail:</em> greedy by ratio takes item 1 then item 2, giving weight 11 &mdash; infeasible. <strong>Greedy does not solve 0/1 knapsack</strong>, which is exactly the point made earlier.</p>
+</div>
+
+<h2>The two comparison tables</h2>
+
+<div class="box exam">
+  <span class="lbl">Backtracking vs branch and bound &mdash; the most-asked comparison in this subject</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>&nbsp;</th><th><strong>Backtracking</strong></th><th><strong>Branch and bound</strong></th></tr></thead>
+  <tbody>
+  <tr><td><strong>Solves</strong></td><td><strong>Feasibility</strong> problems &mdash; find <em>a</em> solution, or all of them</td><td><strong>Optimisation</strong> problems &mdash; find the <em>best</em> solution</td></tr>
+  <tr><td><strong>Traversal</strong></td><td><strong>Depth-first</strong> only</td><td><strong>BFS, DFS or least-cost</strong> &mdash; whichever suits</td></tr>
+  <tr><td><strong>Prunes using</strong></td><td>A <strong>bounding function</strong> that tests <em>feasibility</em></td><td>A <strong>bound</strong> compared against the <em>best solution so far</em></td></tr>
+  <tr><td><strong>Node revisiting</strong></td><td>Returns to a node when a child fails</td><td>Does not backtrack in the same sense &mdash; it picks the next live node</td></tr>
+  <tr><td><strong>Efficiency</strong></td><td>More efficient when solutions are dense</td><td>Usually explores more nodes, but guarantees optimality</td></tr>
+  <tr><td><strong>Examples</strong></td><td>N-queens, graph colouring, Hamiltonian cycle, sum of subsets</td><td>0/1 knapsack, travelling salesman, job assignment, 15-puzzle</td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Divide and conquer</th><th>Greedy</th><th>Backtracking</th><th>Branch and bound</th></tr></thead>
+<tbody>
+<tr><td><strong>Idea</strong></td><td>Split, solve, combine</td><td>Locally best choice, never reconsidered</td><td>Build up, abandon dead ends</td><td>Build up, prune by bound</td></tr>
+<tr><td><strong>Subproblems</strong></td><td><strong>Independent</strong> and non-overlapping</td><td>One choice per step</td><td>Explores the state-space tree</td><td>Explores the state-space tree</td></tr>
+<tr><td><strong>Optimal?</strong></td><td>Yes, if the combine step is correct</td><td><strong>Not always</strong></td><td>Finds all valid solutions</td><td>Yes &mdash; guarantees optimality</td></tr>
+<tr><td><strong>Typical cost</strong></td><td>n log n to n<sup>3</sup></td><td>Usually n log n, from the sort</td><td>Exponential in the worst case</td><td>Exponential in the worst case</td></tr>
+<tr><td><strong>Analysed by</strong></td><td>Recurrences and the Master theorem</td><td>Proving the greedy-choice property</td><td>Counting nodes in the state-space tree</td><td>Counting nodes in the state-space tree</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">Two more paradigms the syllabus meets later</span>
+  <p><strong>Dynamic programming</strong> (Unit IV) differs from divide and conquer in that its subproblems <strong>overlap</strong>, so each is solved once and its answer stored &mdash; memoisation or a table. It also differs from greedy in that it <strong>considers all choices</strong> rather than committing to one. That is why 0/1 knapsack needs DP and fractional knapsack does not.</p>
+  <p><strong>Brute force</strong> tries every possibility with no pruning at all. Backtracking is brute force plus a bounding function; branch and bound is brute force plus a bound and an ordering.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The three steps of divide and conquer are:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Divide, conquer, combine</button>
+    <button class="opt">Guess, verify, iterate</button>
+    <button class="opt">Branch, bound, prune</button>
+    <button class="opt">Select, feasible, union</button>
+  </div>
+  <p class="why">Select–feasible–union is the greedy control abstraction; branch–bound–prune describes branch and bound.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Greedy fails on which of these?</p>
+  <div class="opts">
+    <button class="opt">Huffman coding</button>
+    <button class="opt">Fractional knapsack</button>
+    <button class="opt">Kruskal's minimum spanning tree</button>
+    <button class="opt" data-ok="1">0/1 knapsack</button>
+  </div>
+  <p class="why">Because an item cannot be split, taking the highest-ratio item first may block a better combination — as the worked example showed, where greedy chose items 1 and 2 for an infeasible weight of 11.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In the fractional-knapsack example with W = 15, the maximum profit is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">55.33</button>
+    <button class="opt">52</button>
+    <button class="opt">64</button>
+    <button class="opt">49</button>
+  </div>
+  <p class="why">Whole items 5, 1, 6, 3, 7 use 13 units for a profit of 52, and 2/3 of item 2 adds 3.33. The weights must total exactly 15, which is the check to run.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Two queens at (i, xᵢ) and (j, xⱼ) are on the same diagonal when:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">|xᵢ − xⱼ| = |i − j|</button>
+    <button class="opt">xᵢ + xⱼ = i + j only</button>
+    <button class="opt">i = j</button>
+    <button class="opt">xᵢ = xⱼ</button>
+  </div>
+  <p class="why">Equal columns is the other clash condition. Putting queen i in row i already prevents row clashes, which is why only these two tests are needed.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Backtracking traverses the state-space tree:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Depth-first only</button>
+    <button class="opt">In any order the programmer chooses</button>
+    <button class="opt">In least-cost order</button>
+    <button class="opt">Breadth-first only</button>
+  </div>
+  <p class="why">Branch and bound is the one with three choices: FIFO for breadth-first, LIFO for depth-first, and least-cost using a priority queue on the bound.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The upper bound used in branch-and-bound 0/1 knapsack is computed by:</p>
+  <div class="opts">
+    <button class="opt">Taking the sum of all remaining profits</button>
+    <button class="opt">Taking the largest single remaining profit</button>
+    <button class="opt">Running the greedy 0/1 algorithm</button>
+    <button class="opt" data-ok="1">Solving the fractional knapsack on the remaining capacity and items</button>
+  </div>
+  <p class="why">The fractional relaxation can never do worse than the 0/1 answer, so it is a valid upper bound — and a tight one, which is what makes the pruning effective.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. The key difference between backtracking and branch and bound is that:</p>
+  <div class="opts">
+    <button class="opt">Backtracking uses a priority queue</button>
+    <button class="opt">Branch and bound never prunes</button>
+    <button class="opt" data-ok="1">Backtracking solves feasibility problems; branch and bound solves optimisation problems</button>
+    <button class="opt">Backtracking is always faster</button>
+  </div>
+  <p class="why">That difference drives everything else: an optimisation problem needs a numeric bound to compare against the best found so far, and it pays off to expand the most promising node first.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the three steps and the control abstraction of divide and conquer.</summary>
+    <p class="ans">Divide the problem into smaller instances of the same problem; conquer by solving them recursively, with a base case solved directly; combine the results. The abstraction is: if Small(P) return S(P), else divide into P₁…P&#8342; and return Combine(DandC(P₁), …). The cost is always T(n) = aT(n/b) + f(n).</p></details>
+  <details class="card"><summary>Give the greedy control abstraction and the two properties required.</summary>
+    <p class="ans">Repeatedly Select the locally best item, test whether it is Feasible, and if so take its Union with the solution. It requires the greedy-choice property — a global optimum is reachable by locally optimal choices — and optimal substructure.</p></details>
+  <details class="card"><summary>Where does greedy work and where does it fail?</summary>
+    <p class="ans">It is optimal for fractional knapsack, activity selection, Huffman coding, Prim's, Kruskal's and Dijkstra's. It fails for 0/1 knapsack, the travelling salesman problem, and shortest paths with negative edges. The contrast: fractional knapsack allows splitting an item, 0/1 does not.</p></details>
+  <details class="card"><summary>Work the fractional knapsack for W = 15 with profits 10,5,15,7,6,18,3 and weights 2,3,5,7,1,4,1.</summary>
+    <p class="ans">Ratios 5, 1.67, 3, 1, 6, 4.5, 3 give the order 5, 1, 6, 3, 7, 2, 4. Take items 5, 1, 6, 3, 7 whole (13 units, profit 52), then 2/3 of item 2 for 3.33. Total 55.33, with x = (1, 2/3, 1, 0, 1, 1, 1) and weight exactly 15.</p></details>
+  <details class="card"><summary>Define backtracking and its vocabulary.</summary>
+    <p class="ans">A refined brute force that builds a solution one component at a time and abandons a partial solution as soon as it cannot be completed. It performs a depth-first traversal of the state-space tree, using a bounding function to decide whether a node is promising; a non-promising node has its whole subtree pruned. Live node, E-node and dead node describe a node generated, being expanded, and unable to be expanded.</p></details>
+  <details class="card"><summary>Solve 4-queens and state the clash conditions.</summary>
+    <p class="ans">With queen i in row i and column xᵢ, two queens clash if xᵢ = xⱼ or |xᵢ − xⱼ| = |i − j|. The two solutions are (2, 4, 1, 3) and (3, 1, 4, 2).</p></details>
+  <details class="card"><summary>Compare backtracking with branch and bound on six points.</summary>
+    <p class="ans">Feasibility vs optimisation; depth-first only vs FIFO, LIFO or least-cost; a feasibility bounding function vs a bound compared against the best solution so far; returning to a node on failure vs choosing the next live node; better when solutions are dense vs guaranteeing optimality; N-queens and graph colouring vs 0/1 knapsack and TSP.</p></details>
+  <details class="card"><summary>How does dynamic programming differ from divide and conquer and from greedy?</summary>
+    <p class="ans">From divide and conquer: its subproblems overlap, so each is solved once and stored. From greedy: it considers all choices instead of committing to one. That is why 0/1 knapsack needs dynamic programming while fractional knapsack does not.</p></details>
+</div>
+
+<p class="ask">That completes Unit I. Unit II opens with the data structures &mdash; binary search trees, and then the balanced trees built on them.</p>
+
+<div class="nav">
+  <a href="0005-masters-theorem.html">&larr; Master's Theorem</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-2/0007-binary-search-trees.html">Next: Binary Search Trees &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

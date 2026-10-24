@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 04 — Knapsack</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 04 of 12 · one loop direction decides everything</div>
+<h1>Knapsack: 0/1, unbounded &amp; the loop-order rule</h1>
+<p class="subtitle">Items + capacity is the most reusable DP shape in interviews. Master two loop rules — descending vs ascending, items-outer vs target-outer — and eight LC problems collapse into one template.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 4 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+You have <strong>items</strong> and a <strong>capacity</strong> (weight limit, target sum, amount). The state is
+"(items considered so far, capacity used)". <strong>0/1 knapsack</strong>: each item usable at most once →
+in the 1D version, iterate capacity <strong>descending</strong>. <strong>Unbounded knapsack</strong>: items reusable →
+iterate capacity <strong>ascending</strong>. And when <em>counting</em>: items in the outer loop counts
+<strong>combinations</strong>; capacity/target in the outer loop counts <strong>permutations</strong>. The loop
+structure <em>is</em> the semantics.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Pick a subset with sum/weight ≤ or = target" · "fewest coins to make amount" · "number of ways
+  to make amount" · "partition the array into two halves". The moment a problem is
+  <em>choose items under a budget</em>, you are in knapsack territory — decide 0/1 vs unbounded first.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<table>
+  <thead><tr><th>Part</th><th>For the knapsack family</th></tr></thead>
+  <tbody>
+    <tr><td><strong>State</strong></td><td><code>dp[i][c]</code> = best answer (max value / true / #ways) using the first <code>i</code> items with capacity <code>c</code>. 1D version drops <code>i</code>: <code>dp[c]</code>.</td></tr>
+    <tr><td><strong>Recurrence</strong></td><td>Skip item <code>i</code>: <code>dp[i-1][c]</code>. Take it: <code>dp[i-1][c-w]</code> (0/1 — previous row) or <code>dp[i][c-w]</code> (unbounded — same row). Combine with max / OR / +.</td></tr>
+    <tr><td><strong>Base case</strong></td><td><code>dp[0] = 0</code> (max), <code>true</code> (feasibility), or <code>1</code> (counting: one way to make 0 — pick nothing). Everything else 0/false/∞.</td></tr>
+    <tr><td><strong>Order</strong></td><td>Items outer. Capacity inner: <strong>descending</strong> for 0/1, <strong>ascending</strong> for unbounded. Permutation counts flip: target outer, items inner.</td></tr>
+    <tr><td><strong>Answer</strong></td><td><code>dp[W]</code> (or <code>dp[target]</code>) after all items are processed.</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · Core template</h2>
+<h3>0/1 knapsack — 2D, then compressed to 1D descending</h3>
+<pre><code><span class="cmt">// dp[i][c] = max value using the first i items within capacity c.</span>
+int knapsack(int[] w, int[] val, int W) {
+    int n = w.length;
+    int[][] dp = new int[n + 1][W + 1];      <span class="cmt">// row 0 and column 0 stay 0 — the base case</span>
+    for (int i = 1; i &lt;= n; i++)
+        for (int c = 0; c &lt;= W; c++) {
+            dp[i][c] = dp[i - 1][c];         <span class="cmt">// choice 1: skip item i-1</span>
+            if (c &gt;= w[i - 1])               <span class="cmt">// choice 2: take it ONCE — read the PREVIOUS row</span>
+                dp[i][c] = Math.max(dp[i][c], dp[i - 1][c - w[i - 1]] + val[i - 1]);
+        }
+    return dp[n][W];
+}</code></pre>
+<pre><code><span class="cmt">// 1D: row i only reads row i-1, so keep one row. Capacity must DESCEND so that</span>
+<span class="cmt">// dp[c - w[i]] is still the previous item's value — ascending would let item i feed itself.</span>
+int[] dp = new int[W + 1];
+for (int i = 0; i &lt; n; i++)
+    for (int c = W; c &gt;= w[i]; c--)          <span class="cmt">// DESCENDING ⇒ each item used at most once</span>
+        dp[c] = Math.max(dp[c], dp[c - w[i]] + val[i]);
+return dp[W];</code></pre>
+<p><strong>Time</strong> O(n·W). <strong>Space</strong> O(W) after compression. Note: pseudo-polynomial — W is a <em>value</em>, not an input length.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 2915 · Length of the Longest Subsequence That Sums to Target</strong> (Medium) — same 1D descending loop, but dp[c] = longest length hitting sum c exactly (init −∞, dp[0] = 0) instead of max value.</li><li><strong>LC 956 · Tallest Billboard</strong> (Hard, stretch) — each rod goes left / right / unused; re-index the state as dp[difference between piles] = tallest shorter pile. Still one pass per item over a capacity axis.</li></ul>
+
+<h3>Unbounded — Coin Change (LC 322, min coins) and Coin Change II (LC 518, count ways)</h3>
+<pre><code>int coinChange(int[] coins, int amount) {
+    int[] dp = new int[amount + 1];
+    Arrays.fill(dp, amount + 1);             <span class="cmt">// "infinity" that survives the +1 without overflow</span>
+    dp[0] = 0;
+    for (int coin : coins)
+        for (int a = coin; a &lt;= amount; a++) <span class="cmt">// ASCENDING ⇒ coin may be reused</span>
+            dp[a] = Math.min(dp[a], dp[a - coin] + 1);
+    return dp[amount] &gt; amount ? -1 : dp[amount];
+}</code></pre>
+<pre><code>int change(int amount, int[] coins) {
+    int[] dp = new int[amount + 1];
+    dp[0] = 1;                               <span class="cmt">// one way to make 0: choose nothing</span>
+    for (int coin : coins)                   <span class="cmt">// coins OUTER ⇒ counts COMBINATIONS ({1,2} == {2,1})</span>
+        for (int a = coin; a &lt;= amount; a++)
+            dp[a] += dp[a - coin];
+    return dp[amount];
+}</code></pre>
+<p><strong>Time</strong> O(#coins · amount). <strong>Space</strong> O(amount) for both.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 322 · Coin Change</strong> (Medium, Google-reported) — implement the min template above verbatim; the whole exercise is the ascending loop + the <code>amount + 1</code> infinity + the −1 check.</li><li><strong>LC 518 · Coin Change II</strong> (Medium) — the counting twin: swap min for +=, base <code>dp[0] = 1</code>, coins stay in the OUTER loop so {2,5} and {5,2} count once.</li><li><strong>LC 983 · Minimum Cost For Tickets</strong> (Medium) — unbounded min over days instead of coins: dp[day] = cheapest cover, three "coins" (1/7/30-day passes) reusable, skip non-travel days for free.</li></ul>
+
+<div class="callout tip">
+  <span class="label">The loop-order rule — memorize this box</span>
+  <strong>0/1 vs unbounded:</strong> capacity <em>descending</em> = each item once; <em>ascending</em> = reuse allowed.
+  <strong>Combinations vs permutations (counting):</strong> items outer = order ignored (LC 518);
+  target outer, items inner = every ordering counted separately (LC 377).
+</div>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Partition Equal Subset Sum</td><td>416</td><td>Boolean subset-sum to <code>total/2</code>; odd total → instant false. 0/1, descending.</td></tr>
+    <tr><td>Target Sum</td><td>494</td><td>+/− signs reduce to <em>counting</em> subsets with sum <code>(total+target)/2</code>; parity + negativity guard.</td></tr>
+    <tr><td>Last Stone Weight II</td><td>1049</td><td>Minimize <code>|S1−S2|</code> = <code>total − 2·(best subset sum ≤ total/2)</code>. 0/1 max where value = weight.</td></tr>
+    <tr><td>Coin Change</td><td>322</td><td>Unbounded <em>min</em>; ascending; fill with "infinity", answer −1 if unreached.</td></tr>
+    <tr><td>Coin Change II</td><td>518</td><td>Unbounded <em>count of combinations</em>; coins outer, amount ascending.</td></tr>
+    <tr><td>Perfect Squares</td><td>279</td><td>Coin Change with implicit coins {1, 4, 9, …, ⌊√n⌋²}. Same unbounded-min template.</td></tr>
+    <tr><td>Combination Sum IV</td><td>377</td><td><strong>Permutations</strong>: target outer, nums inner — despite the misleading name.</td></tr>
+    <tr><td>Ones and Zeroes</td><td>474</td><td>Two capacities (zeros, ones) → 2D <code>dp[z][o]</code>, <strong>both</strong> loops descending.</td></tr>
+  </tbody>
+</table>
+
+<h3>Partition Equal Subset Sum (416) — the canonical boolean 0/1</h3>
+<pre><code>boolean canPartition(int[] nums) {
+    int total = 0;
+    for (int x : nums) total += x;
+    if (total % 2 == 1) return false;        <span class="cmt">// odd sum can never split evenly</span>
+    int target = total / 2;
+    boolean[] dp = new boolean[target + 1];
+    dp[0] = true;
+    for (int x : nums)
+        for (int j = target; j &gt;= x; j--)    <span class="cmt">// 0/1 → descending</span>
+            dp[j] = dp[j] || dp[j - x];
+    return dp[target];
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 416 · Partition Equal Subset Sum</strong> (Medium) — the section's own problem: boolean 0/1 to <code>total/2</code>, odd-total early exit, descending inner loop.</li><li><strong>LC 698 · Partition to K Equal Sum Subsets</strong> (Medium) — the k-pile generalization; pure subset-sum DP no longer suffices (you need backtracking / bitmask — a preview of Lesson 11), but recognizing the <code>total % k</code> guard comes straight from here.</li></ul>
+
+<h3>Target Sum (494) — algebra first, then subset-sum count</h3>
+<pre><code><span class="cmt">// Let P = sum of the + group. P − (total − P) = target  ⇒  P = (total + target) / 2.</span>
+int findTargetSumWays(int[] nums, int target) {
+    int total = 0;
+    for (int x : nums) total += x;
+    int s = total + target;
+    if (s &lt; 0 || s % 2 == 1) return 0;       <span class="cmt">// no valid P exists</span>
+    int[] dp = new int[s / 2 + 1];
+    dp[0] = 1;
+    for (int x : nums)
+        for (int j = s / 2; j &gt;= x; j--)     <span class="cmt">// 0/1 COUNT: same shape, += instead of ||</span>
+            dp[j] += dp[j - x];
+    return dp[s / 2];
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 494 · Target Sum</strong> (Medium) — the section's own problem: do the algebra on paper first, then it's a 0/1 subset-sum <em>count</em> with <code>+=</code> and a parity/negativity guard.</li><li><strong>LC 2787 · Ways to Express an Integer as Sum of Powers</strong> (Medium) — same 0/1 counting shape with <em>implicit</em> items 1<sup>x</sup>, 2<sup>x</sup>, …; each power usable once ⇒ descending; take answers mod 1e9+7.</li></ul>
+
+<h3>Last Stone Weight II (1049) — "minimize the difference" is subset-sum in disguise</h3>
+<pre><code><span class="cmt">// Smashing stones = splitting into two piles; answer = S1 − S2 = total − 2·S2.</span>
+<span class="cmt">// Maximize the smaller pile: 0/1 knapsack, capacity total/2, value = weight.</span>
+int[] dp = new int[total / 2 + 1];
+for (int s : stones)
+    for (int j = total / 2; j &gt;= s; j--)
+        dp[j] = Math.max(dp[j], dp[j - s] + s);
+return total - 2 * dp[total / 2];</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 1049 · Last Stone Weight II</strong> (Medium) — the section's own problem: translate "smash until one stone remains" into "split into two piles, minimize the difference", then run the snippet above.</li><li><strong>LC 805 · Split Array With Same Average</strong> (Hard, stretch) — subset-sum with an extra dimension: dp over (subset <em>size</em>, sum), then check whether some size k admits sum <code>k·total/n</code>. Same descending 0/1 core, one more index.</li></ul>
+
+<h3>Perfect Squares (279) — unbounded min with implicit coins</h3>
+<p>
+Nobody hands you a coin array here — the coins are the perfect squares <code>1, 4, 9, …, ⌊√n⌋²</code>, and
+each may be used any number of times. So this is LC 322 verbatim: state <code>dp[a]</code> = fewest squares
+summing to <code>a</code>; recurrence <code>dp[a] = min over squares q² ≤ a of dp[a − q²] + 1</code>; base
+<code>dp[0] = 0</code>; capacity ascending because reuse is allowed. One real difference from 322: since
+<code>1</code> is a square, <em>every</em> amount is reachable — there is no −1 branch to write.
+</p>
+<pre><code>int numSquares(int n) {
+    int[] dp = new int[n + 1];
+    Arrays.fill(dp, n);                      <span class="cmt">// safe "infinity": n ones always work, so dp[a] ≤ n</span>
+    dp[0] = 0;
+    for (int q = 1; q * q &lt;= n; q++)         <span class="cmt">// implicit coin q² — generate, don't store</span>
+        for (int a = q * q; a &lt;= n; a++)     <span class="cmt">// ASCENDING ⇒ each square reusable</span>
+            dp[a] = Math.min(dp[a], dp[a - q * q] + 1);
+    return dp[n];
+}</code></pre>
+<p><strong>Time</strong> O(n·√n) — √n implicit coins, each sweeping the amount axis once. <strong>Space</strong> O(n).</p>
+
+<div class="callout trap">
+  <span class="label">Trap — copying 322's infinity blindly</span>
+  If you fill with <code>Integer.MAX_VALUE</code> and an amount were ever unreachable, <code>dp[a − q²] + 1</code>
+  overflows to negative and <em>wins</em> the min. Here reachability saves you, but the habit is the bug:
+  pick an infinity that survives +1 (<code>n</code> here, <code>amount + 1</code> in 322). Bonus flex for the
+  follow-up: Lagrange's four-square theorem says the answer is always 1–4, so an O(√n) math check exists —
+  say it, but the interviewer expects the DP.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 279 · Perfect Squares</strong> (Medium, Google-reported) — the section's own problem: generate the squares in the outer loop, ascending inner, no −1 case.</li><li><strong>LC 343 · Integer Break</strong> (Medium) — implicit items again (the parts 1…n−1), but <em>maximize a product</em>: dp[a] = max over j of <code>j · max(a − j, dp[a − j])</code>; the max(…) handles "don't break the remainder".</li></ul>
+
+<h3>Coin Change II (518) vs Combination Sum IV (377) — side by side</h3>
+<pre><code><span class="cmt">// LC 518 — COMBINATIONS: coins outer. Coin 2 is never revisited after coin 5,</span>
+<span class="cmt">// so 2+5 and 5+2 are counted as ONE way.</span>
+for (int coin : coins)
+    for (int a = coin; a &lt;= amount; a++)
+        dp[a] += dp[a - coin];
+
+<span class="cmt">// LC 377 — PERMUTATIONS: target outer. At EVERY amount, every num can be the</span>
+<span class="cmt">// last element, so 1+2 and 2+1 are counted as TWO ways.</span>
+for (int a = 1; a &lt;= target; a++)
+    for (int x : nums)
+        if (a &gt;= x) dp[a] += dp[a - x];</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 377 · Combination Sum IV</strong> (Medium) — the section's own problem: target outer, nums inner; verify on <code>nums = [1,2], target = 3</code> that you get 3 (1+1+1, 1+2, 2+1), not 2.</li><li><strong>LC 70 · Climbing Stairs</strong> (Easy) — re-solve with this method: it is exactly 377 with <code>nums = {1, 2}</code>. Seeing your Lesson-1 problem fall out of the permutation loop is the point.</li><li><strong>LC 2466 · Count Ways To Build Good Strings</strong> (Medium) — permutation counting again: dp[len] += dp[len − zero] + dp[len − one], sum the window [low, high], mod 1e9+7.</li></ul>
+
+<h3>Ones and Zeroes (474) — a 2D capacity, both descending</h3>
+<pre><code><span class="cmt">// dp[z][o] = max #strings using at most z zeros and o ones.</span>
+int[][] dp = new int[m + 1][n + 1];
+for (String s : strs) {
+    int zeros = 0, ones = 0;
+    for (char ch : s.toCharArray()) { if (ch == '0') zeros++; else ones++; }
+    for (int z = m; z &gt;= zeros; z--)         <span class="cmt">// each string once ⇒ BOTH capacities descend</span>
+        for (int o = n; o &gt;= ones; o--)
+            dp[z][o] = Math.max(dp[z][o], dp[z - zeros][o - ones] + 1);
+}
+return dp[m][n];</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 474 · Ones and Zeroes</strong> (Medium) — the section's own problem: count zeros/ones per string once, then both capacity loops descend; forgetting to descend the <em>second</em> loop is the classic slip.</li><li><strong>LC 879 · Profitable Schemes</strong> (Hard) — 2D capacity again (people used, profit gained) but <em>counting</em> schemes instead of maximizing; cap the profit axis at minProfit and take everything mod 1e9+7.</li></ul>
+
+<h3>Worked example — dry run</h3>
+<p>LC 416 on <code>nums = [1, 5, 11, 5]</code>. Total = 22 → target = 11. Boolean <code>dp[0..11]</code>,
+<code>dp[0] = true</code>. Watch what the loop <em>direction</em> does while processing the very first item, <code>1</code>:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 430 148" role="img" aria-label="Two boolean dp arrays of size 12 after processing item 1: descending order marks only sums 0 and 1 true; ascending order incorrectly marks every sum true">
+  <text class="wt" x="38"  y="12">0</text><text class="wt" x="70" y="12">1</text><text class="wt" x="102" y="12">2</text><text class="wt" x="134" y="12">3</text><text class="wt" x="166" y="12">4</text><text class="wt" x="198" y="12">5</text><text class="wt" x="230" y="12">6</text><text class="wt" x="262" y="12">7</text><text class="wt" x="294" y="12">8</text><text class="wt" x="326" y="12">9</text><text class="wt" x="358" y="12">10</text><text class="wt" x="390" y="12">11</text>
+  <rect class="cell done" x="22" y="20" width="32" height="32"/><rect class="cell done" x="54" y="20" width="32" height="32"/><rect class="cell" x="86" y="20" width="32" height="32"/><rect class="cell" x="118" y="20" width="32" height="32"/><rect class="cell" x="150" y="20" width="32" height="32"/><rect class="cell" x="182" y="20" width="32" height="32"/><rect class="cell" x="214" y="20" width="32" height="32"/><rect class="cell" x="246" y="20" width="32" height="32"/><rect class="cell" x="278" y="20" width="32" height="32"/><rect class="cell" x="310" y="20" width="32" height="32"/><rect class="cell" x="342" y="20" width="32" height="32"/><rect class="cell" x="374" y="20" width="32" height="32"/>
+  <text class="lbl" x="38" y="36">T</text><text class="lbl" x="70" y="36">T</text><text class="lbl" x="102" y="36">F</text><text class="lbl" x="134" y="36">F</text><text class="lbl" x="166" y="36">F</text><text class="lbl" x="198" y="36">F</text><text class="lbl" x="230" y="36">F</text><text class="lbl" x="262" y="36">F</text><text class="lbl" x="294" y="36">F</text><text class="lbl" x="326" y="36">F</text><text class="lbl" x="358" y="36">F</text><text class="lbl" x="390" y="36">F</text>
+  <text class="wt" x="215" y="66">item 1, capacity 11 → 1 (DESCENDING, correct): only sums {0, 1} reachable</text>
+  <rect class="cell cur" x="22" y="78" width="32" height="32"/><rect class="cell cur" x="54" y="78" width="32" height="32"/><rect class="cell cur" x="86" y="78" width="32" height="32"/><rect class="cell cur" x="118" y="78" width="32" height="32"/><rect class="cell cur" x="150" y="78" width="32" height="32"/><rect class="cell cur" x="182" y="78" width="32" height="32"/><rect class="cell cur" x="214" y="78" width="32" height="32"/><rect class="cell cur" x="246" y="78" width="32" height="32"/><rect class="cell cur" x="278" y="78" width="32" height="32"/><rect class="cell cur" x="310" y="78" width="32" height="32"/><rect class="cell cur" x="342" y="78" width="32" height="32"/><rect class="cell cur" x="374" y="78" width="32" height="32"/>
+  <text class="lbl inv" x="38" y="94">T</text><text class="lbl inv" x="70" y="94">T</text><text class="lbl inv" x="102" y="94">T</text><text class="lbl inv" x="134" y="94">T</text><text class="lbl inv" x="166" y="94">T</text><text class="lbl inv" x="198" y="94">T</text><text class="lbl inv" x="230" y="94">T</text><text class="lbl inv" x="262" y="94">T</text><text class="lbl inv" x="294" y="94">T</text><text class="lbl inv" x="326" y="94">T</text><text class="lbl inv" x="358" y="94">T</text><text class="lbl inv" x="390" y="94">T</text>
+  <text class="wt" x="215" y="124">item 1, capacity 1 → 11 (ASCENDING, BUG): dp[1]←dp[0], dp[2]←dp[1], … the single 1 is reused 11 times</text>
+</svg>
+<figcaption>The ascending cascade: each freshly-set cell immediately feeds the next, so one item pretends to be an unlimited supply. Descending reads only values from <em>before</em> this item was considered.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">start: dp = {0}  (only dp[0] = T)</span>
+<span class="step now">item <span class="ptr">1</span>: j = 11…1 → dp[1] ← dp[0]. Reachable sums {0, 1}</span>
+<span class="step now">item <span class="ptr">5</span>: j = 11…5 → dp[6] ← dp[1], dp[5] ← dp[0]. Sums {0, 1, 5, 6}</span>
+<span class="step now">item <span class="ptr">11</span>: j = 11 → dp[11] ← dp[0] = T. Sums {0, 1, 5, 6, 11}</span>
+<span class="step">item <span class="ptr">5</span>: j = 11…5 → dp[10] ← dp[5]; dp[11] already T. Sums {0, 1, 5, 6, 10, 11}</span>
+<span class="step">dp[11] = <span class="ptr">true</span> → partition exists: {11} vs {1, 5, 5} ✓</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Loop direction:</strong> the #1 knapsack bug. 0/1 → capacity descending; unbounded → ascending. If your subset-sum says true too often, you wrote ascending.</li>
+  <li><strong>Counting base case is <code>dp[0] = 1</code></strong>, not 0 — "one way to make zero: take nothing."</li>
+  <li><strong>416 / 494 parity guards:</strong> odd total → false; <code>(total + target)</code> odd or negative → 0 ways. Check <em>before</em> allocating dp.</li>
+  <li><strong>322's "infinity":</strong> use <code>amount + 1</code>, not <code>Integer.MAX_VALUE</code> — MAX_VALUE + 1 overflows to negative and wins the min.</li>
+  <li><strong>Zeros and negatives:</strong> a weight-0 item in an ascending loop is an infinite loop of logic (dp[a] += dp[a] forever conceptually); negative nums break array indexing — 494 handles them via the algebra, not the loop.</li>
+  <li><strong>Counting overflow:</strong> 377 fits in int per constraints, but state it; use <code>long</code> when counts can exceed 2³¹.</li>
+  <li><strong>Inner-loop lower bound:</strong> start at <code>w[i]</code> (or stop when <code>j &lt; w[i]</code>) — going below just wastes iterations or crashes on <code>j - w[i]</code>.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the 1D 0/1 knapsack, why must the capacity loop run <strong>descending</strong>?</div>
+  <button class="opt">Descending is faster — the loop can break early once <code>j &lt; w[i]</code></button>
+  <button class="opt">So <code>dp[j - w[i]]</code> still holds the <em>previous item's</em> row — the current item can't be counted twice</button>
+  <button class="opt">Descending prevents <code>j - w[i]</code> from going negative and crashing</button>
+  <div class="fb" data-correct="The 1D array overlays row i on row i−1. Descending means dp[j−w] hasn't been touched this round, i.e. it's still 'without item i' — exactly the 0/1 semantics." data-wrong="Both directions cost O(W) and both can guard j ≥ w[i]. The real reason is data freshness: ascending overwrites dp[j−w] first, letting item i feed its own transition (unbounded reuse)."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You must count <strong>ordered</strong> sequences of numbers summing to <code>target</code> (LC 377, e.g. 1+2 and 2+1 count separately). Which loop structure?</div>
+  <button class="opt">Nums outer, target ascending inner — the standard unbounded shape</button>
+  <button class="opt">Nums outer, target descending inner — each number used at most once</button>
+  <button class="opt">Target outer, nums inner — every num can be the last pick at every amount</button>
+  <div class="fb" data-correct="Target outer means each dp[a] sums over ALL possible last elements, so different orderings are distinguished — permutations. Nums outer fixes a coin order, which collapses orderings into combinations." data-wrong="Nums-outer counts combinations (LC 518) because a num is never revisited after moving past it. For permutations, put target in the outer loop so every num competes to be the final element of every amount."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Target Sum (494): array total is <code>T</code>, required signed sum is <code>S</code>. The problem reduces to counting subsets with sum:</div>
+  <button class="opt"><code>(T + S) / 2</code>, returning 0 immediately if <code>T + S</code> is odd or negative</button>
+  <button class="opt"><code>T − S</code>, since the minus group must absorb the difference exactly</button>
+  <button class="opt"><code>S</code> itself — the signs don't change which subsets are feasible</button>
+  <div class="fb" data-correct="If P is the plus-group sum, P − (T − P) = S gives P = (T + S)/2. Odd or negative T + S means no integer subset works — bail out before the dp." data-wrong="Set up the algebra: plus-group P minus the rest (T − P) equals S, so P = (T + S)/2. That's the subset-sum target, with an odd/negative guard first."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://www.youtube.com/@adityaverma">Aditya Verma — Knapsack playlist</a> (the canonical 0/1 → unbounded intuition build). Backup: <a href="https://neetcode.io/roadmap">NeetCode — 1D/2D DP sections</a> and <a href="https://takeuforward.org/strivers-a2z-dsa-course/strivers-a2z-dsa-course-sheet-2/">Striver DP series</a> (Java-first).</li>
+  <li><strong>Java practice ladder (easiest → hardest):</strong>
+    <a href="https://leetcode.com/problems/partition-equal-subset-sum/">416 Partition Equal Subset Sum</a> →
+    <a href="https://leetcode.com/problems/target-sum/">494 Target Sum</a> →
+    <a href="https://leetcode.com/problems/coin-change/">322 Coin Change</a> (Google-reported) →
+    <a href="https://leetcode.com/problems/coin-change-ii/">518 Coin Change II</a> →
+    <a href="https://leetcode.com/problems/perfect-squares/">279 Perfect Squares</a> →
+    <a href="https://leetcode.com/problems/combination-sum-iv/">377 Combination Sum IV</a> →
+    <a href="https://leetcode.com/problems/last-stone-weight-ii/">1049 Last Stone Weight II</a> →
+    <a href="https://leetcode.com/problems/ones-and-zeroes/">474 Ones and Zeroes</a>.</li>
+  <li><strong>Drill:</strong> from a blank file, write the 1D 0/1 max template and Coin Change II back-to-back, saying the loop-direction rule out loud as you type each inner loop.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on why ascending equals reuse, want the 2D→1D compression drawn out row by row, or a dry run
+  of 377 vs 518 on <code>nums = [1, 2]</code>, <code>target = 3</code>? Ask in the chat. When you can state the
+  loop-order rule from memory and solve 416 cold, say <strong>"next"</strong> and we move to two-string DP.
+</div>
+
+<div class="nav">
+  <span><a href="0003-grid-dp.html">← Grid DP</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0005-string-dp-lcs-family.html">Two-string DP — the LCS family →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

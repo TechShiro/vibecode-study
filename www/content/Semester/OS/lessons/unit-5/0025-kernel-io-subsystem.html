@@ -1,0 +1,196 @@
+<title>Kernel I/O Subsystem</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit V &middot; Lesson 25 of 27</p>
+<h1>Kernel I/O Subsystem</h1>
+<p class="deck">I/O scheduling, buffering mechanisms (single, double, circular), caching vs spooling, device reservation, error handling, and the STREAMS architecture.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain the services provided by the Kernel I/O Subsystem&rdquo;</strong> and <strong>&ldquo;Differentiate between Caching, Buffering, and Spooling&rdquo;</strong> are recurrent 8-to-10 mark questions. Work through the timing arithmetic for single vs double buffering.</p>
+</div>
+
+<h2>What is the Kernel I/O Subsystem?</h2>
+<p>The <strong>Kernel I/O subsystem</strong> provides a standardized, hardware-independent layer between user applications and heterogeneous physical device controllers. It manages scheduling, memory staging, error recovery, and access permissions across all peripherals.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Subsystem Service</th><th>Core Function</th><th>Concrete Example</th></tr></thead>
+<tbody>
+<tr><td><strong>I/O Scheduling</strong></td><td>Reorders queued requests to maximize hardware throughput and prevent starvation.</td><td>Disk elevator (SCAN/C-LOOK) algorithms.</td></tr>
+<tr><td><strong>Buffering</strong></td><td>Holds temporary data in kernel RAM during transfers to smooth speed mismatches.</td><td>Network socket buffers, double-buffering.</td></tr>
+<tr><td><strong>Caching</strong></td><td>Maintains copies of recently accessed disk blocks in fast RAM for rapid retrieval.</td><td>Operating system page cache.</td></tr>
+<tr><td><strong>Spooling</strong></td><td>Interceps and queues output destined for unsharable, serial devices.</td><td>Print spooler (CUPS / Windows print spooler).</td></tr>
+<tr><td><strong>Device Reservation</strong></td><td>Grants exclusive access to dedicated devices without deadlock.</td><td>Tape drives, CD burners.</td></tr>
+<tr><td><strong>Error Handling</strong></td><td>Retries transient bus/device failures and recovers gracefully.</td><td>Disk bad-sector remapping.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Buffering</h2>
+<p>A <strong>buffer</strong> is a designated region of main memory used to store data while it is being transferred between two devices or between a device and an application.</p>
+
+<h3>Three Reasons Why Buffering is Mandatory</h3>
+<ol>
+  <li><strong>Speed Mismatch:</strong> Accommodates disparate speeds between producer and consumer (e.g., an SSD writing data over a slower 10 Mbps internet link).</li>
+  <li><strong>Transfer Size Mismatch:</strong> Reconciles differing transfer block sizes (e.g., reassembling 1500-byte network packets into an application's 64KB message).</li>
+  <li><strong>Copy Semantics:</strong> Guarantees that if a user process executes <code>write(fd, buf, n)</code> and immediately modifies <code>buf</code>, the written data reflects the state of the buffer at the exact instant the system call occurred (kernel copies data to a kernel buffer first).</li>
+</ol>
+
+<h3>Buffering Schemes and Timing Arithmetic</h3>
+
+<div class="solve">
+  <span class="lbl">Buffering Arithmetic &mdash; Comparing Throughput</span>
+  <p>Let $T$ = time to transfer one block from device to memory, $C$ = computation time to process one block, and $M$ = time to copy block between kernel and user buffer.</p>
+
+  <p><strong>1. No Buffering:</strong></p>
+  <ul>
+    <li>Total time per block = $T + C$. The CPU is completely idle during $T$, and the device is idle during $C$.</li>
+  </ul>
+
+  <p><strong>2. Single Buffering:</strong></p>
+  <ul>
+    <li>The OS assigns a single kernel buffer. While the CPU processes the current block ($C$), the device fills the buffer with the next block ($T$).</li>
+    <li>Total time per block = $\max(C, T) + M$. Noticeably faster than $T + C$.</li>
+  </ul>
+
+  <p><strong>3. Double Buffering (Ping-Pong Buffering):</strong></p>
+  <ul>
+    <li>Uses two buffers: <code>Buffer A</code> and <code>Buffer B</code>.</li>
+    <li>While the I/O device transfers data into <code>Buffer A</code>, the CPU reads and computes data from <code>Buffer B</code>. When both finish, their roles swap (&ldquo;ping-pong&rdquo;).</li>
+    <li>If $C \le T$, the CPU never waits for I/O; effective time per block = $T$.</li>
+    <li>If $C &gt; T$, the I/O device never waits; effective time per block = $C$.</li>
+    <li>Overall time per block = $\max(C, T)$. Complete overlap of I/O and computation!</li>
+  </ul>
+
+  <p><strong>4. Circular Buffering:</strong> A fixed ring queue of three or more buffers. Used when bursty I/O causes the producer to occasionally outpace the consumer for short intervals.</p>
+</div>
+
+<h2>Master Tri-Comparison: Buffering vs Caching vs Spooling</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Buffering</th><th>Caching</th><th>Spooling</th></tr></thead>
+<tbody>
+<tr><td><strong>Primary Goal</strong></td><td>Cope with speed/size mismatches and preserve copy semantics.</td><td>Accelerate read/write access to frequently referenced data.</td><td>Enable multi-process access to dedicated, non-sharable devices.</td></tr>
+<tr><td><strong>Data Copying</strong></td><td>Holds the only active copy during transit; consumed once.</td><td>Holds duplicate copies of data whose permanent home is on disk.</td><td>Dumps complete output files onto disk before streaming to device.</td></tr>
+<tr><td><strong>Lifetime</strong></td><td>Transient &mdash; discarded immediately after processing.</td><td>Longer &mdash; persists until evicted by replacement algorithm (LRU).</td><td>Holds until the physical device finishes printing/transmitting.</td></tr>
+<tr><td><strong>Classic Example</strong></td><td>Keyboard input buffer, socket receive buffer.</td><td>Disk page cache, directory entry cache.</td><td>Printer spooler, batch job queue.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>STREAMS Architecture</h2>
+<p>Developed by Dennis Ritchie, <strong>STREAMS</strong> is a modular, full-duplex framework for character-device drivers and networking protocol stacks in Unix/Linux systems.</p>
+
+<div class="solve">
+  <span class="lbl">STREAMS Pipeline Architecture</span>
+  <pre class="mono">    [ User Application ]
+            ▲
+            │ system calls (read, write, ioctl)
+            ▼
+    ┌───────────────┐
+    │  Stream Head  │ &lt;-- Translates between user space and STREAMS messages
+    ├───────────────┤
+    │ STREAMS Module│ &lt;-- e.g. Compression / Encryption module (Pushed via ioctl)
+    ├───────────────┤
+    │ STREAMS Module│ &lt;-- e.g. TTY line discipline module
+    ├───────────────┤
+    │ Stream Driver │ &lt;-- Communicates directly with hardware controller
+    └───────────────┘
+            ▲
+            │ interrupts / DMA
+            ▼
+     [ Device Hardware ]</pre>
+  <p>Each module contains a <strong>Read Queue</strong> (upward flow) and a <strong>Write Queue</strong> (downward flow). Modules can be dynamically inserted and removed at runtime without recompiling the kernel.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Kernel I/O Subsystem Layered Processing Services</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Application Layer: Standard POSIX I/O System Calls (read, write)</strong>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>Kernel I/O Subsystem:</strong>
+      <span class="sub">&bull; <strong>I/O Scheduling:</strong> Reorders device request queues<br>&bull; <strong>Buffering:</strong> Handles speed mismatch between fast CPU and slow disk<br>&bull; <strong>Caching:</strong> Holds memory copies of disk blocks for zero latency<br>&bull; <strong>Spooling:</strong> Queues concurrent jobs for non-shareable devices (printers)</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box" style="max-width:32rem;">
+      <strong>Device Drivers &bull; Device Controllers &bull; Physical Hardware</strong>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Kernel I/O Subsystem</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Kernel I/O Subsystems: Scheduling, Buffering, Caching and Spooling</div>
+    <div class="v-desc">Methodical breakdown of kernel I/O services, double buffering pipelines, disk caches, and asynchronous device interrupts.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=F18RiREDkwE" target="_blank" rel="noopener">Watch on YouTube &rarr; (Neso Academy)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Why is spooling necessary for printer devices?</p>
+  <div class="opts">
+    <button class="opt">Printers operate using Direct Memory Access exclusively</button>
+    <button class="opt">Printers have no internal RAM</button>
+    <button class="opt" data-ok="1">Printers are dedicated, non-sharable devices that cannot interleave lines from multiple concurrent print jobs</button>
+    <button class="opt">Printers require encryption on all documents</button>
+  </div>
+  <p class="why">Spooling queues entire files on disk so multiple jobs do not produce garbled, interleaved pages on a shared printer.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In double buffering, what is the effective time required to process one block if transfer time T = 15ms and compute time C = 10ms?</p>
+  <div class="opts">
+    <button class="opt">5 ms (T - C)</button>
+    <button class="opt" data-ok="1">15 ms (max(C, T))</button>
+    <button class="opt">25 ms (C + T)</button>
+    <button class="opt">150 ms (C * T)</button>
+  </div>
+  <p class="why">Double buffering achieves complete concurrency; the effective time per block is bound by the slower operation: max(10, 15) = 15 ms.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In the Unix STREAMS framework, what are the two internal queues possessed by every module?</p>
+  <div class="opts">
+    <button class="opt">Ready queue and Blocked queue</button>
+    <button class="opt">Priority queue and FIFO queue</button>
+    <button class="opt" data-ok="1">Read queue (upstream) and Write queue (downstream)</button>
+    <button class="opt">Disk queue and Memory queue</button>
+  </div>
+  <p class="why">STREAMS modules are full-duplex; data traveling up towards the user uses the read queue, and data moving down uses the write queue.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>List four core services provided by the Kernel I/O Subsystem.</summary>
+    <p class="ans">1. I/O scheduling. 2. Buffering (single/double/circular). 3. Caching. 4. Spooling (plus device reservation and error handling).</p></details>
+  <details class="card"><summary>Differentiate Buffering, Caching, and Spooling in one sentence each.</summary>
+    <p class="ans">Buffering reconciles speed/size mismatches for transient in-transit data. Caching stores copies of disk data in fast RAM for accelerated repeated reads. Spooling serializes complete jobs for unsharable devices.</p></details>
+  <details class="card"><summary>What are the three components of a STREAMS mechanism?</summary>
+    <p class="ans">Stream head (interfaces with user space), STREAMS modules (process data with read/write queues), and Stream driver (controls physical hardware).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0024-io-hardware-and-interfaces.html">&larr; Previous: I/O Hardware &amp; Interfaces</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0026-protection-and-access-matrix.html">Next: Protection and Access Matrix &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

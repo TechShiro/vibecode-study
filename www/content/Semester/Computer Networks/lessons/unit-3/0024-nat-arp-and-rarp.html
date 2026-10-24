@@ -1,0 +1,294 @@
+<title>NAT, ARP and RARP</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 24 of 27</p>
+<h1>NAT, ARP and RARP</h1>
+<p class="deck">Three address-translation mechanisms. NAT maps private addresses to public ones; ARP maps IP addresses to MAC addresses; RARP does the reverse. Small topics, reliably asked, and easy marks once the directions are straight in your head.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Usually three separate short questions of 3&ndash;5 marks each. For <strong>NAT</strong>, draw the translation table &mdash; that diagram is most of the answer. For <strong>ARP</strong>, the marks are in the <strong>four-step process</strong> (broadcast request, unicast reply) and the <strong>ARP cache</strong>. The single most common error in the whole topic is <strong>reversing ARP and RARP</strong>, so fix the direction first: <strong>ARP goes IP &rarr; MAC</strong>.</p>
+</div>
+
+<h2>NAT &mdash; Network Address Translation</h2>
+
+<p><strong>NAT enables a site to use a set of private addresses internally while presenting one or a few public addresses to the outside world.</strong> It was created as a response to IPv4 address depletion, and it is the reason IPv4 has survived far longer than predicted.</p>
+
+<h3>How it works</h3>
+
+<ul>
+<li>The site uses <strong>private addresses</strong> internally &mdash; 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16 &mdash; which are <strong>never routed on the public Internet</strong>.</li>
+<li>A <strong>NAT-capable router</strong> sits at the boundary, with one interface on the private network and one with a globally unique public address.</li>
+<li><strong>Outgoing packet:</strong> the router replaces the <strong>private source address</strong> with the public address, and records the mapping in a <strong>translation table</strong>.</li>
+<li><strong>Incoming packet:</strong> the router looks up the table and replaces the <strong>public destination address</strong> with the correct private one.</li>
+</ul>
+
+<h3>The translation table &mdash; and why it needs port numbers</h3>
+
+<p>If the table held only IP addresses, the router could not tell which internal host a reply was meant for when two hosts contacted the same external server. So the table records <strong>port numbers as well</strong> &mdash; this variant is called <strong>PAT (Port Address Translation)</strong>, or <strong>NAT overload</strong>, and it is what almost every home router actually does.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Private address</th><th>Private port</th><th>External address</th><th>External port</th><th>Transport</th></tr></thead>
+<tbody>
+<tr><td>172.18.3.1</td><td class="num">1400</td><td>25.8.3.2</td><td class="num">80</td><td>TCP</td></tr>
+<tr><td>172.18.3.2</td><td class="num">1401</td><td>25.8.3.2</td><td class="num">80</td><td>TCP</td></tr>
+<tr><td>172.18.3.3</td><td class="num">1402</td><td>10.1.4.7</td><td class="num">443</td><td>TCP</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Rows 1 and 2 show the point exactly: two internal hosts talking to the same server on the same port, distinguished only by their <strong>private port numbers</strong>. Without those, replies could not be demultiplexed.</p>
+
+<h3>The three types of NAT</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Mapping</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><strong>Static NAT</strong></td><td>One private address permanently mapped to <strong>one</strong> public address</td><td>Used for a server that must be reachable from outside at a fixed address</td></tr>
+<tr><td><strong>Dynamic NAT</strong></td><td>Private addresses mapped to a <strong>pool</strong> of public addresses, assigned as needed</td><td>Only as many hosts can be outside simultaneously as there are public addresses</td></tr>
+<tr><td><strong>PAT / NAT overload</strong></td><td><strong>Many</strong> private addresses to <strong>one</strong> public address, distinguished by port number</td><td>The common case &mdash; every home router</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages of NAT</th><th>Disadvantages of NAT</th></tr></thead>
+<tbody>
+<tr><td><strong>Conserves public IPv4 addresses</strong> &mdash; hundreds of hosts behind one address</td><td><strong>Breaks end-to-end connectivity</strong> &mdash; an outside host cannot initiate a connection to an inside host without explicit port forwarding</td></tr>
+<tr><td><strong>Adds a measure of security</strong> &mdash; internal addresses are hidden and unreachable from outside by default</td><td><strong>Adds processing delay</strong> and router state, since every packet must be rewritten</td></tr>
+<tr><td>The internal network can be renumbered without telling the outside world</td><td><strong>Breaks protocols that carry IP addresses inside their payload</strong> &mdash; FTP, SIP, IPsec &mdash; because the payload is not translated</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>ARP &mdash; Address Resolution Protocol</h2>
+
+<div class="box win">
+  <span class="lbl">Why ARP has to exist</span>
+  <p>A packet travelling through an internet carries the <strong>IP address of its final destination</strong>. But to actually cross the last physical network, the frame must carry the <strong>MAC address of the next device</strong>. IP addresses are logical and assigned by software; MAC addresses are physical and burned into hardware. <strong>ARP is the bridge between the two, and it is needed at every single hop.</strong></p>
+</div>
+
+<div class="formula">
+  <span class="name">The direction &mdash; fix this first</span>
+  <strong>ARP: IP address &rarr; MAC address</strong> &nbsp;("I know who, I need where")<br>
+  <strong>RARP: MAC address &rarr; IP address</strong> &nbsp;(the <em>reverse</em>, hence the name)
+</div>
+
+<h3>The four-step process</h3>
+
+<div class="formula">
+  <span class="name">ARP operation</span>
+  1. The host checks its <strong>ARP cache</strong>. If the mapping is there, it is used and no ARP happens.<br>
+  2. Otherwise the host <strong>broadcasts an ARP request</strong> &mdash; destination MAC <code>FF:FF:FF:FF:FF:FF</code> &mdash; asking "who has IP address X?" <strong>Every host on the network receives it.</strong><br>
+  3. <strong>Only the host that owns X replies</strong>, with an <strong>ARP reply sent as a unicast</strong> directly back to the asker, containing its MAC address.<br>
+  4. The asker <strong>stores the mapping in its ARP cache</strong> for a limited time, and sends the frame.
+</div>
+
+<p><strong>The asymmetry is the exam point:</strong> the <strong>request is broadcast, the reply is unicast</strong>. Broadcast because the asker does not know who to ask; unicast because the replier does know, since the request contained the sender's own IP and MAC addresses.</p>
+
+<h3>The ARP cache</h3>
+
+<ul>
+<li>A table of recently resolved IP-to-MAC mappings, kept in every host and router.</li>
+<li><strong>Entries expire after a timeout</strong> (typically minutes), so that a machine whose network card is replaced, or whose IP address is reassigned, does not stay wrong forever.</li>
+<li>Without the cache, every single packet would need a broadcast &mdash; the network would drown in ARP traffic.</li>
+</ul>
+
+<h3>Four cases where ARP is used</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Case</th><th>ARP resolves</th></tr></thead>
+<tbody>
+<tr><td>Sender is a <strong>host</strong>, receiver is on the <strong>same network</strong></td><td>The <strong>receiver's</strong> IP address</td></tr>
+<tr><td>Sender is a <strong>host</strong>, receiver is on a <strong>different network</strong></td><td>The <strong>default router's</strong> IP address &mdash; not the receiver's</td></tr>
+<tr><td>Sender is a <strong>router</strong>, receiver is on a <strong>different network</strong></td><td>The <strong>next router's</strong> IP address</td></tr>
+<tr><td>Sender is a <strong>router</strong>, receiver is on the <strong>same network</strong></td><td>The <strong>receiver's</strong> IP address</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The second row is the one worth stating explicitly: <strong>when the destination is on another network, ARP resolves the router's address, not the destination's.</strong> The destination's MAC address is meaningless locally &mdash; it lives on a network the sender cannot reach directly.</p>
+
+<h3>ARP-related terms worth one line each</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Proxy ARP</strong></td><td>A router answers ARP requests on behalf of hosts on another network, so that hosts behave as if everything were local.</td></tr>
+<tr><td><strong>Gratuitous ARP</strong></td><td>A host broadcasts an ARP for <em>its own</em> address, to detect duplicate IP addresses and to update other machines' caches after a change.</td></tr>
+<tr><td><strong>ARP spoofing / poisoning</strong></td><td>An attacker sends forged ARP replies to associate their MAC address with another host's IP, so traffic is redirected to them &mdash; the basis of a man-in-the-middle attack. Returns in Unit V.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>RARP &mdash; Reverse Address Resolution Protocol</h2>
+
+<ul>
+<li>Solves the opposite problem: <strong>a machine knows its own MAC address but does not know its IP address</strong>.</li>
+<li>This happens to a <strong>diskless workstation</strong> at boot, or to a machine booting from ROM, where the IP address cannot be stored locally.</li>
+<li>The machine <strong>broadcasts a RARP request</strong> containing its own MAC address, and a <strong>RARP server</strong> on the network replies with the corresponding IP address.</li>
+</ul>
+
+<div class="box exam">
+  <span class="lbl">Why RARP is obsolete &mdash; a good closing line</span>
+  <p><strong>RARP requests are broadcast at the data link layer, so they cannot cross a router.</strong> That means every single network segment needs its own RARP server, which does not scale. RARP was replaced by <strong>BOOTP</strong> and then by <strong>DHCP</strong>, which use UDP and so can be relayed across networks &mdash; and which also supply the subnet mask, default gateway and DNS server, not just an address.</p>
+</div>
+
+<h3>The comparison table</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>ARP</th><th>RARP</th></tr></thead>
+<tbody>
+<tr><td><strong>Direction</strong></td><td><strong>IP &rarr; MAC</strong></td><td><strong>MAC &rarr; IP</strong></td></tr>
+<tr><td><strong>Asked by</strong></td><td>A host that knows the destination's IP but needs its physical address</td><td>A host that knows its own MAC but not its own IP</td></tr>
+<tr><td><strong>Answered by</strong></td><td>The host that owns that IP address</td><td>A dedicated <strong>RARP server</strong></td></tr>
+<tr><td><strong>Typical user</strong></td><td>Every host and router, constantly</td><td>A diskless workstation, at boot</td></tr>
+<tr><td><strong>Status</strong></td><td><strong>In active use</strong></td><td><strong>Obsolete</strong> &mdash; replaced by BOOTP and DHCP</td></tr>
+<tr><td><strong>Layer</strong></td><td>Network layer (encapsulated directly in a frame)</td><td>Network layer</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">ARP Request/Reply & NAT Translation Lifecycle</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>ARP (Address Resolution)</strong><span class="sub">Resolves IP &rarr; Physical MAC address</span></div>
+      <div class="flow-box"><strong>ARP Request:</strong> Broadcast [FF:FF:FF:FF:FF:FF] ("Who has IP 192.168.1.5?")</div>
+      <div class="flow-box ok"><strong>ARP Reply:</strong> Unicast response from target with MAC address</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box warn"><strong>NAT (Network Address Translation)</strong><span class="sub">Maps private non-routable IPs &rarr; public routable IP</span></div>
+      <div class="flow-box"><strong>Outgoing:</strong> Replaces Private IP:Port with Public IP:Port in NAT table</div>
+      <div class="flow-box ok"><strong>Incoming:</strong> Translates destination public port back to internal host</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">ARP & NAT Protocols</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-65 & Lec-66: ARP & NAT Explained with Practical Examples</div>
+    <div class="v-desc">Detailed visual explanation of broadcast/unicast framing in ARP, proxy ARP, and PAT (Port Address Translation) routing tables.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=IUSyV2BVh4A" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. ARP is used to find:</p>
+  <div class="opts">
+    <button class="opt">An IP address, when the MAC address is known</button>
+    <button class="opt" data-ok="1">A MAC address, when the IP address is known</button>
+    <button class="opt">A domain name, when the IP address is known</button>
+    <button class="opt">A port number, when the IP address is known</button>
+  </div>
+  <p class="why">ARP resolves IP → MAC. RARP does MAC → IP. Resolving a name to an address is DNS, at the application layer. Reversing ARP and RARP is the single most common error in this topic.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In ARP, the request and reply are sent respectively as:</p>
+  <div class="opts">
+    <button class="opt">Broadcast and broadcast</button>
+    <button class="opt" data-ok="1">Broadcast and unicast</button>
+    <button class="opt">Unicast and broadcast</button>
+    <button class="opt">Multicast and multicast</button>
+  </div>
+  <p class="why">The request must be broadcast because the sender does not know who owns the address. The reply can be unicast because the request carried the sender's own IP and MAC addresses, so the replier knows exactly where to send it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A host sends a packet to a destination on a different network. ARP resolves the address of:</p>
+  <div class="opts">
+    <button class="opt">Every router along the path, resolved in advance</button>
+    <button class="opt">The DNS server that resolved the destination's name</button>
+    <button class="opt" data-ok="1">The default router, since the destination is not locally reachable</button>
+    <button class="opt">The final destination host, whose IP is in the packet</button>
+  </div>
+  <p class="why">A MAC address only has meaning on the local network. The destination's MAC is unreachable and useless here, so the frame is addressed to the default router — which will then ARP for the next hop itself.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A NAT translation table must record port numbers because:</p>
+  <div class="opts">
+    <button class="opt">Ports identify which type of NAT is being performed</button>
+    <button class="opt" data-ok="1">Two internal hosts may contact the same external server and port</button>
+    <button class="opt">The transport layer requires ports to be rewritten anyway</button>
+    <button class="opt">IP addresses alone are too long to store efficiently</button>
+  </div>
+  <p class="why">Without ports, a reply arriving from that server could not be attributed to one internal host. Recording the private port disambiguates them — this is PAT, or NAT overload, and it is what makes many-to-one translation possible.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. RARP became obsolete mainly because:</p>
+  <div class="opts">
+    <button class="opt">It was insecure and allowed addresses to be spoofed easily</button>
+    <button class="opt" data-ok="1">Its broadcasts cannot cross a router, so every segment needs a server</button>
+    <button class="opt">It could not resolve addresses for diskless workstations</button>
+    <button class="opt">It required each host to already know its own IP address</button>
+  </div>
+  <p class="why">RARP is broadcast at the data link layer, so it stops at the router and every segment needs its own server. BOOTP and then DHCP use UDP, can be relayed, and additionally supply the mask, gateway and DNS server.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which is a genuine disadvantage of NAT?</p>
+  <div class="opts">
+    <button class="opt">It exposes the internal addressing scheme to outside hosts</button>
+    <button class="opt">It requires every internal host to have a public IP address</button>
+    <button class="opt">It prevents internal hosts from initiating outbound connections</button>
+    <button class="opt" data-ok="1">It breaks protocols that carry IP addresses inside their payload</button>
+  </div>
+  <p class="why">NAT rewrites headers but not payloads, so FTP, SIP and IPsec — which embed addresses in their data — break. The other three options invert NAT's actual behaviour: it removes the need for public addresses, permits outbound connections freely, and hides the internal scheme.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>What is NAT and why was it created?</summary>
+    <p class="ans">Network Address Translation lets a site use private addresses internally while presenting one or a few public addresses externally. A NAT router rewrites the source address on the way out and the destination address on the way in, using a translation table. It was created in response to IPv4 address depletion.</p></details>
+  <details class="card"><summary>Why does the NAT table need port numbers?</summary>
+    <p class="ans">Because two internal hosts may contact the same external server on the same port; without the private port number the router could not tell which host a reply belongs to. This is PAT, or NAT overload — the many-to-one form used by home routers.</p></details>
+  <details class="card"><summary>Name the three types of NAT.</summary>
+    <p class="ans">Static NAT — one private address permanently mapped to one public address, for a server that must be reachable. Dynamic NAT — private addresses mapped to a pool of public ones as needed. PAT / NAT overload — many private addresses to one public address, distinguished by port.</p></details>
+  <details class="card"><summary>Give two advantages and two disadvantages of NAT.</summary>
+    <p class="ans">Advantages: conserves public IPv4 addresses; hides internal addresses so they are unreachable from outside by default; allows internal renumbering. Disadvantages: breaks end-to-end connectivity without port forwarding; adds processing delay and router state; breaks protocols that carry addresses in their payload such as FTP, SIP and IPsec.</p></details>
+  <details class="card"><summary>Why is ARP necessary?</summary>
+    <p class="ans">A packet carries the destination's logical IP address, but the frame that carries it across a physical network must carry the next device's physical MAC address. IP addresses are assigned by software, MAC addresses are burned into hardware, and ARP maps between them at every hop.</p></details>
+  <details class="card"><summary>Describe the four steps of ARP.</summary>
+    <p class="ans">Check the ARP cache; if absent, broadcast an ARP request to FF:FF:FF:FF:FF:FF asking who owns IP X; only the owner replies, as a unicast carrying its MAC address; the asker caches the mapping for a limited time and sends the frame.</p></details>
+  <details class="card"><summary>What does ARP resolve when the destination is on another network?</summary>
+    <p class="ans">The default router's address, not the destination's. The destination's MAC address is meaningless on the local network, so the frame goes to the router, which then ARPs for its own next hop.</p></details>
+  <details class="card"><summary>Compare ARP and RARP on four points.</summary>
+    <p class="ans">Direction IP→MAC versus MAC→IP; asked by a host needing a physical address versus a host that does not know its own IP; answered by the owner of the address versus a dedicated RARP server; in active use versus obsolete, replaced by BOOTP and DHCP.</p></details>
+  <details class="card"><summary>Define proxy ARP, gratuitous ARP and ARP spoofing.</summary>
+    <p class="ans">Proxy ARP — a router answers ARP requests on behalf of hosts on another network. Gratuitous ARP — a host ARPs for its own address to detect duplicates and refresh other caches. ARP spoofing — forged replies bind an attacker's MAC to another host's IP, redirecting traffic for a man-in-the-middle attack.</p></details>
+</div>
+
+<p class="ask">DHCP itself belongs to Unit V in your syllabus, so it is only mentioned here as RARP's replacement. Say the word if you want it pulled forward.</p>
+
+<div class="nav">
+  <a href="0023-ipv4-header-and-fragmentation.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0025-icmp-and-igmp.html">Next: ICMP and IGMP &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 05 — Abstraction &amp; Interfaces</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 5 of 8</div>
+<h1>Abstraction &amp; Interfaces</h1>
+<p class="subtitle">Show people a clean dashboard. Hide the engine. Java gives you two tools for this promise: abstract classes and interfaces.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero.
+  This is Lesson 5 of 8. <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<strong>Abstraction means showing only what the user needs, and hiding how it works.</strong>
+Think of a car dashboard. You get a steering wheel, two pedals, and a fuel gauge. That is all you need to drive.
+Under the hood there are hundreds of moving parts — pistons, injectors, a gearbox. You never see them. You don't need to.
+</p>
+<p>
+In code, abstraction means you design a class by asking one question: <em>"What should the outside world see?"</em>
+Everything else gets hidden. Java lets you write down the "what" without the "how" using
+<code>abstract</code> classes and <code>interface</code>s. This lesson covers both, and when to pick which.
+</p>
+
+<div class="callout">
+  <span class="label">Why interviewers love this</span>
+  "Abstraction vs encapsulation" and "interface vs abstract class" are two of the most-asked OOPS questions in Indian SDE intern interviews.
+  Both sound similar, so a crisp answer instantly separates you from candidates who memorized definitions.
+</div>
+
+<h2>2 · Abstraction vs encapsulation — the classic confusion</h2>
+<p>
+Both "hide" something. That's why people mix them up. But they hide <em>different things</em>, for <em>different reasons</em>.
+</p>
+<ul>
+  <li><strong>Abstraction</strong> hides <em>complexity</em>. It is a <em>design</em> decision: "the driver only gets a steering wheel and pedals."</li>
+  <li><strong>Encapsulation</strong> hides <em>data</em>. It is an <em>implementation</em> decision: "the bonnet is locked, so nobody can reach in and yank a wire."</li>
+</ul>
+<p>
+Back to the car. The <strong>dashboard is abstraction</strong> — a simple interface over a complex machine.
+The <strong>locked bonnet is encapsulation</strong> — protection, so the internals can't be touched or corrupted from outside.
+Abstraction is about the <em>view</em>. Encapsulation is about the <em>guard</em>.
+</p>
+<p>One concrete example that shows both at once:</p>
+<pre><code>class Car {
+    private int fuel = 50;              <span class="cmt">// ENCAPSULATION: data is private, guarded</span>
+
+    public void drive() {               <span class="cmt">// ABSTRACTION: one simple button for the user</span>
+        igniteEngine();
+        injectFuel();
+        System.out.println("Vroom!");
+    }
+
+    public int getFuel() {              <span class="cmt">// controlled read access — still encapsulation</span>
+        return fuel;
+    }
+
+    private void igniteEngine() { <span class="cmt">/* complex wiring hidden here */</span> }
+    private void injectFuel()   { fuel--; }  <span class="cmt">// only the class itself may change fuel</span>
+}
+
+<span class="cmt">// The user's whole world:</span>
+Car c = new Car();
+c.drive();                              <span class="cmt">// they never see ignition or injection</span></code></pre>
+<p>
+The caller sees <code>drive()</code> and <code>getFuel()</code>. That tiny public surface is the abstraction.
+The <code>private</code> keyword on <code>fuel</code>, <code>igniteEngine()</code>, and <code>injectFuel()</code> is the encapsulation
+that enforces it.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Abstraction hides complexity at the design level — deciding <em>what</em> to expose. Encapsulation hides data at the
+  implementation level — bundling data with methods and guarding it with access modifiers. Abstraction is achieved with
+  abstract classes and interfaces; encapsulation with <code>private</code> fields plus getters/setters."
+</div>
+
+<h2>3 · Abstract classes: a half-built template</h2>
+<p>
+Sometimes a parent class knows <em>part</em> of the answer but not all of it. Think of an exam paper:
+the questions are printed (fixed), but the answer boxes are blank — <em>you</em> must fill them.
+An <strong>abstract class</strong> is exactly that: some methods have bodies, and some are blank boxes marked <code>abstract</code>.
+</p>
+<pre><code>abstract class Shape {
+    String name;                        <span class="cmt">// abstract classes CAN have fields...</span>
+    Shape(String name) {                <span class="cmt">// ...and constructors (called via super())</span>
+        this.name = name;
+    }
+
+    abstract double area();             <span class="cmt">// blank box: NO body. Child MUST fill it.</span>
+
+    void describe() {                   <span class="cmt">// shared, fully-written behavior</span>
+        System.out.println(name + " has area " + area());
+    }
+}
+
+class Circle extends Shape {
+    double r;
+    Circle(double r) { super("Circle"); this.r = r; }
+
+    @Override
+    double area() { return Math.PI * r * r; }  <span class="cmt">// the blank box, filled</span>
+}</code></pre>
+<p>The rules, in plain words:</p>
+<ul>
+  <li>You <strong>cannot</strong> do <code>new Shape("x")</code>. An abstract class is an incomplete template — Java refuses to build an incomplete object.</li>
+  <li>One <code>abstract</code> method is enough to force the whole class to be declared <code>abstract</code>.</li>
+  <li>A child must implement <em>every</em> abstract method — or declare itself <code>abstract</code> too and pass the job down.</li>
+  <li>Abstract classes can hold fields, constructors, and normal methods. That's their superpower: <strong>shared state + shared code + blanks to fill</strong>.</li>
+</ul>
+
+<div class="callout trap">
+  <span class="label">Common trap</span>
+  "Abstract classes can't have constructors" — <strong>false</strong>. They can, and children call them with <code>super(...)</code>.
+  You just can't call <code>new</code> on the abstract class itself. Interviewers use this to catch rote learners.
+</div>
+
+<h2>4 · Interfaces: a pure contract</h2>
+<p>
+An <strong>interface</strong> is a signed contract with no work done yet. Think of a wall socket standard:
+the standard says "two pins, this shape, 230 volts." It doesn't build any device.
+Any company can make a fan, a charger, or a fridge — as long as the plug fits, it works with every socket.
+</p>
+<pre><code>interface Payable {
+    double calculatePay();              <span class="cmt">// implicitly public abstract — no body</span>
+}
+
+interface Notifiable {
+    void notify(String msg);
+}
+
+<span class="cmt">// A class can sign MANY contracts at once:</span>
+class Employee implements Payable, Notifiable {
+    @Override
+    public double calculatePay() { return 50000; }
+
+    @Override
+    public void notify(String msg) { System.out.println("Mail: " + msg); }
+}
+
+<span class="cmt">// Now any code that needs "something payable" accepts an Employee:</span>
+Payable p = new Employee();
+System.out.println(p.calculatePay());</code></pre>
+<p>
+Notice the magic word: <code>implements</code>, and it takes a <em>comma-separated list</em>.
+A Java class can extend only <strong>one</strong> class, but implement <strong>many</strong> interfaces.
+Why is multiple allowed here but not for classes? Because classic interfaces carry <strong>no fields, no state</strong> —
+just promises. Two promises can't clash the way two inherited copies of a field would.
+(The one edge case — two interfaces with the same <code>default</code> method — is handled next, and the full diamond-problem story is in Lesson 7.)
+</p>
+
+<h2>5 · Default and static interface methods (Java 8+)</h2>
+<p>
+Originally, interfaces were 100% blank. Java 8 relaxed this for one practical reason:
+if you add a new method to an interface that a thousand classes already implement, all thousand break.
+A <code>default</code> method ships a fallback body so old implementers keep compiling.
+</p>
+<pre><code>interface Payable {
+    double calculatePay();
+
+    default double yearlyPay() {        <span class="cmt">// has a body — implementers inherit it for free</span>
+        return calculatePay() * 12;     <span class="cmt">// can call the abstract method</span>
+    }
+
+    static double minimumWage() {       <span class="cmt">// utility that belongs to the interface itself</span>
+        return 15000;
+    }
+}
+
+<span class="cmt">// Usage:</span>
+Payable p = new Employee();
+p.yearlyPay();                          <span class="cmt">// default: called on an instance</span>
+Payable.minimumWage();                  <span class="cmt">// static: called on the INTERFACE name only</span></code></pre>
+<ul>
+  <li><code>default</code> — an instance method with a body. Implementers may override it or just use it.</li>
+  <li><code>static</code> — a helper owned by the interface. Called as <code>Payable.minimumWage()</code>, never through an object, and never inherited by implementers.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Real-world proof</span>
+  Java 8 added <code>sort</code>, <code>forEach</code>, and <code>stream</code>-related defaults to <code>List</code> and
+  <code>Collection</code> without breaking twenty years of existing code. That's the whole reason default methods exist —
+  a great detail to drop in an interview.
+</div>
+
+<h2>6 · Interface vs abstract class — the decision table</h2>
+<p>This table is the model answer for "how is an interface different from an abstract class?" Memorize the first column, understand the rest.</p>
+<table>
+  <thead><tr><th>Feature</th><th>Abstract class</th><th>Interface</th></tr></thead>
+  <tbody>
+    <tr><td>Fields / state</td><td>Yes — any instance fields</td><td>Only <code>public static final</code> constants</td></tr>
+    <tr><td>Constructors</td><td>Yes (invoked via <code>super()</code>)</td><td>No — never instantiated, nothing to construct</td></tr>
+    <tr><td>How many can a class take?</td><td>Extend exactly <strong>one</strong></td><td>Implement <strong>many</strong></td></tr>
+    <tr><td>Method bodies</td><td>Any mix of abstract + concrete</td><td>Abstract by default; <code>default</code>/<code>static</code> may have bodies</td></tr>
+    <tr><td>Member access levels</td><td>Any: <code>private</code>, <code>protected</code>, <code>public</code>...</td><td>Methods are effectively <code>public</code></td></tr>
+    <tr><td>Relationship it models</td><td><strong>is-a</strong> with shared code ("a Circle is a Shape")</td><td><strong>can-do</strong> capability ("an Employee is Payable")</td></tr>
+    <tr><td>Keyword</td><td><code>extends</code></td><td><code>implements</code></td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">The 5-second decision rule</span>
+  Related classes sharing <em>code and fields</em> → <strong>abstract class</strong>.
+  Unrelated classes sharing only a <em>capability</em> (Comparable, Runnable, Payable) → <strong>interface</strong>.
+  Need both? Extend one abstract class <em>and</em> implement interfaces — Java allows the combo.
+</div>
+
+<h2>7 · C++ dictionary corner: virtual vs pure virtual</h2>
+<p>
+Your senior's notes are C++-flavored, and interviewers often ask in C++ terms. Here is the translation —
+Lesson 7 does the full dictionary; this is the slice that belongs to abstraction.
+</p>
+<table>
+  <thead><tr><th>C++ term</th><th>Meaning in C++</th><th>Java equivalent</th></tr></thead>
+  <tbody>
+    <tr><td><code>virtual</code> function</td><td>Has a body; a derived class <em>may</em> override it; the call is resolved at runtime</td><td>Every normal (non-static, non-final, non-private) Java method — no keyword needed</td></tr>
+    <tr><td><strong>pure virtual</strong> function</td><td>Declared with <em>no</em> body at all; a derived class <em>must</em> implement it</td><td>An <code>abstract</code> method</td></tr>
+    <tr><td>Abstract class</td><td>Any class with ≥ 1 pure virtual function</td><td>A class marked <code>abstract</code> (the keyword is explicit)</td></tr>
+    <tr><td>Class with <em>all</em> functions pure virtual</td><td>"Interface-style" class — C++ has no interface keyword</td><td>Literally an <code>interface</code></td></tr>
+  </tbody>
+</table>
+<p>
+In words: in C++ a method must be explicitly marked <em>virtual</em> to get runtime dispatch, and a
+<em>pure virtual</em> method is a virtual method declared with no body at all — derived classes are forced
+to implement it. You never need to write that; you only need to show the same two ideas in Java:
+</p>
+<pre><code>abstract class Shape {
+    abstract double area();          <span class="cmt">// = C++'s PURE VIRTUAL: no body, children MUST implement</span>
+
+    void describe() {                <span class="cmt">// = C++'s VIRTUAL: body provided, children MAY override —</span>
+        System.out.println("shape"); <span class="cmt">// every normal Java instance method already works this way</span>
+    }
+}</code></pre>
+<div class="callout">
+  <span class="label">Say it in the interview</span>
+  "A virtual function has an implementation that derived classes may override; a pure virtual function has none
+  and must be overridden — it's what makes a C++ class abstract. In Java, all instance methods behave like virtual functions
+  by default, and a pure virtual function corresponds to an <code>abstract</code> method."
+</div>
+
+<h2>8 · Interview questions this lesson answers</h2>
+<p>Quoted from your senior's Top-25 list, with 2-line model answers.</p>
+<ul>
+  <li>
+    <strong>Q6. "Can you explain abstraction vs encapsulation with an example?"</strong><br>
+    Abstraction hides complexity by exposing only what's needed (a car's <code>drive()</code> hides ignition and fuel injection);
+    encapsulation hides data by bundling it with methods and marking it <code>private</code> (the <code>fuel</code> field only changes through the class's own methods).
+  </li>
+  <li>
+    <strong>Q7. "What is an interface and how is it different from an abstract class?"</strong><br>
+    An interface is a pure contract — no state, no constructors, all methods effectively public, and a class may implement many.
+    An abstract class is a partial implementation — fields, constructors, mixed concrete/abstract methods, but a class extends only one.
+  </li>
+  <li>
+    <strong>Q22. "Difference between virtual function and pure virtual function."</strong><br>
+    Virtual: has a body, derived classes may override, dispatched at runtime. Pure virtual: declared with no body, must be overridden, makes the class abstract.
+    Java mapping: normal instance methods are virtual by default; pure virtual = <code>abstract</code> method.
+  </li>
+</ul>
+
+<h2>9 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A <code>BankAccount</code> class keeps <code>balance</code> private and only changes it inside <code>deposit()</code> and <code>withdraw()</code>. Which concept is this, most precisely?</div>
+  <button class="opt">Abstraction — the class exposes a simplified view of banking</button>
+  <button class="opt">Encapsulation — data is bundled with methods and guarded from outside</button>
+  <button class="opt">Inheritance — balance behavior is passed down to child accounts</button>
+  <div class="fb" data-correct="Guarding a field with private and allowing changes only through the class's own methods is textbook encapsulation — the data is protected, not just simplified." data-wrong="The question is about protecting a private field so it can only change through the class's own methods. That guard on data is encapsulation; abstraction is about hiding complexity in the exposed design."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Class <code>Robot</code> implements two interfaces, and <em>both</em> define a <code>default String status()</code> method. What happens?</div>
+  <button class="opt">Java silently picks the first interface listed after <code>implements</code></button>
+  <button class="opt">Runtime error the first time <code>status()</code> is actually called on a Robot</button>
+  <button class="opt">Compile error unless <code>Robot</code> overrides <code>status()</code> and resolves the clash itself</button>
+  <div class="fb" data-correct="Java refuses to guess. The class must override status() — and inside it may pick a side explicitly with InterfaceName.super.status(). This rule is Java's answer to the diamond problem (full story in Lesson 7)." data-wrong="Java never silently picks a winner and never delays the decision to runtime — the compiler stops you immediately until Robot overrides status() and resolves the conflict itself."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">An interviewer asks: "What is the Java equivalent of a C++ pure virtual function?" Best answer?</div>
+  <button class="opt">An <code>abstract</code> method — no body, subclasses must implement it</button>
+  <button class="opt">A <code>static</code> method — it belongs to the class, not any object</button>
+  <button class="opt">A <code>final</code> method — its behavior is fixed and cannot change</button>
+  <div class="fb" data-correct="Exactly. C++'s pure virtual and Java's 'abstract' make the same promise: no implementation here, every concrete subclass must provide one, and the class itself becomes abstract." data-wrong="Pure virtual means 'no body, children MUST implement.' Static and final are almost the opposite — they are never overridden. The match is Java's abstract method."></div>
+</div>
+
+<h2>10 · Do this next</h2>
+<ul>
+  <li><strong>Explain aloud (2 min):</strong> the car-dashboard vs locked-bonnet story, without notes. If you can teach it, you own it.</li>
+  <li><strong>Code from scratch:</strong> an abstract <code>Shape</code> with abstract <code>area()</code> plus <code>Circle</code> and <code>Rectangle</code>. Then try <code>new Shape(...)</code> and read the compiler error — remember what it says.</li>
+  <li><strong>Convert:</strong> take your <code>Shape</code>, strip the field and constructor, and turn it into an interface. Notice exactly what you had to delete — that difference IS the Q7 answer.</li>
+  <li><strong>Explore the JDK:</strong> look up <code>Comparable</code>, <code>Runnable</code>, and <code>List</code> in the docs. Spot which methods are abstract, which are <code>default</code>.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on why interfaces can't have constructors, want another abstraction-vs-encapsulation example, or unsure when
+  you'd genuinely pick an abstract class over an interface in a project? Ask in the chat. When you can fill the
+  decision table from memory and answer Q6, Q7, and Q22 in two lines each, say <strong>"next"</strong> and we move to
+  Lesson 6: the Object class, composition, and copies.
+</div>
+
+<div class="nav">
+  <span><a href="0004-polymorphism.html">← Polymorphism</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0006-object-class-composition-and-copies.html">Object Class, Composition &amp; Copies →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

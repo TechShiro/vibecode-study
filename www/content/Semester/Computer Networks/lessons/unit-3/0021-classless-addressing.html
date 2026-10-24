@@ -1,0 +1,298 @@
+<title>Classless Addressing (CIDR)</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 21 of 27</p>
+<h1>Classless Addressing (CIDR)</h1>
+<p class="deck">Slash notation, the three rules every block must obey, the mask table you should be able to write from memory, and the arithmetic for first address, last address and block size. This is the language subnetting is written in.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>The question is almost always <strong>"Given the address a.b.c.d/n, find the first address, the last address and the number of addresses in the block"</strong> &mdash; 5 marks, entirely mechanical. Learn <strong>one formula and one table</strong>: block size = 2<sup>(32&minus;n)</sup>, and the /24 to /30 mask values. With those you never need to write binary at all.</p>
+</div>
+
+<h2>Why classless addressing exists</h2>
+
+<p>Classful addressing offered only three block sizes &mdash; 16.7 million, 65,534 or 254 addresses. An organisation needing 1000 addresses had to take a whole Class B and waste 98% of it. <strong>Classless addressing (CIDR &mdash; Classless Inter-Domain Routing) removes the classes entirely and allows a block of any power-of-two size.</strong></p>
+
+<div class="formula">
+  <span class="name">Prefix and suffix</span>
+  A classless address is split into a <strong>prefix</strong> (the network part) and a <strong>suffix</strong> (the host part).<br>
+  The prefix length <strong>n</strong> can be <strong>any value from 0 to 32</strong> &mdash; it is no longer fixed at 8, 16 or 24.<br>
+  Written as <strong>a.b.c.d/n</strong> &mdash; <em>slash notation</em>, or <em>CIDR notation</em>.
+</div>
+
+<div class="formula">
+  <span class="name">The three formulas</span>
+  <strong>Number of addresses</strong> N = 2<sup>(32 &minus; n)</sup><br>
+  <strong>First address (network address)</strong> = address <strong>AND</strong> mask &nbsp;(set the last 32&minus;n bits to 0)<br>
+  <strong>Last address (broadcast)</strong> = first address + N &minus; 1 &nbsp;(set the last 32&minus;n bits to 1)<br>
+  <strong>Usable hosts</strong> = N &minus; 2
+</div>
+
+<h2>The mask table &mdash; memorise this</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Prefix</th><th>Mask</th><th>Last byte of mask</th><th>Addresses</th><th>Usable hosts</th></tr></thead>
+<tbody>
+<tr><td><strong>/24</strong></td><td>255.255.255.0</td><td class="num">0</td><td class="num">256</td><td class="num">254</td></tr>
+<tr><td><strong>/25</strong></td><td>255.255.255.128</td><td class="num">128</td><td class="num">128</td><td class="num">126</td></tr>
+<tr><td><strong>/26</strong></td><td>255.255.255.192</td><td class="num">192</td><td class="num">64</td><td class="num">62</td></tr>
+<tr><td><strong>/27</strong></td><td>255.255.255.224</td><td class="num">224</td><td class="num">32</td><td class="num">30</td></tr>
+<tr><td><strong>/28</strong></td><td>255.255.255.240</td><td class="num">240</td><td class="num">16</td><td class="num">14</td></tr>
+<tr><td><strong>/29</strong></td><td>255.255.255.248</td><td class="num">248</td><td class="num">8</td><td class="num">6</td></tr>
+<tr><td><strong>/30</strong></td><td>255.255.255.252</td><td class="num">252</td><td class="num">4</td><td class="num"><strong>2</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">How to rebuild the table if you forget it</span>
+  <p>The mask byte values run <strong>128, 192, 224, 240, 248, 252, 254, 255</strong> &mdash; each is the previous one plus the next power of two halved. The address counts run <strong>128, 64, 32, 16, 8, 4, 2, 1</strong>. And the two are linked: <strong>mask byte + address count = 256</strong>. So /27 has 32 addresses and its mask byte is 256 &minus; 32 = 224. That one relationship regenerates the whole table.</p>
+</div>
+
+<p><strong>/30 is worth noting specially:</strong> four addresses, two usable. It is the standard mask for a <strong>point-to-point link between two routers</strong>, where exactly two addresses are needed and anything larger would waste them.</p>
+
+<h2>The three rules every block must obey</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Rule</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Contiguous</strong></td><td>The addresses in the block must be <strong>consecutive</strong>, with no gaps.</td></tr>
+<tr><td><strong>2. Power of two</strong></td><td>The number of addresses must be a <strong>power of 2</strong> &mdash; 2, 4, 8, 16, 32 &hellip;</td></tr>
+<tr><td><strong>3. Divisibility</strong></td><td>The <strong>first address must be evenly divisible by the number of addresses</strong> in the block.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Rule 3 is the one tested, because it is the one that can be checked with arithmetic. It is equivalent to saying the last 32&minus;n bits of the first address are all zero. So <code>205.16.37.32/28</code> is valid (32 &divide; 16 = 2, exact) but <code>205.16.37.33/28</code> is not (33 &divide; 16 is not an integer).</p>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 1 &mdash; the standard question</span>
+  <p><strong>Q.</strong> A block is given as <code>167.199.170.82/27</code>. Find the number of addresses, the first address, the last address, and the range of usable host addresses.</p>
+
+  <p><strong>Number of addresses</strong> N = 2<sup>(32&minus;27)</sup> = 2<sup>5</sup> = <strong>32</strong></p>
+
+  <p><strong>First address.</strong> The prefix is 27 bits, so the first three bytes are untouched and only the last byte matters. The /27 mask's last byte is <strong>224</strong>.</p>
+  <p>82 in binary = <code>01010010</code><br>
+  224 in binary = <code>11100000</code><br>
+  AND &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <code>01000000</code> = <strong>64</strong></p>
+  <p><strong>First address = 167.199.170.64</strong></p>
+
+  <p><strong>Last address</strong> = first + N &minus; 1 = 64 + 32 &minus; 1 = 95<br>
+  <strong>Last address = 167.199.170.95</strong></p>
+
+  <p><strong>Usable hosts</strong> = 32 &minus; 2 = <strong>30</strong>, ranging from <strong>167.199.170.65</strong> to <strong>167.199.170.94</strong></p>
+
+  <p><em>The shortcut that avoids binary entirely:</em> with a block size of 32, the blocks in the last byte begin at <strong>0, 32, 64, 96, 128, 160, 192, 224</strong>. The address 82 falls between 64 and 96, so its block starts at <strong>64</strong> and ends at <strong>95</strong>. Counting up in steps of the block size is faster and less error-prone than ANDing &mdash; use it in the exam, and show the AND once to prove you know why it works.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 2 &mdash; using the shortcut</span>
+  <p><strong>Q.</strong> Find the first and last addresses of the block containing <code>205.16.37.39/28</code>.</p>
+
+  <p>N = 2<sup>(32&minus;28)</sup> = <strong>16</strong></p>
+  <p>Blocks of 16 in the last byte start at: 0, 16, <strong>32</strong>, 48, 64, 80, &hellip;</p>
+  <p>39 lies between 32 and 47, so:</p>
+  <p><strong>First address = 205.16.37.32</strong> &nbsp;&middot;&nbsp; <strong>Last address = 205.16.37.47</strong></p>
+  <p><strong>Usable hosts</strong> = 14, from 205.16.37.33 to 205.16.37.46</p>
+
+  <p><em>Check against rule 3:</em> 32 &divide; 16 = 2 exactly, so 205.16.37.32/28 is a valid block start. &#10003;</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 3 &mdash; when the prefix is shorter than /24</span>
+  <p><strong>Q.</strong> Find the first and last address of <code>140.120.84.24/20</code>.</p>
+
+  <p>N = 2<sup>(32&minus;20)</sup> = 2<sup>12</sup> = <strong>4096 addresses</strong></p>
+
+  <p>A /20 prefix means the mask is 255.255.<strong>240</strong>.0 &mdash; the split falls inside the <strong>third</strong> byte, so that is the byte to work on.</p>
+
+  <p>84 in binary = <code>01010100</code><br>
+  240 in binary = <code>11110000</code><br>
+  AND &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <code>01010000</code> = <strong>80</strong></p>
+
+  <p><strong>First address = 140.120.80.0</strong></p>
+
+  <p>The block spans 4096 addresses = 16 whole /24 blocks, so the third byte runs from 80 to 95 and the fourth byte from 0 to 255:</p>
+  <p><strong>Last address = 140.120.95.255</strong></p>
+
+  <p><em>Sanity check:</em> 16 values of the third byte &times; 256 values of the fourth = 4096. &#10003;</p>
+
+  <p><em>The general rule:</em> <strong>find which byte the prefix falls inside, and do the arithmetic only in that byte.</strong> Bytes before it are copied unchanged; bytes after it become 0 for the first address and 255 for the last.</p>
+</div>
+
+<h2>Supernetting and route aggregation</h2>
+
+<p>The mirror image of subnetting: <strong>combining several small contiguous blocks into one larger block</strong>, so that backbone routers can advertise a single route instead of many. Also called <strong>route aggregation</strong> or <strong>route summarisation</strong>.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; aggregation</span>
+  <p><strong>Q.</strong> An ISP has four adjacent /24 blocks: 200.11.<strong>4</strong>.0, 200.11.<strong>5</strong>.0, 200.11.<strong>6</strong>.0 and 200.11.<strong>7</strong>.0. Can they be aggregated, and into what?</p>
+
+  <p>Write the varying byte in binary:<br>
+  4 = <code>00000100</code><br>
+  5 = <code>00000101</code><br>
+  6 = <code>00000110</code><br>
+  7 = <code>00000111</code></p>
+
+  <p>The first <strong>six</strong> bits are identical (<code>000001</code>); only the last two vary. So the common prefix is 8 + 8 + 6 = <strong>22 bits</strong>.</p>
+
+  <p><strong>Aggregate block = 200.11.4.0/22</strong>, containing 2<sup>10</sup> = 1024 addresses &mdash; exactly the four /24 blocks combined. &#10003;</p>
+
+  <p><em>The conditions for aggregation, worth stating:</em> the blocks must be <strong>contiguous</strong>, the count must be a <strong>power of two</strong>, and the <strong>first block's address must be divisible by the total number of addresses</strong> &mdash; the same three rules as any CIDR block. Here 200.11.4.0 is divisible by 1024 when read as a 32-bit number, so it qualifies.</p>
+</div>
+
+<h2>Classful vs classless</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Classful</th><th>Classless (CIDR)</th></tr></thead>
+<tbody>
+<tr><td><strong>Block sizes available</strong></td><td>Only three: 2<sup>24</sup>, 2<sup>16</sup>, 2<sup>8</sup></td><td><strong>Any power of two</strong> from 2<sup>0</sup> to 2<sup>32</sup></td></tr>
+<tr><td><strong>Prefix length</strong></td><td>Fixed at 8, 16 or 24 by the class</td><td><strong>Variable, 0 to 32</strong>, carried explicitly as /n</td></tr>
+<tr><td><strong>Mask</strong></td><td>Implied by the class &mdash; not transmitted</td><td><strong>Must be given</strong> with the address</td></tr>
+<tr><td><strong>Address utilisation</strong></td><td>Very wasteful</td><td>Efficient &mdash; blocks fit the actual need</td></tr>
+<tr><td><strong>Routing tables</strong></td><td>Large; no aggregation possible</td><td>Smaller, through <strong>route aggregation</strong></td></tr>
+<tr><td><strong>Status</strong></td><td>Obsolete since 1993</td><td><strong>What the Internet actually uses</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The one-line answer to "why CIDR?"</span>
+  <p><strong>CIDR lets an organisation be given a block that matches its actual size, and lets routers advertise many small blocks as one entry.</strong> The first fixes address depletion; the second fixes routing table growth. Name both &mdash; most answers name only the first.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Classless Inter-Domain Routing (CIDR) Prefix Decomposition</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>CIDR Notation: a.b.c.d / n</strong>
+      <span class="sub">Prefix Length: n network bits &bull; Host Portion: (32 - n) bits</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>Total Addresses in Block</strong><span class="sub">N = 2<sup>(32 - n)</sup> addresses</span></div>
+    <div class="flow-box ok"><strong>Usable Host Addresses</strong><span class="sub">N - 2 (Minus Network ID and Broadcast ID)</span></div>
+    <div class="flow-box"><strong>Route Aggregation (Supernetting)</strong><span class="sub">Combines contiguous /24 blocks into single /22 route</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">CIDR Addressing</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-48: What is Classless Addressing (CIDR) vs Classful</div>
+    <div class="v-desc">Clear numerical methods for finding the first address, last broadcast address, and total usable host count from slash notation.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=N-ywmOpWehE" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. How many addresses are in the block 192.168.10.0/26?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">64, from 2^(32−26)</button>
+    <button class="opt">128, from 2^(32−25) instead</button>
+    <button class="opt">62, from 2^(32−26) minus two</button>
+    <button class="opt">26, the value of the prefix length</button>
+  </div>
+  <p class="why">The block contains 64 addresses; 62 is the number of <em>usable host</em> addresses after removing the network and broadcast addresses. Read the question carefully — "addresses in the block" and "assignable hosts" differ by exactly 2.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The first address of the block containing 205.16.37.39/28 is:</p>
+  <div class="opts">
+    <button class="opt">205.16.37.16</button>
+    <button class="opt">205.16.37.48</button>
+    <button class="opt" data-ok="1">205.16.37.32</button>
+    <button class="opt">205.16.37.39</button>
+  </div>
+  <p class="why">Block size 16, so blocks begin at 0, 16, 32, 48… and 39 falls in the block starting at 32. The given address itself is rarely the first address — that would only happen if it were already divisible by the block size.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Which of these is NOT a valid CIDR block?</p>
+  <div class="opts">
+    <button class="opt">200.5.7.0/28</button>
+    <button class="opt">200.5.7.16/28</button>
+    <button class="opt">200.5.7.32/28</button>
+    <button class="opt" data-ok="1">200.5.7.20/28</button>
+  </div>
+  <p class="why">Rule 3: the first address must be divisible by the block size. A /28 block holds 16 addresses, and 20 ÷ 16 is not an integer, so 20 cannot start a block. 16, 32 and 0 all divide exactly.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The mask 255.255.255.248 corresponds to which prefix, and how many usable hosts?</p>
+  <div class="opts">
+    <button class="opt">/28, with 14 usable hosts</button>
+    <button class="opt">/30, with 2 usable hosts</button>
+    <button class="opt">/29, with 8 usable hosts</button>
+    <button class="opt" data-ok="1">/29, with 6 usable hosts</button>
+  </div>
+  <p class="why">256 − 248 = 8 addresses, so 32 − 3 = /29, and 8 − 2 = 6 usable. The mask-byte-plus-block-size-equals-256 relationship gets you there without memorising the whole table.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Four contiguous /24 blocks starting at 200.11.4.0 aggregate into:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">200.11.4.0/22</button>
+    <button class="opt">200.11.4.0/26</button>
+    <button class="opt">200.11.4.0/23</button>
+    <button class="opt">200.11.0.0/22</button>
+  </div>
+  <p class="why">Four /24s combine into one block four times as large, so the prefix shortens by log₂4 = 2 bits: /24 → /22. Aggregation always <em>shortens</em> the prefix; a longer prefix such as /26 would mean a smaller block, which is subnetting instead.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A /30 mask is typically used for:</p>
+  <div class="opts">
+    <button class="opt">A large campus LAN with several hundred hosts</button>
+    <button class="opt" data-ok="1">A point-to-point link between two routers, needing exactly two addresses</button>
+    <button class="opt">Assigning a single loopback address to one interface</button>
+    <button class="opt">Aggregating many small blocks into one route entry</button>
+  </div>
+  <p class="why">/30 gives 4 addresses, 2 usable — precisely one for each end of a router-to-router link. Anything larger would waste addresses on a link that can never hold more than two devices.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Write the three CIDR formulas.</summary>
+    <p class="ans">Number of addresses N = 2^(32 − n). First address = address AND mask (last 32−n bits set to 0). Last address = first + N − 1 (last 32−n bits set to 1). Usable hosts = N − 2.</p></details>
+  <details class="card"><summary>State the three rules a CIDR block must satisfy.</summary>
+    <p class="ans">The addresses must be contiguous; the number of addresses must be a power of two; and the first address must be evenly divisible by the number of addresses in the block.</p></details>
+  <details class="card"><summary>Write the mask table from /24 to /30.</summary>
+    <p class="ans">/24 = 255.255.255.0, 256 addresses. /25 = .128, 128. /26 = .192, 64. /27 = .224, 32. /28 = .240, 16. /29 = .248, 8. /30 = .252, 4. Rebuild it with: mask byte + block size = 256.</p></details>
+  <details class="card"><summary>What is the fastest way to find the first address without binary?</summary>
+    <p class="ans">Compute the block size 2^(32−n), then count up in steps of that size in the byte where the prefix falls: 0, N, 2N, 3N… The given address lies in one of those blocks, and that block's start is the first address. Bytes before the split are copied; bytes after become 0.</p></details>
+  <details class="card"><summary>Define supernetting and state its conditions.</summary>
+    <p class="ans">Combining several small contiguous blocks into one larger block so routers can advertise a single route — also called route aggregation or summarisation. The blocks must be contiguous, their number a power of two, and the first block's address divisible by the total number of addresses.</p></details>
+  <details class="card"><summary>Give four differences between classful and classless addressing.</summary>
+    <p class="ans">Three fixed block sizes versus any power of two; prefix fixed at 8/16/24 by class versus variable 0–32; mask implied by the class versus carried explicitly with the address; wasteful with large routing tables versus efficient with route aggregation.</p></details>
+</div>
+
+<p class="ask">Next is subnetting, which is the single highest-value topic in this subject. It uses everything in this lesson, so make sure the mask table is solid before you go on.</p>
+
+<div class="nav">
+  <a href="0020-classful-addressing.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0022-subnetting-and-vlsm.html">Next: Subnetting and VLSM &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

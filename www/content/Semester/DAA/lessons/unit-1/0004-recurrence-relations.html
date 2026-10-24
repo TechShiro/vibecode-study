@@ -1,0 +1,407 @@
+<title>Recurrence Relations</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit I &middot; Lesson 4 of 15</p>
+<h1>Recurrence Relations</h1>
+<p class="deck">The three methods &mdash; back-substitution (iteration), the recursion tree, and substitution with induction &mdash; worked through twelve recurrences, plus the change-of-variable trick.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Solve the recurrence T(n) = &hellip; using the substitution method / recursion tree method&rdquo; is a 5&ndash;10 mark question, and it appears every year.</strong> Read the wording carefully: if it names a method, you must <em>use that method</em> &mdash; quoting the Master theorem earns nothing. Learn the <strong>back-substitution discipline</strong> below: expand exactly three times, spot the pattern, write the general k-th term, then set k so the recursion bottoms out. That is the whole technique, and it never fails.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Recurrence Tree Structural Expansion Engine</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Root Level 0: Cost f(n)</strong>
+      <span class="sub">Recurrence: T(n) = a T(n/b) + f(n)</span>
+    </div>
+    <div class="flow-arrow-down">&darr; branch into a subproblems of size n/b</div>
+    <div class="flow-row">
+      <div class="flow-box"><strong>Level 1: a &times; f(n/b)</strong><span class="sub">a subproblems each costing f(n/b)</span></div>
+      <div class="flow-box ok"><strong>Level k: a<sup>k</sup> &times; f(n/b<sup>k</sup>)</strong><span class="sub">Tree height h = log<sub>b</sub>(n)</span></div>
+    </div>
+    <div class="flow-arrow-down">&darr; sum all tree levels</div>
+    <div class="flow-box" style="max-width:32rem;"><strong>Leaves: a<sup>log<sub>b</sub> n</sup> = n<sup>log<sub>b</sub> a</sup> base cases &Theta;(1)</strong><span class="sub">Total Time T(n) = Sum over all levels from 0 to log<sub>b</sub>(n)</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Recurrence Relations</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-2.1: What is a Recurrence Relation & Substitution Method</div>
+    <div class="v-desc">Covers recurrence modeling from recursive code, expansion via substitution, and drawing tree levels without skipping steps.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=NW-naslChdo" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>What a recurrence is, and how to write one</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>recurrence relation</strong> is an equation that describes a function <strong>in terms of its own value on smaller inputs</strong>, together with one or more <strong>base cases</strong>.<br><br>
+  For a recursive algorithm it has the shape<br>
+  <strong>T(n) = (cost of the recursive calls) + (cost of the work done outside them)</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Recurrence</th><th>Reading</th></tr></thead>
+<tbody>
+<tr><td><strong>Binary search</strong></td><td>T(n) = T(n/2) + 1</td><td><strong>One</strong> call on half the array, plus a constant comparison</td></tr>
+<tr><td><strong>Merge sort</strong></td><td>T(n) = 2T(n/2) + n</td><td><strong>Two</strong> calls on halves, plus a linear merge</td></tr>
+<tr><td><strong>Quick sort, best case</strong></td><td>T(n) = 2T(n/2) + n</td><td>Balanced partition, linear partitioning cost</td></tr>
+<tr><td><strong>Quick sort, worst case</strong></td><td>T(n) = T(n&minus;1) + n</td><td>Maximally unbalanced partition</td></tr>
+<tr><td><strong>Strassen's multiplication</strong></td><td>T(n) = 7T(n/2) + n&sup2;</td><td>Seven half-size multiplications, quadratic additions</td></tr>
+<tr><td><strong>Naive matrix multiplication</strong></td><td>T(n) = 8T(n/2) + n&sup2;</td><td>Eight half-size multiplications</td></tr>
+<tr><td><strong>Tower of Hanoi</strong></td><td>T(n) = 2T(n&minus;1) + 1</td><td>Two calls on n&minus;1 discs, plus one move</td></tr>
+<tr><td><strong>Factorial</strong></td><td>T(n) = T(n&minus;1) + 1</td><td>One call, constant work</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The two families &mdash; recognise which you are in</span>
+  <p><strong>Decreasing (subtract):</strong> T(n) = aT(n &minus; b) + f(n). The size drops by a fixed <em>amount</em>, so there are about <strong>n/b levels</strong> &mdash; and the answers tend to be polynomial or exponential.</p>
+  <p><strong>Dividing (divide):</strong> T(n) = aT(n/b) + f(n). The size drops by a fixed <em>factor</em>, so there are only about <strong>log<sub>b</sub>n levels</strong> &mdash; and the answers involve logarithms.</p>
+</div>
+
+<h2>Method 1 &mdash; back-substitution (iteration)</h2>
+
+<div class="box exam">
+  <span class="lbl">The discipline &mdash; follow it exactly and this method never fails</span>
+  <p><strong>Step 1.</strong> Expand the recurrence <strong>three times</strong>. Three is enough to see the pattern and few enough to stay tidy.<br>
+  <strong>Step 2.</strong> Write the <strong>general k-th expansion</strong>.<br>
+  <strong>Step 3.</strong> Choose k so the recursion hits the <strong>base case</strong> &mdash; usually T(1) or T(0).<br>
+  <strong>Step 4.</strong> Substitute that k and simplify.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R1. T(n) = T(n &minus; 1) + 1, with T(1) = 1.</span>
+  <p><strong>Expand:</strong></p>
+  <p>T(n) = T(n&minus;1) + 1<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = [T(n&minus;2) + 1] + 1 = T(n&minus;2) + 2<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = [T(n&minus;3) + 1] + 2 = T(n&minus;3) + 3</p>
+  <p><strong>General k-th term:</strong> &nbsp; T(n) = T(n &minus; k) + k</p>
+  <p><strong>Hit the base:</strong> set n &minus; k = 1, so <strong>k = n &minus; 1</strong>.</p>
+  <p>T(n) = T(1) + (n &minus; 1) = 1 + n &minus; 1 = <strong>n</strong></p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R2. T(n) = T(n &minus; 1) + n, with T(0) = 0. &nbsp;<em>(Quick sort's worst case)</em></span>
+  <p>T(n) = T(n&minus;1) + n<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = T(n&minus;2) + (n&minus;1) + n<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = T(n&minus;3) + (n&minus;2) + (n&minus;1) + n</p>
+  <p><strong>General:</strong> T(n) = T(n&minus;k) + [(n&minus;k+1) + &hellip; + n]</p>
+  <p><strong>Set k = n:</strong> T(n) = T(0) + (1 + 2 + &hellip; + n) = 0 + <strong>n(n+1)/2</strong></p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n&sup2;)</strong></p>
+  <p><em>This is exactly why quick sort degrades to n&sup2; on a sorted array.</em></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R3. T(n) = 2T(n &minus; 1) + 1, with T(0) = 0. &nbsp;<em>(Tower of Hanoi)</em></span>
+  <p>T(n) = 2T(n&minus;1) + 1<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 2[2T(n&minus;2) + 1] + 1 = 4T(n&minus;2) + 2 + 1 = 4T(n&minus;2) + 3<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 4[2T(n&minus;3) + 1] + 3 = 8T(n&minus;3) + 4 + 3 = 8T(n&minus;3) + 7</p>
+  <p><strong>General:</strong> T(n) = 2<sup>k</sup>T(n&minus;k) + (2<sup>k</sup> &minus; 1)</p>
+  <p><strong>Set k = n:</strong> T(n) = 2<sup>n</sup>T(0) + 2<sup>n</sup> &minus; 1 = <strong>2<sup>n</sup> &minus; 1</strong></p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(2<sup>n</sup>)</strong></p>
+  <p><em>Sanity check:</em> n = 3 gives 7 moves, which matches the puzzle by hand.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R4. T(n) = T(n/2) + 1, with T(1) = 1. &nbsp;<em>(Binary search)</em></span>
+  <p>T(n) = T(n/2) + 1 = T(n/4) + 2 = T(n/8) + 3</p>
+  <p><strong>General:</strong> T(n) = T(n/2<sup>k</sup>) + k</p>
+  <p><strong>Hit the base:</strong> set n/2<sup>k</sup> = 1, so 2<sup>k</sup> = n, so <strong>k = log<sub>2</sub>n</strong>.</p>
+  <p>T(n) = T(1) + log<sub>2</sub>n = 1 + log<sub>2</sub>n</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(log n)</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R5. T(n) = 2T(n/2) + n, with T(1) = 1. &nbsp;<em>(Merge sort &mdash; the most important recurrence in the course)</em></span>
+  <p>T(n) = 2T(n/2) + n<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 2[2T(n/4) + n/2] + n = 4T(n/4) + n + n = 4T(n/4) + 2n<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 4[2T(n/8) + n/4] + 2n = 8T(n/8) + n + 2n = 8T(n/8) + 3n</p>
+  <p><strong>General:</strong> T(n) = 2<sup>k</sup>T(n/2<sup>k</sup>) + k&middot;n</p>
+  <p><strong>Set n/2<sup>k</sup> = 1, so k = log<sub>2</sub>n and 2<sup>k</sup> = n:</strong></p>
+  <p>T(n) = n&middot;T(1) + n log<sub>2</sub>n = n + n log<sub>2</sub>n</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n log n)</strong></p>
+  <p><em>Notice the structure:</em> <strong>every level costs exactly n</strong>, and there are log n levels. That observation <em>is</em> the recursion-tree method, which the next section makes formal.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R6. T(n) = 2T(n/2) + 1, with T(1) = 1.</span>
+  <p>T(n) = 2T(n/2) + 1 = 4T(n/4) + 2 + 1 = 8T(n/8) + 4 + 2 + 1</p>
+  <p><strong>General:</strong> T(n) = 2<sup>k</sup>T(n/2<sup>k</sup>) + (2<sup>k</sup> &minus; 1)</p>
+  <p><strong>k = log<sub>2</sub>n, 2<sup>k</sup> = n:</strong> &nbsp; T(n) = n + n &minus; 1 = <strong>2n &minus; 1</strong></p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n)</strong></p>
+  <p><em>Compare R5 and R6:</em> the recursive part is identical, and only the additive term changed from n to 1 &mdash; yet the answer changed from n log n to n. <strong>The work done outside the recursion decides the answer.</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R7. T(n) = T(n/2) + n, with T(1) = 1.</span>
+  <p>T(n) = T(n/2) + n = T(n/4) + n/2 + n = T(n/8) + n/4 + n/2 + n</p>
+  <p><strong>General:</strong> T(n) = T(n/2<sup>k</sup>) + n(1 + &frac12; + &frac14; + &hellip; + 1/2<sup>k&minus;1</sup>)</p>
+  <p>The bracket is a <strong>geometric series with ratio &frac12;</strong>, whose sum is <strong>less than 2</strong> however many terms there are.</p>
+  <p>T(n) &lt; T(1) + 2n</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n)</strong></p>
+  <p><em>The lesson:</em> a decreasing geometric series sums to a constant multiple of its first term. <strong>When the top level dominates, the answer is just the top level.</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R8. T(n) = n &middot; T(n &minus; 1), with T(1) = 1.</span>
+  <p>T(n) = n&middot;T(n&minus;1) = n(n&minus;1)T(n&minus;2) = n(n&minus;1)(n&minus;2)T(n&minus;3)</p>
+  <p><strong>General:</strong> T(n) = n(n&minus;1)(n&minus;2)&hellip;(n&minus;k+1) &middot; T(n&minus;k)</p>
+  <p><strong>Set k = n &minus; 1:</strong> T(n) = n(n&minus;1)&hellip;2 &middot; T(1) = <strong>n!</strong></p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n!)</strong></p>
+</div>
+
+<h2>Method 2 &mdash; the recursion tree</h2>
+
+<div class="box exam">
+  <span class="lbl">The discipline</span>
+  <p><strong>Step 1.</strong> Draw the tree. The root is the non-recursive cost f(n); its children are the subproblems.<br>
+  <strong>Step 2.</strong> Find, for level i: <strong>the number of nodes</strong> (a<sup>i</sup>), <strong>the size at each node</strong> (n/b<sup>i</sup>), and hence <strong>the cost of the level</strong>.<br>
+  <strong>Step 3.</strong> Find the <strong>height</strong> &mdash; the level at which the size reaches 1.<br>
+  <strong>Step 4.</strong> <strong>Sum the level costs.</strong><br>
+  <strong>Always draw at least three levels plus the leaf level, and label a &ldquo;cost per level&rdquo; column down the right-hand side.</strong> That column is where the marks are.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R5 again, by recursion tree: T(n) = 2T(n/2) + n.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Level i</th><th class="num">Nodes</th><th>Size each</th><th>Cost each</th><th><strong>Level cost</strong></th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td class="num">1</td><td>n</td><td>n</td><td><strong>n</strong></td></tr>
+  <tr><td class="num">1</td><td class="num">2</td><td>n/2</td><td>n/2</td><td><strong>n</strong></td></tr>
+  <tr><td class="num">2</td><td class="num">4</td><td>n/4</td><td>n/4</td><td><strong>n</strong></td></tr>
+  <tr><td class="num">3</td><td class="num">8</td><td>n/8</td><td>n/8</td><td><strong>n</strong></td></tr>
+  <tr><td class="num">i</td><td class="num">2<sup>i</sup></td><td>n/2<sup>i</sup></td><td>n/2<sup>i</sup></td><td><strong>n</strong></td></tr>
+  <tr><td>last</td><td class="num">n</td><td>1</td><td>1</td><td><strong>n</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Height:</strong> the size is 1 when n/2<sup>i</sup> = 1, so <strong>i = log<sub>2</sub>n</strong>, giving log<sub>2</sub>n + 1 levels.</p>
+  <p><strong>Total = (cost per level) &times; (number of levels) = n &times; (log<sub>2</sub>n + 1)</strong></p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n log n)</strong></p>
+  <p><em>This is the picture to draw when a question says &ldquo;analyse merge sort&rdquo;</em> &mdash; every level does exactly n work, and there are log n of them.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R9. T(n) = 3T(n/2) + n &mdash; a tree where the levels are NOT equal.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Level i</th><th class="num">Nodes</th><th>Size each</th><th><strong>Level cost</strong></th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td class="num">1</td><td>n</td><td><strong>n</strong></td></tr>
+  <tr><td class="num">1</td><td class="num">3</td><td>n/2</td><td><strong>(3/2)n</strong></td></tr>
+  <tr><td class="num">2</td><td class="num">9</td><td>n/4</td><td><strong>(9/4)n = (3/2)&sup2;n</strong></td></tr>
+  <tr><td class="num">i</td><td class="num">3<sup>i</sup></td><td>n/2<sup>i</sup></td><td><strong>(3/2)<sup>i</sup> n</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>The level costs form an <em>increasing</em> geometric series with ratio 3/2</strong>, so the <strong>bottom</strong> level dominates &mdash; the opposite of R7.</p>
+  <p><strong>Height</strong> = log<sub>2</sub>n. <strong>Number of leaves</strong> = 3<sup>log<sub>2</sub>n</sup> = <strong>n<sup>log<sub>2</sub>3</sup></strong>, using the identity a<sup>log<sub>b</sub>n</sup> = n<sup>log<sub>b</sub>a</sup>.</p>
+  <p>Total = n &middot; &Sigma;<sub>i=0..log&#8322;n</sub> (3/2)<sup>i</sup>. An increasing geometric series is dominated by its last term, so</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n<sup>log<sub>2</sub>3</sup>) = &Theta;(n<sup>1.585</sup>)</strong></p>
+  <p><em>The identity to memorise: <strong>a<sup>log<sub>b</sub>n</sup> = n<sup>log<sub>b</sub>a</sup></strong>.</em> It converts a leaf count into a polynomial, and it is the whole reason the Master theorem's first case reads n<sup>log<sub>b</sub>a</sup>.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R10. T(n) = T(n/3) + T(2n/3) + n &mdash; an unbalanced tree.</span>
+  <p>The two subproblems are of <strong>different sizes</strong>, so the tree is lopsided and the Master theorem does not apply. The recursion tree still works.</p>
+  <p><strong>Cost per level:</strong> at every level the sizes still add up to n &mdash; n/3 + 2n/3 = n, then n/9 + 2n/9 + 2n/9 + 4n/9 = n, and so on. <strong>So each full level costs n.</strong></p>
+  <p><strong>Height:</strong> the tree is unbalanced, so it has two different depths.</p>
+  <ul>
+    <li><strong>Shortest path</strong> follows the n/3 branch: depth log<sub>3</sub>n.</li>
+    <li><strong>Longest path</strong> follows the 2n/3 branch: n(2/3)<sup>d</sup> = 1 gives <strong>d = log<sub>3/2</sub>n</strong>.</li>
+  </ul>
+  <p>Below depth log<sub>3</sub>n some branches have terminated, so levels cost <em>at most</em> n. Hence</p>
+  <p style="text-align:center">n &middot; log<sub>3</sub>n &nbsp;&le;&nbsp; T(n) &nbsp;&le;&nbsp; n &middot; log<sub>3/2</sub>n</p>
+  <p>Both bounds are &Theta;(n log n), since the logarithm base is only a constant factor.</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(n log n)</strong></p>
+  <p><em>Why this recurrence matters:</em> it is quick sort with a guaranteed 1:2 split. <strong>Even a badly unbalanced but <em>constant-ratio</em> split still gives n log n</strong> &mdash; which is why quick sort is fast in practice.</p>
+</div>
+
+<h2>Method 3 &mdash; substitution (guess and verify by induction)</h2>
+
+<div class="box exam">
+  <span class="lbl">The discipline</span>
+  <p><strong>Step 1. Guess</strong> the form of the answer &mdash; usually from a recursion tree or from a similar recurrence you know.<br>
+  <strong>Step 2.</strong> Assume the guess holds for all values <strong>smaller than n</strong> (strong induction).<br>
+  <strong>Step 3.</strong> Substitute into the recurrence and <strong>prove it holds for n</strong>, finding the constant.<br>
+  <strong>Step 4.</strong> Verify the <strong>base case</strong>.</p>
+  <p>Some books call back-substitution &ldquo;the substitution method&rdquo; too. If a question says &ldquo;substitution method&rdquo; and the recurrence is simple, do back-substitution; if it says &ldquo;prove that T(n) = O(&hellip;)&rdquo;, do the induction.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R11. Prove by substitution that T(n) = 2T(&lfloor;n/2&rfloor;) + n is O(n log n).</span>
+  <p><strong>Guess:</strong> T(n) &le; c &middot; n log n for some constant c &gt; 0 and all n &ge; n<sub>0</sub>.</p>
+  <p><strong>Inductive hypothesis:</strong> assume it holds for &lfloor;n/2&rfloor;, that is</p>
+  <p style="text-align:center">T(&lfloor;n/2&rfloor;) &le; c &middot; &lfloor;n/2&rfloor; log(&lfloor;n/2&rfloor;)</p>
+  <p><strong>Inductive step:</strong> substitute into the recurrence.</p>
+  <p>T(n) &le; 2 &middot; [ c &middot; (n/2) log(n/2) ] + n<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = c n log(n/2) + n<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = c n (log n &minus; log 2) + n<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = c n log n &minus; c n + n</p>
+  <p>This is <strong>&le; c n log n</strong> provided <strong>&minus;cn + n &le; 0</strong>, that is provided <strong>c &ge; 1</strong>.</p>
+  <p><strong>Base case:</strong> for n = 2, T(2) = 2T(1) + 2. With T(1) = 1 this is 4, and c&middot;2&middot;log 2 = 2c, so c &ge; 2 suffices. (Note that n = 1 cannot be used as the base, since c&middot;1&middot;log 1 = 0 while T(1) &gt; 0 &mdash; <strong>start the induction at n = 2</strong>, which is legal because asymptotic claims only concern large n.)</p>
+  <p><strong>With c = 2 and n<sub>0</sub> = 2, T(n) &le; 2n log n, so T(n) = O(n log n).</strong> &#8718;</p>
+  <p><em>The base-case subtlety is exactly what examiners probe</em> &mdash; mention it.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">R12 &mdash; change of variable. Solve T(n) = 2T(&radic;n) + log n.</span>
+  <p>Neither method applies directly, because the size shrinks by a <em>square root</em>. <strong>Substitute n = 2<sup>m</sup>, so m = log n.</strong></p>
+  <p>Then &radic;n = 2<sup>m/2</sup>, and the recurrence becomes</p>
+  <p style="text-align:center">T(2<sup>m</sup>) = 2 T(2<sup>m/2</sup>) + m</p>
+  <p><strong>Define S(m) = T(2<sup>m</sup>).</strong> Then</p>
+  <p style="text-align:center">S(m) = 2 S(m/2) + m</p>
+  <p>which is exactly R5. So <strong>S(m) = &Theta;(m log m)</strong>. Substituting m = log n back:</p>
+  <p style="text-align:center"><strong>T(n) = &Theta;(log n &middot; log log n)</strong></p>
+  <p><em>Whenever you see &radic;n inside a recurrence, substitute n = 2<sup>m</sup>.</em> It is a small trick with a large payoff, and it turns an unfamiliar recurrence into a familiar one.</p>
+</div>
+
+<h2>The comparison &mdash; which method when</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>Best for</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td><strong>Back-substitution</strong> (iteration)</td><td>Decreasing recurrences and simple dividing ones; gives an <strong>exact closed form</strong></td><td>The algebra gets heavy when a &gt; 1 and the sizes divide</td></tr>
+<tr><td><strong>Recursion tree</strong></td><td>Seeing <em>where the cost lives</em> &mdash; top-heavy, balanced or bottom-heavy; unbalanced splits like R10</td><td>Not a proof by itself &mdash; strictly it produces a <em>guess</em></td></tr>
+<tr><td><strong>Substitution / induction</strong></td><td><strong>Proving</strong> a bound you already suspect</td><td>You must have the guess first; it cannot find one</td></tr>
+<tr><td><strong>Master theorem</strong> (Lesson 5)</td><td>Anything of the form aT(n/b) + f(n)</td><td>Does not apply to unbalanced splits, non-constant a, or negative f</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The three shapes of a recursion tree &mdash; and the one-line answer for each</span>
+  <p><strong>Top-heavy</strong> (level costs <em>decrease</em> geometrically, as in R7): <strong>the root dominates &rarr; T(n) = &Theta;(f(n))</strong>.</p>
+  <p><strong>Balanced</strong> (all level costs equal, as in R5): <strong>T(n) = &Theta;(f(n) &times; number of levels)</strong>.</p>
+  <p><strong>Bottom-heavy</strong> (level costs <em>increase</em> geometrically, as in R9): <strong>the leaves dominate &rarr; T(n) = &Theta;(n<sup>log<sub>b</sub>a</sup>)</strong>.</p>
+  <p>Those three cases are precisely the three cases of the Master theorem, which the next lesson turns into a formula.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The recurrence for merge sort is:</p>
+  <div class="opts">
+    <button class="opt">T(n) = 2T(n/2) + 1</button>
+    <button class="opt">T(n) = T(n − 1) + n</button>
+    <button class="opt">T(n) = T(n/2) + n</button>
+    <button class="opt" data-ok="1">T(n) = 2T(n/2) + n</button>
+  </div>
+  <p class="why">Two recursive calls on halves, plus a linear merge. Option two is binary search with linear work — Θ(n); option three is Θ(n); option four is quick sort's worst case — Θ(n²).</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Solving T(n) = T(n−1) + n with T(0) = 0 gives:</p>
+  <div class="opts">
+    <button class="opt">Θ(2ⁿ)</button>
+    <button class="opt" data-ok="1">n(n+1)/2 = Θ(n²)</button>
+    <button class="opt">Θ(n)</button>
+    <button class="opt">Θ(n log n)</button>
+  </div>
+  <p class="why">Expanding gives T(0) + (1 + 2 + … + n). This is exactly quick sort on an already sorted array.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In the recursion tree for T(n) = 2T(n/2) + n, the cost of each level is:</p>
+  <div class="opts">
+    <button class="opt">n² at every level</button>
+    <button class="opt">2ⁱ at level i</button>
+    <button class="opt">n/2ⁱ at level i</button>
+    <button class="opt" data-ok="1">n, at every level</button>
+  </div>
+  <p class="why">Level i has 2ⁱ nodes each costing n/2ⁱ, so the product is always n. With log n + 1 levels the total is Θ(n log n).</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The number of leaves in the tree for T(n) = 3T(n/2) + n is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">n^(log₂3) ≈ n^1.585</button>
+    <button class="opt">3n</button>
+    <button class="opt">n log n</button>
+    <button class="opt">n</button>
+  </div>
+  <p class="why">3^(log₂n) = n^(log₂3), using a^(log_b n) = n^(log_b a). The level costs grow geometrically, so the leaves dominate and T(n) = Θ(n^log₂3).</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. T(n) = T(n/3) + T(2n/3) + n solves to:</p>
+  <div class="opts">
+    <button class="opt">Θ(n^1.585)</button>
+    <button class="opt">Θ(n)</button>
+    <button class="opt">Θ(n²)</button>
+    <button class="opt" data-ok="1">Θ(n log n)</button>
+  </div>
+  <p class="why">Every level still costs n, and the height is between log₃n and log_{3/2}n — both Θ(log n). It shows that even a fixed-ratio unbalanced split keeps quick sort at n log n.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. In the induction proof for T(n) = 2T(n/2) + n = O(n log n), the base case cannot be n = 1 because:</p>
+  <div class="opts">
+    <button class="opt">The recurrence is undefined at n = 1</button>
+    <button class="opt" data-ok="1">c·1·log 1 = 0, but T(1) &gt; 0</button>
+    <button class="opt">Induction always starts at n = 2</button>
+    <button class="opt">log 1 is undefined</button>
+  </div>
+  <p class="why">Start the induction at n = 2 instead. This is legitimate because asymptotic statements only concern sufficiently large n — and it is exactly the subtlety examiners probe.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. To solve T(n) = 2T(√n) + log n, the right first move is:</p>
+  <div class="opts">
+    <button class="opt">Guess T(n) = Θ(n) and prove by induction</button>
+    <button class="opt">Apply the Master theorem directly</button>
+    <button class="opt">Draw a recursion tree of height √n</button>
+    <button class="opt" data-ok="1">Substitute n = 2^m, so that √n becomes 2^(m/2)</button>
+  </div>
+  <p class="why">With S(m) = T(2^m) it becomes S(m) = 2S(m/2) + m, which is merge sort's recurrence — so S(m) = Θ(m log m) and T(n) = Θ(log n · log log n).</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the recurrences for binary search, merge sort, quick sort in both cases, Strassen's and Tower of Hanoi.</summary>
+    <p class="ans">Binary search T(n) = T(n/2) + 1. Merge sort and quick sort best case T(n) = 2T(n/2) + n. Quick sort worst case T(n) = T(n−1) + n. Strassen T(n) = 7T(n/2) + n². Naive matrix multiplication T(n) = 8T(n/2) + n². Tower of Hanoi T(n) = 2T(n−1) + 1.</p></details>
+  <details class="card"><summary>State the back-substitution discipline.</summary>
+    <p class="ans">Expand three times; write the general k-th expansion; choose k so the recursion reaches the base case — n − k = 1 for decreasing recurrences, n/2^k = 1 giving k = log n for dividing ones; substitute and simplify.</p></details>
+  <details class="card"><summary>Solve T(n) = 2T(n/2) + n and T(n) = 2T(n/2) + 1 by back-substitution.</summary>
+    <p class="ans">The first gives T(n) = 2^k T(n/2^k) + kn; at k = log n this is n + n log n = &Theta;(n log n). The second gives 2^k T(n/2^k) + (2^k − 1) = 2n − 1 = &Theta;(n). Only the non-recursive term differs, and it changes the whole answer.</p></details>
+  <details class="card"><summary>Describe the recursion-tree method and the three shapes a tree can have.</summary>
+    <p class="ans">For each level find the number of nodes a&#8305;, the size n/b&#8305;, and hence the level cost; find the height where the size reaches 1; sum the level costs. Top-heavy (costs decrease geometrically): the root dominates, T = &Theta;(f(n)). Balanced (equal costs): T = f(n) &times; number of levels. Bottom-heavy (costs increase): the leaves dominate, T = &Theta;(n^log_b a).</p></details>
+  <details class="card"><summary>Give the identity that converts a leaf count to a polynomial.</summary>
+    <p class="ans">a^(log_b n) = n^(log_b a). It is why the Master theorem's first case reads n^(log_b a), and why T(n) = 3T(n/2) + n has n^(log₂3) leaves.</p></details>
+  <details class="card"><summary>Prove T(n) = 2T(n/2) + n = O(n log n) by induction.</summary>
+    <p class="ans">Guess T(n) &le; cn log n. Assuming it for n/2, T(n) &le; 2c(n/2)log(n/2) + n = cn log n − cn + n, which is &le; cn log n whenever c &ge; 1. The base case must be n = 2 rather than n = 1, since c·1·log 1 = 0 while T(1) &gt; 0; c = 2 works there.</p></details>
+  <details class="card"><summary>How do you handle a &radic;n inside a recurrence?</summary>
+    <p class="ans">Change the variable: put n = 2^m, so &radic;n = 2^(m/2), and define S(m) = T(2^m). T(n) = 2T(&radic;n) + log n becomes S(m) = 2S(m/2) + m = &Theta;(m log m), so T(n) = &Theta;(log n · log log n).</p></details>
+</div>
+
+<p class="ask">Next: the formula that answers all of these in one line &mdash; the Master theorem, with fifteen drilled examples.</p>
+
+<div class="nav">
+  <a href="0003-complexity-analysis.html">&larr; Complexity Analysis</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0005-masters-theorem.html">Next: Master's Theorem &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Lesson 05 — Pagination &amp; Cursors</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">System Design · HLD · Lesson 5 of 66 · pagination, cursors, offset, keyset</div>
+<h1>Pagination &amp; Cursors</h1>
+<p class="subtitle">Whenever an interviewer asks you to "design a feed" or "return a list of users," you absolutely must bring up pagination. Returning 10 million rows in one JSON response is how servers crash.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master System Design for interviews — HLD + LLD. This is Lesson 5 of 66.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<!-- ─── 1 · THE ONE IDEA ─── -->
+<h2>1 · The One Idea</h2>
+<p>
+To fetch large datasets, APIs break the data into smaller chunks (pages). There are two main strategies: 
+<strong>Offset-based pagination</strong> (skip $X$ items, take $Y$) which is easy but scales horribly, and 
+<strong>Cursor-based (Keyset) pagination</strong> (give me $Y$ items *after* this specific marker) which is complex but scales infinitely. At FAANG scale, you almost exclusively use cursors.
+</p>
+
+<!-- ─── 2 · OFFSET-BASED PAGINATION ─── -->
+<h2>2 · Offset-Based Pagination</h2>
+<p>
+The most common and intuitive approach. The client tells the server: "Skip the first 100 items, and give me the next 20."
+</p>
+
+<h3>How it works (API &amp; SQL)</h3>
+<pre><code><span class="cmt">// API Request: Give me page 6 (assuming 20 items per page)</span>
+GET /api/users?page=6&limit=20
+
+<span class="cmt">// Backend calculates: offset = (page - 1) * limit = (6 - 1) * 20 = 100</span>
+
+<span class="cmt">// SQL Query sent to Database</span>
+SELECT * FROM users 
+ORDER BY created_at DESC 
+LIMIT 20 OFFSET 100;</code></pre>
+
+<h3>The Problems (Why it fails at scale)</h3>
+<ol>
+  <li><strong>Performance Degradation:</strong> <code>OFFSET 1000000 LIMIT 20</code> does <em>not</em> magically jump to the millionth row. The database must scan, load, and discard 1,000,000 rows just to give you the 20 you want. As the offset grows, the query gets slower (O(N)).</li>
+  <li><strong>Data Drift (The Missing/Duplicate Item Bug):</strong>
+    <ul>
+      <li>Imagine you are on Page 1 (items 1-10).</li>
+      <li>While you read, someone deletes item 2.</li>
+      <li>Item 11 shifts into the 10th spot.</li>
+      <li>You click "Page 2" (skip 10, take 10). You miss item 11 completely!</li>
+      <li>Conversely, if an item is inserted at the top, items shift down, and you will see duplicates across pages.</li>
+    </ul>
+  </li>
+</ol>
+
+<!-- ─── 3 · CURSOR-BASED PAGINATION ─── -->
+<h2>3 · Cursor-Based Pagination (Keyset)</h2>
+<p>
+Instead of saying "skip $X$ items," the client says: "Give me the next 20 items that come <em>after</em> the last item I saw." The marker of that last item is the <strong>Cursor</strong>.
+</p>
+
+<h3>How it works (API &amp; SQL)</h3>
+<p>The cursor is usually a unique, sequential column (like a Timestamp, Auto-incrementing ID, or UUID v7).</p>
+
+<pre><code><span class="cmt">// API Request: Client sends the ID of the last item from the previous page</span>
+GET /api/users?cursor=9876&limit=20
+
+<span class="cmt">// SQL Query sent to Database</span>
+SELECT * FROM users 
+WHERE id &lt; 9876       <span class="cmt">// Assuming descending order</span>
+ORDER BY id DESC 
+LIMIT 20;</code></pre>
+
+<h3>Why it succeeds at scale</h3>
+<ol>
+  <li><strong>O(1) Performance:</strong> If <code>id</code> is indexed, the database instantly jumps to <code>id = 9876</code> using a B-Tree index, and grabs the next 20 rows. It doesn't matter if it's the 1st page or the 10,000th page; it's exactly as fast.</li>
+  <li><strong>No Data Drift:</strong> Since you anchor to a specific row, inserts or deletes happening above or below your cursor do not shift your position. You never miss items or see duplicates.</li>
+</ol>
+
+<div class="callout trap">
+  <span class="label">The Non-Unique Sort Key Gotcha</span>
+  If you sort by a non-unique column (like <code>first_name</code> or <code>likes_count</code>), you can't use it directly as a cursor, because multiple rows might have "50 likes".<br>
+  <strong>Solution:</strong> Combine it with a unique tie-breaker. Sort by <code>(likes_count, id)</code>, and make your cursor a combination of both: <code>WHERE (likes_count, id) &lt; (50, 9876)</code>.
+</div>
+
+<!-- ─── 4 · SVG DIAGRAM: OFFSET VS CURSOR ─── -->
+<h2>4 · Visualizing the Database Execution</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Offset Based -->
+  <text class="lbl" x="180" y="20" font-size="14" font-weight="700">Offset: LIMIT 3 OFFSET 4</text>
+  
+  <rect class="node done" x="50" y="50" width="40" height="30" rx="3"/>
+  <rect class="node done" x="100" y="50" width="40" height="30" rx="3"/>
+  <rect class="node done" x="150" y="50" width="40" height="30" rx="3"/>
+  <rect class="node done" x="200" y="50" width="40" height="30" rx="3"/>
+  
+  <rect class="node cur" x="250" y="50" width="40" height="30" rx="3"/>
+  <rect class="node cur" x="300" y="50" width="40" height="30" rx="3"/>
+  <rect class="node cur" x="350" y="50" width="40" height="30" rx="3"/>
+  
+  <rect class="cell" x="400" y="50" width="40" height="30" rx="3"/>
+  <rect class="cell" x="450" y="50" width="40" height="30" rx="3"/>
+
+  <!-- Brackets and labels for Offset -->
+  <path d="M 50,90 L 50,100 L 240,100 L 240,90" fill="none" stroke="var(--bad)" stroke-width="2"/>
+  <text class="lbl" x="145" y="115" font-size="10" fill="var(--bad)">Scanned &amp; Thrown Away (Wasteful)</text>
+  
+  <path d="M 250,90 L 250,100 L 390,100 L 390,90" fill="none" stroke="var(--good)" stroke-width="2"/>
+  <text class="lbl" x="320" y="115" font-size="10" fill="var(--good)">Returned</text>
+
+  <!-- Cursor Based -->
+  <text class="lbl" x="180" y="160" font-size="14" font-weight="700">Cursor: WHERE id > 4 LIMIT 3</text>
+
+  <!-- B-Tree pointer representation -->
+  <circle cx="225" cy="190" r="15" fill="var(--accent)"/>
+  <text class="lbl inv" x="225" y="190" font-size="10">Index</text>
+  
+  <line class="edge hl" x1="225" y1="205" x2="260" y2="235" marker-end="url(#arrow)"/>
+
+  <rect class="cell" x="50" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl" x="70" y="235" font-size="10">1</text>
+  <rect class="cell" x="100" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl" x="120" y="235" font-size="10">2</text>
+  <rect class="cell" x="150" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl" x="170" y="235" font-size="10">3</text>
+  <rect class="cell" x="200" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl" x="220" y="235" font-size="10">4</text>
+  
+  <rect class="node cur" x="250" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl inv" x="270" y="235" font-size="10">5</text>
+  <rect class="node cur" x="300" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl inv" x="320" y="235" font-size="10">6</text>
+  <rect class="node cur" x="350" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl inv" x="370" y="235" font-size="10">7</text>
+  
+  <rect class="cell" x="400" y="220" width="40" height="30" rx="3"/>
+  <text class="lbl" x="420" y="235" font-size="10">8</text>
+  <rect class="cell" x="450" y="220" width="40" height="30" rx="3"/>
+
+  <path d="M 250,260 L 250,270 L 390,270 L 390,260" fill="none" stroke="var(--good)" stroke-width="2"/>
+  <text class="lbl" x="320" y="285" font-size="10" fill="var(--good)">Returned directly (O(1) via index)</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>Offset forces the DB to count and throw away rows. Cursors leverage indexes to jump directly to the target.</figcaption>
+</figure>
+
+<!-- ─── 5 · COMPARISON TABLE ─── -->
+<h2>5 · Offset vs Cursor Comparison</h2>
+
+<table class="vs-table">
+  <thead><tr><th>Feature</th><th>Offset-Based</th><th>Cursor-Based</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Performance</strong></td><td>Degrades as offset grows (O(N))</td><td>Constant, fast (O(1)) via index</td></tr>
+    <tr><td><strong>Data Consistency</strong></td><td>Poor. Items skip or duplicate on insert/delete</td><td>Perfect. No drifting.</td></tr>
+    <tr><td><strong>"Jump to Page X"</strong></td><td>Supported (e.g. go straight to page 42)</td><td>Not possible. Must navigate sequentially.</td></tr>
+    <tr><td><strong>Implementation</strong></td><td>Very easy</td><td>Slightly complex (especially with custom sorting)</td></tr>
+    <tr><td><strong>UI Pattern</strong></td><td>Numbered Page Links (1, 2, 3...)</td><td>Infinite Scroll (Twitter feed, Facebook)</td></tr>
+  </tbody>
+</table>
+
+<!-- ─── 6 · OPAQUE PAGE TOKENS (THE GOOGLE WAY) ─── -->
+<h2>6 · Opaque Page Tokens</h2>
+<p>
+If you expose an internal DB ID as a cursor (e.g., <code>?cursor=9876</code>), clients might start relying on that ID format, or try to guess the next ID. Furthermore, if you change your backend database, the cursor format might break.
+</p>
+<p>
+<strong>Solution:</strong> The server Base64-encodes the cursor into an <em>Opaque Token</em>.
+</p>
+<pre><code><span class="cmt">// Client requests first page</span>
+GET /api/tweets
+
+<span class="cmt">// Server responds:</span>
+{
+  "data": [...],
+  "next_page_token": "ZXlKMGFXMWxjM1JoYlhB"  <span class="cmt">// Base64 string</span>
+}
+
+<span class="cmt">// Client fetches next page:</span>
+GET /api/tweets?page_token=ZXlKMGFXMWxjM1JoYlhB</code></pre>
+<p>The client treats it as a random string. The server decodes it to extract the ID, Timestamp, or whatever internal sorting mechanism it uses.</p>
+
+<!-- ─── 7 · DATABASES AND PAGINATION ─── -->
+<h2>7 · How different Databases handle Pagination</h2>
+
+<ul>
+  <li><strong>SQL (Postgres, MySQL):</strong> Uses <code>LIMIT/OFFSET</code> (bad) or <code>WHERE col > val</code> (good).</li>
+  <li><strong>MongoDB:</strong> Has <code>.skip(X).limit(Y)</code>. Skip has the exact same performance problems as SQL OFFSET. Use range queries instead: <code>db.col.find({_id: {$gt: last_id}}).limit(20)</code>.</li>
+  <li><strong>DynamoDB (AWS):</strong> Doesn't support offset at all. Forces you to do it right. Provides an <code>ExclusiveStartKey</code> in responses, which you pass back to get the next page.</li>
+  <li><strong>Elasticsearch:</strong> Default <code>from/size</code> fails past 10,000 results to protect memory. You must use <code>search_after</code> (cursor) for deep pagination.</li>
+</ul>
+
+<!-- ─── 8 · THE TOTAL COUNT PROBLEM ─── -->
+<h2>8 · The "Total Pages" Problem</h2>
+<p>
+If you use numbered pages, your UI usually says "Showing 1-20 of 1,234,567 results". 
+To get that number, the backend must run <code>SELECT COUNT(*) FROM users;</code>.
+</p>
+<div class="callout trap">
+  <span class="label">Count is slow!</span>
+  In modern relational databases (especially Postgres/MVCC), <code>COUNT(*)</code> is surprisingly slow on large tables because it has to do a full table scan to verify row visibility.
+  <br><br>
+  <strong>Solutions:</strong>
+  <ul>
+    <li>Drop the total count completely (use Infinite Scroll).</li>
+    <li>Use estimated counts (e.g., reading metadata from Postgres stats tables).</li>
+    <li>Cache the total count in Redis and update it asynchronously.</li>
+  </ul>
+</div>
+
+<!-- ─── 9 · INTERVIEW ANGLE ─── -->
+<h2>9 · System Design Interview Angle</h2>
+<p>
+If the prompt is <strong>"Design Twitter / Instagram / News Feed"</strong>:
+</p>
+<ul>
+  <li><strong>Never suggest Offset Pagination.</strong> It immediately signals you haven't built large-scale apps.</li>
+  <li>State clearly: <em>"We will use cursor-based pagination utilizing a page_token. The cursor will be the Tweet ID (if it's a timestamp-based ID like Snowflake) or a compound key of (timestamp, tweet_id) to ensure strict ordering and O(1) index lookups."</em></li>
+  <li>Mention that cursor pagination perfectly matches the <strong>Infinite Scroll</strong> UX pattern that modern feeds use.</li>
+</ul>
+
+<!-- ─── 10 · QUIZZES ─── -->
+<h2>10 · Check Yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does OFFSET pagination get slower as the user goes to deeper pages?</div>
+  <button class="opt">The network payload becomes larger.</button>
+  <button class="opt">The database must scan and discard all rows preceding the offset.</button>
+  <button class="opt">Indexes do not work at all on queries with a LIMIT clause.</button>
+  <div class="fb" data-correct="Correct! To skip 1,000,000 rows, the DB literally reads 1,000,000 rows from disk/memory just to throw them away and give you the next 20. It's O(N) wasteful." data-wrong="The network payload is the same (e.g., 20 items). The bottleneck is purely at the database engine level having to traverse and discard rows."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A user is on Page 1 (items 1-10) of an offset-paginated API. While reading, item #2 gets deleted. When the user requests Page 2 (Offset 10, Limit 10), what happens?</div>
+  <button class="opt">Item #11 is completely skipped/missed by the user.</button>
+  <button class="opt">Item #11 appears on Page 2 as a duplicate.</button>
+  <button class="opt">The database throws an exception because the offset is out of sync.</button>
+  <div class="fb" data-correct="Exactly! Because item 2 was deleted, everything shifted UP by 1. Item 11 became the new 10th item (which was on Page 1 in reality). When the user offsets by 10, they start at the new 11th item (which was originally item 12). They miss item 11 entirely!" data-wrong="Think about the shift. The rows shift UP. The offset blindly skips the first 10 rows. Thus, a row that shifted into the top 10 will be skipped."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You are sorting users by their `score` (e.g., 100 points, 95 points). Multiple users can have the same score. How do you implement cursor pagination safely?</div>
+  <button class="opt">Use only the `score` as the cursor.</button>
+  <button class="opt">Cursor pagination cannot be used here; you must fallback to offset pagination.</button>
+  <button class="opt">Use a compound cursor combining `score` and a unique tie-breaker like `user_id`.</button>
+  <div class="fb" data-correct="Spot on! If you just use `WHERE score < 95`, and there were five users with 95 but you only fetched two, you skip the other three. Adding a unique tie-breaker (score, user_id) guarantees deterministic sorting." data-wrong="If you only use `score`, you will skip data. You don't have to give up on cursors though; you just need to ensure the sorting combination is mathematically unique."></div>
+</div>
+
+<!-- ─── 11 · DO THIS NEXT ─── -->
+<h2>11 · Do This Next</h2>
+<ul>
+  <li>If you use Postgres, read about <a href="https://use-the-index-luke.com/no-offset" target="_blank">Keyset Pagination</a> to see exactly how the B-Tree index handles cursors.</li>
+  <li>Practice writing a SQL query that uses a compound cursor (e.g., sorting by <code>price</code>, then <code>id</code>).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Your teacher</span>
+  I'm your system design teacher. If anything is unclear, ask me to explain further.
+  When you're ready, say <strong>"next"</strong> to advance to Lesson 6 — How the Internet Works.
+</div>
+
+<div class="nav">
+  <a href="0004-threads-concurrency-hld.html">← Lesson 4</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0006-how-the-internet-works.html">Lesson 6 →</a>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

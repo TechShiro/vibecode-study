@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 12 – CNNs & Modern Vision Architectures</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module D · Lesson 12 of 17 · Computer Vision</div>
+  <h1>Convolutional Neural Networks & ResNets</h1>
+  <p class="subtitle">Why MLPs fail on pixels, spatial convolutions, pooling, and how ResNet skip connections conquered deep gradient vanishing.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Computer Vision</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Feeding a high-resolution image (e.g. 1000 &times; 1000 pixels with 3 RGB channels = 3,000,000 values) into a standard Fully Connected MLP causes two fatal problems: <strong>parameter explosion</strong> (billions of weights for a single layer) and <strong>loss of 2D spatial locality</strong> (flattening pixels destroys local edge and shape relationships). <strong>Convolutional Neural Networks (CNNs)</strong> solve this via <strong>parameter sharing</strong> and <strong>local receptive fields</strong> using small learnable filters (e.g. 3 &times; 3 matrices) that slide across the image.</p>
+
+  <h2>2 · Anatomy of a Convolutional Layer</h2>
+  <div class="arch-flow">
+    <div class="box">Input Image (C, H, W)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Conv2D (Filter Kernel)</div>
+    <div class="arrow-right"></div>
+    <div class="box">ReLU Activation</div>
+    <div class="arrow-right"></div>
+    <div class="box db">MaxPool (Downsampling)</div>
+  </div>
+
+  <ul>
+    <li><strong>Kernel / Filter</strong>: Small matrix (typically 3&times;3) that slides over inputs computing dot products. Learns low-level edge detectors in early layers, and semantic objects in deep layers.</li>
+    <li><strong>Stride</strong>: Number of pixels the filter shifts per step (stride 1 = dense scan; stride 2 = halving spatial dimensions).</li>
+    <li><strong>Padding</strong>: Adding border zeros around inputs. <em>"Same" padding</em> preserves input spatial dimensions (<code>H_out = H_in</code>).</li>
+    <li><strong>Pooling (MaxPool2d)</strong>: Takes maximum value in a 2&times;2 window, providing translation invariance and reducing memory footprint.</li>
+  </ul>
+
+  <h2>3 · The ResNet Breakthrough: Skip Connections</h2>
+  <div class="callout good">
+    <h4>Why Deep Networks Failed Before ResNet (2015)</h4>
+    <p>Before Kaiming He et al. introduced Residual Networks, stacking more than 20 layers caused training accuracy to degrade rapidly. Deep backpropagation suffered from vanishing gradients: multiplying 30 small numbers together drives gradients to absolute zero.</p>
+    <p><strong>The Residual Block Solution:</strong> Instead of learning a direct mapping <code>H(x)</code>, the network learns the residual <code>F(x) = H(x) - x</code>, and outputs <code>H(x) = F(x) + x</code> via a <strong>Skip Connection (Identity Shortcut)</strong>.</p>
+    <p><em>Calculus proof:</em> <code>&part;H/&part;x = &part;F/&part;x + 1</code>. The "+ 1" term guarantees that gradients can flow straight backward through hundreds of layers without vanishing!</p>
+  </div>
+
+  <h2>4 · Complete Custom ResNet Block Implementation in PyTorch</h2>
+  <pre><code>import torch
+import torch.nn as nn
+
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, 
+                               stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, 
+                               stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        # Shortcut connection for matching dimensions if stride > 1
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+
+    def forward(self, x):
+        residual = self.shortcut(x)
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += residual  # The magic skip connection!
+        return self.relu(out)</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0011-deep-learning-optimization-and-regularization.html">← Lesson 11: Optimization & Regularization</a>
+    <a href="0013-transfer-learning-and-vision-transformers.html">Lesson 13: Transfer Learning & Vision Transformers →</a>
+  </nav>
+</body>
+</html>

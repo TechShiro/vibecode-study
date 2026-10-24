@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 06 — Palindrome DP</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 06 of 12 · palindromes nest — exploit it</div>
+<h1>Palindrome DP</h1>
+<p class="subtitle">A palindrome is a palindrome wrapped in a matching pair: <code>s[i..j]</code> is one iff <code>s[i] == s[j]</code> and <code>s[i+1..j-1]</code> is. That nesting gives you an O(n²) table over substrings (i, j) — and a free O(1)-space alternative: expand around centers.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 6 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Palindromes have <strong>recursive structure from the outside in</strong>: peel the matching outer pair and a
+smaller palindrome remains. So the natural state is a <strong>substring (i, j)</strong>, and the table must be
+filled by <strong>increasing length</strong> — the inner substring <code>(i+1, j-1)</code> is strictly shorter, so
+it's already known. For <em>substring</em> questions there's a second weapon: every palindrome has a center,
+so <strong>expanding around all 2n−1 centers</strong> finds them all in O(n²) time and O(1) space.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The word "palindrom-" plus <em>longest / count / partition / insert / delete</em>. Then one fork decides
+  everything: <strong>substring</strong> (contiguous → isPal table or center expansion) vs
+  <strong>subsequence</strong> (chars may be skipped → interval dp, Lesson 9's shape arriving early).
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<table>
+  <thead><tr><th>Part</th><th>For palindrome DP</th></tr></thead>
+  <tbody>
+    <tr><td><strong>State</strong></td><td><code>isPal[i][j]</code> = is <code>s[i..j]</code> (inclusive) a palindrome? Subsequence flavor: <code>dp[i][j]</code> = LPS length inside <code>s[i..j]</code>.</td></tr>
+    <tr><td><strong>Recurrence</strong></td><td><code>isPal[i][j] = s[i]==s[j] &amp;&amp; isPal[i+1][j-1]</code>. LPS: match → <code>dp[i+1][j-1] + 2</code>; else <code>max(dp[i+1][j], dp[i][j-1])</code>.</td></tr>
+    <tr><td><strong>Base case</strong></td><td>Length 1: always true (LPS = 1). Length 2: <code>s[i]==s[i+1]</code> — the inner substring is empty, so no table lookup.</td></tr>
+    <tr><td><strong>Order</strong></td><td>By increasing substring length (equivalently: <code>i</code> descending, <code>j</code> ascending) — inner-first, always.</td></tr>
+    <tr><td><strong>Answer</strong></td><td>Depends: best (i, j) window for LC 5, count of trues for 647, <code>dp[0][n-1]</code> for 516, a second 1D pass for 132.</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · Core template</h2>
+<h3>The isPal table — filled by increasing length</h3>
+<pre><code><span class="cmt">// isPal[i][j] = true iff s[i..j] is a palindrome. O(n²) time and space.</span>
+boolean[][] buildIsPal(String s) {
+    int n = s.length();
+    boolean[][] isPal = new boolean[n][n];
+    for (int i = 0; i &lt; n; i++) isPal[i][i] = true;          <span class="cmt">// length 1</span>
+    for (int len = 2; len &lt;= n; len++)                       <span class="cmt">// inner substrings already done</span>
+        for (int i = 0; i + len - 1 &lt; n; i++) {
+            int j = i + len - 1;
+            isPal[i][j] = s.charAt(i) == s.charAt(j)
+                       &amp;&amp; (len == 2 || isPal[i + 1][j - 1]); <span class="cmt">// len 2 has an empty inside</span>
+        }
+    return isPal;
+}</code></pre>
+
+<h3>Expand around center — the O(1)-space alternative for substrings (LC 5)</h3>
+<pre><code>String longestPalindrome(String s) {
+    int start = 0, len = 0;
+    for (int c = 0; c &lt; s.length(); c++) {
+        int odd  = expand(s, c, c);              <span class="cmt">// odd-length: center ON character c</span>
+        int even = expand(s, c, c + 1);          <span class="cmt">// even-length: center BETWEEN c and c+1</span>
+        int best = Math.max(odd, even);
+        if (best &gt; len) { len = best; start = c - (best - 1) / 2; }
+    }
+    return s.substring(start, start + len);
+}
+int expand(String s, int l, int r) {
+    while (l &gt;= 0 &amp;&amp; r &lt; s.length() &amp;&amp; s.charAt(l) == s.charAt(r)) { l--; r++; }
+    return r - l - 1;                            <span class="cmt">// pointers overshoot by one each side</span>
+}</code></pre>
+<p><strong>Time</strong> O(n²) for both. <strong>Space</strong>: table O(n²), expansion O(1). Build the table when
+<em>other</em> dp layers will query "is s[i..j] a palindrome?" repeatedly (LC 132); expand when you only need
+the best window or a count (LC 5, 647).</p>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Longest Palindromic Substring</td><td>5</td><td>Track the widest true cell / widest expansion. Both methods — know both.</td></tr>
+    <tr><td>Palindromic Substrings (count)</td><td>647</td><td>Count trues in the table, or sum expansion steps per center.</td></tr>
+    <tr><td>Longest Palindromic <em>Subsequence</em></td><td>516</td><td>Interval dp with skipping: match +2, else max of shrinking either end. Also = LCS(s, reverse(s)).</td></tr>
+    <tr><td>Palindrome Partitioning II (min cuts)</td><td>132</td><td>Two layers: precompute isPal, then 1D <code>cut[j]</code> over prefixes.</td></tr>
+    <tr><td>Min Insertions to Make Palindrome</td><td>1312</td><td>No new dp: answer = <code>n − LPS(s)</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>Longest Palindromic Substring (5) — reading the answer off the isPal table</h3>
+<p>
+The table method for LC 5 is the core template with a two-line addition: whenever a cell turns true,
+compare its length against the best window so far. State is still <code>isPal[i][j]</code>, the recurrence
+is unchanged, and because you iterate by increasing length, the first time you see a longer true cell
+it is automatically the leftmost one of that length.
+</p>
+<pre><code>String longestPalindrome(String s) {
+    int n = s.length();
+    boolean[][] isPal = new boolean[n][n];
+    int start = 0, maxLen = 1;                   <span class="cmt">// any single char is a valid fallback</span>
+    for (int i = 0; i &lt; n; i++) isPal[i][i] = true;
+    for (int len = 2; len &lt;= n; len++)
+        for (int i = 0; i + len - 1 &lt; n; i++) {
+            int j = i + len - 1;
+            if (s.charAt(i) == s.charAt(j) &amp;&amp; (len == 2 || isPal[i + 1][j - 1])) {
+                isPal[i][j] = true;
+                if (len &gt; maxLen) { maxLen = len; start = i; }  <span class="cmt">// widest true cell so far</span>
+            }
+        }
+    return s.substring(start, start + maxLen);
+}</code></pre>
+<p><strong>Time</strong> O(n²) · <strong>Space</strong> O(n²). Same asymptotics as expansion but pays O(n²) memory —
+worth it only when the table gets reused (as in LC 132).</p>
+<div class="callout trap">
+  <span class="label">Classic bug</span>
+  Dropping the <code>len == 2 ||</code> guard makes length-2 cells read <code>isPal[i+1][j-1]</code> =
+  <code>isPal[i+1][i]</code> — a lower-triangle cell that is never set, so it's silently <code>false</code> and
+  every "aa"-style pair gets marked non-palindrome. The bug hides on inputs with no adjacent duplicates.
+</div>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 5 · Longest Palindromic Substring</strong> (Medium) — Google-reported; solve with this table, then re-solve with §3's expand-around-center and compare memory.</li>
+  <li><strong>LC 409 · Longest Palindrome</strong> (Easy) — build a palindrome by <em>rearranging</em>: greedy character counts, no table — know why reordering kills the DP structure.</li>
+  <li><strong>LC 680 · Valid Palindrome II</strong> (Easy) — two pointers with one allowed deletion; the same inward-matching move the recurrence encodes, run greedily.</li>
+</ul>
+
+<h3>Palindromic Substrings (647) — count by expanding every center</h3>
+<pre><code>int countSubstrings(String s) {
+    int count = 0;
+    for (int c = 0; c &lt; s.length(); c++) {
+        count += countFrom(s, c, c);             <span class="cmt">// odd-length palindromes at this center</span>
+        count += countFrom(s, c, c + 1);         <span class="cmt">// even-length</span>
+    }
+    return count;
+}
+int countFrom(String s, int l, int r) {
+    int k = 0;                                   <span class="cmt">// each successful widening = one more palindrome</span>
+    while (l &gt;= 0 &amp;&amp; r &lt; s.length() &amp;&amp; s.charAt(l) == s.charAt(r)) { k++; l--; r++; }
+    return k;
+}</code></pre>
+<p>
+The table route works too, because <strong>every true cell is exactly one palindromic substring</strong> —
+counting trues and counting palindromes are the same act. Same state and recurrence as the core template;
+only the answer changes from "widest true cell" to "number of true cells":
+</p>
+<pre><code>int countSubstrings(String s) {                  <span class="cmt">// re-solve: table method</span>
+    boolean[][] isPal = buildIsPal(s);           <span class="cmt">// §3 core template, unchanged</span>
+    int count = 0;
+    for (int i = 0; i &lt; s.length(); i++)
+        for (int j = i; j &lt; s.length(); j++)
+            if (isPal[i][j]) count++;            <span class="cmt">// one true cell = one palindrome</span>
+    return count;
+}</code></pre>
+<p><strong>Time</strong> O(n²) either way · <strong>Space</strong>: expansion O(1), table O(n²). Interviewers
+love hearing you name that trade-off unprompted.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 647 · Palindromic Substrings</strong> (Medium) — sum widenings per center; then re-solve by counting trues in the isPal table and check both return the same number.</li>
+  <li><strong>LC 1930 · Unique Length-3 Palindromic Subsequences</strong> (Medium) — the peel-the-outer-pair idea without a table: fix the outer character pair, count distinct middles between its first and last occurrence.</li>
+  <li><strong>LC 2472 · Max Number of Non-overlapping Palindrome Substrings</strong> (Hard) — precompute isPal, then a 1D dp over prefixes picks disjoint palindromes of length ≥ k — a bridge to 132's two-layer shape.</li>
+</ul>
+
+<h3>Longest Palindromic Subsequence (516) — the interval-DP shape</h3>
+<pre><code><span class="cmt">// SUBSEQUENCE: characters may be skipped, so mismatches shrink one end, not fail.</span>
+int longestPalindromeSubseq(String s) {
+    int n = s.length();
+    int[][] dp = new int[n][n];
+    for (int i = n - 1; i &gt;= 0; i--) {           <span class="cmt">// i descending + j ascending = inner-first</span>
+        dp[i][i] = 1;
+        for (int j = i + 1; j &lt; n; j++)
+            dp[i][j] = s.charAt(i) == s.charAt(j)
+                     ? dp[i + 1][j - 1] + 2      <span class="cmt">// outer pair joins the inner LPS</span>
+                     : Math.max(dp[i + 1][j], dp[i][j - 1]);
+    }
+    return dp[0][n - 1];
+}</code></pre>
+<p><strong>Time</strong> O(n²) · <strong>Space</strong> O(n²) (a rolling pair of rows brings it to O(n) —
+same trick as Lesson 5).</p>
+<p>
+<strong>The LCS-with-reverse equivalence.</strong> A common subsequence of <code>s</code> and
+<code>reverse(s)</code> is a sequence you can read forward through <code>s</code> and, simultaneously,
+forward through the reversal — i.e. backward through <code>s</code>. Reading the same thing forward and
+backward is precisely what a palindromic subsequence is, so <code>LPS(s) = LCS(s, reverse(s))</code> and
+Lesson 5's template solves 516 with zero new code. State: <code>dp[i][j]</code> = LCS of
+<code>s[0..i)</code> and <code>t[0..j)</code>; match → diagonal + 1; else max of dropping either prefix
+character; base case: row 0 and column 0 are 0.
+</p>
+<pre><code>int longestPalindromeSubseqViaLCS(String s) {
+    String t = new StringBuilder(s).reverse().toString();
+    int n = s.length();
+    int[][] dp = new int[n + 1][n + 1];          <span class="cmt">// Lesson 5's LCS table, verbatim</span>
+    for (int i = 1; i &lt;= n; i++)
+        for (int j = 1; j &lt;= n; j++)
+            dp[i][j] = s.charAt(i - 1) == t.charAt(j - 1)
+                     ? dp[i - 1][j - 1] + 1      <span class="cmt">// match: extend the diagonal</span>
+                     : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    return dp[n][n];                             <span class="cmt">// = LPS(s)</span>
+}</code></pre>
+<p><strong>Time</strong> O(n²) · <strong>Space</strong> O(n²), rollable to O(n).</p>
+<div class="callout trap">
+  <span class="label">Classic bug</span>
+  This equivalence is for the <em>subsequence</em> only. LCS(s, reverse(s)) does <strong>not</strong> find the
+  longest palindromic <em>substring</em>: on "abacdfgdcaba" the LCS with its reversal is "abacd…"-shaped —
+  length 7 and not a palindrome at all — while the true longest palindromic substring is "aba" (3).
+  Copied characters can come from mismatched, mirror-image regions.
+</div>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 516 · Longest Palindromic Subsequence</strong> (Medium) — interval dp first; then re-solve via LCS(s, reverse(s)) and confirm both agree on "bbbab" → 4.</li>
+  <li><strong>LC 1771 · Maximize Palindrome Length From Subsequences</strong> (Hard) — run the 516 interval dp on word1 + word2, but only count pairs (i, j) that straddle the join.</li>
+  <li><strong>LC 730 · Count Different Palindromic Subsequences</strong> (Hard) — same interval state, but counting <em>distinct</em> palindromes; heavy dedup bookkeeping — recognition-depth stretch.</li>
+</ul>
+
+<h3>Palindrome Partitioning II (132) — isPal table + 1D cut dp on top</h3>
+<pre><code>int minCut(String s) {
+    int n = s.length();
+    boolean[][] isPal = buildIsPal(s);           <span class="cmt">// O(n²) precompute — the core template</span>
+    int[] cut = new int[n];                      <span class="cmt">// cut[j] = min cuts for prefix s[0..j]</span>
+    for (int j = 0; j &lt; n; j++) {
+        if (isPal[0][j]) { cut[j] = 0; continue; } <span class="cmt">// whole prefix already a palindrome</span>
+        cut[j] = j;                              <span class="cmt">// worst case: cut between every pair</span>
+        for (int i = 1; i &lt;= j; i++)             <span class="cmt">// last piece = s[i..j]; O(1) lookup, not O(n) recheck</span>
+            if (isPal[i][j]) cut[j] = Math.min(cut[j], cut[i - 1] + 1);
+    }
+    return cut[n - 1];
+}</code></pre>
+<p><strong>Time</strong> O(n²) (table build + the double loop) · <strong>Space</strong> O(n²) for the table.
+Without the precomputed table, re-checking "is s[i..j] a palindrome?" inside the loop costs O(n³) — the
+whole point of the two-layer design is turning that check into an O(1) lookup.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 131 · Palindrome Partitioning</strong> (Medium) — enumerate <em>all</em> partitions by backtracking, with the precomputed isPal table making each "can I cut here?" check O(1). Do this before 132 — same table, different driver.</li>
+  <li><strong>LC 132 · Palindrome Partitioning II</strong> (Hard) — the two-layer template above, verbatim; don't forget the <code>isPal[0][j] → cut[j] = 0</code> shortcut.</li>
+  <li><strong>LC 1278 · Palindrome Partitioning III</strong> (Hard) — swap the boolean table for <code>cost[i][j]</code> = mismatched pairs to fix in s[i..j], then dp over (prefix, pieces used).</li>
+</ul>
+
+<h3>Minimum Insertions (1312) — arithmetic on LPS</h3>
+<p>
+No new dp at all. The LPS characters already sit symmetrically inside <code>s</code>; every one of the
+remaining <code>n − LPS</code> characters breaks symmetry and needs exactly one mirrored partner inserted —
+and you can never do better, since whatever survives un-mirrored must itself be a palindromic subsequence.
+Sister fact: minimum <em>deletions</em> to reach a palindrome is also <code>n − LPS</code> (delete the
+non-skeleton characters instead of mirroring them).
+</p>
+<pre><code>int minInsertions(String s) {
+    return s.length() - longestPalindromeSubseq(s);  <span class="cmt">// 516's method — reuse it as-is</span>
+}</code></pre>
+<p><strong>Time</strong> O(n²) — all of it inside the 516 call · <strong>Space</strong> O(n²).</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1312 · Min Insertion Steps to Make a String Palindrome</strong> (Hard) — the one-liner above; reuse your 516 code unchanged.</li>
+  <li><strong>LC 1332 · Remove Palindromic Subsequences</strong> (Easy) — a troll: the alphabet is only {a, b}, so the answer is 0, 1, or 2 — pure subsequence insight, zero tables.</li>
+  <li><strong>LC 2193 · Minimum Number of Moves to Make Palindrome</strong> (Hard) — adjacent <em>swaps</em>, not inserts: greedy two-pointer beats DP here — know when to leave the table behind.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p><code>s = "babad"</code> (indices 0–4). Fill <code>isPal</code> by increasing length; only the upper triangle
+<code>j ≥ i</code> exists. The answer window for LC 5 is the widest true cell:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 230 195" role="img" aria-label="Upper-triangular isPal table for babad: diagonal true, length-2 cells all false, bab and aba true at length 3, everything longer false">
+  <text class="wt" x="72" y="14">b₀</text><text class="wt" x="104" y="14">a₁</text><text class="wt" x="136" y="14">b₂</text><text class="wt" x="168" y="14">a₃</text><text class="wt" x="200" y="14">d₄</text>
+  <text class="wt" x="40" y="36">b₀</text><text class="wt" x="40" y="68">a₁</text><text class="wt" x="40" y="100">b₂</text><text class="wt" x="40" y="132">a₃</text><text class="wt" x="40" y="164">d₄</text>
+  <rect class="cell done" x="56" y="20" width="32" height="32"/><rect class="cell" x="88" y="20" width="32" height="32"/><rect class="cell cur" x="120" y="20" width="32" height="32"/><rect class="cell" x="152" y="20" width="32" height="32"/><rect class="cell" x="184" y="20" width="32" height="32"/>
+  <text class="lbl" x="72" y="36">T</text><text class="lbl" x="104" y="36">F</text><text class="lbl inv" x="136" y="36">T</text><text class="lbl" x="168" y="36">F</text><text class="lbl" x="200" y="36">F</text>
+  <rect class="cell done" x="88" y="52" width="32" height="32"/><rect class="cell" x="120" y="52" width="32" height="32"/><rect class="cell done" x="152" y="52" width="32" height="32"/><rect class="cell" x="184" y="52" width="32" height="32"/>
+  <text class="lbl" x="104" y="68">T</text><text class="lbl" x="136" y="68">F</text><text class="lbl" x="168" y="68">T</text><text class="lbl" x="200" y="68">F</text>
+  <rect class="cell done" x="120" y="84" width="32" height="32"/><rect class="cell" x="152" y="84" width="32" height="32"/><rect class="cell" x="184" y="84" width="32" height="32"/>
+  <text class="lbl" x="136" y="100">T</text><text class="lbl" x="168" y="100">F</text><text class="lbl" x="200" y="100">F</text>
+  <rect class="cell done" x="152" y="116" width="32" height="32"/><rect class="cell" x="184" y="116" width="32" height="32"/>
+  <text class="lbl" x="168" y="132">T</text><text class="lbl" x="200" y="132">F</text>
+  <rect class="cell done" x="184" y="148" width="32" height="32"/>
+  <text class="lbl" x="200" y="164">T</text>
+</svg>
+<figcaption>Rows = i, columns = j. Shaded = true. The solid cell (0, 2) = "bab" is the answer window for LC 5 ("aba" at (1, 3) ties). Count of trues = 7 → that's LC 647's answer.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">length 1: isPal[i][i] = T for all five i — 5 palindromes banked</span>
+<span class="step">length 2: "ba" "ab" "ba" "ad" → no adjacent pair matches → all F</span>
+<span class="step now">length 3: (0,2) "bab": s[0]==s[2] and inner (1,1) is T → <span class="ptr">T</span>; (1,3) "aba" → <span class="ptr">T</span>; (2,4) "bad": b≠d → F</span>
+<span class="step">length 4: (0,3) "baba": b≠a → F; (1,4) "abad": a≠d → F  (outer chars fail — inner never consulted)</span>
+<span class="step">length 5: (0,4) "babad": b≠d → F</span>
+<span class="step">widest T = (0,2) → LC 5 returns <span class="ptr">"bab"</span>; total trues = <span class="ptr">7</span> for LC 647</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Fill order:</strong> iterate by length (or i descending, j ascending). Filling i ascending, j ascending reads an unfilled <code>isPal[i+1][j-1]</code> — silently false, silently wrong.</li>
+  <li><strong>Length-2 base case:</strong> <code>(i+1, j-1)</code> is an inverted/empty range — guard with <code>len == 2 || ...</code> (or <code>j - i &lt; 3</code>), don't index it.</li>
+  <li><strong>Even centers:</strong> expansion needs all <strong>2n−1</strong> centers — forgetting <code>expand(s, c, c+1)</code> misses "abba" entirely.</li>
+  <li><strong>Substring vs subsequence:</strong> "bbbab" → longest palindromic <em>substring</em> "bbb" (3) but <em>subsequence</em> "bbbb" (4). Misreading this one word sinks the interview.</li>
+  <li><strong>Empty / single-char input:</strong> length ≤ 1 is trivially a palindrome — return it before any table work.</li>
+  <li><strong>132 already-palindrome prefix:</strong> if <code>isPal[0][j]</code>, <code>cut[j] = 0</code> — skipping this guard costs both correctness and speed.</li>
+  <li><strong>Substring extraction:</strong> <code>s.substring(start, start + len)</code> — the end index is exclusive in Java; off-by-one here returns a chopped palindrome.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why must the <code>isPal[i][j]</code> table be filled by <strong>increasing substring length</strong>?</div>
+  <button class="opt">Shorter substrings are more likely palindromes, so checking them first prunes work</button>
+  <button class="opt">It keeps memory access sequential, which the CPU cache rewards</button>
+  <button class="opt">Cell (i, j) reads <code>isPal[i+1][j-1]</code> — a strictly shorter substring that must already be computed</button>
+  <div class="fb" data-correct="The recurrence peels the outer pair and consults the inside, which is 2 shorter. Length order (equivalently i descending, j ascending) guarantees inner-before-outer." data-wrong="It's a data dependency, not a heuristic: isPal[i][j] depends on isPal[i+1][j-1], the substring two shorter. Any order that computes shorter-before-longer works; plain row order does not."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">For <code>s = "bbbab"</code>, the longest palindromic <em>substring</em> vs <em>subsequence</em> lengths are:</div>
+  <button class="opt">3 and 4 — the substring must be contiguous ("bbb"); the subsequence may skip the 'a' ("bbbb")</button>
+  <button class="opt">4 and 4 — both find "bbbb" since the extra 'a' sits harmlessly in the middle</button>
+  <button class="opt">3 and 5 — a subsequence can always reorder characters to use the whole string</button>
+  <div class="fb" data-correct="Substrings are contiguous: best is 'bbb'. Subsequences skip characters but preserve order: drop the 'a' to get 'bbbb'. (Subsequences never reorder.) This one word decides which template — isPal table vs interval dp — you reach for." data-wrong="A substring is contiguous → 'bbb' (3). A subsequence keeps order but may skip → drop 'a' for 'bbbb' (4). Skipping ≠ reordering — 'babbb' can't become a length-5 palindrome."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Minimum insertions to make <code>s</code> (length n) a palindrome (LC 1312) equals:</div>
+  <button class="opt"><code>n − (longest palindromic substring length)</code> — grow the biggest contiguous block outward</button>
+  <button class="opt"><code>n − LPS(s)</code> — every character outside the longest palindromic subsequence needs one mirrored insert</button>
+  <button class="opt"><code>n / 2</code> rounded down — half the string must always be mirrored in the worst case</button>
+  <div class="fb" data-correct="The LPS characters already form a symmetric skeleton; each remaining character gets exactly one mirror-partner inserted. Same formula gives minimum deletions, and LPS itself = LCS(s, reverse(s))." data-wrong="Think subsequence, not substring: the LPS is the symmetric skeleton you keep, and each of the n − LPS leftover characters costs exactly one insertion to mirror."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/roadmap">NeetCode — Longest Palindromic Substring &amp; Palindromic Substrings</a>. Backup: <a href="https://www.youtube.com/@adityaverma">Aditya Verma — Palindrome Partitioning (MCM playlist)</a> for the 132/interval intuition, and <a href="https://takeuforward.org/strivers-a2z-dsa-course/strivers-a2z-dsa-course-sheet-2/">Striver DP series</a> for 516.</li>
+  <li><strong>Java practice ladder (easiest → hardest):</strong>
+    <a href="https://leetcode.com/problems/longest-palindromic-substring/">5 Longest Palindromic Substring</a> (Google-reported — do BOTH methods) →
+    <a href="https://leetcode.com/problems/palindromic-substrings/">647 Palindromic Substrings</a> →
+    <a href="https://leetcode.com/problems/longest-palindromic-subsequence/">516 Longest Palindromic Subsequence</a> →
+    <a href="https://leetcode.com/problems/minimum-insertion-steps-to-make-a-string-palindrome/">1312 Min Insertions</a> →
+    <a href="https://leetcode.com/problems/palindrome-partitioning/">131 Palindrome Partitioning</a> (backtracking + isPal table) →
+    <a href="https://leetcode.com/problems/palindrome-partitioning-ii/">132 Palindrome Partitioning II</a>.</li>
+  <li><strong>Drill:</strong> solve LC 5 with the table, then again with center expansion, and time both — feeling the O(n²)-space difference makes the trade-off stick.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the 516 interval recurrence dry-run on "bbbab", the 132 two-layer structure drawn out, or a
+  proof sketch of why LPS(s) = LCS(s, reverse(s))? Ask in the chat. When you can fill an isPal table
+  by hand and state the substring/subsequence fork instantly, say <strong>"next"</strong> for LIS &amp; friends.
+</div>
+
+<div class="nav">
+  <span><a href="0005-string-dp-lcs-family.html">← Two-string DP — the LCS family</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0007-lis-family.html">LIS &amp; Friends →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

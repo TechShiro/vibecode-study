@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 09 — Interval DP</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 09 of 12 · think about the LAST move, not the first</div>
+<h1>Interval DP (&amp; game DP)</h1>
+<p class="subtitle">When the state is a whole subarray <code>i..j</code>, the winning trick is to pick the <em>last</em> operation — the last balloon burst, the last cut — so the two sides stop interfering with each other.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 9 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<code>dp[i][j]</code> = the answer for the subarray/substring <code>i..j</code>. The transition picks a
+split point <code>k</code> inside the interval — but here's the counter-intuitive move that makes it
+work: <strong>let k be the LAST operation performed</strong>, not the first. If the balloon at k is the
+last one burst in <code>(i, j)</code>, then while everything else pops, the boundaries <code>i</code>
+and <code>j</code> stay alive — so <code>(i, k)</code> and <code>(k, j)</code> are completely
+independent subproblems. Fill intervals by <strong>increasing length</strong>; three nested loops give
+the typical <strong>O(n³)</strong>. Game problems ride the same state with a minimax twist.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "burst / merge / remove / cut / print over a <em>range</em>", the cost of an operation depends on
+  what's still standing around it, "minimum cost to reduce the whole thing to one piece" — or two
+  players alternately taking from the <em>ends</em> of an array. If a first-move decomposition leaks
+  information between the two halves, flip it: decompose on the <em>last</em> move.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<table>
+  <thead><tr><th>Part</th><th>For Burst Balloons (the template carrier)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>State</strong></td><td><code>dp[i][j]</code> = max coins from bursting <em>every</em> balloon strictly inside the <em>open</em> interval <code>(i, j)</code>, with padded boundaries <code>a[i]</code>, <code>a[j]</code> still alive.</td></tr>
+    <tr><td><strong>Recurrence</strong></td><td><code>dp[i][j] = max over k in (i, j) of dp[i][k] + a[i]·a[k]·a[j] + dp[k][j]</code> — k is the LAST balloon burst, so its neighbors at that moment are exactly the boundaries.</td></tr>
+    <tr><td><strong>Base case</strong></td><td>Adjacent indices: <code>dp[i][i+1] = 0</code> — nothing strictly inside.</td></tr>
+    <tr><td><strong>Order</strong></td><td>By increasing interval length; <code>dp[i][j]</code> only reads strictly shorter intervals.</td></tr>
+    <tr><td><strong>Answer</strong></td><td><code>dp[0][n+1]</code> — the full padded range.</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · Core template</h2>
+<h3>Burst Balloons (312) — pad with 1s, choose the last balloon</h3>
+<pre><code>int maxCoins(int[] nums) {
+    int n = nums.length;
+    int[] a = new int[n + 2];
+    a[0] = a[n + 1] = 1;                          <span class="cmt">// virtual 1-balloons: bursting an edge balloon pays 1·x·y</span>
+    for (int i = 0; i &lt; n; i++) a[i + 1] = nums[i];
+
+    int[][] dp = new int[n + 2][n + 2];           <span class="cmt">// dp[i][j] = max coins from the OPEN interval (i, j)</span>
+    for (int len = 2; len &lt;= n + 1; len++)        <span class="cmt">// len = j - i; len 1 (adjacent) stays 0 = base case</span>
+        for (int i = 0; i + len &lt;= n + 1; i++) {
+            int j = i + len;
+            for (int k = i + 1; k &lt; j; k++)       <span class="cmt">// k = LAST balloon to burst inside (i, j)</span>
+                dp[i][j] = Math.max(dp[i][j],
+                    dp[i][k] + a[i] * a[k] * a[j] + dp[k][j]);
+        }                                         <span class="cmt">// when k pops last, its neighbors ARE a[i] and a[j]</span>
+    return dp[0][n + 1];
+}</code></pre>
+<p><strong>Time</strong> O(n³) — n² intervals × n split points. <strong>Space</strong> O(n²). No rolling
+array here: <code>dp[i][j]</code> reads both a shorter-left and a shorter-right interval, so the whole
+triangle stays live. A top-down memo on <code>(i, j)</code> is equally valid and sometimes easier to
+write — same complexity, and handy when many intervals are unreachable.</p>
+
+<div class="callout trap">
+  <span class="label">Why "first balloon" fails — the trap that defines this family</span>
+  Try defining <code>dp[i][j]</code> with k as the <em>first</em> balloon burst: the moment k pops, the
+  balloons on the left and right of k become adjacent — the two halves now interact, and the state
+  no longer describes an intact contiguous range. Choosing the <em>last</em> operation freezes the
+  boundaries and cuts the dependency. Whenever an interval DP feels impossible, ask: "what if I fix
+  the last move instead of the first?"
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 312 · Burst Balloons</strong> (Hard) — the template verbatim <em>(Google-reported)</em>; re-derive the padding and the open-interval bounds from memory before peeking.</li>
+  <li><strong>LC 546 · Remove Boxes</strong> (Hard) — the "remove-last" choice again, but equal-colored boxes can team up across the interval, forcing a <em>third</em> state dimension. Stretch goal — return to it after finishing this lesson.</li>
+</ul>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Problem</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Burst Balloons</td><td>312 <em>(Google-reported)</em></td><td>The template above; open interval, k = last burst.</td></tr>
+    <tr><td>Matrix Chain Multiplication</td><td>CP classic (no LC)</td><td>k = the last multiplication's split; cost <code>p[i-1]·p[k]·p[j]</code>. This IS the template — everything else is a re-skin.</td></tr>
+    <tr><td>Minimum Cost to Cut a Stick</td><td>1547</td><td>MCM on the <em>sorted cut positions</em> (+ stick ends); cost of an interval = its physical length.</td></tr>
+    <tr><td>Guess Number Higher or Lower II</td><td>375</td><td>Min over k of k + <strong>max</strong> of the two sides — minimize the worst case (adversarial).</td></tr>
+    <tr><td>Minimum Score Triangulation</td><td>1039</td><td>k = third vertex of the triangle sitting on edge (i, j); cost <code>v[i]·v[k]·v[j]</code>.</td></tr>
+    <tr><td>Stone Game / Predict the Winner</td><td>877 / 486</td><td>Game DP: <code>dp[i][j]</code> = best score <em>difference</em> for the player to move; take an end, opponent plays optimally on the rest.</td></tr>
+    <tr><td>Strange Printer</td><td>664</td><td>Merge-style: <code>dp[i][j]</code> = min prints for <code>s[i..j]</code>; when <code>s[k] == s[i]</code>, one stroke covers both positions — full section below.</td></tr>
+  </tbody>
+</table>
+
+<h3>Matrix Chain Multiplication — the mother template</h3>
+<pre><code><span class="cmt">// n matrices; matrix i has dimensions p[i-1] × p[i]. Minimize scalar multiplications.</span>
+int matrixChain(int[] p) {
+    int n = p.length - 1;
+    int[][] dp = new int[n + 1][n + 1];           <span class="cmt">// dp[i][j] = min cost to multiply matrices i..j (CLOSED, 1-based)</span>
+    for (int len = 2; len &lt;= n; len++)
+        for (int i = 1; i + len - 1 &lt;= n; i++) {
+            int j = i + len - 1;
+            dp[i][j] = Integer.MAX_VALUE;
+            for (int k = i; k &lt; j; k++)           <span class="cmt">// LAST multiply joins (i..k)·(k+1..j)</span>
+                dp[i][j] = Math.min(dp[i][j],
+                    dp[i][k] + dp[k + 1][j] + p[i - 1] * p[k] * p[j]);
+        }
+    return dp[1][n];                              <span class="cmt">// dp[i][i] = 0: one matrix needs no multiply</span>
+}</code></pre>
+<p>Note the closed-interval flavor: subranges are <code>i..k</code> and <code>k+1..j</code>. Burst
+Balloons uses the open-interval flavor (<code>(i,k)</code> and <code>(k,j)</code> share the point k)
+because the last element k contributes cost with both boundaries. Pick the flavor where the pieces
+don't overlap and don't leave gaps.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1130 · Minimum Cost Tree From Leaf Values</strong> (Medium) — MCM's closed split <code>k / k+1</code> verbatim; the join cost becomes <code>max(i..k) · max(k+1..j)</code> instead of a dimension product.</li>
+  <li><strong>LC 96 · Unique Binary Search Trees</strong> (Medium) — picking the root IS picking the split point; the two sides' <em>counts multiply</em> instead of costs adding. Same skeleton, counting flavor.</li>
+</ul>
+
+<h3>Minimum Cost to Cut a Stick (1547) — MCM in a costume</h3>
+<pre><code>int minCost(int n, int[] cuts) {
+    int m = cuts.length;
+    int[] c = new int[m + 2];
+    System.arraycopy(cuts, 0, c, 1, m);
+    c[m + 1] = n;                                  <span class="cmt">// c[0] = 0 and c[m+1] = n are the stick's ends</span>
+    Arrays.sort(c);
+    int[][] dp = new int[m + 2][m + 2];            <span class="cmt">// dp[i][j] = min cost to make all cuts strictly inside (c[i], c[j])</span>
+    for (int len = 2; len &lt;= m + 1; len++)
+        for (int i = 0; i + len &lt;= m + 1; i++) {
+            int j = i + len;
+            dp[i][j] = Integer.MAX_VALUE;
+            for (int k = i + 1; k &lt; j; k++)        <span class="cmt">// k = FIRST cut here — every cut in (i,j) costs the same c[j]−c[i]</span>
+                dp[i][j] = Math.min(dp[i][j],
+                    dp[i][k] + dp[k][j] + c[j] - c[i]);
+        }
+    return dp[0][m + 1];
+}</code></pre>
+<p>Key insight: the DP runs over the <em>cut positions</em> (≤ 100 of them), never over the stick length
+(up to 10⁶). Whenever n is huge but the "interesting points" are few, re-index the interval DP onto
+the interesting points.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1547 · Minimum Cost to Cut a Stick</strong> (Hard) — the code above; the whole job is re-indexing onto sorted cut positions and seeing that every cut inside an interval costs its physical length.</li>
+  <li><strong>LC 1000 · Minimum Cost to Merge Stones</strong> (Hard) — same "cost of an operation = interval sum" flavor via prefix sums; the merge-k-piles rule adds a "piles remaining" twist. Stretch.</li>
+</ul>
+
+<h3>Guess Number Higher or Lower II (375) — adversarial: min of max</h3>
+<pre><code>int getMoneyAmount(int n) {
+    int[][] dp = new int[n + 2][n + 2];            <span class="cmt">// dp[i][j] = $ guaranteeing a win on range i..j; len ≤ 1 → 0</span>
+    for (int len = 2; len &lt;= n; len++)
+        for (int i = 1; i + len - 1 &lt;= n; i++) {
+            int j = i + len - 1;
+            dp[i][j] = Integer.MAX_VALUE;
+            for (int k = i; k &lt;= j; k++)           <span class="cmt">// guess k, pay k; adversary answers with the WORSE side</span>
+                dp[i][j] = Math.min(dp[i][j],
+                    k + Math.max(dp[i][k - 1], dp[k + 1][j]));
+        }
+    return dp[1][n];
+}</code></pre>
+<p><strong>Time</strong> O(n³), <strong>Space</strong> O(n²) — the same three-loop skeleton, but the inner
+combine is <code>min over k of (k + max(left, right))</code>: <em>you</em> pick the guess, the
+<em>adversary</em> picks which side the secret is on. Whenever a problem says "guarantee a win no matter
+what", expect a max nested inside your min.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 375 · Guess Number Higher or Lower II</strong> (Medium) — the code above; before typing, say out loud why it's min-of-<em>max</em>, not min-of-min.</li>
+  <li><strong>LC 887 · Super Egg Drop</strong> (Hard) — the same adversarial min-max spirit, but the state jumps to (eggs, floors). Attempt for recognition only — don't grind the O(n log n) optimization yet.</li>
+</ul>
+
+<h3>Game DP — Predict the Winner (486); Stone Game (877) is the same code</h3>
+<pre><code>boolean predictTheWinner(int[] nums) {
+    int n = nums.length;
+    int[][] dp = new int[n][n];                    <span class="cmt">// dp[i][j] = best (my score − opponent's) for the player TO MOVE on i..j</span>
+    for (int i = 0; i &lt; n; i++) dp[i][i] = nums[i];
+    for (int len = 2; len &lt;= n; len++)
+        for (int i = 0; i + len - 1 &lt; n; i++) {
+            int j = i + len - 1;
+            dp[i][j] = Math.max(nums[i] - dp[i + 1][j],   <span class="cmt">// take left; opponent's best diff flips sign</span>
+                                nums[j] - dp[i][j - 1]);  <span class="cmt">// take right</span>
+        }
+    return dp[0][n - 1] &gt;= 0;                      <span class="cmt">// first player wins (or ties) iff diff ≥ 0</span>
+}</code></pre>
+<p>The <em>score difference</em> trick collapses "track both players' totals" into one number: whatever
+the opponent achieves on the remaining interval is subtracted, because the roles alternate. Stone
+Game (877) is this verbatim — plus a party trick: with an even pile count and odd total, the first
+player can always win (<code>return true</code>), but say the DP too; the follow-ups (1140, 1406)
+have no such shortcut.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 486 · Predict the Winner</strong> (Medium) — the code above; values can make the difference negative, so the DP genuinely decides the game.</li>
+  <li><strong>LC 877 · Stone Game</strong> (Medium) — same code verbatim; write the DP even though the even-piles parity shortcut exists — interviewers want both.</li>
+  <li><strong>LC 1690 · Stone Game VII</strong> (Medium) — the difference trick again, but taking an end scores the <em>sum of what remains</em>: precompute prefix sums, then it's this template.</li>
+</ul>
+
+<h3>Minimum Score Triangulation (1039) — MCM with a triangle cost</h3>
+<p>Triangulate a convex polygon with vertex values <code>v[0..n-1]</code> so the total of each triangle's
+vertex product is minimal. The interval view: in <em>any</em> triangulation, the edge between vertices
+<code>i</code> and <code>j</code> is a side of exactly one triangle — call its third vertex <code>k</code>.
+Fixing that triangle (the "last piece" laid on edge i–j) splits the polygon into the chains
+<code>i..k</code> and <code>k..j</code>, which triangulate independently. So <code>dp[i][j]</code> = min
+score for the sub-polygon on vertices <code>i..j</code>; any stretch of fewer than 3 vertices holds no
+triangle and costs 0 — that's the base case.</p>
+<pre><code>int minScoreTriangulation(int[] v) {
+    int n = v.length;
+    int[][] dp = new int[n][n];                <span class="cmt">// dp[i][j] = min score for the sub-polygon on vertices i..j</span>
+    for (int len = 3; len &lt;= n; len++)         <span class="cmt">// len = vertex count j−i+1; len &lt; 3 stays 0 = base case</span>
+        for (int i = 0; i + len - 1 &lt; n; i++) {
+            int j = i + len - 1;
+            dp[i][j] = Integer.MAX_VALUE;
+            for (int k = i + 1; k &lt; j; k++)    <span class="cmt">// k = third vertex of the triangle resting on edge (i, j)</span>
+                dp[i][j] = Math.min(dp[i][j],
+                    dp[i][k] + v[i] * v[k] * v[j] + dp[k][j]);
+        }
+    return dp[0][n - 1];
+}</code></pre>
+<p><strong>Time</strong> O(n³), <strong>Space</strong> O(n²). Note the open-interval sharing: k belongs to
+<em>both</em> subproblems (<code>dp[i][k]</code> and <code>dp[k][j]</code>), exactly like Burst Balloons —
+the chains share their endpoint vertices with the chosen triangle. The cost line
+<code>v[i]·v[k]·v[j]</code> is even the same shape as the balloon product.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1039 · Minimum Score Triangulation of Polygon</strong> (Medium) — the code above; the friendliest full-marks problem in this family, do it first.</li>
+  <li><strong>LC 312 · Burst Balloons</strong> (Hard) — re-solve with this method: notice the identical <code>v[i]·v[k]·v[j]</code> cost and k-shared-by-both-sides structure, and the two problems collapse into one template in your head.</li>
+</ul>
+
+<h3>Strange Printer (664) — merge-style: equal characters share a stroke</h3>
+<p>The printer prints a run of <em>one</em> character per turn, and later turns may overwrite parts of
+earlier ones. Minimum turns to produce <code>s</code>? State: <code>dp[i][j]</code> = min turns to print
+<code>s[i..j]</code>. Baseline: give <code>s[i]</code> its own stroke and handle the rest —
+<code>1 + dp[i+1][j]</code>. The saving move: if some <code>s[k] == s[i]</code> inside the interval, the
+stroke that lays down <code>s[i]</code> can be stretched right to also lay down position <code>k</code>
+(the middle gets overwritten later anyway), so k's character costs nothing extra:
+<code>dp[i][j] = dp[i+1][k-1] + dp[k][j]</code>. The first stroke counted inside <code>dp[k][j]</code>
+is the <em>same physical stroke</em> as i's — that's why no <code>+1</code> appears in the merge branch.
+Base cases: one character = 1 turn, empty interval = 0.</p>
+<pre><code>char[] c;
+Integer[][] memo;
+
+int strangePrinter(String s) {
+    c = s.toCharArray();
+    int n = c.length;
+    memo = new Integer[n][n];
+    return prints(0, n - 1);
+}
+
+int prints(int i, int j) {
+    if (i &gt; j) return 0;                      <span class="cmt">// empty interval: nothing to print</span>
+    if (memo[i][j] != null) return memo[i][j];
+    int best = 1 + prints(i + 1, j);          <span class="cmt">// worst case: s[i] gets its own dedicated stroke</span>
+    for (int k = i + 1; k &lt;= j; k++)
+        if (c[k] == c[i])                     <span class="cmt">// merge: stretch s[i]'s stroke to also paint position k…</span>
+            best = Math.min(best,
+                prints(i + 1, k - 1)          <span class="cmt">// …print the middle over it later…</span>
+                + prints(k, j));              <span class="cmt">// …and s[k]'s "first stroke" here IS s[i]'s stroke</span>
+    return memo[i][j] = best;
+}</code></pre>
+<p><strong>Time</strong> O(n³) — n² states × n merge candidates. <strong>Space</strong> O(n²). Top-down memo
+suits this one: many (i, j) pairs are never reached, and the merge recurrence is far easier to state
+recursively than as loop bounds. A free speed-up that changes no answers: collapse consecutive
+duplicates first (<code>"aaabbb" → "ab"</code>) — equal neighbors always share a stroke.</p>
+
+<div class="callout trap">
+  <span class="label">Classic bug — paying for the shared stroke twice</span>
+  Writing the merge branch as <code>1 + prints(i+1, k-1) + prints(k, j)</code> double-counts: the whole
+  point is that <code>s[k]</code>'s stroke inside <code>prints(k, j)</code> already <em>is</em>
+  <code>s[i]</code>'s stroke. Also note <code>k = i+1</code> makes the middle interval empty — the
+  <code>i &gt; j → 0</code> guard is what keeps that call honest, so never "optimize" it away.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 664 · Strange Printer</strong> (Hard) — the memo above; re-derive the "no +1 in the merge branch" argument yourself before submitting.</li>
+  <li><strong>LC 730 · Count Different Palindromic Subsequences</strong> (Hard) — another interval string DP keyed on matching end characters; counting flavor. Stretch — attempt after 664 clicks.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>Burst Balloons on <code>nums = [3, 1, 5, 8]</code>. Pad to <code>a = [1, 3, 1, 5, 8, 1]</code>
+(indices 0–5) and fill <code>dp[i][j]</code> by increasing length <code>j − i</code>:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 350 260" role="img" aria-label="The padded balloon array 1,3,1,5,8,1 above the triangular dp table filled by interval length; the final answer cell dp[0][5] holds 167">
+  <text class="wt" x="38" y="28">a =</text>
+  <rect class="cell done" x="78"  y="14" width="42" height="26"/><text class="lbl" x="99"  y="27">1</text>
+  <rect class="cell" x="120" y="14" width="42" height="26"/><text class="lbl" x="141" y="27">3</text>
+  <rect class="cell" x="162" y="14" width="42" height="26"/><text class="lbl" x="183" y="27">1</text>
+  <rect class="cell" x="204" y="14" width="42" height="26"/><text class="lbl" x="225" y="27">5</text>
+  <rect class="cell" x="246" y="14" width="42" height="26"/><text class="lbl" x="267" y="27">8</text>
+  <rect class="cell done" x="288" y="14" width="42" height="26"/><text class="lbl" x="309" y="27">1</text>
+  <text class="wt" x="99"  y="54">0</text><text class="wt" x="141" y="54">1</text>
+  <text class="wt" x="183" y="54">2</text><text class="wt" x="225" y="54">3</text>
+  <text class="wt" x="267" y="54">4</text><text class="wt" x="309" y="54">5</text>
+
+  <text class="wt" x="99"  y="86">j=1</text><text class="wt" x="141" y="86">j=2</text>
+  <text class="wt" x="183" y="86">j=3</text><text class="wt" x="225" y="86">j=4</text>
+  <text class="wt" x="267" y="86">j=5</text>
+  <text class="wt" x="52" y="107">i=0</text>
+  <rect class="cell" x="78"  y="94" width="42" height="26"/><text class="lbl" x="99"  y="107">0</text>
+  <rect class="cell done" x="120" y="94" width="42" height="26"/><text class="lbl" x="141" y="107">3</text>
+  <rect class="cell" x="162" y="94" width="42" height="26"/><text class="lbl" x="183" y="107">30</text>
+  <rect class="cell" x="204" y="94" width="42" height="26"/><text class="lbl" x="225" y="107">159</text>
+  <rect class="cell cur" x="246" y="94" width="42" height="26"/><text class="lbl inv" x="267" y="107">167</text>
+  <text class="wt" x="52" y="133">i=1</text>
+  <rect class="cell" x="120" y="120" width="42" height="26"/><text class="lbl" x="141" y="133">0</text>
+  <rect class="cell done" x="162" y="120" width="42" height="26"/><text class="lbl" x="183" y="133">15</text>
+  <rect class="cell" x="204" y="120" width="42" height="26"/><text class="lbl" x="225" y="133">135</text>
+  <rect class="cell" x="246" y="120" width="42" height="26"/><text class="lbl" x="267" y="133">159</text>
+  <text class="wt" x="52" y="159">i=2</text>
+  <rect class="cell" x="162" y="146" width="42" height="26"/><text class="lbl" x="183" y="159">0</text>
+  <rect class="cell done" x="204" y="146" width="42" height="26"/><text class="lbl" x="225" y="159">40</text>
+  <rect class="cell" x="246" y="146" width="42" height="26"/><text class="lbl" x="267" y="159">48</text>
+  <text class="wt" x="52" y="185">i=3</text>
+  <rect class="cell" x="204" y="172" width="42" height="26"/><text class="lbl" x="225" y="185">0</text>
+  <rect class="cell done" x="246" y="172" width="42" height="26"/><text class="lbl" x="267" y="185">40</text>
+  <text class="wt" x="52" y="211">i=4</text>
+  <rect class="cell" x="246" y="198" width="42" height="26"/><text class="lbl" x="267" y="211">0</text>
+  <text class="wt" x="183" y="245">shaded diagonal = len 2 (one balloon inside); dark cell = answer dp[0][5]</text>
+</svg>
+<figcaption>The dp table fills diagonal by diagonal (length 1 → 5). Each cell reads only cells strictly above-right of shorter length. dp[0][5] = 167.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">len=2  dp[0][2]=1·3·1=<span class="ptr">3</span>   dp[1][3]=3·1·5=<span class="ptr">15</span>   dp[2][4]=1·5·8=<span class="ptr">40</span>   dp[3][5]=5·8·1=<span class="ptr">40</span></span>
+<span class="step">len=3  dp[0][3]: k=1→ 0+1·3·5+15=30 | k=2→ 3+1·1·5+0=8   → <span class="ptr">30</span> (last = balloon 3)</span>
+<span class="step now">len=3  dp[1][4]: k=2→ 0+3·1·8+40=64 | k=3→ 15+3·5·8+0=135 → <span class="ptr">135</span> (last = balloon 5)</span>
+<span class="step">len=3  dp[2][5]: k=3→ 0+1·5·1+40=45 | k=4→ 40+1·8·1+0=48  → <span class="ptr">48</span></span>
+<span class="step">len=4  dp[0][4]: k=1→ 0+1·3·8+135=159 | k=2→ 3+8+40=51 | k=3→ 30+1·5·8+0=70 → <span class="ptr">159</span></span>
+<span class="step">len=4  dp[1][5]: k=2→ 0+3+48=51 | k=3→ 15+15+40=70 | k=4→ 135+3·8·1+0=159 → <span class="ptr">159</span></span>
+<span class="step now">len=5  dp[0][5]: k=1→ 0+3+159=162 | k=2→ 3+1+48=52 | k=3→ 30+5+40=75 | k=4→ <span class="ptr">159+1·8·1+0=167</span></span>
+<span class="step">answer dp[0][5] = <span class="ptr">167</span>  → burst order 1, 5, 3, then 8 last (k=4)</span>
+</div>
+<p>Read the winning line backwards: the best plan bursts balloon 8 <em>last</em> (earning
+<code>1·8·1</code> with only the padding left), and dp[0][4]=159 recursively says balloon 3 pops last
+among <code>{3,1,5}</code> while 8 still stands as the right boundary. The "last move" framing turns
+an ordering nightmare into table lookups.</p>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Loop by length, not by i then j</strong> — iterating <code>i</code> ascending and <code>j</code> ascending reads intervals that aren't computed yet. Length-first is the only safe default.</li>
+  <li><strong>Open vs closed intervals:</strong> Burst Balloons/1547 use open <code>(i, j)</code> with shared endpoint k; MCM/486 use closed <code>i..j</code> with split <code>k / k+1</code>. Mixing flavors double-counts or drops the element at k.</li>
+  <li><strong>Padding:</strong> forgetting the virtual 1s (312) or the stick ends 0 and n (1547) breaks every boundary product. Pad first, then never special-case edges again.</li>
+  <li><strong>Zeros and negatives:</strong> balloons worth 0 are handled by the max; but if a problem allows negative values, initializing dp to 0 silently forbids "do the operations anyway" — initialize to −∞/+∞ and relax properly.</li>
+  <li><strong>MAX_VALUE sentinel + addition = overflow:</strong> in min-flavored variants (MCM, 375, 1547), never add to an unrelaxed <code>Integer.MAX_VALUE</code> cell — structure loops so every interval of length ≥ the base is relaxed at least once, or use <code>/ 2</code> sentinels.</li>
+  <li><strong>Game DP sign discipline:</strong> the difference flips exactly once per move — <code>nums[i] − dp[i+1][j]</code>. Writing <code>+ dp</code> models a cooperative opponent and returns nonsense.</li>
+  <li><strong>Complexity sanity check:</strong> O(n³) means n ≤ ~500. If n is 10⁵, interval DP is the wrong tool — re-read the constraints before committing.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Burst Balloons, why does the recurrence fix k as the <em>last</em> balloon burst in (i, j) instead of the first?</div>
+  <button class="opt">Bursting the largest balloon last always maximizes the product it contributes</button>
+  <button class="opt">While k survives to the end, the boundaries a[i] and a[j] never change — so (i,k) and (k,j) become independent subproblems</button>
+  <button class="opt">It reduces the number of split points to check from n to n/2 by symmetry</button>
+  <div class="fb" data-correct="That's the whole trick: with k last, every other burst inside (i,j) happens while a[i], a[k], a[j] are all still standing, so the two sides can't affect each other. First-burst decomposition makes the halves adjacent and interdependent." data-wrong="It's about independence, not greed: if k bursts FIRST, its neighbors fuse and the halves start interacting. If k bursts LAST, the boundaries stay fixed for every subproblem — that's what makes dp[i][k] and dp[k][j] well-defined."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why must interval DP tables be filled in order of <em>increasing interval length</em>?</div>
+  <button class="opt">Shorter intervals have smaller values, and max/min relaxation requires ascending values</button>
+  <button class="opt">It improves cache locality, since diagonal entries sit close together in memory</button>
+  <button class="opt">dp[i][j] reads dp[i][k] and dp[k][j], which are strictly shorter — length order guarantees they're already computed</button>
+  <div class="fb" data-correct="Exactly — every dependency of an interval is a strict sub-interval, so processing lengths 1, 2, …, n topologically sorts the computation. A plain double loop over i, j ascending reads uncomputed cells." data-wrong="It's a dependency argument, not values or caches: dp[i][j] needs dp of strictly SHORTER intervals on both sides of k. Filling by length is a topological order of those dependencies."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In game DP (486/877), <code>dp[i][j]</code> stores the best score <em>difference</em> for the player to move. What is the transition?</div>
+  <button class="opt"><code>max(nums[i] − dp[i+1][j], nums[j] − dp[i][j−1])</code> — subtract, because the remaining interval belongs to the opponent</button>
+  <button class="opt"><code>max(nums[i] + dp[i+1][j], nums[j] + dp[i][j−1])</code> — add your pick to the best of the rest</button>
+  <button class="opt"><code>max(nums[i], nums[j]) − min(dp[i+1][j], dp[i][j−1])</code> — take the bigger end, leave the worse interval</button>
+  <div class="fb" data-correct="Right — after you take an end, dp of the remainder is the OPPONENT's best difference, which counts against you, hence the minus. First player wins iff dp[0][n−1] ≥ 0." data-wrong="The sign is the whole idea: dp on the remaining interval is from the OPPONENT's perspective, so it subtracts from yours. Adding it models an opponent playing for you."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://www.youtube.com/watch?v=prx1psByp7U">Aditya Verma — MCM / interval DP playlist</a> (the canonical build-up of the i–j–k pattern). Then <a href="https://neetcode.io/problems/burst-balloons">NeetCode — Burst Balloons</a> for the "last balloon" derivation; <a href="https://cp-algorithms.com/dynamic_programming/intro-to-dp.html">CP-Algorithms — DP</a> for the MCM formalism.</li>
+  <li><strong>Practice ladder (Java), easiest → hardest:</strong> LC 486 → 877 → 1039 → 375 → 1547 → 312 <em>(Google-reported)</em> → 664 → the per-case stretch problems (1690, 1130, 96, 1000, 546, 730) as revision.</li>
+  <li><strong>Drill:</strong> write the three-loop skeleton (<code>len</code> → <code>i</code> → <code>k</code>) from memory until the index bounds are automatic — every problem in this family is that skeleton plus one cost line.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0010-tree-dp.html">DP Lesson 10 — DP on Trees</a>, where the interval becomes a subtree.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the first-balloon decomposition shown breaking on a concrete input, the open-vs-closed interval
+  bounds re-derived, or the 664 merge recurrence walked through on "aba"? Ask in the chat. When you can
+  state why "last move" makes subproblems independent — in one sentence — say <strong>"next"</strong>
+  and we climb into trees.
+</div>
+
+<div class="nav">
+  <span><a href="0008-state-machine-dp.html">← State-machine DP</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0010-tree-dp.html">DP on Trees →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

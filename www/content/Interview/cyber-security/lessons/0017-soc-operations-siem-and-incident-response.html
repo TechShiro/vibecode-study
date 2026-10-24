@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 17 – SOC Operations, SIEM & Incident Response</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module G · Lesson 17 of 17 · Defensive SecOps</div>
+  <h1>SOC Operations, SIEM & Incident Response</h1>
+  <p class="subtitle">The Blue Team lifecycle: central log analysis with Splunk/ELK, writing Sigma & YARA rules, and the NIST incident containment playbook.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module G – Defensive Security & SOC</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In cybersecurity, <em>"Prevention is ideal, but detection is a must."</em> Sophisticated adversaries will eventually breach the perimeter. The responsibility of the <strong>Blue Team</strong> and the <strong>Security Operations Center (SOC)</strong> is rapid detection, investigation, containment, and eradication to minimize business impact. Security analysts ingest millions of telemetry events into <strong>SIEM</strong> engines and execute structured <strong>Incident Response (IR)</strong> playbooks.</p>
+
+  <h2>2 · The NIST Incident Response Lifecycle (NIST SP 800-61)</h2>
+  <div class="arch-flow">
+    <div class="box">1. Preparation</div>
+    <div class="arrow-right"></div>
+    <div class="box good">2. Detection & Analysis</div>
+    <div class="arrow-right"></div>
+    <div class="box db">3. Containment & Eradication</div>
+    <div class="arrow-right"></div>
+    <div class="box">4. Recovery & Lessons Learned</div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>Containment</h3>
+      <p>Stopping the active spread without destroying volatile forensic evidence. Isolating infected hosts from the network (VLAN quarantine, killing network interfaces), revoking compromised API keys and session tokens.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>Eradication</h3>
+      <p>Removing malicious artifacts: wiping backdoors, terminating malicious processes, deleting persistence mechanisms (scheduled tasks, registry run keys), and patching the initial access vector.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">3</div>
+      <h3>Recovery</h3>
+      <p>Restoring clean systems from verified offline backups, monitoring closely for re-infection, and enforcing enterprise-wide credential resets.</p>
+    </div>
+  </div>
+
+  <h2>3 · SIEM (Security Information & Event Management)</h2>
+  <p>Centralizes, normalizes, and correlates logs from thousands of endpoints, firewalls, and cloud servers (Splunk, Elastic ELK, Microsoft Sentinel):</p>
+  <pre><code># Sample Splunk Search Processing Language (SPL) query to detect Password Spraying:
+index=wineventlog EventCode=4625 
+| stats count by TargetUserName, IpAddress 
+| where count > 50</code></pre>
+
+  <h2>4 · Detection Engineering: Sigma & YARA Rules</h2>
+  <ul>
+    <li><strong>Sigma Rules</strong>: The generic open standard for SIEM log detection queries (converts to Splunk, Elastic, QRadar):
+      <pre><code>title: Mimikatz LSASS Dump Command
+status: production
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains:
+            - 'sekurlsa::logonpasswords'
+            - 'procdump -ma lsass.exe'
+    condition: selection
+level: critical</code></pre>
+    </li>
+    <li><strong>YARA Rules</strong>: The industry standard for file pattern and malware identification:
+      <pre><code>rule Detect_Ransomware_Lockbit {
+    strings:
+        $str1 = "LockBit 3.0 the world's fastest ransomware" ascii
+        $hex1 = { 8B 45 ?? 33 C9 89 4D ?? 85 C0 }
+    condition:
+        uint16(0) == 0x5A4D and any of them
+}</code></pre>
+    </li>
+  </ul>
+
+  <nav class="bottom-nav">
+    <a href="0016-active-directory-attacks-and-kerberos.html">← Lesson 16: Active Directory & Kerberos</a>
+    <a href="../INDEX.md">Return to Course Index →</a>
+  </nav>
+</body>
+</html>

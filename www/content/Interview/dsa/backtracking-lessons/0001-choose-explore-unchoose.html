@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtracking Lesson 01 — Choose, Explore, Unchoose</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Backtracking Track · Lesson 1 of 3 · the decision-tree template</div>
+<h1>Choose → Explore → Unchoose</h1>
+<p class="subtitle">Backtracking is just DFS on an imaginary tree of decisions — one template, three lines of ritual, and it generates every subset, permutation, and combination you'll ever be asked for.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "generate all X" questions are OA staples at Amazon, Google, and Microsoft — and they're free points once the template is muscle memory.
+  This is Lesson 1 of the 3-lesson backtracking track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+You already know recursion. Backtracking is recursion with one twist: you build a <strong>partial candidate</strong>
+(a growing list called <code>path</code>) as you recurse, and you <strong>undo</strong> each addition on the way back
+up so the same <code>path</code> object can be reused for the next branch. Picture a <strong>decision tree</strong>:
+the root is the empty candidate, every edge is one choice ("include <code>nums[i]</code>"), every node is a partial
+answer. Backtracking is a depth-first walk of that tree. The ritual at every level is always the same three lines:
+<strong>choose</strong> (add to <code>path</code>), <strong>explore</strong> (recurse), <strong>unchoose</strong>
+(remove what you added).
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Return <strong>all</strong> subsets / permutations / combinations / partitions / valid strings," "generate every…,"
+  or a constraint puzzle where you place items one by one and may hit dead ends. Giveaway in the constraints:
+  <strong>n ≤ ~20</strong> (subsets) or <strong>n ≤ ~10</strong> (permutations) — the answer set itself is exponential,
+  so the interviewer <em>expects</em> exponential time. If the question asks only for a count, a boolean, or a best
+  value, suspect DP instead (Lesson 3 covers that boundary).
+</div>
+
+<h2>2 · Core template — Subsets (LC 78)</h2>
+<p>
+Given distinct <code>nums</code>, return every subset. At each depth we loop <code>i</code> from <code>start</code>
+onward, which enforces <strong>ascending index order</strong> — that's what makes <code>[1,2]</code> and
+<code>[2,1]</code> the <em>same</em> subset generated exactly once.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+
+List&lt;List&lt;Integer&gt;&gt; subsets(int[] nums) {
+    backtrack(nums, 0, new ArrayList&lt;&gt;());
+    return res;
+}
+
+void backtrack(int[] nums, int start, List&lt;Integer&gt; path) {
+    res.add(new ArrayList&lt;&gt;(path));       <span class="cmt">// record a COPY — every node of the tree is a subset</span>
+    for (int i = start; i &lt; nums.length; i++) {
+        path.add(nums[i]);                <span class="cmt">// CHOOSE: include nums[i]</span>
+        backtrack(nums, i + 1, path);     <span class="cmt">// EXPLORE: only indices AFTER i (no reordering, no reuse)</span>
+        path.remove(path.size() - 1);     <span class="cmt">// UNCHOOSE: undo, so the next i starts clean</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n·2ⁿ) — 2ⁿ subsets, each copied in up to O(n). <strong>Space</strong> O(n) for the recursion stack and <code>path</code> (output not counted).</p>
+
+<h3>The decision tree for nums = [1, 2, 3]</h3>
+<figure class="diagram">
+<svg viewBox="0 0 560 270" role="img" aria-label="Decision tree of subsets of 1,2,3: root empty set branches to 1, 2, 3; 1 branches to 12 and 13; 2 branches to 23; 12 branches to 123">
+  <line class="edge" x1="280" y1="25"  x2="110" y2="95"/>
+  <line class="edge" x1="280" y1="25"  x2="280" y2="95"/>
+  <line class="edge" x1="280" y1="25"  x2="450" y2="95"/>
+  <line class="edge" x1="110" y1="95"  x2="55"  y2="165"/>
+  <line class="edge" x1="110" y1="95"  x2="175" y2="165"/>
+  <line class="edge" x1="280" y1="95"  x2="335" y2="165"/>
+  <line class="edge" x1="55"  y1="165" x2="55"  y2="235"/>
+  <rect class="cell done" x="248" y="11"  width="64" height="28" rx="6"/><text class="lbl" x="280" y="25">[ ]</text>
+  <rect class="cell done" x="78"  y="81"  width="64" height="28" rx="6"/><text class="lbl" x="110" y="95">[1]</text>
+  <rect class="cell done" x="248" y="81"  width="64" height="28" rx="6"/><text class="lbl" x="280" y="95">[2]</text>
+  <rect class="cell done" x="418" y="81"  width="64" height="28" rx="6"/><text class="lbl" x="450" y="95">[3]</text>
+  <rect class="cell done" x="23"  y="151" width="64" height="28" rx="6"/><text class="lbl" x="55"  y="165">[1,2]</text>
+  <rect class="cell done" x="143" y="151" width="64" height="28" rx="6"/><text class="lbl" x="175" y="165">[1,3]</text>
+  <rect class="cell done" x="303" y="151" width="64" height="28" rx="6"/><text class="lbl" x="335" y="165">[2,3]</text>
+  <rect class="cell done" x="23"  y="221" width="64" height="28" rx="6"/><text class="lbl" x="55"  y="235">[1,2,3]</text>
+</svg>
+<figcaption>Every node is a recorded subset — 8 = 2³ of them. DFS visits them in the order [ ], [1], [1,2], [1,2,3], [1,3], [2], [2,3], [3]. The <code>start</code> parameter is why each child only extends to the <em>right</em>: no duplicates, no reorderings.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">path = [] → record [ ] · loop i = 0..2</span>
+<span class="step now">i=0: choose 1 → path [1] → record · recurse start=1</span>
+<span class="step now">&nbsp;&nbsp;i=1: choose 2 → path [1,2] → record · recurse start=2</span>
+<span class="step now">&nbsp;&nbsp;&nbsp;&nbsp;i=2: choose 3 → path [1,2,3] → record · recurse start=3 (loop empty) · <span class="ptr">unchoose 3</span></span>
+<span class="step now">&nbsp;&nbsp;<span class="ptr">unchoose 2</span> → path [1] · i=2: choose 3 → [1,3] → record · unchoose 3</span>
+<span class="step"><span class="ptr">unchoose 1</span> → path [] · i=1: choose 2 → [2] … and so on</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Why "unchoose" must mirror "choose" exactly</span>
+  <code>path</code> is <strong>one shared object</strong> threaded through the whole tree. Every mutation you make
+  before recursing must be undone after, or sibling branches inherit garbage. Rule: whatever state the choose step
+  touches (list, <code>used[]</code> flag, counter, grid cell), the unchoose step restores — same lines, reversed.
+</div>
+
+<h2>3 · Why the time is exponential — and how to say it</h2>
+<p>
+The tree has one leaf (or node) per answer, and the number of answers is combinatorial: <strong>2ⁿ</strong> subsets,
+<strong>n!</strong> permutations, <strong>C(n,k)</strong> combinations. No algorithm that <em>outputs</em> all of them
+can beat that. The interview-ready phrasing: <em>"the complexity is output-sensitive — (number of solutions) ×
+(cost to build/copy each one)"</em>. So Subsets is O(n·2ⁿ), Permutations is O(n·n!), Combinations is O(k·C(n,k)).
+Auxiliary space is just the O(n) recursion depth plus <code>path</code>.
+</p>
+
+<h2>4 · All the cases</h2>
+<p>Five problems, one template. Only two knobs ever move: <strong>how you pick candidates</strong> (a <code>start</code> index vs a <code>used[]</code> array) and <strong>whether you dedup</strong> (sort + skip).</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Subsets</td><td>LC 78</td><td>The core template. Record at <em>every</em> node; loop from <code>start</code>, recurse with <code>i + 1</code>.</td></tr>
+    <tr><td>Subsets with duplicates</td><td>LC 90</td><td>Sort first, then the dedup-skip idiom <code>if (i &gt; start &amp;&amp; a[i] == a[i-1]) continue;</code></td></tr>
+    <tr><td>Permutations</td><td>LC 46</td><td>Order matters → drop <code>start</code>, scan ALL indices with a <code>used[]</code> array; record only at full length.</td></tr>
+    <tr><td>Permutations with duplicates</td><td>LC 47</td><td>Sort + <code>used[]</code> + skip <code>a[i] == a[i-1] &amp;&amp; !used[i-1]</code>.</td></tr>
+    <tr><td>Combinations</td><td>LC 77</td><td>Subsets template, but record only when <code>path.size() == k</code>; prune when too few numbers remain.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Subsets II — duplicates in the input (LC 90)</h3>
+<p>
+With <code>nums = [1,2,2]</code>, the plain template emits <code>[1,2]</code> twice (once per 2). Fix: <strong>sort</strong>
+so equal values are adjacent, then at each tree level let only the <em>first</em> copy of a value start a branch.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; subsetsWithDup(int[] nums) {
+    Arrays.sort(nums);                    <span class="cmt">// dedup REQUIRES sorted input</span>
+    backtrack(nums, 0, new ArrayList&lt;&gt;());
+    return res;
+}
+void backtrack(int[] nums, int start, List&lt;Integer&gt; path) {
+    res.add(new ArrayList&lt;&gt;(path));
+    for (int i = start; i &lt; nums.length; i++) {
+        <span class="cmt">// THE dedup-skip idiom: same value as my left SIBLING at this level → identical branch, skip</span>
+        if (i &gt; start &amp;&amp; nums[i] == nums[i - 1]) continue;
+        path.add(nums[i]);
+        backtrack(nums, i + 1, path);
+        path.remove(path.size() - 1);
+    }
+}</code></pre>
+<div class="callout trap">
+  <span class="label">Why <code>i &gt; start</code>, NOT <code>i &gt; 0</code></span>
+  <code>i &gt; start</code> skips a duplicate only when it's a <em>sibling</em> (same loop, same level) of an equal value
+  already tried. When <code>i == start</code>, the equal value is being <em>stacked deeper</em> — that's how
+  <code>[2,2]</code> gets generated at all. Writing <code>i &gt; 0</code> kills every stacked duplicate and silently
+  drops answers like <code>[2,2]</code> and <code>[1,2,2]</code>. Memorize the exact form:
+  <code>if (i &gt; start &amp;&amp; a[i] == a[i-1]) continue;</code>
+</div>
+
+<h3>Case: Permutations (LC 46)</h3>
+<p>
+Now <code>[1,2]</code> and <code>[2,1]</code> are <em>different</em> answers, so ascending order would be wrong.
+Drop <code>start</code>; at every depth consider <strong>every index not yet used</strong>. A <code>boolean[] used</code>
+is the choose/unchoose state alongside <code>path</code>.
+</p>
+<pre><code>void backtrack(int[] nums, boolean[] used, List&lt;Integer&gt; path) {
+    if (path.size() == nums.length) {     <span class="cmt">// record only COMPLETE candidates (leaves)</span>
+        res.add(new ArrayList&lt;&gt;(path));
+        return;
+    }
+    for (int i = 0; i &lt; nums.length; i++) {
+        if (used[i]) continue;            <span class="cmt">// already in path</span>
+        used[i] = true;  path.add(nums[i]);          <span class="cmt">// CHOOSE (two pieces of state)</span>
+        backtrack(nums, used, path);                 <span class="cmt">// EXPLORE</span>
+        path.remove(path.size() - 1);  used[i] = false; <span class="cmt">// UNCHOOSE (both!)</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n·n!) · <strong>Space</strong> O(n).</p>
+
+<h3>Case: Permutations II — duplicates (LC 47)</h3>
+<p>
+Sort, then the permutation flavor of the skip: among equal values, force them to be picked <strong>left to right</strong>.
+If <code>nums[i-1]</code> is equal and <em>not currently used</em>, picking <code>nums[i]</code> now would recreate a
+branch the first copy already produced.
+</p>
+<pre><code>for (int i = 0; i &lt; nums.length; i++) {
+    if (used[i]) continue;
+    <span class="cmt">// equal to left neighbor AND that neighbor is not in the current path → duplicate branch</span>
+    if (i &gt; 0 &amp;&amp; nums[i] == nums[i - 1] &amp;&amp; !used[i - 1]) continue;
+    used[i] = true;  path.add(nums[i]);
+    backtrack(nums, used, path);
+    path.remove(path.size() - 1);  used[i] = false;
+}</code></pre>
+
+<h3>Case: Combinations — choose k of n (LC 77)</h3>
+<p>
+Subsets template with a size gate: record only when <code>path.size() == k</code>. Bonus: a free pruning bound — if the
+numbers remaining can't fill the path to size k, don't even branch.
+</p>
+<pre><code>void backtrack(int n, int k, int start, List&lt;Integer&gt; path) {
+    if (path.size() == k) {               <span class="cmt">// exactly k picked → record leaf</span>
+        res.add(new ArrayList&lt;&gt;(path));
+        return;
+    }
+    <span class="cmt">// prune: need (k - path.size()) more numbers; last viable start is n - need + 1</span>
+    for (int i = start; i &lt;= n - (k - path.size()) + 1; i++) {
+        path.add(i);
+        backtrack(n, k, i + 1, path);
+        path.remove(path.size() - 1);
+    }
+}</code></pre>
+<p><strong>Time</strong> O(k·C(n,k)) · <strong>Space</strong> O(k).</p>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Record a COPY:</strong> <code>res.add(new ArrayList&lt;&gt;(path))</code>. Adding <code>path</code> itself stores a reference that later mutates — you end up with a result full of identical (empty) lists. #1 backtracking bug.</li>
+  <li><strong>Unchoose everything you chose.</strong> If choose sets two things (<code>path</code> + <code>used[i]</code>), unchoose resets both, in any order, but never skip one.</li>
+  <li><strong>Dedup requires sorting first.</strong> The skip idiom compares neighbors — unsorted input makes it silently wrong, not just slow.</li>
+  <li><strong><code>start</code> vs <code>used[]</code>:</strong> combinations/subsets (order irrelevant) → <code>start</code> + <code>i + 1</code>; permutations (order matters) → <code>used[]</code> over all indices. Picking the wrong one gives duplicate or missing answers.</li>
+  <li><strong><code>path.remove(path.size() - 1)</code>, never <code>path.remove(value)</code>:</strong> with <code>List&lt;Integer&gt;</code>, <code>remove(int)</code> is by index but <code>remove(Integer)</code> is by value — an autoboxing trap that removes the wrong element.</li>
+  <li><strong>Empty input:</strong> Subsets of <code>[]</code> is <code>[[]]</code> (one empty subset) — the record-at-every-node template handles it automatically; a record-at-leaf version might not.</li>
+  <li><strong>Sanity-check the count:</strong> 2ⁿ subsets, n! permutations. If n = 3 and you got 6 subsets or 8 permutations, the tree shape is wrong.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why must you write <code>res.add(new ArrayList&lt;&gt;(path))</code> instead of <code>res.add(path)</code>?</div>
+  <button class="opt">Java forbids adding a list to another list without copying it first</button>
+  <button class="opt"><code>path</code> keeps mutating after being added, so every stored reference would end up pointing at the same final (emptied) list</button>
+  <button class="opt">The copy is needed to sort each subset before returning it</button>
+  <div class="fb" data-correct="Exactly — path is one shared object that choose/unchoose keeps mutating. Without a snapshot copy, res holds n references to the same list, which is empty by the time you return." data-wrong="Java happily stores the reference — that's the problem. path is mutated by every later choose/unchoose, so all stored entries alias one final list. Snapshot it with a copy."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In Subsets II, what breaks if you write the skip as <code>if (i &gt; 0 &amp;&amp; nums[i] == nums[i-1]) continue;</code> (using <code>0</code> instead of <code>start</code>)?</div>
+  <button class="opt">Nothing — the two conditions are equivalent after sorting</button>
+  <button class="opt">It throws an index-out-of-bounds error on the first loop iteration</button>
+  <button class="opt">It also skips <em>stacking</em> a duplicate deeper in the path, so answers like <code>[2,2]</code> are never generated</button>
+  <div class="fb" data-correct="Right. i == start means the duplicate is being added on top of its equal predecessor (a deeper level) — that's legal and needed for [2,2]. Only skip when i &gt; start, i.e. an equal SIBLING at the same level." data-wrong="They're not equivalent: when i == start the equal value extends the path downward (legal — how [2,2] appears); when i &gt; start it repeats a sibling branch (duplicate). i &gt; 0 wrongly blocks both."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why do Permutations use a <code>used[]</code> array while Subsets use a <code>start</code> index?</div>
+  <button class="opt">In permutations order matters, so earlier indices must remain available at deeper levels; in subsets ascending index order kills reorderings on purpose</button>
+  <button class="opt"><code>used[]</code> is faster because array access is O(1) while passing <code>start</code> costs a stack frame</button>
+  <button class="opt">Subsets can contain duplicates but permutations cannot, and <code>start</code> handles duplicates</button>
+  <div class="fb" data-correct="Yes — start enforces 'indices strictly increase along the path', which makes [1,2] and [2,1] collapse to one subset. Permutations need [2,1] too, so any unused index is a candidate at every depth." data-wrong="It's about which answers count as distinct: subsets treat [1,2] and [2,1] as the same (start enforces one canonical order); permutations treat them as different (used[] lets earlier indices come later)."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/subsets">NeetCode — Subsets</a> for the tree drawing, then <a href="https://neetcode.io/problems/permutations">NeetCode — Permutations</a> for the <code>used[]</code> variant.</li>
+  <li><strong>Practice ladder (Java, blank editor each time):</strong> LC 78 (core template) → LC 77 (add the size-k gate + prune) → LC 46 (switch to <code>used[]</code>) → LC 90 (dedup-skip idiom) → LC 47 (dedup + <code>used[]</code> combined) → then peek at LC 39, which Lesson 2 opens with. After each solve, say the Big-O out loud in the "solutions × cost per solution" form.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run the tree for <code>[1,2,2]</code>, still fuzzy on <code>i &gt; start</code> vs <code>i &gt; 0</code>,
+  or unsure when to record (every node vs leaves only)? Ask in the chat. When you can write Subsets, Permutations, and
+  both dedup skips from memory, say <strong>"next"</strong> and we move to Lesson 2: Combination Sum &amp; string
+  backtracking.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-combination-sum-and-strings.html">Combination Sum &amp; Strings →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

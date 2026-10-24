@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bit Manipulation Lesson 01 — Operators &amp; Tricks</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Bit Manipulation Track · Lesson 1 of 2 · the operators and the arsenal</div>
+<h1>Bit Manipulation — Operators &amp; Tricks</h1>
+<p class="subtitle">An int is 32 switches. Learn the six operators and a handful of one-line tricks, and a whole category of OA questions becomes free points.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> bit questions are OA favorites because they're short to state, short to solve, and brutal if you've never seen the tricks. This is Lesson 1 of the 2-lesson Bit Manipulation track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A Java <code>int</code> is a row of 32 bits — treat it as a <strong>set of 32 booleans</strong> you can read,
+flip, and combine in a single CPU instruction. Everything in this track reduces to three moves: build a
+<strong>mask</strong> (<code>1 &lt;&lt; i</code>) to talk about bit <code>i</code>, combine masks with
+<code>&amp; | ^</code>, and exploit two magic identities — <code>x &amp; (x−1)</code> clears the lowest set bit,
+<code>x &amp; −x</code> isolates it.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Without extra space," "count the 1 bits / set bits," "power of two," parity, "toggle/check the i-th bit,"
+  XOR anywhere in the statement, or n ≤ 20 hinting at subset masks (Lesson 2). Also any "clever O(1) space" ask
+  where a boolean array feels natural — the int IS the boolean array.
+</div>
+
+<h2>2 · Core — operators, two's complement, the arsenal</h2>
+
+<h3>The six operators (Java)</h3>
+<table>
+  <thead><tr><th>Op</th><th>Name</th><th>Example (8-bit view)</th><th>Use for</th></tr></thead>
+  <tbody>
+    <tr><td><code>&amp;</code></td><td>AND</td><td><code>0b1100 &amp; 0b1010 = 0b1000</code></td><td>test / extract bits, masking off</td></tr>
+    <tr><td><code>|</code></td><td>OR</td><td><code>0b1100 | 0b1010 = 0b1110</code></td><td>set bits on</td></tr>
+    <tr><td><code>^</code></td><td>XOR</td><td><code>0b1100 ^ 0b1010 = 0b0110</code></td><td>toggle; "differ?"; cancel-out pairs (Lesson 2)</td></tr>
+    <tr><td><code>~</code></td><td>NOT</td><td><code>~0b0000_1111 = 0b1111_0000…</code></td><td>invert; build "all except" masks</td></tr>
+    <tr><td><code>&lt;&lt;</code></td><td>left shift</td><td><code>1 &lt;&lt; 3 = 0b1000</code> (= 8)</td><td>build masks; multiply by 2ᵏ</td></tr>
+    <tr><td><code>&gt;&gt;</code> / <code>&gt;&gt;&gt;</code></td><td>arithmetic / logical right shift</td><td><code>-8 &gt;&gt; 1 = -4</code>, but <code>-8 &gt;&gt;&gt; 1 = 2³¹−4</code></td><td><code>&gt;&gt;</code> keeps the sign (copies the sign bit in); <code>&gt;&gt;&gt;</code> shifts in zeros</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">Java-specific traps</span>
+  <strong>(1)</strong> <code>&gt;&gt;</code> on a negative number stays negative forever — loops like
+  <code>while (n != 0) n &gt;&gt;= 1;</code> never end for n &lt; 0. Use <code>&gt;&gt;&gt;</code> when treating the
+  int as raw bits. <strong>(2)</strong> Shift amounts wrap mod 32 for int: <code>1 &lt;&lt; 32 == 1</code>, not 0.
+  <strong>(3)</strong> <code>&amp;</code> binds looser than <code>==</code> — write
+  <code>(x &amp; 1) == 1</code>, never <code>x &amp; 1 == 1</code> (compile error or wrong grouping).
+</div>
+
+<h3>Two's complement in 30 seconds</h3>
+<p>
+Negative numbers are stored as <code>−x = ~x + 1</code> (flip all bits, add one). Consequences worth knowing cold:
+the top bit is the sign; <code>−1</code> is all 32 ones (<code>0xFFFFFFFF</code>); range is
+−2³¹ … 2³¹−1 (so <code>Math.abs(Integer.MIN_VALUE)</code> overflows and stays negative); and — the payoff —
+<code>x</code> and <code>−x</code> agree on <em>exactly one</em> set bit: the lowest one. Everything below that
+bit is zero in both; everything above is complementary. That single fact powers <code>x &amp; −x</code>.
+</p>
+
+<h3>The essential arsenal</h3>
+<pre><code><span class="cmt">// ---- the two magic identities ----</span>
+x &amp; (x - 1)        <span class="cmt">// CLEAR lowest set bit:  0b10110 → 0b10100</span>
+x &amp; -x             <span class="cmt">// ISOLATE lowest set bit: 0b10110 → 0b00010</span>
+
+<span class="cmt">// ---- talk to bit i via the mask (1 &lt;&lt; i) ----</span>
+(x &gt;&gt; i &amp; 1) == 1  <span class="cmt">// GET   bit i (or: (x &amp; (1 &lt;&lt; i)) != 0 — never == 1!)</span>
+x | (1 &lt;&lt; i)       <span class="cmt">// SET   bit i to 1</span>
+x &amp; ~(1 &lt;&lt; i)      <span class="cmt">// CLEAR bit i to 0</span>
+x ^ (1 &lt;&lt; i)       <span class="cmt">// TOGGLE bit i</span>
+
+<span class="cmt">// ---- ready-made masks ----</span>
+(1 &lt;&lt; k) - 1       <span class="cmt">// lowest k bits all 1:  k=4 → 0b1111</span>
+x &amp; ((1 &lt;&lt; k) - 1) <span class="cmt">// keep only the lowest k bits of x</span>
+
+<span class="cmt">// ---- instant checks ----</span>
+(x &amp; 1) == 1                    <span class="cmt">// odd?</span>
+x &gt; 0 &amp;&amp; (x &amp; (x - 1)) == 0     <span class="cmt">// power of two? (exactly one set bit)</span></code></pre>
+<p>
+Why <code>x &amp; (x−1)</code> works: subtracting 1 flips the lowest set bit to 0 and every bit below it to 1
+(the borrow ripples up to it); ANDing wipes that whole tail. Each application removes exactly one set bit —
+which turns "count the bits" into "count the loop iterations." All O(1) time and space.
+</p>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Count set bits</td><td>LC 191</td><td>Loop <code>n &amp;= n − 1</code>, count iterations — O(#set bits).</td></tr>
+    <tr><td>Power of two</td><td>LC 231</td><td>One expression: positive and <code>(n &amp; (n−1)) == 0</code>.</td></tr>
+    <tr><td>Reverse the 32 bits</td><td>LC 190</td><td>Peel bits off one end, push onto the other, 32 times.</td></tr>
+    <tr><td>Missing number in 0..n</td><td>LC 268</td><td>XOR preview: pairs cancel, the loner survives (or use sum formula).</td></tr>
+    <tr><td>Count bits for 0..n</td><td>LC 338</td><td>DP on bits: <code>dp[i] = dp[i &amp; (i−1)] + 1</code> — O(n) total.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Number of 1 Bits (LC 191)</h3>
+<pre><code>int hammingWeight(int n) {
+    int count = 0;
+    while (n != 0) {           <span class="cmt">// != 0, NOT &gt; 0 — n may be "negative" (raw bits)</span>
+        n &amp;= n - 1;            <span class="cmt">// kill the lowest set bit</span>
+        count++;
+    }
+    return count;              <span class="cmt">// loop ran once per set bit</span>
+}</code></pre>
+<p><strong>Time</strong> O(k) where k = number of set bits (≤ 32; beats checking all 32 positions). <strong>Space</strong> O(1). Production shortcut to mention: <code>Integer.bitCount(n)</code>.</p>
+
+<h3>Case: Power of Two (LC 231)</h3>
+<pre><code>boolean isPowerOfTwo(int n) {
+    return n &gt; 0 &amp;&amp; (n &amp; (n - 1)) == 0; <span class="cmt">// exactly one set bit, and positive</span>
+}</code></pre>
+<p><strong>Time/Space</strong> O(1). The <code>n &gt; 0</code> guard matters twice: 0 has no set bits yet passes the AND test, and <code>Integer.MIN_VALUE</code> has exactly one set bit but is negative.</p>
+
+<h3>Case: Reverse Bits (LC 190)</h3>
+<pre><code>int reverseBits(int n) {
+    int res = 0;
+    for (int i = 0; i &lt; 32; i++) {
+        res = (res &lt;&lt; 1) | (n &amp; 1);  <span class="cmt">// make room, append n's lowest bit</span>
+        n &gt;&gt;&gt;= 1;                    <span class="cmt">// &gt;&gt;&gt; — logical shift; &gt;&gt; loops forever on negatives</span>
+    }
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(32) = O(1), <strong>Space</strong> O(1). Fixed 32 iterations — don't loop "while n != 0," or leading zeros of the input never become trailing bits of the output.</p>
+
+<h3>Case: Missing Number (LC 268)</h3>
+<p>
+Array holds n distinct numbers from <code>0..n</code>; one is missing. XOR every index <em>and</em> every value
+together with n: each present number appears twice (once as value, once as index) and cancels; the missing one
+appears once — as an index/in the range — and survives. This is Lesson 2's headline property making a cameo.
+</p>
+<pre><code>int missingNumber(int[] nums) {
+    int x = nums.length;             <span class="cmt">// seed with n (the index that has no slot)</span>
+    for (int i = 0; i &lt; nums.length; i++)
+        x ^= i ^ nums[i];            <span class="cmt">// pairs annihilate; the loner remains</span>
+    return x;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). The Gauss-sum alternative <code>n(n+1)/2 − sum</code> also works; XOR sidesteps any overflow conversation entirely.</p>
+
+<h3>Case: Counting Bits (LC 338) — the DP link</h3>
+<p>
+Count set bits for <em>every</em> i in 0..n. Running LC 191 n times is O(n·k); one observation makes it O(n):
+<code>i &amp; (i−1)</code> is i with its lowest set bit removed — a <strong>smaller number whose count you already
+computed</strong>. Classic DP shape: recurrence on a smaller subproblem, table filled left to right.
+</p>
+<pre><code>int[] countBits(int n) {
+    int[] dp = new int[n + 1];       <span class="cmt">// dp[0] = 0</span>
+    for (int i = 1; i &lt;= n; i++)
+        dp[i] = dp[i &amp; (i - 1)] + 1; <span class="cmt">// = count(i minus its lowest set bit) + that bit</span>
+    return dp;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(n) for the answer itself. Equivalent recurrence: <code>dp[i] = dp[i &gt;&gt; 1] + (i &amp; 1)</code> — same idea, dropping the lowest bit by shifting.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Negative inputs:</strong> loop on <code>n != 0</code>, shift with <code>&gt;&gt;&gt;</code>. The pair of bugs (<code>n &gt; 0</code> guard, <code>&gt;&gt;</code> shift) each turn LC 191/190 into an infinite loop.</li>
+  <li><strong>Zero:</strong> not a power of two; has zero set bits; <code>x &amp; −x</code> gives 0, not a bit. Check <code>n &gt; 0</code> before trusting the identities.</li>
+  <li><strong><code>Integer.MIN_VALUE</code>:</strong> one set bit but negative; its negation overflows to itself. Any "abs then bit-trick" plan dies here.</li>
+  <li><strong>Operator precedence:</strong> parenthesize every mask test — <code>(x &amp; m) != 0</code>. Also prefer <code>!= 0</code> over <code>== 1</code>: for i &gt; 0 the extracted mask is <code>1 &lt;&lt; i</code>, not 1.</li>
+  <li><strong>Shift-by-32 wraps:</strong> <code>1 &lt;&lt; 32 == 1</code> (amounts are taken mod 32 for int, mod 64 for long). Building a 32-bit all-ones mask is <code>-1</code>, not <code>(1 &lt;&lt; 32) − 1</code>.</li>
+  <li><strong>Fixed-width iteration (LC 190):</strong> always 32 rounds; the input's leading zeros are the output's trailing zeros.</li>
+  <li><strong>Know the library:</strong> <code>Integer.bitCount</code>, <code>Integer.toBinaryString</code> (great for debugging), <code>Integer.lowestOneBit</code> (= x &amp; −x). Use them to verify your hand-rolled versions.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">What does <code>x &amp; (x − 1)</code> evaluate to for <code>x = 0b10100</code>?</div>
+  <button class="opt"><code>0b10101</code> — subtracting 1 then ANDing rounds x up to the next odd number</button>
+  <button class="opt"><code>0b10000</code> — the lowest set bit is cleared, everything above survives</button>
+  <button class="opt"><code>0b00100</code> — only the lowest set bit survives, everything else is cleared</button>
+  <div class="fb" data-correct="x − 1 = 0b10011: the lowest set bit flips to 0 and the tail below it to 1s. ANDing with x zeroes that whole region: 0b10100 &amp; 0b10011 = 0b10000. One set bit removed per application." data-wrong="Compute it: 0b10100 − 1 = 0b10011; AND gives 0b10000. Clearing-the-lowest-bit is x &amp; (x−1); the ISOLATE version (0b00100) is the other identity, x &amp; −x."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Your LC 191 solution uses <code>while (n &gt; 0) { count += n &amp; 1; n &gt;&gt;= 1; }</code>. Which input breaks it, and how?</div>
+  <button class="opt">n = 0 — the loop body never runs, so the count is wrong</button>
+  <button class="opt">n = 1 — the shift discards the only set bit before it's counted</button>
+  <button class="opt">Any negative n — the guard fails immediately (or with <code>!=</code>, the arithmetic shift never reaches 0)</button>
+  <div class="fb" data-correct="Negative n fails n &gt; 0 instantly, returning 0. And 'fixing' the guard to n != 0 still hangs, because &gt;&gt; keeps shifting the sign bit in. The real fix is both: loop on != 0 AND shift with &gt;&gt;&gt; (or use n &amp;= n − 1)." data-wrong="n = 0 correctly returns 0, and n = 1 counts its bit before shifting. The killer is negative input: the guard is false immediately, and even with != 0 the arithmetic shift &gt;&gt; re-inserts sign bits forever."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why is <code>dp[i] = dp[i &amp; (i − 1)] + 1</code> a valid recurrence for Counting Bits (LC 338)?</div>
+  <button class="opt"><code>i &amp; (i − 1)</code> is i with one set bit removed — a strictly smaller index already computed, so add 1 for the removed bit</button>
+  <button class="opt"><code>i &amp; (i − 1)</code> equals i − 1 for all i, so it's just a running total of bits seen so far</button>
+  <button class="opt">It works only when n is a power of two, since other values need the shift-based recurrence</button>
+  <div class="fb" data-correct="Removing the lowest set bit yields a smaller number (already in the table, since we fill left to right) with exactly one fewer set bit — so its count plus 1 is i's count. O(1) per entry, O(n) total." data-wrong="i &amp; (i−1) equals i − 1 only when i is odd — in general it strips the lowest SET bit (12 → 8). The result is strictly less than i and has one fewer bit, which is what makes the +1 recurrence valid for every i."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (read):</strong> <a href="https://cp-algorithms.com/algebra/bit-manipulation.html">CP-Algorithms — Bit manipulation</a> (the tricks list, with proofs). Video backup: <a href="https://neetcode.io/problems/number-of-one-bits">NeetCode — Number of 1 Bits</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 191 (both the shift version and the <code>n &amp; (n−1)</code> version) → LC 231 (one line) → LC 190 (watch the <code>&gt;&gt;&gt;</code>) → LC 268 (XOR version, then sum version) → LC 338 (derive the recurrence yourself before peeking) → warm-up for Lesson 2: LC 136. Print intermediate values with <code>Integer.toBinaryString</code> whenever confused.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want two's complement drawn out on 4-bit numbers, more reps on the get/set/clear idioms, or the LC 338 shift
+  recurrence compared side by side? Ask in the chat. When <code>x &amp; (x−1)</code> and <code>x &amp; −x</code>
+  feel like old friends, say <strong>"next"</strong> — Lesson 2 is XOR's greatest hits and bitmask subsets.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-xor-and-masks.html">XOR &amp; Masks →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

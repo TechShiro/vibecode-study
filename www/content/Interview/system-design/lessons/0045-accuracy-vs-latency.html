@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 45 - Accuracy vs Latency | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 45 of 66 · HyperLogLog, Count-Min Sketch, Top-K</div>
+  
+  <h1>Accuracy vs Latency: Probabilistic Data Structures</h1>
+  <p class="subtitle">How massive scale systems count billions of items in microseconds using 12 KB of memory.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module K — System Design Trade-offs</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>If you ask an engineer to count the number of unique visitors (cardinality) who visited YouTube today, their first instinct is: <code>SELECT COUNT(DISTINCT user_id)</code>. But when you have 2 billion unique visitors, storing 2 billion 64-bit IDs in a Hash Set requires <strong>16 Gigabytes of RAM per day</strong>! When exact precision is unnecessary (a human doesn't care if a video has 4,200,100 views vs 4,200,000 views), <strong>Probabilistic Data Structures</strong> trade 1% of mathematical accuracy for a <strong>99.9% reduction in memory and sub-millisecond latency</strong>.</p>
+
+  <h2>2 · The 3 Legendary Probabilistic Structures</h2>
+
+  <h3>1. HyperLogLog (HLL) — Unique Element Counting (Cardinality)</h3>
+  <ul>
+    <li><strong>Problem:</strong> How many unique users visited Reddit today?</li>
+    <li><strong>How it works:</strong> Hashes each incoming user ID into a binary string. Observes the maximum number of consecutive leading zeroes in the binary hash. By probability theory, observing $k$ leading zeroes implies approximately $2^k$ unique items!</li>
+    <li><strong>The Miracle:</strong> Redis <code>PFADD</code> and <code>PFCOUNT</code> can estimate the unique cardinality of <strong>billions of items with a standard error of 0.81% using only 12 KB of RAM!</strong></li>
+  </ul>
+
+  <h3>2. Count-Min Sketch — Frequency Tracking</h3>
+  <ul>
+    <li><strong>Problem:</strong> How many times has the hashtag <code>#WorldCup</code> been tweeted today across 500 million tweets?</li>
+    <li><strong>How it works:</strong> A 2D array of counters with $d$ hash functions. Each incoming word increments $d$ counters. When queried, returns the minimum value among those counters. Guarantees it will never underestimate frequency, with a tightly bounded overestimation rate.</li>
+  </ul>
+
+  <h3>3. Heavy Hitters (Top-K) Algorithm</h3>
+  <ul>
+    <li>Combines Count-Min Sketch with a Min-Heap to continuously track the top 100 trending hashtags or highest-spending customers in a real-time data stream without storing the full history.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Next, how do microservices discover each other's dynamic IP addresses? Bonus HLD: API Gateway &amp; Service Discovery.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0044-throughput-vs-latency.html">← Previous: Throughput vs Latency</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0046-api-gateway-service-discovery.html">Next: API Gateway &amp; Service Discovery →</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,411 @@
+<title>The Critical-Section Problem</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit II &middot; Lesson 11 of 14</p>
+<h1>Process Synchronisation and the Critical-Section Problem</h1>
+<p class="deck">The race condition worked instruction by instruction, the structure of a critical section, the three conditions any solution must satisfy, the turn and flag attempts, Peterson's solution, the hardware instructions, and mutex locks.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;What is the critical-section problem? State the conditions any solution must satisfy&rdquo;</strong> is a certainty &mdash; the three conditions are <strong>mutual exclusion, progress, bounded waiting</strong>, and you must be able to define each in one sentence. <strong>Peterson's solution</strong> is a full 10-mark answer: write the code, then prove all three conditions hold. The <strong>race-condition trace</strong> below is the standard way to open a synchronisation answer, and it is worth memorising as a five-line table.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Critical Section 3 Requirements & Peterson's Algorithm Protocol</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>1. Mutual Exclusion</strong><span class="sub">If process P<sub>i</sub> is executing in critical section, no other process can enter</span></div>
+    <div class="flow-box ok"><strong>2. Progress</strong><span class="sub">Only processes wishing to enter participate in deciding who enters next; decision cannot be postponed indefinitely</span></div>
+    <div class="flow-box warn"><strong>3. Bounded Waiting</strong><span class="sub">Bound exists on number of times other processes can enter before P<sub>i</sub>'s request is granted (no starvation)</span></div>
+  </div>
+  <div class="flow-col" style="margin-top:0.6rem;">
+    <div class="flow-box" style="max-width:32rem;"><strong>Peterson's Solution for 2 Processes:</strong><br><code>flag[i] = true; turn = j; while(flag[j] && turn == j); /* CS */ flag[i] = false;</code></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Critical Section Problem</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-3.1 & L-3.4: Process Synchronization & Critical Section Problem</div>
+    <div class="v-desc">The foundational synchronization masterclass explaining race conditions, atomic operations, hardware test-and-set, and Peterson's proof.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=3Eaw1SSIqRg" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>The race condition</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>race condition</strong> is a situation in which <strong>several processes access and manipulate the same data concurrently</strong>, and <strong>the outcome depends on the particular order in which the accesses take place</strong>.
+</div>
+
+<p>Recall the bounded buffer from Lesson 6. To use all N slots we add a counter, <code>count</code>, incremented by the producer and decremented by the consumer. Each looks like a single statement, but the compiler turns each into <strong>three machine instructions</strong>:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th><code>count++</code> becomes</th><th><code>count--</code> becomes</th></tr></thead>
+<tbody>
+<tr>
+<td style="font-family:ui-monospace,monospace; font-size:.8rem">register1 = count<br>register1 = register1 + 1<br>count = register1</td>
+<td style="font-family:ui-monospace,monospace; font-size:.8rem">register2 = count<br>register2 = register2 &minus; 1<br>count = register2</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; trace an interleaving. Start with count = 5. The producer executes count++ and the consumer count--. What values can result?</span>
+  <p><strong>The correct result is 5</strong> &mdash; one increment and one decrement cancel. Now interleave the six instructions like this:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Step</th><th>Executed by</th><th>Instruction</th><th class="num">register1</th><th class="num">register2</th><th class="num">count</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td>&mdash;</td><td>initial state</td><td class="num">&mdash;</td><td class="num">&mdash;</td><td class="num"><strong>5</strong></td></tr>
+  <tr><td class="num">1</td><td>Producer</td><td>register1 = count</td><td class="num">5</td><td class="num">&mdash;</td><td class="num">5</td></tr>
+  <tr><td class="num">2</td><td>Producer</td><td>register1 = register1 + 1</td><td class="num">6</td><td class="num">&mdash;</td><td class="num">5</td></tr>
+  <tr><td class="num">3</td><td>Consumer</td><td>register2 = count</td><td class="num">6</td><td class="num">5</td><td class="num">5</td></tr>
+  <tr><td class="num">4</td><td>Consumer</td><td>register2 = register2 &minus; 1</td><td class="num">6</td><td class="num">4</td><td class="num">5</td></tr>
+  <tr><td class="num">5</td><td>Producer</td><td>count = register1</td><td class="num">6</td><td class="num">4</td><td class="num"><strong>6</strong></td></tr>
+  <tr><td class="num">6</td><td>Consumer</td><td>count = register2</td><td class="num">6</td><td class="num">4</td><td class="num"><strong>4</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Final count = 4 &mdash; which is wrong.</strong> Reversing the order of steps 5 and 6 leaves <strong>count = 6</strong> &mdash; also wrong.</p>
+  <p><strong>So the answer to &ldquo;what values can result&rdquo; is 4, 5 or 6</strong>, depending purely on timing. That is the race condition, and it is why synchronisation exists.</p>
+  <p><em>Note carefully:</em> <strong>the program is not buggy in any way a compiler could detect.</strong> Each process is individually correct; the fault is that the three-instruction update is not <strong>atomic</strong>.</p>
+</div>
+
+<h2>The critical-section problem</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  Consider n processes, each having a segment of code called its <strong>critical section</strong>, in which it <strong>changes shared variables, updates a table, writes a file</strong> and so on.<br><br>
+  The <strong>critical-section problem</strong> is to design a protocol such that <strong>when one process is executing in its critical section, no other process is allowed to execute in its critical section.</strong>
+</div>
+
+<div class="formula">
+  <span class="name">The general structure of a process &mdash; draw this</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.85rem; text-align:left; margin-top:.4rem">
+  do {<br>
+  &nbsp;&nbsp;&nbsp;<strong>ENTRY SECTION</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* request permission to enter */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>CRITICAL SECTION</strong>&nbsp;/* access the shared data */<br>
+  &nbsp;&nbsp;&nbsp;<strong>EXIT SECTION</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* release permission */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>REMAINDER SECTION</strong>/* everything else */<br>
+  } while (true);
+  </div>
+</div>
+
+<h3>The three conditions &mdash; learn these verbatim</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Condition</th><th>Statement</th><th>What it prevents</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Mutual exclusion</strong></td><td>If process P<sub>i</sub> is executing in its critical section, then <strong>no other process can be executing in its critical section</strong></td><td>Data corruption &mdash; the race condition itself</td></tr>
+<tr><td><strong>2. Progress</strong></td><td>If <strong>no process is in its critical section</strong> and some processes wish to enter, then <strong>only those not in their remainder section</strong> may take part in deciding which enters next, and <strong>this selection cannot be postponed indefinitely</strong></td><td><strong>Deadlock</strong> &mdash; and a process in its remainder section blocking one that wants in</td></tr>
+<tr><td><strong>3. Bounded waiting</strong></td><td>There exists a <strong>bound on the number of times other processes are allowed to enter their critical sections</strong> after a process has made a request and before that request is granted</td><td><strong>Starvation</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The memory hook, and how they map</span>
+  <p><strong>M &ndash; P &ndash; B.</strong> Mutual exclusion stops <em>corruption</em>. Progress stops <em>deadlock</em>. Bounded waiting stops <em>starvation</em>. When a question asks &ldquo;does this solution work?&rdquo;, test it against all three in that order &mdash; and the answer is almost always that mutual exclusion holds while one of the other two fails.</p>
+</div>
+
+<h3>Preemptive and non-preemptive kernels</h3>
+
+<p>The kernel itself has critical sections &mdash; the list of open files, memory allocation structures, process lists. A <strong>non-preemptive kernel</strong> does not allow a process running in kernel mode to be preempted, so it is <strong>free from race conditions on kernel data structures</strong>. A <strong>preemptive kernel</strong> allows it, so it <strong>must be carefully designed</strong> &mdash; but it is <strong>more responsive</strong> and <strong>more suitable for real-time programming</strong>. That trade-off is a short-note question in its own right.</p>
+
+<h2>Two-process software solutions</h2>
+
+<p>Assume two processes, P<sub>0</sub> and P<sub>1</sub>, and write <code>j = 1 &minus; i</code> for &ldquo;the other process&rdquo;. The exam value of these attempts is that each <strong>fails a different condition</strong>.</p>
+
+<h3>Attempt 1 &mdash; the turn variable (strict alternation)</h3>
+
+<div class="formula">
+  <span class="name">Shared: int turn;</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.85rem; text-align:left">
+  do {<br>
+  &nbsp;&nbsp;while (turn != i) ;&nbsp;&nbsp;/* wait */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;critical section<br>
+  &nbsp;&nbsp;turn = j;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;remainder section<br>
+  } while (true);
+  </div>
+</div>
+
+<ul>
+<li><strong>Mutual exclusion: satisfied.</strong> <code>turn</code> holds one value, so only one process can pass the loop.</li>
+<li><strong>Progress: VIOLATED.</strong> Suppose <code>turn = 0</code>, and P<sub>0</sub> is in its <em>remainder</em> section, not interested in entering. P<sub>1</sub> wants in but must wait for <code>turn</code> to become 1 &mdash; which only P<sub>0</sub> can set. <strong>A process in its remainder section is blocking a process that wants to enter</strong>, which is exactly what progress forbids.</li>
+<li>It also forces <strong>strict alternation</strong>: neither process can enter twice in a row.</li>
+</ul>
+
+<h3>Attempt 2 &mdash; the flag array</h3>
+
+<div class="formula">
+  <span class="name">Shared: boolean flag[2] = {false, false};</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.85rem; text-align:left">
+  do {<br>
+  &nbsp;&nbsp;flag[i] = true;<br>
+  &nbsp;&nbsp;while (flag[j]) ;&nbsp;&nbsp;/* wait */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;critical section<br>
+  &nbsp;&nbsp;flag[i] = false;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;remainder section<br>
+  } while (true);
+  </div>
+</div>
+
+<ul>
+<li><strong>Mutual exclusion: satisfied.</strong></li>
+<li><strong>Progress: VIOLATED &mdash; by deadlock.</strong> If P<sub>0</sub> sets <code>flag[0] = true</code> and is then preempted, and P<sub>1</sub> sets <code>flag[1] = true</code>, <strong>both now spin for ever</strong>, each waiting for the other's flag to clear.</li>
+</ul>
+
+<h2>Peterson's solution &mdash; the exam answer</h2>
+
+<p>Peterson's solution combines both variables. <strong>The flag says &ldquo;I want in&rdquo;; the turn variable breaks the tie.</strong> That one sentence explains the whole algorithm.</p>
+
+<div class="formula">
+  <span class="name">Peterson's solution &mdash; two shared variables</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.85rem; text-align:left">
+  int turn;<br>
+  boolean flag[2];&nbsp;&nbsp;/* both initially false */<br><br>
+  /* code for process P<sub>i</sub>, with j = 1 &minus; i */<br>
+  do {<br>
+  &nbsp;&nbsp;<strong>flag[i] = true;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* I want to enter */<br>
+  &nbsp;&nbsp;<strong>turn = j;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* but you go first */<br>
+  &nbsp;&nbsp;<strong>while (flag[j] &amp;&amp; turn == j) ;</strong>&nbsp;/* wait */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>CRITICAL SECTION</strong><br>
+  &nbsp;&nbsp;<strong>flag[i] = false;</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>REMAINDER SECTION</strong><br>
+  } while (true);
+  </div>
+</div>
+
+<div class="box">
+  <span class="lbl">The line students always get wrong</span>
+  <p>It is <strong><code>turn = j</code></strong>, not <code>turn = i</code>. Each process politely offers the turn to the <em>other</em> one. If both do so at nearly the same moment, <strong>the second write wins</strong> &mdash; and the process whose write lost gets in. Because only one write can be last, exactly one process proceeds.</p>
+</div>
+
+<h3>The proof &mdash; all three conditions</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Condition</th><th>Argument</th></tr></thead>
+<tbody>
+<tr><td><strong>Mutual exclusion</strong></td><td>P<sub>i</sub> enters only if <code>flag[j] == false</code> <strong>or</strong> <code>turn == i</code>. If both are in their critical sections, then <code>flag[0] == flag[1] == true</code>, so both must have found <code>turn</code> equal to their own index. <strong>But <code>turn</code> holds only one value at a time</strong> &mdash; a contradiction. Hence at most one is inside.</td></tr>
+<tr><td><strong>Progress</strong></td><td>P<sub>i</sub> is stuck only while <code>flag[j] &amp;&amp; turn == j</code>. If P<sub>j</sub> is in its remainder section, <code>flag[j] == false</code> and P<sub>i</sub> enters at once. So a disinterested process never blocks an interested one.</td></tr>
+<tr><td><strong>Bounded waiting</strong></td><td>If P<sub>j</sub> is also trying, then when P<sub>j</sub> exits it sets <code>flag[j] = false</code> and P<sub>i</sub> enters. If P<sub>j</sub> immediately re-enters its entry section it sets <code>turn = i</code>, so P<sub>i</sub> still enters. <strong>P<sub>i</sub> waits at most one turn</strong> &mdash; the bound is 1.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The limitations to state &mdash; they carry marks</span>
+  <p><strong>1. It works for two processes only.</strong> Extending it needs the bakery algorithm.</p>
+  <p><strong>2. It uses busy waiting.</strong> The process spins in a loop, consuming CPU cycles &mdash; a <strong>spinlock</strong>.</p>
+  <p><strong>3. It is not guaranteed to work on modern architectures</strong>, because processors and compilers <strong>reorder read and write operations</strong> that have no data dependency. If <code>turn = j</code> and <code>flag[i] = true</code> are reordered, mutual exclusion can break. It remains the right <em>teaching</em> algorithm, and the right <em>exam</em> answer, but real systems use memory barriers or hardware instructions.</p>
+</div>
+
+<h2>Hardware solutions</h2>
+
+<h3>Disabling interrupts</h3>
+
+<p>The simplest idea: on entry to a critical section, <strong>disable interrupts</strong>; on exit, enable them. With no interrupts there is no preemption, so no interleaving. Three reasons it is unacceptable in general:</p>
+
+<ul>
+<li><strong>It does not work on a multiprocessor</strong> &mdash; disabling interrupts on one CPU does not stop the others, and passing the message to every CPU is slow.</li>
+<li><strong>It is dangerous</strong> &mdash; a user process that disables interrupts and then loops hangs the machine, so it can only be a privileged operation.</li>
+<li><strong>The clock is missed</strong>, so the system's notion of time drifts.</li>
+</ul>
+
+<p>It is still used <em>inside the kernel</em>, for very short critical sections on single-processor systems.</p>
+
+<h3>The atomic instructions</h3>
+
+<p>Modern hardware provides special <strong>atomic</strong> &mdash; uninterruptible &mdash; instructions. The two named in every syllabus:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th><code>test_and_set()</code></th><th><code>compare_and_swap()</code></th></tr></thead>
+<tbody>
+<tr>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+boolean test_and_set(boolean *target) {<br>
+&nbsp;&nbsp;boolean rv = *target;<br>
+&nbsp;&nbsp;*target = <strong>true</strong>;<br>
+&nbsp;&nbsp;return rv;<br>
+}<br><br>
+<em>Returns the old value; always sets true.</em>
+</td>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+int compare_and_swap(int *v, int exp, int nv) {<br>
+&nbsp;&nbsp;int temp = *v;<br>
+&nbsp;&nbsp;if (*v == exp) *v = nv;<br>
+&nbsp;&nbsp;return temp;<br>
+}<br><br>
+<em>Swaps only if the value is what was expected.</em>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Mutual exclusion with test_and_set &mdash; shared boolean lock = false</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.85rem; text-align:left">
+  do {<br>
+  &nbsp;&nbsp;<strong>while (test_and_set(&amp;lock)) ;</strong>&nbsp;&nbsp;/* spin while it was already true */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;critical section<br>
+  &nbsp;&nbsp;<strong>lock = false;</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;remainder section<br>
+  } while (true);
+  </div>
+</div>
+
+<p><strong>How it works:</strong> the first process to call it finds <code>lock == false</code>, so <code>test_and_set</code> returns false &mdash; the loop exits &mdash; and simultaneously sets <code>lock = true</code>. Every later caller gets true and spins. <strong>The read and the write happen as one indivisible step, so no interleaving is possible.</strong></p>
+
+<div class="box">
+  <span class="lbl">The catch worth stating</span>
+  <p>This simple version satisfies <strong>mutual exclusion</strong> but <strong>not bounded waiting</strong> &mdash; nothing stops the same lucky process winning the race every time while another starves. The textbook fix adds a <code>waiting[]</code> array so that a departing process explicitly hands the lock to the next waiter in a circular order, which makes the bound <strong>n &minus; 1</strong>.</p>
+</div>
+
+<h2>Mutex locks</h2>
+
+<div class="formula">
+  <span class="name">The simplest software tool</span>
+  A <strong>mutex lock</strong> &mdash; from <em>mut</em>ual <em>ex</em>clusion &mdash; has a boolean variable <code>available</code> and two <strong>atomic</strong> operations:<br><br>
+  <strong>acquire()</strong> &mdash; <code>while (!available) ; available = false;</code><br>
+  <strong>release()</strong> &mdash; <code>available = true;</code><br><br>
+  A process calls <code>acquire()</code> before its critical section and <code>release()</code> after it.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantage</th><th>Disadvantage</th></tr></thead>
+<tbody>
+<tr><td>Simple; needs no context switch, so it is <strong>fast when the wait is short</strong></td><td><strong>Busy waiting</strong> &mdash; the process spins, wasting CPU cycles that another process could use</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>A mutex that busy-waits is called a <strong>spinlock</strong>. It is not always wrong: <strong>on a multiprocessor, where one thread can spin on one core while the lock holder runs on another, spinning can be cheaper than the two context switches a block-and-wake would cost.</strong> That is why spinlocks are used widely in real kernels. On a single processor, spinning is pure waste.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Starting from count = 5, a concurrent count++ and count-- with no synchronisation can leave count as:</p>
+  <div class="opts">
+    <button class="opt">Only 4</button>
+    <button class="opt">Any value at all</button>
+    <button class="opt" data-ok="1">4, 5 or 6, depending on the interleaving</button>
+    <button class="opt">Only 5</button>
+  </div>
+  <p class="why">Each statement compiles to three instructions — load, modify, store — and whichever store executes last determines the result. Only 4, 5 and 6 are reachable.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The condition violated when a process in its remainder section blocks another from entering is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Progress</button>
+    <button class="opt">Mutual exclusion</button>
+    <button class="opt">Atomicity</button>
+    <button class="opt">Bounded waiting</button>
+  </div>
+  <p class="why">That is exactly the failure of the turn-variable solution. Mutual exclusion stops corruption; progress stops deadlock; bounded waiting stops starvation.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In Peterson's solution, the entry section sets:</p>
+  <div class="opts">
+    <button class="opt">turn = i, then flag[j] = false</button>
+    <button class="opt">flag[i] = true, then turn = i</button>
+    <button class="opt" data-ok="1">flag[i] = true, then turn = j</button>
+    <button class="opt">flag[j] = true, then turn = j</button>
+  </div>
+  <p class="why">Each process offers the turn to the <em>other</em>. When both do so, the last write wins and the other process gets in — which is what makes exactly one proceed.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Peterson's solution may fail on modern hardware because:</p>
+  <div class="opts">
+    <button class="opt">Busy waiting is illegal in user mode</button>
+    <button class="opt" data-ok="1">Processors and compilers may reorder reads and writes that have no data dependency</button>
+    <button class="opt">It requires more than two processes</button>
+    <button class="opt">It uses atomic hardware instructions that no longer exist</button>
+  </div>
+  <p class="why">If the write to turn is reordered before the write to flag[i], mutual exclusion can break. Real systems use memory barriers or atomic instructions; Peterson's remains the right teaching and exam answer.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. test_and_set() returns:</p>
+  <div class="opts">
+    <button class="opt">The new value, after setting it to false</button>
+    <button class="opt">True only if the target was already true, leaving it unchanged</button>
+    <button class="opt" data-ok="1">The old value of the target, and unconditionally sets it to true</button>
+    <button class="opt">Nothing — it is a void operation</button>
+  </div>
+  <p class="why">The read and the write are one indivisible step. The first caller sees false and proceeds; every later caller sees true and spins.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Disabling interrupts is an unacceptable general solution mainly because:</p>
+  <div class="opts">
+    <button class="opt">It is too slow even for short kernel sections</button>
+    <button class="opt">It violates mutual exclusion</button>
+    <button class="opt">Modern CPUs no longer support it</button>
+    <button class="opt" data-ok="1">It does not work on a multiprocessor, and lets a user process hang the machine</button>
+  </div>
+  <p class="why">Disabling interrupts on one CPU leaves the others free to interleave, and a process that disables them and loops never gives the CPU back. It survives only inside the kernel, for very short sections.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A spinlock can be preferable to a blocking lock when:</p>
+  <div class="opts">
+    <button class="opt">Mutual exclusion is not required</button>
+    <button class="opt">The system has a single processor and long critical sections</button>
+    <button class="opt">Context switches are cheap and the wait is long</button>
+    <button class="opt" data-ok="1">The system is a multiprocessor and the lock is held only briefly</button>
+  </div>
+  <p class="why">Spinning on one core while the holder runs on another can be cheaper than the two context switches a block-and-wake would cost. On a single processor, spinning is pure waste.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a race condition and trace one.</summary>
+    <p class="ans">A race condition is when several processes access and manipulate shared data concurrently and the outcome depends on the order of access. With count = 5, count++ and count-- each compile to load, modify, store; interleaving them can leave 4, 5 or 6 because whichever store executes last wins. Neither process is individually incorrect — the fault is that the update is not atomic.</p></details>
+  <details class="card"><summary>Give the general structure of a process with a critical section.</summary>
+    <p class="ans">A loop containing an entry section that requests permission, the critical section that touches shared data, an exit section that releases permission, and a remainder section for everything else.</p></details>
+  <details class="card"><summary>State the three conditions and what each prevents.</summary>
+    <p class="ans">Mutual exclusion — if one process is in its critical section, no other may be — prevents data corruption. Progress — if no process is in its critical section, only processes not in their remainder section take part in choosing who enters next, and the choice cannot be postponed indefinitely — prevents deadlock. Bounded waiting — there is a bound on how many times others may enter after a process has requested and before it is granted — prevents starvation.</p></details>
+  <details class="card"><summary>Why do the turn-variable and flag-array solutions fail?</summary>
+    <p class="ans">Both satisfy mutual exclusion but violate progress. The turn variable forces strict alternation, so a process in its remainder section blocks the other. The flag array deadlocks: if both set their flags before either tests, both spin for ever.</p></details>
+  <details class="card"><summary>Write Peterson's solution and prove mutual exclusion.</summary>
+    <p class="ans">flag[i] = true; turn = j; while (flag[j] &amp;&amp; turn == j); critical section; flag[i] = false. For mutual exclusion: a process enters only if the other's flag is false or turn equals its own index. If both were inside, both flags would be true, so both would need turn equal to their own index — impossible, since turn holds one value.</p></details>
+  <details class="card"><summary>Name three limitations of Peterson's solution.</summary>
+    <p class="ans">It handles only two processes; it uses busy waiting, so it is a spinlock; and it is not guaranteed correct on modern architectures, because processors and compilers may reorder independent reads and writes.</p></details>
+  <details class="card"><summary>Give the code of test_and_set and explain how it enforces mutual exclusion.</summary>
+    <p class="ans">It saves the target's old value, unconditionally sets the target to true, and returns the old value — all atomically. With a shared lock initialised to false, a process spins while test_and_set returns true. The first caller sees false, exits the loop and has simultaneously set the lock; everyone else spins. It satisfies mutual exclusion but not bounded waiting without an added waiting array.</p></details>
+  <details class="card"><summary>Define a mutex lock and say when a spinlock is justified.</summary>
+    <p class="ans">A mutex has a boolean available and two atomic operations, acquire() which spins until available then clears it, and release() which sets it. It busy-waits, making it a spinlock. Spinning is justified on a multiprocessor with short critical sections, where it costs less than the two context switches of a block-and-wake; on a single processor it is pure waste.</p></details>
+</div>
+
+<p class="ask">Next: the tool that removes busy waiting altogether &mdash; semaphores.</p>
+
+<div class="nav">
+  <a href="0010-multilevel-and-multiprocessor-scheduling.html">&larr; Multilevel Scheduling</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0012-semaphores.html">Next: Semaphores &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

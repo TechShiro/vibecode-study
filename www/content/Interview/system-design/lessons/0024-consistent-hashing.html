@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 24 - Consistent Hashing | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 24 of 66 · Hash Ring, Virtual Nodes, DynamoDB</div>
+  
+  <h1>Consistent Hashing</h1>
+  <p class="subtitle">The elegant algorithm that allows distributed caches and databases to scale dynamically without data storms.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module F — Load Balancers &amp; Traffic Management</span>
+  </div>
+
+  <div class="yt-embed">
+    <div class="yt-title">📺 Recommended Lecture</div>
+    <a href="https://www.youtube.com/watch?v=zaRkONvyGr8" target="_blank">What is CONSISTENT HASHING and Where is it used? — Gaurav Sen</a>
+    <span class="yt-desc">A step-by-step whiteboard breakdown of the hash ring and virtual nodes.</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In standard distributed caching, you map keys to $N$ servers using modulo: <code>server = Hash(key) % N</code>. But if 1 server crashes, the denominator changes from $N$ to $N-1$. Every single key now hashes to a completely different server! Almost 100% of your cached data is instantaneously missed, and your database dies in a thundering herd. <strong>Consistent Hashing</strong> solves this: when a server is added or removed, <strong>only $1/N$ of the total keys</strong> need to be remapped on average!</p>
+
+  <h2>2 · How the Hash Ring Works</h2>
+  <ol>
+    <li><strong>The Circular Ring:</strong> Imagine a circle where angles range from $0$ to $2^{32}-1$ (the output range of a 32-bit hash function like MD5 or MurmurHash).</li>
+    <li><strong>Placing Servers on the Ring:</strong> Hash each server's IP address or hostname. Plot the resulting integer on the ring (e.g., Server A at 100, Server B at 500, Server C at 800).</li>
+    <li><strong>Placing Data Keys on the Ring:</strong> When storing <code>user:42</code>, hash the key to get its position on the ring (e.g., position 250).</li>
+    <li><strong>Routing Rule (Clockwise Traversal):</strong> To find which server holds a key, walk <strong>clockwise</strong> along the ring until you bump into the very first server! (Key 250 walks clockwise and lands on Server B at 500).</li>
+  </ol>
+
+  <h2>3 · Adding and Removing Servers</h2>
+  <ul>
+    <li><strong>Removing Server B:</strong> Only keys between Server A and Server B fall forward onto Server C. Keys on Server A and C remain 100% untouched!</li>
+    <li><strong>Adding a new Server D:</strong> Only keys between its predecessor and Server D are relocated to Server D.</li>
+  </ul>
+
+  <h2>4 · The Hotspot Problem and Virtual Nodes (Vnodes)</h2>
+  <p>Basic consistent hashing has a flaw: random placement of 3 physical servers can lead to uneven arcs on the ring (e.g., Server A covers 80% of the ring while B and C cover 10% each).</p>
+  <p><strong>The Solution: Virtual Nodes (Vnodes):</strong></p>
+  <ul>
+    <li>Instead of placing Server A once, place <strong>200 virtual instances</strong> of Server A across the ring (<code>Server_A#1</code>, <code>Server_A#2</code>, ..., <code>Server_A#200</code>).</li>
+    <li>Do the same for Server B and C.</li>
+    <li>Now the ring is finely interleaved with hundreds of points per physical machine. The distribution of data becomes mathematically near-perfect!</li>
+    <li>If Server A crashes, its load is evenly shared across Server B and Server C rather than crushing a single neighbor.</li>
+  </ul>
+
+  <h2>5 · Real-World Implementations</h2>
+  <ul>
+    <li><strong>Amazon DynamoDB &amp; Apache Cassandra:</strong> Partition tokens on a hash ring to manage distributed storage.</li>
+    <li><strong>Discord &amp; Akamai CDN:</strong> Route user WebSocket connections and HTTP caching to edge nodes.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Next, we look at Proxies, Reverse Proxies, and API Gateways.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0023-load-balancing-algorithms.html">← Previous: Load Balancing</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0025-proxy-reverse-proxy.html">Next: Proxy &amp; Reverse Proxy →</a>
+  </div>
+</body>
+</html>

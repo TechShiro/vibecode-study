@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Java Essentials 03 — PriorityQueue & Comparators</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Java Essentials · Lesson 03 of 03 · heaps, ordering, and TreeMap</div>
+<h1>PriorityQueue &amp; Comparators</h1>
+<p class="subtitle">A <code>PriorityQueue</code> is a binary heap, and a <code>Comparator</code> is the one dial that flips it from min to max. Get that dial right and Top-K, Dijkstra, and "two heaps" all fall out.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> the heap and ordered-map idioms the graph and DP tracks lean on — so you never stall on "which way does the comparator go?" live.
+  This is Java Essentials 3 of 3. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<code>PriorityQueue&lt;E&gt;</code> in Java is a <strong>binary heap</strong>: <code>offer</code> and <code>poll</code> are
+O(log n), <code>peek</code> is O(1). By default it is a <strong>MIN-heap</strong> ordered by natural ordering, so
+<code>poll()</code> always returns the <em>smallest</em> element. To order it any other way — max-heap, by a field, by
+a tuple — you hand the constructor a <strong>Comparator</strong>. That single argument is the whole game.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "k largest / smallest / most frequent / closest", "merge k sorted", "median of a stream", "minimum cost to
+  reach", or any time you repeatedly need <em>the current extreme</em> of a changing set. That's a heap. And the
+  instant you need <strong>ordered</strong> lookups — "largest key ≤ x", "next event after t", interval booking —
+  reach for <code>TreeMap</code>/<code>TreeSet</code>, not <code>HashMap</code>.
+</div>
+
+<div class="callout trap">
+  <span class="label">The #1 bug — comparator direction (and overflow)</span>
+  <code>(a, b) -&gt; a - b</code> means "ascending" = <strong>MIN-heap</strong> (smallest polls first).
+  <code>(a, b) -&gt; b - a</code> means "descending" = <strong>MAX-heap</strong>. Memorize:
+  <strong>first&nbsp;−&nbsp;second = ascending = min on top.</strong> Worse, the subtraction can
+  <strong>overflow</strong> — <code>a - b</code> with <code>a = Integer.MAX_VALUE</code>, <code>b = -1</code> wraps
+  negative and silently inverts the order. <strong>Use <code>Integer.compare(a, b)</code> / <code>Long.compare</code></strong>,
+  never raw subtraction, whenever values can be far apart.
+</div>
+
+<h2>2 · Min-heap, max-heap, and Comparator basics</h2>
+<p>
+The default constructor is a min-heap. Everything else is a comparator. Here are the four forms you'll actually type:
+</p>
+<pre><code>PriorityQueue&lt;Integer&gt; min = new PriorityQueue&lt;&gt;();                 <span class="cmt">// MIN-heap (natural order) — poll() = smallest</span>
+PriorityQueue&lt;Integer&gt; max = new PriorityQueue&lt;&gt;((a, b) -&gt; b - a);  <span class="cmt">// MAX-heap — but b-a can OVERFLOW</span>
+PriorityQueue&lt;Integer&gt; safe = new PriorityQueue&lt;&gt;(Comparator.reverseOrder()); <span class="cmt">// MAX-heap, overflow-proof</span>
+PriorityQueue&lt;Integer&gt; ok   = new PriorityQueue&lt;&gt;((a, b) -&gt; Integer.compare(b, a)); <span class="cmt">// MAX-heap, explicit + safe</span></code></pre>
+<p>For objects, build the comparator declaratively — it reads like English and never overflows:</p>
+<pre><code><span class="cmt">// order int[] entries by index 1 ascending, then by index 0 descending as a tiebreak</span>
+PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;(
+    Comparator.&lt;int[]&gt;comparingInt(x -&gt; x[1])      <span class="cmt">// primary key: x[1] ascending</span>
+              .thenComparing(x -&gt; x[0], Comparator.reverseOrder())); <span class="cmt">// tiebreak: x[0] descending</span>
+
+PriorityQueue&lt;int[]&gt; maxByVal = new PriorityQueue&lt;&gt;(
+    Comparator.comparingInt((int[] x) -&gt; x[0]).reversed());  <span class="cmt">// .reversed() flips the whole thing</span></code></pre>
+<div class="callout tip">
+  <span class="label">Read a heap by its top, not its order</span>
+  Ask one question: <em>"what do I want sitting on top, ready to be polled/evicted?"</em> If you want the smallest
+  reachable, that's a min-heap; if the largest, a max-heap. The comparator just encodes "what is least." Time:
+  <code>offer</code>/<code>poll</code> O(log n), <code>peek</code> O(1), build-from-collection O(n) via
+  <code>new PriorityQueue&lt;&gt;(collection)</code> (heapify).
+</div>
+
+<h3>Worked example — dry run</h3>
+<p>Default <code>PriorityQueue&lt;Integer&gt;</code> (a min-heap). We <code>offer(5)</code>, then <code>offer(1)</code>,
+<code>offer(3)</code>, <code>offer(2)</code>. The heap re-orders on every insert so the smallest sits at the root;
+one valid resulting shape:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 280 200" role="img" aria-label="A binary min-heap tree: root 1, children 2 and 3, with leaf 5 under node 2">
+  <line class="edge" x1="140" y1="40"  x2="75"  y2="110"/>
+  <line class="edge" x1="140" y1="40"  x2="205" y2="110"/>
+  <line class="edge" x1="75"  y1="110" x2="75"  y2="170"/>
+  <circle class="node cur" cx="140" cy="40"  r="18"/><text class="lbl inv" x="140" y="40">1</text>
+  <circle class="node"     cx="75"  cy="110" r="18"/><text class="lbl" x="75"  y="110">2</text>
+  <circle class="node"     cx="205" cy="110" r="18"/><text class="lbl" x="205" y="110">3</text>
+  <circle class="node"     cx="75"  cy="170" r="18"/><text class="lbl" x="75"  y="170">5</text>
+</svg>
+<figcaption>Default PriorityQueue is a min-heap; poll() always returns the smallest.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">poll() → <span class="ptr">1</span> (the root / current min comes off first)</span>
+<span class="step now">poll() → <span class="ptr">2</span> (heap re-settles, next smallest rises to the root)</span>
+<span class="step now">poll() → <span class="ptr">3</span></span>
+<span class="step now">poll() → <span class="ptr">5</span> — draining a min-heap yields ascending order</span>
+</div>
+<p><code>new PriorityQueue&lt;&gt;((a,b) -&gt; b - a)</code> would make it a MAX-heap instead (root <code>5</code>, polling in descending order).</p>
+
+<h2>3 · Heap of <code>int[]</code> — the Dijkstra / Top-K workhorse</h2>
+<p>
+Most interview heaps don't hold bare integers — they hold small tuples packed in an <code>int[]</code>:
+<code>{node, dist}</code>, <code>{value, freq}</code>, <code>{row, col}</code>. The comparator orders on whichever slot is
+the priority.
+</p>
+<pre><code><span class="cmt">// min-heap on the second slot — e.g. {node, distance} for Dijkstra, pop the closest frontier node</span>
+PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[1] - b[1]);
+pq.offer(new int[]{src, 0});
+while (!pq.isEmpty()) {
+    int[] cur = pq.poll();          <span class="cmt">// cur[0] = node, cur[1] = best dist so far</span>
+    int node = cur[0], d = cur[1];
+    if (d &gt; dist[node]) continue;   <span class="cmt">// stale entry — already settled with a shorter path</span>
+    for (int[] e : adj.get(node)) { <span class="cmt">// e = {neighbor, weight}</span>
+        int nd = d + e[1];
+        if (nd &lt; dist[e[0]]) {
+            dist[e[0]] = nd;
+            pq.offer(new int[]{e[0], nd});   <span class="cmt">// relax: push the improved distance</span>
+        }
+    }
+}</code></pre>
+<p>
+This is exactly the priority queue at the heart of Dijkstra — when weights matter, BFS isn't enough and this heap
+is the upgrade. See it in full in the graph track:
+<a href="../graph-lessons/0007-weighted-shortest-paths.html">Graph 07 — Weighted Shortest Paths (Dijkstra)</a>.
+Note <code>a[1] - b[1]</code> is fine here only because distances stay small; if they can approach
+<code>Integer.MAX_VALUE</code> (an "infinity" sentinel), switch to <code>Integer.compare(a[1], b[1])</code>.
+</p>
+
+<h2>4 · The size-k heap idiom (and why direction matters)</h2>
+<p>
+To find the <strong>k largest</strong> you do <em>not</em> use a max-heap of everything — you keep a
+<strong>min-heap of size k</strong>. The smallest of your k winners sits on top; when something bigger arrives, evict
+the top. After one pass the heap holds the k largest and its top is the kth largest.
+</p>
+<pre><code>int findKthLargest(int[] nums, int k) {           <span class="cmt">// LC 215</span>
+    PriorityQueue&lt;Integer&gt; heap = new PriorityQueue&lt;&gt;();  <span class="cmt">// MIN-heap of size k</span>
+    for (int x : nums) {
+        heap.offer(x);
+        if (heap.size() &gt; k) heap.poll();         <span class="cmt">// drop the smallest survivor</span>
+    }
+    return heap.peek();                           <span class="cmt">// top of a size-k min-heap = kth largest</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log k), <strong>Space</strong> O(k) — beats the O(n log n) of a full sort when k ≪ n.</p>
+<div class="callout trap">
+  <span class="label">Direction is inverted on purpose</span>
+  k <em>largest</em> → <strong>min</strong>-heap (smallest winner on top to evict). k <em>smallest</em> →
+  <strong>max</strong>-heap. It feels backwards because you hold the <em>opposite</em> extreme on top so the worst
+  survivor is the one you throw away. Flip it and you'll evict your best elements and return garbage — this is the
+  most common heap bug in interviews.
+</div>
+
+<h2>5 · TreeMap / TreeSet — when you need <em>order</em>, not just lookup</h2>
+<p>
+<code>HashMap</code>/<code>HashSet</code> give O(1) average lookup but <strong>no order</strong>.
+<code>TreeMap</code>/<code>TreeSet</code> are red-black trees: keys are kept <strong>sorted</strong>, every operation is
+<strong>O(log n)</strong>, and you unlock navigation methods a hash structure can't offer.
+</p>
+<table>
+  <thead><tr><th>&nbsp;</th><th>HashMap / HashSet</th><th>TreeMap / TreeSet</th></tr></thead>
+  <tbody>
+    <tr><td>Backing</td><td>Hash table</td><td>Red-black (balanced BST)</td></tr>
+    <tr><td>Order</td><td>None</td><td>Sorted by key/comparator</td></tr>
+    <tr><td>get / put / contains</td><td>O(1) average</td><td>O(log n)</td></tr>
+    <tr><td>Superpower</td><td>Raw speed</td><td><code>floor</code>/<code>ceiling</code>/<code>higher</code>/<code>lower</code>, ranges, min/max key</td></tr>
+  </tbody>
+</table>
+<p>The navigation methods are the reason to pay the log factor. Pin down the four directions:</p>
+<pre><code>TreeMap&lt;Integer, String&gt; map = new TreeMap&lt;&gt;();
+map.floorKey(x);    <span class="cmt">// largest key &lt;= x   (or null)</span>
+map.ceilingKey(x);  <span class="cmt">// smallest key &gt;= x  (or null)</span>
+map.lowerKey(x);    <span class="cmt">// largest key &lt;  x   (strictly less)</span>
+map.higherKey(x);   <span class="cmt">// smallest key &gt;  x  (strictly greater)</span>
+map.firstKey();     <span class="cmt">// minimum key  (throws if empty)</span>
+map.lastKey();      <span class="cmt">// maximum key  (throws if empty)</span></code></pre>
+<p>
+These turn "find the booking that could collide with [start, end)" into two O(log n) probes. <strong>My Calendar I</strong>
+(<a href="https://leetcode.com/problems/my-calendar-i/">LC 729</a>) is the canonical use: store events keyed by start,
+then check the neighbors on either side.
+</p>
+<pre><code>class MyCalendar {
+    TreeMap&lt;Integer, Integer&gt; cal = new TreeMap&lt;&gt;();  <span class="cmt">// start -&gt; end</span>
+    public boolean book(int start, int end) {
+        Integer prev = cal.floorKey(start);    <span class="cmt">// event starting at/before this one</span>
+        Integer next = cal.ceilingKey(start);  <span class="cmt">// event starting at/after this one</span>
+        if (prev != null &amp;&amp; cal.get(prev) &gt; start) return false; <span class="cmt">// prev overruns into us</span>
+        if (next != null &amp;&amp; end &gt; next)            return false; <span class="cmt">// we overrun into next</span>
+        cal.put(start, end);
+        return true;
+    }
+}</code></pre>
+<div class="callout tip">
+  <span class="label">floor/ceiling = "≤ / ≥", lower/higher = "strictly &lt; / &gt;"</span>
+  The trap is the boundary: <code>floor</code> and <code>ceiling</code> include equality; <code>lower</code> and
+  <code>higher</code> exclude it. For interval problems "can my start touch the previous end exactly?" decides
+  whether you want <code>floor</code> vs <code>lower</code>. Decide that <em>before</em> you type, not after a failing
+  test.
+</div>
+
+<h2>6 · Map idioms you should type without thinking</h2>
+<p>Three methods collapse the most common map boilerplate — adjacency builds, grouping, frequency counts:</p>
+<pre><code>Map&lt;Integer, Integer&gt; freq = new HashMap&lt;&gt;();
+
+<span class="cmt">// getOrDefault — read with a fallback, no null check</span>
+int seen = freq.getOrDefault(key, 0);
+
+<span class="cmt">// merge — frequency counting in one line: old+1, or 1 if absent</span>
+for (int x : nums) freq.merge(x, 1, Integer::sum);
+
+<span class="cmt">// computeIfAbsent — build a list/set value, e.g. an adjacency list</span>
+Map&lt;Integer, List&lt;Integer&gt;&gt; adj = new HashMap&lt;&gt;();
+for (int[] e : edges)
+    adj.computeIfAbsent(e[0], k -&gt; new ArrayList&lt;&gt;()).add(e[1]);</code></pre>
+<p>
+<code>merge(key, 1, Integer::sum)</code> is the idiomatic frequency counter; <code>computeIfAbsent</code> guarantees the
+container exists before you <code>.add</code> to it (no "get, null-check, create, put, add" dance). You'll feed both of
+these straight into the Top-K heap from §4 and the adjacency-list builds in the graph track.
+</p>
+
+<h2>7 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Comparator backwards</strong> → the cardinal heap bug. Re-derive from "what do I want on top to evict?": k largest → min-heap, k smallest → max-heap.</li>
+  <li><strong>Overflow in a subtraction comparator</strong> → <code>(a,b) -&gt; a - b</code> wraps for far-apart values. Use <code>Integer.compare</code>/<code>Long.compare</code> or <code>Comparator.comparingInt</code>.</li>
+  <li><strong>A PriorityQueue is NOT sorted</strong> → only <code>poll</code> order is sorted. Iterating it (for-each, <code>toArray</code>, <code>toString</code>) yields heap-internal order, not sorted order. To drain in order, <code>poll</code> repeatedly.</li>
+  <li><strong>peek vs poll</strong> → <code>peek</code> reads the top without removing; <code>poll</code> removes and returns it. Both return <code>null</code> on an empty queue (no exception) — guard with <code>isEmpty()</code>.</li>
+  <li><strong>floor vs ceiling direction</strong> → <code>floor</code> = largest ≤ x, <code>ceiling</code> = smallest ≥ x; <code>lower</code>/<code>higher</code> are the strict versions. Mixing them up flips which neighbor you inspect.</li>
+  <li><strong>firstKey/lastKey on an empty TreeMap</strong> → these <em>throw</em> <code>NoSuchElementException</code>; the navigation methods (<code>floorKey</code> etc.) return <code>null</code> instead. Know which is which.</li>
+</ul>
+
+<h2>8 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You write <code>new PriorityQueue&lt;&gt;((a, b) -&gt; b - a)</code> for <code>Integer</code>s. What does this build, and what's the risk?</div>
+  <button class="opt">A min-heap; the risk is it's slower than the natural-ordering constructor</button>
+  <button class="opt">A max-heap; the risk is <code>b - a</code> can overflow and silently invert the order</button>
+  <button class="opt">A max-heap with no risk — subtraction comparators are always safe for ints</button>
+  <div class="fb" data-correct="b - a is descending = max-heap, but the subtraction overflows for far-apart values, flipping the comparison. Prefer Comparator.reverseOrder() or Integer.compare(b, a)." data-wrong="b - a sorts descending (max-heap), and integer subtraction can overflow for large/small operands — use Integer.compare or reverseOrder instead."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">To keep the <code>k</code> <em>largest</em> elements of a stream using a size-k heap, which heap do you use?</div>
+  <button class="opt">A max-heap, so the largest element is always on top</button>
+  <button class="opt">Either one — only the final sort matters</button>
+  <button class="opt">A min-heap, so the smallest survivor is on top and gets evicted first</button>
+  <div class="fb" data-correct="A size-k min-heap keeps the smallest of your winners reachable on top, so a bigger arrival evicts the weakest. The kth largest ends up at peek()." data-wrong="You want the WEAKEST survivor on top to throw away — for k largest that's a min-heap (smallest winner on top)."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You need "the largest stored key that is ≤ x" for an interval-collision check. Which structure and method?</div>
+  <button class="opt"><code>TreeMap.floorKey(x)</code> — O(log n) ordered navigation</button>
+  <button class="opt"><code>HashMap.getOrDefault(x, ...)</code> — O(1) and order-agnostic</button>
+  <button class="opt"><code>PriorityQueue.peek()</code> — the top is always the nearest key</button>
+  <div class="fb" data-correct="floorKey returns the largest key ≤ x in O(log n). HashMap has no ordering, and a PriorityQueue only exposes one extreme, not 'nearest to x'." data-wrong="You need ordered navigation: TreeMap.floorKey(x) gives the largest key ≤ x. A HashMap is unordered and a heap only surfaces one extreme."></div>
+</div>
+
+<h2>9 · Do this next</h2>
+<ul>
+  <li><strong>Primary source:</strong> <a href="https://neetcode.io/problems/kth-largest-element-in-an-array">NeetCode — Kth Largest Element</a> (the size-k heap idiom), plus the <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/PriorityQueue.html">Java <code>PriorityQueue</code> Javadoc</a> and <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/TreeMap.html"><code>TreeMap</code> Javadoc</a> — skim the navigation-method contracts so the null-vs-throw behavior never surprises you.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 215 (Kth Largest) → LC 347 (Top K Frequent) → LC 23 (Merge k Sorted Lists) → LC 295 (Find Median from Data Stream — two heaps) → LC 729 (My Calendar — TreeMap floor/ceiling). State "min-heap or max-heap?" out loud before typing each comparator.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — and that's the Java track done</span>
+  That's a wrap on Java Essentials: <strong>int vs Integer</strong>, <strong>Queue/Deque/Stack</strong>, and now
+  <strong>PriorityQueue &amp; Comparators</strong>. You've finished the Java track — these are the collection internals
+  every later algorithm leans on. Now go <em>apply</em> them in the graph lessons: the <code>int[]</code> min-heap
+  from §3 powers <a href="../graph-lessons/0007-weighted-shortest-paths.html">Dijkstra</a>, and the map idioms power
+  every adjacency build. Stuck on a comparator direction or a <code>floor</code>-vs-<code>ceiling</code> call? Ask me
+  in the chat anytime.
+</div>
+
+<div class="nav">
+  <span><a href="0002-queue-deque-stack.html">← Queue / Deque / Stack</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span>Java Essentials complete 🎉</span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

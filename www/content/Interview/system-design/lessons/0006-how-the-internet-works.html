@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Lesson 06 — How the Internet Works</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">System Design · HLD · Lesson 6 of 66 · networking, dns, tcp, http</div>
+<h1>How the Internet Works</h1>
+<p class="subtitle">Before you can design a massive distributed system, you must understand exactly what happens in the milliseconds after a user presses "Enter" in their browser.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master System Design for interviews — HLD + LLD. This is Lesson 6 of 66.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<!-- ─── 1 · THE ONE IDEA ─── -->
+<h2>1 · The One Idea</h2>
+<p>
+The internet is essentially a massive web of physical cables connecting computers. To send a message (like a web page) from a server to a client, the system must translate a human-readable name into a machine IP address (<strong>DNS</strong>), establish a reliable connection (<strong>TCP</strong>), secure that connection (<strong>TLS/SSL</strong>), and finally request and transfer the data (<strong>HTTP</strong>).
+</p>
+
+<!-- ─── 2 · THE JOURNEY OF A REQUEST ─── -->
+<h2>2 · The Journey of a Request (Step-by-Step)</h2>
+<p>When a user types <code>https://www.google.com</code> into their browser, a highly orchestrated sequence of events occurs.</p>
+
+<h3>Step 1: DNS Resolution (Finding the Address)</h3>
+<p>Computers communicate using IP addresses (e.g., <code>142.250.190.46</code>), not names. The browser needs to find the IP.</p>
+<ol>
+  <li><strong>Browser Cache:</strong> Checks if it already knows the IP.</li>
+  <li><strong>OS Cache:</strong> Checks the operating system's DNS cache.</li>
+  <li><strong>Resolver:</strong> Asks the ISP's DNS resolver.</li>
+  <li><strong>Root/TLD/Authoritative Servers:</strong> If nobody has it cached, the request traverses the global DNS hierarchy until the Authoritative Name Server for <code>google.com</code> returns the IP address.</li>
+</ol>
+
+<h3>Step 2: TCP 3-Way Handshake (Establishing the Connection)</h3>
+<p>Before sending HTTP data, the client and server must agree to talk. TCP (Transmission Control Protocol) guarantees reliable, ordered delivery.</p>
+<ul>
+  <li><strong>SYN:</strong> Client says, "Hello, I want to talk. Here is my initial sequence number (x)."</li>
+  <li><strong>SYN-ACK:</strong> Server replies, "I acknowledge (x+1). I also want to talk, here is my number (y)."</li>
+  <li><strong>ACK:</strong> Client replies, "I acknowledge (y+1). Let's begin."</li>
+</ul>
+
+<h3>Step 3: TLS Handshake (Securing the Connection)</h3>
+<p>Because the URL is <code>https://</code> (secure), the data must be encrypted so no one sniffing the network can read it.</p>
+<ul>
+  <li>Client and server negotiate which encryption algorithms to use.</li>
+  <li>Server sends its SSL Certificate (containing its Public Key).</li>
+  <li>Client verifies the certificate with a trusted Certificate Authority (CA).</li>
+  <li>They generate a symmetric "session key" used to encrypt the actual HTTP data.</li>
+</ul>
+
+<h3>Step 4: HTTP Request &amp; Response (Transferring Data)</h3>
+<p>Now the browser sends the actual HTTP GET request over the secure TCP connection. The server processes it (hits the DB, renders HTML) and sends back an HTTP Response containing the HTML body.</p>
+
+<h3>Step 5: Browser Rendering</h3>
+<p>The browser parses the HTML, finds links to CSS, JS, and images, and repeats this entire process (usually reusing the existing TCP connection) to fetch those assets and paint the screen.</p>
+
+<!-- ─── 3 · VISUALIZING THE FLOW ─── -->
+<h2>3 · Visualizing the Flow</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 700 450" xmlns="http://www.w3.org/2000/svg">
+  <!-- Client -->
+  <rect class="node cur" x="20" y="200" width="80" height="50" rx="5"/>
+  <text class="lbl inv" x="60" y="225" font-size="12">Browser</text>
+  
+  <!-- DNS -->
+  <rect class="cell" x="250" y="50" width="100" height="50" rx="5"/>
+  <text class="lbl" x="300" y="75" font-size="12">DNS Server</text>
+  
+  <!-- Step 1: DNS -->
+  <path d="M 80,200 Q 150,75 240,75" fill="none" stroke="var(--rule)" stroke-width="2" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <path d="M 240,85 Q 160,100 90,210" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4" marker-end="url(#arrow-blue)"/>
+  
+  <text class="wt" x="140" y="65" font-size="10">1. What is google.com?</text>
+  <text class="wt" x="140" y="115" font-size="10" fill="var(--accent)">2. It's 142.250.190.46</text>
+
+  <!-- Server -->
+  <rect class="node" x="550" y="200" width="100" height="150" rx="5"/>
+  <text class="lbl" x="600" y="275" font-size="12">Web Server</text>
+  
+  <!-- Step 2: TCP Handshake -->
+  <line x1="100" y1="240" x2="540" y2="240" stroke="var(--rule)" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="wt" x="320" y="235" font-size="10">3. TCP SYN</text>
+  
+  <line x1="540" y1="260" x2="100" y2="260" stroke="var(--rule)" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="wt" x="320" y="255" font-size="10">4. TCP SYN-ACK</text>
+  
+  <line x1="100" y1="280" x2="540" y2="280" stroke="var(--rule)" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="wt" x="320" y="275" font-size="10">5. TCP ACK</text>
+
+  <!-- Step 3/4: TLS and HTTP -->
+  <line x1="100" y1="310" x2="540" y2="310" stroke="var(--accent)" stroke-width="3" marker-end="url(#arrow-blue)"/>
+  <text class="wt" x="320" y="305" font-size="10" fill="var(--accent)">6. TLS Handshake + HTTP GET</text>
+
+  <line x1="540" y1="340" x2="100" y2="340" stroke="var(--good)" stroke-width="3" marker-end="url(#arrow-green)"/>
+  <text class="wt" x="320" y="335" font-size="10" fill="var(--good)">7. HTTP 200 OK (HTML Data)</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="var(--rule)"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="var(--good)"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>The 7-step dance required just to load a single HTML page.</figcaption>
+</figure>
+
+<!-- ─── 4 · CRITICAL CONCEPTS FOR INTERVIEWS ─── -->
+<h2>4 · Critical Concepts for System Design</h2>
+<p>Interviewers won't ask you to recite the TCP handshake, but they expect you to know the performance implications of how the internet works.</p>
+
+<h3>Latency vs Bandwidth</h3>
+<ul>
+  <li><strong>Latency:</strong> How long it takes a packet to travel from A to B (measured in ms). Constrained by the speed of light.</li>
+  <li><strong>Bandwidth:</strong> How much data can be transferred per second (measured in Mbps/Gbps). Constrained by hardware limits (fiber optic cable thickness).</li>
+</ul>
+<div class="callout tip">
+  <span class="label">System Design Insight</span>
+  You can buy more bandwidth, but you cannot buy lower latency (you can't beat the speed of light). A request from Tokyo to New York will always take ~150ms round trip. To solve latency, you must bring the data physically closer to the user using <strong>CDNs (Content Delivery Networks)</strong> or Edge Computing.
+</div>
+
+<h3>Connection Overhead</h3>
+<p>Look at the diagram above. Setting up a secure connection requires <strong>3 to 4 round trips</strong> (DNS, TCP, TLS) before a single byte of application data is sent! If a user is 100ms away, connection setup takes 400ms. This is why modern systems use <strong>Connection Pooling</strong> (keeping connections open) and <strong>Keep-Alive</strong> headers to reuse TCP connections for multiple HTTP requests.</p>
+
+<!-- ─── 5 · KEY PROTOCOLS CHEAT SHEET ─── -->
+<h2>5 · Key Protocols Cheat Sheet</h2>
+
+<table class="vs-table">
+  <thead><tr><th>Layer</th><th>Protocol</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Application</strong></td><td>HTTP / HTTPS / WebSockets / SMTP</td><td>Defines the payload formatting (Headers, Body, Status Codes).</td></tr>
+    <tr><td><strong>Transport</strong></td><td>TCP / UDP</td><td>TCP guarantees ordered, reliable delivery. UDP is fast, fire-and-forget (used for video/gaming).</td></tr>
+    <tr><td><strong>Network</strong></td><td>IP (IPv4 / IPv6)</td><td>Routes packets across the global web of routers from source IP to destination IP.</td></tr>
+    <tr><td><strong>Link/Physical</strong></td><td>Ethernet / Wi-Fi / Fiber</td><td>Moves electrical/light signals across physical wires and airwaves.</td></tr>
+  </tbody>
+</table>
+
+<!-- ─── 6 · QUIZZES ─── -->
+<h2>6 · Check Yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why is reusing a TCP connection (via HTTP Keep-Alive) so important for web performance?</div>
+  <button class="opt">It increases the bandwidth of the connection.</button>
+  <button class="opt">It avoids the latency penalty of the TCP and TLS handshakes for subsequent requests.</button>
+  <button class="opt">It prevents the server from running out of memory.</button>
+  <div class="fb" data-correct="Exactly! The TCP and TLS handshakes require multiple round trips. Reusing the connection means you can instantly send an HTTP request without that setup overhead." data-wrong="Bandwidth is fixed by the network link. Reusing connections is purely about skipping the handshake round trips to save time (latency)."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A user in Australia is accessing your single database located in New York. They complain it's slow. What is the fundamental physical limitation here?</div>
+  <button class="opt">Latency (Speed of light)</button>
+  <button class="opt">Bandwidth (Cable capacity)</button>
+  <button class="opt">DNS Resolution time</button>
+  <div class="fb" data-correct="Right! Light takes time to travel through fiber optic cables under the ocean. You can't fix this with a bigger server in NY; you must cache data closer to them in Australia." data-wrong="Even with infinite bandwidth, the time it takes for the first byte to arrive (latency) is constrained by physics."></div>
+</div>
+
+<!-- ─── 7 · DO THIS NEXT ─── -->
+<h2>7 · Do This Next</h2>
+<ul>
+  <li>Open your browser's Developer Tools (Network tab), load a website, and click on a resource. Look at the "Timing" breakdown to see exactly how many milliseconds were spent on DNS, TCP, and TLS!</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Your teacher</span>
+  Say <strong>"next"</strong> to advance to Lesson 7 — SQL vs NoSQL Databases.
+</div>
+
+<div class="nav">
+  <a href="0005-pagination-and-cursors.html">← Lesson 5</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0007-sql-vs-nosql.html">Lesson 7 →</a>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

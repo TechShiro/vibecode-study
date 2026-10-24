@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 24 — Full-Stack Wiring &amp; Interview Drill</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 24 of 24 · architecture, capstone, deployment, rapid-fire</div>
+<h1>Full-Stack Wiring &amp; Interview Drill</h1>
+<p class="subtitle">Every layer you learned in 23 lessons, snapped together into one working app — plus the whole-track drill that turns it into interview answers.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 24 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The full picture — every layer, one diagram</h2>
+<p>
+For 23 lessons you built the stack one floor at a time: the JavaScript language, then React components,
+then Next.js rendering, then Node/Express/Nest servers, then Postgres and Drizzle. Here is the whole
+building at once. Burn this diagram into memory — it is the skeleton of the answer to
+<em>"walk me through your project"</em>, the single most common interview opener.
+</p>
+
+<pre><code><span class="cmt">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="cmt">│ BROWSER                                                         │</span>
+<span class="cmt">│   React components (client) — forms, clicks, local state        │</span>
+<span class="cmt">└───────────────▲───────────────────────────┬─────────────────────┘</span>
+<span class="cmt">        HTML + RSC payload         form POST / fetch / server action</span>
+<span class="cmt">┌───────────────┴───────────────────────────▼─────────────────────┐</span>
+<span class="cmt">│ NEXT.JS SERVER (Node.js runtime)                                │</span>
+<span class="cmt">│   Server Components  → read data, render HTML                   │</span>
+<span class="cmt">│   Server Actions / Route Handlers → validate, mutate            │</span>
+<span class="cmt">│   (or: a separate Express/Nest API — see §5)                    │</span>
+<span class="cmt">└───────────────▲───────────────────────────┬─────────────────────┘</span>
+<span class="cmt">        typed rows                Drizzle builds parameterized SQL</span>
+<span class="cmt">┌───────────────┴───────────────────────────▼─────────────────────┐</span>
+<span class="cmt">│ DRIZZLE ORM — schema.ts is the single source of truth           │</span>
+<span class="cmt">│   pg Pool → TCP connection, $1/$2 parameters (no injection)     │</span>
+<span class="cmt">└───────────────▲───────────────────────────┬─────────────────────┘</span>
+<span class="cmt">┌───────────────┴───────────────────────────▼─────────────────────┐</span>
+<span class="cmt">│ POSTGRESQL — tables, constraints, indexes, transactions, ACID   │</span>
+<span class="cmt">└─────────────────────────────────────────────────────────────────┘</span></code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "My app is a Next.js App Router frontend whose server components read from Postgres through Drizzle ORM,
+  and whose mutations run as server actions — validated on the server, written through parameterized SQL,
+  then revalidated so the UI reflects the database. One repo, one deploy, typed end to end."
+</div>
+
+<h2>2 · A request's life — "user clicks Save Note"</h2>
+<p>
+Interviewers love this question because it exposes whether you actually understand your stack or just
+scaffolded it. Narrate it top-down, layer by layer, down and back up. Here is the full journey for the
+capstone app you're about to build:
+</p>
+<ol>
+  <li><strong>Browser:</strong> the user types into a controlled <code>&lt;textarea&gt;</code> in a client component and hits Save. The <code>&lt;form action={createNote}&gt;</code> fires — no hand-written <code>fetch</code>; Next serializes the <code>FormData</code> and POSTs it to the server (works even before JS hydrates).</li>
+  <li><strong>Network:</strong> an HTTPS POST carries the form data plus a header identifying which server action to invoke.</li>
+  <li><strong>Next.js server:</strong> the <code>'use server'</code> function <code>createNote</code> runs in Node. It never trusts the client — it re-validates the input (empty title? too long?) exactly as your Express middleware did in Lesson 18.</li>
+  <li><strong>Drizzle:</strong> <code>db.insert(notes).values({...})</code> compiles to <code>INSERT INTO notes (title, body) VALUES ($1, $2)</code> — parameterized, so the injection attack from Lesson 22 is dead on arrival.</li>
+  <li><strong>pg Pool:</strong> an already-open TCP connection is borrowed from the pool (no per-request handshake), the query and parameters go over the wire.</li>
+  <li><strong>Postgres:</strong> planner picks a plan, constraints are checked (<code>NOT NULL</code>, FK), the row is written ACID-safely (WAL first, so a crash can't half-save it), and <code>RETURNING</code> sends the new row back.</li>
+  <li><strong>Back up — revalidate:</strong> the action calls <code>revalidatePath('/')</code>, marking the cached page stale. Next re-runs the server component, which <code>SELECT</code>s the fresh list.</li>
+  <li><strong>Browser again:</strong> the response carries the updated RSC payload; React reconciles it into the DOM — the diffing from Lesson 14 — and the new note appears without a full page reload.</li>
+</ol>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  The most common failure in this narration: saying "the frontend saves it to the database."
+  The browser <em>never</em> talks to Postgres. Credentials live only in server env vars; the client
+  sends intent, the server decides. If you blur that boundary, the interviewer hears "doesn't get security."
+</div>
+
+<h2>3 · The capstone: DevLog — a notes app you can build in a weekend</h2>
+<p>
+DevLog is a personal dev journal: list notes, add a note, delete a note. Deliberately small —
+every file below is short enough to type, yet it exercises the entire stack: schema, migrations,
+server components, server actions, a client component, validation, and revalidation. Build it,
+deploy it, put it on the resume.
+</p>
+
+<p><strong>Project layout</strong> (create with <code>npx create-next-app@latest devlog</code>, TypeScript + App Router):</p>
+<pre><code>devlog/
+├── drizzle.config.ts        <span class="cmt">// tells drizzle-kit where schema + migrations live</span>
+├── drizzle/                 <span class="cmt">// generated .sql migration files (commit these!)</span>
+├── src/
+│   ├── db/
+│   │   ├── schema.ts        <span class="cmt">// tables in TypeScript — single source of truth</span>
+│   │   └── index.ts         <span class="cmt">// Pool + drizzle client</span>
+│   ├── app/
+│   │   ├── page.tsx         <span class="cmt">// server component: lists notes</span>
+│   │   └── actions.ts       <span class="cmt">// 'use server' mutations</span>
+│   └── components/
+│       └── note-form.tsx    <span class="cmt">// client component: the form</span>
+└── .env.local               <span class="cmt">// DATABASE_URL=postgres://... (never committed)</span></code></pre>
+
+<p><strong>src/db/schema.ts</strong> — the whole data model:</p>
+<pre><code>import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+
+export const notes = pgTable('notes', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  createdAt: timestamp('created_at', { withTimezone: true })  <span class="cmt">// timestamptz, always</span>
+    .notNull()
+    .defaultNow(),
+});
+
+<span class="cmt">// the type-inference payoff from Lesson 23:</span>
+export type Note = typeof notes.$inferSelect;   <span class="cmt">// { id, title, body, createdAt }</span>
+export type NewNote = typeof notes.$inferInsert;</code></pre>
+
+<p><strong>src/db/index.ts</strong> — one pool, one client, reused everywhere:</p>
+<pre><code>import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+import * as schema from './schema';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+<span class="cmt">// pass schema so db.query.notes.* (relational API) is typed too</span>
+export const db = drizzle(pool, { schema });</code></pre>
+
+<p><strong>drizzle.config.ts</strong> and the migration commands:</p>
+<pre><code>import { defineConfig } from 'drizzle-kit';
+
+export default defineConfig({
+  schema: './src/db/schema.ts',
+  out: './drizzle',
+  dialect: 'postgresql',
+  dbCredentials: { url: process.env.DATABASE_URL! },
+});
+
+<span class="cmt"># the Lesson-23 workflow, applied:</span>
+<span class="cmt"># npx drizzle-kit generate   → writes drizzle/0000_*.sql from the schema diff</span>
+<span class="cmt"># npx drizzle-kit migrate    → applies pending migrations to the database</span>
+<span class="cmt"># (drizzle-kit push is fine while prototyping; generate+migrate for anything shared)</span></code></pre>
+
+<p><strong>src/app/actions.ts</strong> — the mutations, with server-side validation:</p>
+<pre><code>'use server';
+
+import { db } from '@/db';
+import { notes } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
+
+export async function createNote(formData: FormData) {
+  const title = String(formData.get('title') ?? '').trim();
+  const body  = String(formData.get('body') ?? '').trim();
+
+  <span class="cmt">// validate on the SERVER — the client can be bypassed with curl</span>
+  if (!title || title.length &gt; 120) {
+    return { error: 'Title is required (max 120 chars).' };
+  }
+
+  await db.insert(notes).values({ title, body });
+  revalidatePath('/');            <span class="cmt">// stale-mark the list page → fresh SELECT</span>
+  return { error: null };
+}
+
+export async function deleteNote(id: number) {
+  await db.delete(notes).where(eq(notes.id, id));   <span class="cmt">// DELETE ... WHERE id = $1</span>
+  revalidatePath('/');
+}</code></pre>
+
+<p><strong>src/app/page.tsx</strong> — a server component reads the database directly (no API hop, no useEffect-fetch dance):</p>
+<pre><code>import { db } from '@/db';
+import { notes } from '@/db/schema';
+import { desc } from 'drizzle-orm';
+import { NoteForm } from '@/components/note-form';
+import { deleteNote } from './actions';
+
+export default async function Home() {
+  <span class="cmt">// runs on the server; SQL: SELECT ... ORDER BY created_at DESC</span>
+  const all = await db.select().from(notes).orderBy(desc(notes.createdAt));
+
+  return (
+    &lt;main&gt;
+      &lt;h1&gt;DevLog&lt;/h1&gt;
+      &lt;NoteForm /&gt;
+      &lt;ul&gt;
+        {all.map((n) =&gt; (
+          &lt;li key={n.id}&gt;                       <span class="cmt">{/* keys — Lesson 11 */}</span>
+            &lt;strong&gt;{n.title}&lt;/strong&gt; — {n.body}
+            &lt;form action={deleteNote.bind(null, n.id)}&gt;
+              &lt;button&gt;delete&lt;/button&gt;
+            &lt;/form&gt;
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/main&gt;
+  );
+}</code></pre>
+
+<p><strong>src/components/note-form.tsx</strong> — the only client component, because it needs interactivity (pending state, showing errors):</p>
+<pre><code>'use client';
+
+import { useState, useTransition } from 'react';
+import { createNote } from '@/app/actions';
+
+export function NoteForm() {
+  const [error, setError] = useState&lt;string | null&gt;(null);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    &lt;form
+      action={(formData) =&gt;
+        startTransition(async () =&gt; {
+          const res = await createNote(formData);   <span class="cmt">// calls the server action</span>
+          setError(res.error);
+        })
+      }
+    &gt;
+      &lt;input name="title" placeholder="Title" required maxLength={120} /&gt;
+      &lt;textarea name="body" placeholder="What did you learn today?" /&gt;
+      &lt;button disabled={pending}&gt;{pending ? 'Saving…' : 'Save note'}&lt;/button&gt;
+      {error &amp;&amp; &lt;p role="alert"&gt;{error}&lt;/p&gt;}
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Why so little client code?</span>
+  This is the App Router philosophy from Lessons 15–16 paying off: the default is server components
+  (data lives there anyway), and you opt into <code>'use client'</code> only where you need state or
+  events. The result: less JS shipped, no loading-spinner-then-fetch waterfall, and the database is
+  one <code>await</code> away.
+</div>
+
+<div class="callout">
+  <span class="label">Stretch goals (pick one, not all)</span>
+  Add an <code>updatedAt</code> column and an edit form; add a <code>tags text[]</code> or a proper
+  M:N tags table from Lesson 21; add auth (roll the JWT flow from Lesson 19 as a route handler, or
+  drop in an auth library). One well-finished stretch beats three half-done ones.
+</div>
+
+<h2>4 · Same backend, Express/Nest flavour — and when you'd split</h2>
+<p>
+Everything in <code>actions.ts</code> is transport-agnostic logic: validate → Drizzle call → respond.
+In Lesson 18 you'd have written it as an Express route; in Lesson 20, as a Nest controller + service.
+Side by side:
+</p>
+
+<pre><code><span class="cmt">// EXPRESS (Lesson 18 style) — swap the in-memory array for Drizzle</span>
+app.post('/api/notes', async (req, res, next) =&gt; {
+  try {
+    const { title, body } = req.body;
+    if (!title || title.length &gt; 120)
+      return res.status(400).json({ error: 'Title required (max 120)' });
+    const [note] = await db.insert(notes).values({ title, body }).returning();
+    res.status(201).json(note);        <span class="cmt">// 201 Created — Lesson 18 status codes</span>
+  } catch (err) { next(err); }         <span class="cmt">// central error middleware handles it</span>
+});
+
+<span class="cmt">// NESTJS (Lesson 20 style) — same logic, DI-shaped</span>
+@Controller('notes')
+export class NotesController {
+  constructor(private readonly notesService: NotesService) {}   <span class="cmt">// DI</span>
+
+  @Post()
+  create(@Body() dto: CreateNoteDto) {   <span class="cmt">// ValidationPipe enforces the DTO</span>
+    return this.notesService.create(dto);      <span class="cmt">// service wraps Drizzle</span>
+  }
+}</code></pre>
+
+<table>
+  <thead><tr><th></th><th>Next.js full-stack (DevLog)</th><th>Separate Express/Nest API</th></tr></thead>
+  <tbody>
+    <tr><td>Best when</td><td>One web app, small team, ship fast</td><td>Multiple clients (mobile app, partners), larger teams</td></tr>
+    <tr><td>API surface</td><td>Server actions + route handlers, internal</td><td>Public REST (or GraphQL) contract, versioned</td></tr>
+    <tr><td>Deploys</td><td>One deployable</td><td>Frontend and API scale/deploy independently</td></tr>
+    <tr><td>Auth</td><td>Cookies/session in the same app</td><td>JWT across origins, CORS config (Lesson 19)</td></tr>
+    <tr><td>Cost</td><td>Least moving parts</td><td>Two codebases, two pipelines, network hop</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "I kept the API inside Next because there's a single web client — server actions give me typed,
+  CSRF-protected mutations with zero API boilerplate. The moment a mobile app or a second consumer
+  appears, I'd extract the service layer behind an Express or Nest REST API; the Drizzle calls move
+  unchanged because the logic never lived in the transport layer."
+</div>
+
+<h2>5 · Deployment reality — Vercel + managed Postgres</h2>
+<p>
+Localhost is not a project; a URL is. The standard budget-friendly path:
+</p>
+<ol>
+  <li><strong>Database:</strong> create a free Postgres on <strong>Neon</strong> or <strong>Supabase</strong> (both are managed Postgres — same SQL you learned, someone else does backups/patches; Neon adds serverless scale-to-zero and branching). Copy the connection string.</li>
+  <li><strong>App:</strong> push the repo to GitHub, import it in <strong>Vercel</strong>. Vercel detects Next.js, builds, and deploys — server components and actions run as serverless functions.</li>
+  <li><strong>Env vars:</strong> set <code>DATABASE_URL</code> in Vercel's dashboard. It exists only on the server — exactly why the browser can never touch Postgres. (Anything you deliberately expose to the client needs the <code>NEXT_PUBLIC_</code> prefix; a DB URL never qualifies.)</li>
+  <li><strong>Migrations:</strong> run them <em>against the production DB as a deliberate step</em> — locally with the prod URL, or as a CI/predeploy step: <code>npx drizzle-kit migrate</code>. Never auto-run <code>push</code> against prod: migrations are your reviewed, versioned history (Lesson 22's whole argument).</li>
+</ol>
+
+<pre><code><span class="cmt"># .env.local (dev)  — and the same var set in Vercel for prod</span>
+DATABASE_URL=postgres://user:pass@ep-xyz.neon.tech/devlog?sslmode=require
+
+<span class="cmt"># deploy checklist</span>
+git push                      <span class="cmt"># Vercel auto-builds on push</span>
+npx drizzle-kit migrate       <span class="cmt"># apply schema to the prod database</span></code></pre>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Serverless functions can spawn many instances, and each opens DB connections — a plain pg Pool
+  can exhaust Postgres's connection limit. Managed providers solve this with a built-in pooler
+  (Neon's pooled connection string, Supabase's pgbouncer port). Use the pooled URL in serverless
+  environments. Knowing this one wrinkle sounds very senior in interviews.
+</div>
+
+<h2>6 · Putting it on the resume — own your decisions</h2>
+<p>
+A project line is an invitation for questions, so write it to invite the questions you want:
+</p>
+<pre><code><span class="cmt">DevLog — full-stack dev journal (Next.js 15, TypeScript, PostgreSQL, Drizzle ORM)</span>
+<span class="cmt">• Built an App Router app with React Server Components and server actions;</span>
+<span class="cmt">  mutations validated server-side and revalidated via revalidatePath.</span>
+<span class="cmt">• Designed the Postgres schema in TypeScript with Drizzle; versioned SQL</span>
+<span class="cmt">  migrations via drizzle-kit; parameterized queries throughout.</span>
+<span class="cmt">• Deployed on Vercel with managed Postgres (Neon), pooled connections.</span></code></pre>
+<ul>
+  <li><strong>Name the stack precisely.</strong> "Next.js App Router, Postgres, Drizzle" beats "MERN-ish web app". Precision signals you made choices.</li>
+  <li><strong>Own each choice with a why.</strong> Why Next? — server rendering plus one codebase for UI and API. Why Postgres? — relational data with constraints, transactions, and a free managed tier. Why Drizzle? — typed schema without hiding the SQL I just learned. "The tutorial used it" is the one wrong answer.</li>
+  <li><strong>Know one number and one failure.</strong> "About 300 lines of app code, 1 table, 4 queries" and "my delete originally forgot the WHERE... in dev, thankfully" make it real. Perfect-sounding projects read as copied.</li>
+</ul>
+
+<h2>7 · Whole-track rapid-fire — 25 questions, crisp answers</h2>
+<p>
+Cover the answer, read the question aloud, answer in two sentences, then compare. Anything shaky —
+the lesson number is your jump-back link.
+</p>
+
+<p><strong>JavaScript (L1–10)</strong></p>
+<ul>
+  <li><strong>1. What is a closure?</strong> A function bundled with the lexical scope it was created in, so it can read/write those variables even after the outer function returned. Powers private state, callbacks, debounce/memoize. (L2)</li>
+  <li><strong>2. Explain the event loop.</strong> JS is single-threaded; async work is handed to the platform, and finished callbacks queue up. The loop runs the stack empty, then drains <em>all</em> microtasks (promises), then one macrotask (timers, I/O) — which is why <code>Promise.then</code> beats <code>setTimeout(0)</code>. (L6)</li>
+  <li><strong>3. <code>==</code> vs <code>===</code>?</strong> <code>==</code> coerces types before comparing (<code>'5' == 5</code> is true); <code>===</code> compares type and value. Default to <code>===</code>; the only popular exception is <code>x == null</code> to catch null and undefined together. (L1)</li>
+  <li><strong>4. What is a Promise, and states?</strong> An object representing a future value: pending → fulfilled or rejected, settled exactly once. <code>then/catch/finally</code> chain; <code>async/await</code> is syntax over it. (L6–7)</li>
+  <li><strong>5. <code>var</code> vs <code>let</code> vs <code>const</code>?</strong> <code>var</code> is function-scoped and hoisted as undefined; <code>let/const</code> are block-scoped with a temporal dead zone; <code>const</code> forbids reassignment (not mutation of the object it points to). (L1)</li>
+  <li><strong>6. Debounce vs throttle?</strong> Debounce fires once after the events <em>stop</em> for N ms (search box); throttle fires at most once <em>per</em> N ms while events continue (scroll handler). Both are closures over a timer. (L10)</li>
+</ul>
+
+<p><strong>React (L11–14)</strong></p>
+<ul>
+  <li><strong>7. What problem does the Virtual DOM solve?</strong> Real DOM writes are slow; React re-renders a cheap JS tree, diffs it against the previous one (reconciliation), and applies only the minimal DOM patches. (L14)</li>
+  <li><strong>8. Why do list keys matter?</strong> Keys let the differ match old and new children by identity, preserving state and DOM. Index-as-key breaks on reorder/insert — state sticks to the wrong row. Use a stable id. (L11)</li>
+  <li><strong>9. What does the useEffect dependency array do?</strong> The effect re-runs after renders where any listed dependency changed; <code>[]</code> means run once on mount; omitting it means every render. Stale closures and missing deps are the classic bug pair. (L12)</li>
+  <li><strong>10. Controlled vs uncontrolled inputs?</strong> Controlled: React state is the single source of truth (<code>value</code> + <code>onChange</code>) — enables instant validation. Uncontrolled: the DOM holds the value, read via ref when needed. (L13)</li>
+  <li><strong>11. What actually triggers a re-render?</strong> A state update (with a <em>new</em> value/reference) in the component, or a parent re-rendering. Props changing is a consequence of the parent rendering; <code>memo</code> is the opt-out when props are equal. (L14)</li>
+</ul>
+
+<p><strong>Next.js (L15–16)</strong></p>
+<ul>
+  <li><strong>12. SSR vs SSG vs ISR?</strong> SSR renders per request (always fresh, slower); SSG renders at build (fastest, can go stale); ISR is SSG plus timed/on-demand regeneration — <code>revalidatePath</code> is on-demand ISR. (L16)</li>
+  <li><strong>13. Server vs client components?</strong> Server components render on the server only — can await the DB, ship no JS, but no hooks/events. Client components (<code>'use client'</code>) hydrate in the browser for interactivity. Default server, opt into client at the leaves. (L15)</li>
+  <li><strong>14. What is a server action?</strong> A <code>'use server'</code> function callable from forms/components; Next turns the call into a POST to your own server. Validate inside it — it is a public endpoint. (L16)</li>
+</ul>
+
+<p><strong>Node / Express / Nest (L17–20)</strong></p>
+<ul>
+  <li><strong>15. How is Node concurrent on one thread?</strong> Non-blocking I/O: libuv hands file/network work to the OS, the event loop keeps serving other requests, callbacks run when I/O completes. Great for I/O-bound APIs; CPU-bound work blocks everyone (worker threads exist for that). (L17)</li>
+  <li><strong>16. What is Express middleware?</strong> Functions <code>(req, res, next)</code> in a pipeline — each can read/modify the request, respond, or pass on with <code>next()</code>. Logging, body parsing, auth, and the 4-arg error handler are all middleware. (L18)</li>
+  <li><strong>17. JWT vs sessions?</strong> Sessions store state server-side, cookie holds an id — easy revocation, needs a shared store to scale. JWTs are self-contained signed tokens — stateless and multi-service friendly, but revocation is hard and they must expire short. (L19)</li>
+  <li><strong>18. What is CORS?</strong> A browser rule: cross-origin responses are blocked unless the <em>server</em> opts in via <code>Access-Control-Allow-Origin</code> (preflight OPTIONS for non-simple requests). It's a browser protection — curl ignores it. (L19)</li>
+  <li><strong>19. Status codes for: created / bad input / no token / wrong role / missing?</strong> 201, 400, 401 (unauthenticated), 403 (unauthorized), 404. Server fault = 5xx. (L18–19)</li>
+  <li><strong>20. What is dependency injection in Nest?</strong> Classes declare constructor dependencies; Nest's container instantiates and supplies them (default singletons). Decouples classes and makes testing trivial — pass a mock instead. Guards → interceptors → pipes → handler → filters is the request pipeline. (L20)</li>
+</ul>
+
+<p><strong>SQL / Drizzle (L21–23)</strong></p>
+<ul>
+  <li><strong>21. INNER vs LEFT JOIN?</strong> INNER keeps only matching rows from both sides; LEFT keeps every left row, padding missing right columns with NULL — "users and their posts, including users with none." (L21)</li>
+  <li><strong>22. What is an index and its cost?</strong> A B-tree side structure that turns scans into O(log n) lookups on WHERE/JOIN/ORDER BY columns. Cost: every write also updates the index, plus disk space — index deliberately, verify with <code>EXPLAIN ANALYZE</code>. (L22)</li>
+  <li><strong>23. Spell out ACID.</strong> Atomicity (all or nothing), Consistency (constraints hold before and after), Isolation (concurrent transactions don't see each other's partial work), Durability (committed survives a crash, via the WAL). (L22)</li>
+  <li><strong>24. How do you prevent SQL injection?</strong> Never concatenate user input into SQL; use parameterized queries (<code>$1</code>) so input is data, never code. ORMs like Drizzle parameterize by default — <code>' OR 1=1 --</code> becomes a harmless literal. (L22)</li>
+  <li><strong>25. What is the N+1 problem, and migrations vs push?</strong> N+1: one query for a list, then one per row for its relations — fix with a join or Drizzle's <code>with:</code> relational query. Migrations are versioned, reviewable SQL history (<code>generate</code> + <code>migrate</code>); <code>push</code> just syncs the schema — prototyping only. (L23)</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Java parallel — your secret weapon</span>
+  You came into this track from Java, and it maps: DI in Nest is Spring's DI; Drizzle's schema-in-code is
+  JPA entities without the annotation magic; the pg Pool is HikariCP; ACID and isolation levels are identical
+  theory. Saying "this is Spring's dependency injection, same idea" in an interview shows transferable
+  understanding — exactly what off-campus screeners look for.
+</div>
+
+<h2>8 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "Walk me through your project."</strong><br>
+  Stack sentence first (§1 one-liner), then the Save-Note lifecycle from §2 top-down: client form → server action validates → Drizzle emits parameterized SQL → pooled connection → Postgres commits → revalidate → RSC re-renders → React reconciles. End with one decision you'd defend and one thing you'd improve.</li>
+  <li><strong>Q. "Why did you choose this stack?"</strong><br>
+  Next.js: one codebase for UI and API with server rendering. Postgres: relational data wants constraints, joins, and transactions — plus free managed hosting. Drizzle: type safety over the SQL I already understand, with versioned migrations. Each answer names a benefit <em>I used</em>, not a buzzword.</li>
+  <li><strong>Q. "How would you support a mobile app tomorrow?"</strong><br>
+  Extract the service layer behind a separate Express/Nest REST API with JWT auth and CORS; the Drizzle-backed logic moves unchanged because it never depended on the transport (§4's table is the tradeoff answer).</li>
+  <li><strong>Q. "How does your app go from code to production?"</strong><br>
+  Git push → Vercel builds and deploys the Next app as serverless functions; <code>DATABASE_URL</code> is a server-side env var pointing at managed Postgres (Neon) through a pooled connection; schema changes ship as drizzle-kit migrations run as a deliberate deploy step.</li>
+  <li><strong>Q. "Where does validation live and why?"</strong><br>
+  Client-side for UX (instant feedback), but authoritative validation is server-side in the action/route, because any client can be bypassed with curl. Constraints in Postgres (<code>NOT NULL</code>, CHECK, FK) are the final safety net.</li>
+</ul>
+
+<h2>9 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In DevLog, after <code>createNote</code> inserts a row, why call <code>revalidatePath('/')</code>?</div>
+  <button class="opt">It commits the transaction — without it the INSERT is rolled back when the action returns</button>
+  <button class="opt">It marks the cached page stale so the server component re-runs its SELECT and the UI shows the new note</button>
+  <button class="opt">It forces every connected browser to hard-refresh the page via a websocket push</button>
+  <div class="fb" data-correct="The insert is already committed; the problem is the cached rendered page. revalidatePath invalidates it, so Next re-renders the server component with fresh data and ships the updated payload." data-wrong="The database write succeeds either way — revalidatePath is about Next's render cache, not transactions or websockets. Without it, the list page could keep serving the stale cached version."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why must <code>createNote</code> re-validate the title even though the form has <code>required maxLength={120}</code>?</div>
+  <button class="opt">Because React strips HTML validation attributes from client components during hydration</button>
+  <button class="opt">It doesn't need to — server actions can only be invoked by your own form components</button>
+  <button class="opt">Because a server action is ultimately an HTTP endpoint, and anyone with curl can hit it with arbitrary input</button>
+  <div class="fb" data-correct="Client-side checks are UX, not security. The action is reachable as a POST endpoint, so the server must enforce its own rules — same principle as Express validation middleware in Lesson 18." data-wrong="Browser attributes survive fine, but they only constrain well-behaved browsers. The action is a real HTTP endpoint; a crafted request skips the form entirely, so the server must validate."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A recruiter asks: "Why Drizzle over raw <code>pg</code> queries?" Which answer best shows understanding?</div>
+  <button class="opt">"Typed schema — column typos become compile errors, migrations are generated and versioned — while the SQL it emits stays predictable."</button>
+  <button class="opt">"Drizzle is faster than SQL because it skips the query planner and talks to Postgres's storage layer directly."</button>
+  <button class="opt">"Raw SQL is insecure by design; only an ORM can produce parameterized queries."</button>
+  <div class="fb" data-correct="Exactly — the honest wins are type safety and a migrations workflow, without hiding the SQL. Drizzle still sends SQL through the same planner, and raw pg with $1 placeholders is perfectly safe." data-wrong="Both wrong options contain interview landmines: every query goes through the planner (nothing skips it), and parameterized queries with $1 in raw pg are fully injection-safe — the ORM just makes it the default."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">DevLog gets a React Native app next month. What's the right architectural move?</div>
+  <button class="opt">Have the mobile app import the server actions package and call <code>createNote</code> directly</button>
+  <button class="opt">Extract the note logic behind a separate REST API (Express/Nest) with JWT auth; both clients consume it</button>
+  <button class="opt">Let the mobile app connect straight to Postgres with the pooled connection string</button>
+  <div class="fb" data-correct="Multiple clients is exactly the trigger for splitting out an API (the §4 table). The service logic and Drizzle calls move unchanged; the transport becomes REST + JWT + CORS." data-wrong="Server actions are a Next-internal protocol, not a public API — and shipping the database URL to a mobile app hands every user your credentials. A second client means a real, authenticated API layer."></div>
+</div>
+
+<h2>10 · Do this next</h2>
+<ul>
+  <li><strong>Build DevLog for real.</strong> Scaffold with <code>create-next-app</code>, type in every file from §3 (typing beats pasting — you'll catch what you don't yet own), run <code>drizzle-kit generate</code> + <code>migrate</code> against local Postgres, and use the app. Then add one stretch goal.</li>
+  <li><strong>Deploy it.</strong> Neon free tier + Vercel, env var, migrate, share the URL. Then update your resume with the three-bullet block from §6, adjusted to what you actually built.</li>
+  <li><strong>Run the drill out loud.</strong> All 25 questions from §7, spoken, ideally to a friend or a voice recorder. Twice through with no notes and you're interview-ready on this track; log any gap and revisit that lesson number.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Krish — that's the track. Twenty-four lessons ago <code>let</code> vs <code>const</code> was the topic;
+  today you can design a schema, wire it through a typed ORM into server-rendered React, deploy it, and
+  defend every choice out loud. Finish the DevLog build, ask me anything that wobbles — the request
+  lifecycle, the split-the-API decision, any drill question — and when it's deployed and the drill feels
+  smooth, say <strong>"next"</strong>: your road continues in the
+  <a href="../../system-design/INDEX.md">System Design track</a>, where you learn to scale exactly what
+  you just built. Congratulations — genuinely well earned.
+</div>
+
+<div class="nav">
+  <span><a href="0023-drizzle-orm.html">← Drizzle ORM</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0025-mysql-mongodb-mongoose.html">Bonus: MySQL, MongoDB &amp; Mongoose →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

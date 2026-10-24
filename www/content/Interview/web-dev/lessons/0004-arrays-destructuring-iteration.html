@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 04 — Arrays, Destructuring &amp; Iteration</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 4 of 24 · array methods, spread, iterators, Map/Set</div>
+<h1>Arrays, Destructuring &amp; Iteration</h1>
+<p class="subtitle">Ninety percent of everyday JS is transforming arrays of data — this is the lesson you'll use in literally every file you ever write, from React lists to database rows.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 4 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Arrays are objects (with quirks)</h2>
+<p>
+A Java array is a fixed-length block of one type. A JS array is neither: it's an <em>object</em> whose keys happen to be
+"0", "1", "2"… plus a self-maintaining <code>length</code> property. Any types, any length, growable at will —
+closer to Java's <code>ArrayList&lt;Object&gt;</code> than to <code>int[]</code>:
+</p>
+<pre><code>const mixed = [1, "two", true, { id: 3 }, [4, 5]];  <span class="cmt">// literal syntax — the normal way</span>
+mixed.length          <span class="cmt">// 5 — a live property, not a method (no parentheses)</span>
+typeof mixed          <span class="cmt">// "object" — Lesson 1's quirk; the real test:</span>
+Array.isArray(mixed)  <span class="cmt">// true</span>
+
+const arr = [10, 20, 30];
+arr[5] = 60;          <span class="cmt">// writing past the end works — creates a SPARSE array</span>
+arr                   <span class="cmt">// [10, 20, 30, &lt;2 empty slots&gt;, 60], length is now 6</span>
+arr[3]                <span class="cmt">// undefined — holes read as undefined, no exception</span>
+arr.length = 2;       <span class="cmt">// assigning length TRUNCATES: arr is now [10, 20]!</span>
+arr[-1]               <span class="cmt">// undefined — negative indexes are just the key "-1", not Python-style</span>
+arr.at(-1)            <span class="cmt">// 20 — .at() is how you ask for "last element" properly</span></code></pre>
+
+<h2>2 · The everyday mutators: push/pop/shift/unshift, splice, sort</h2>
+<p>These methods <strong>mutate</strong> — they change the array in place. First the ends:</p>
+<pre><code>const q = ["a", "b"];
+q.push("c");      <span class="cmt">// add to END      → ["a","b","c"], returns new length 3</span>
+q.pop();          <span class="cmt">// remove from END → returns "c", q is ["a","b"]  (stack ops!)</span>
+q.unshift("z");   <span class="cmt">// add to FRONT    → ["z","a","b"]</span>
+q.shift();        <span class="cmt">// remove FRONT    → returns "z"   (queue: push + shift)</span>
+<span class="cmt">// Mnemonic: push/pop work the cheap end; SHIFTing everything over is the front pair.</span></code></pre>
+<p><strong>slice vs splice</strong> — two similar names, opposite temperaments, and a permanent interview favorite:</p>
+<pre><code>const letters = ["a", "b", "c", "d", "e"];
+
+<span class="cmt">// SLICE(start, endExclusive) — COPY a section, original untouched (non-mutating)</span>
+letters.slice(1, 3)   <span class="cmt">// ["b","c"]  — like Java's substring semantics</span>
+letters.slice(-2)     <span class="cmt">// ["d","e"]  — negatives count from the end</span>
+letters.slice()       <span class="cmt">// full shallow copy — a classic idiom</span>
+letters               <span class="cmt">// still ["a","b","c","d","e"] ✓</span>
+
+<span class="cmt">// SPLICE(start, deleteCount, ...items) — SURGERY on the original (mutating)</span>
+letters.splice(1, 2);           <span class="cmt">// removes "b","c" → letters is ["a","d","e"]</span>
+letters.splice(1, 0, "X", "Y"); <span class="cmt">// deletes 0, inserts → ["a","X","Y","d","e"]</span>
+letters.splice(2, 1, "Z");      <span class="cmt">// replace: ["a","X","Z","d","e"]</span></code></pre>
+<p><strong>sort</strong> — home of the single most famous array gotcha in JS:</p>
+<pre><code>[10, 9, 80, 3].sort()             <span class="cmt">// [10, 3, 80, 9] ?! — default sort converts</span>
+                                  <span class="cmt">// elements to STRINGS and sorts alphabetically</span>
+[10, 9, 80, 3].sort((a, b) =&gt; a - b)  <span class="cmt">// [3, 9, 10, 80] — always pass a comparator</span>
+[10, 9, 80, 3].sort((a, b) =&gt; b - a)  <span class="cmt">// [80, 10, 9, 3] — descending</span>
+
+<span class="cmt">// Comparator contract — same as Java's Comparator.compare(a, b):</span>
+<span class="cmt">//   negative → a first · positive → b first · 0 → keep order (sort is stable)</span>
+people.sort((a, b) =&gt; a.age - b.age);            <span class="cmt">// by number field</span>
+people.sort((a, b) =&gt; a.name.localeCompare(b.name)); <span class="cmt">// by string field</span>
+
+<span class="cmt">// sort AND reverse both MUTATE. To sort a copy:</span>
+const sorted = [...nums].sort((a, b) =&gt; a - b);  <span class="cmt">// spread-copy first (§6)</span>
+nums.toSorted((a, b) =&gt; a - b);                  <span class="cmt">// ES2023: non-mutating twin (also toReversed, toSpliced)</span></code></pre>
+
+<h2>3 · The searchers: indexOf, includes, find, some, every</h2>
+<pre><code>const nums = [5, 12, 8, 12];
+nums.indexOf(12)        <span class="cmt">// 1 — first index, or -1 if absent (uses === )</span>
+nums.includes(8)        <span class="cmt">// true — cleaner than indexOf !== -1; also finds NaN</span>
+
+const users = [{ id: 1, name: "Asha" }, { id: 2, name: "Bo" }];
+<span class="cmt">// indexOf can't find objects (=== compares references — Lesson 3). Use a predicate:</span>
+users.find(u =&gt; u.id === 2)       <span class="cmt">// { id: 2, name: "Bo" } — first match, else undefined</span>
+users.findIndex(u =&gt; u.id === 2)  <span class="cmt">// 1 — its index, else -1</span>
+
+nums.some(n =&gt; n &gt; 10)    <span class="cmt">// true  — does ANY element pass? (Java: anyMatch)</span>
+nums.every(n =&gt; n &gt; 0)    <span class="cmt">// true  — do ALL elements pass?  (Java: allMatch)</span>
+<span class="cmt">// Both short-circuit, like && / || across the array.</span></code></pre>
+
+<h2>4 · The big three: map, filter, reduce</h2>
+<p>
+These are the heart of modern JS — Java 8 streams without the <code>.stream()</code>/<code>.collect()</code> ceremony.
+All three are non-mutating: they read your array and produce something new.
+</p>
+<pre><code>const prices = [100, 250, 40, 999];
+
+<span class="cmt">// MAP — transform every element; same length out as in</span>
+prices.map(p =&gt; p * 1.18)              <span class="cmt">// [118, 295, 47.2, 1178.82] — add GST</span>
+users.map(u =&gt; u.name)                 <span class="cmt">// ["Asha","Bo"] — extract a field (constant use)</span>
+prices.map((p, i) =&gt; `#${i}: ${p}`)    <span class="cmt">// callback also receives the index</span>
+
+<span class="cmt">// FILTER — keep elements that pass the test; 0..n length out</span>
+prices.filter(p =&gt; p &lt; 200)            <span class="cmt">// [100, 40]</span>
+
+<span class="cmt">// Chaining — reads like a sentence (Java: stream().filter().map().toList())</span>
+prices.filter(p =&gt; p &lt; 500).map(p =&gt; p * 1.18)   <span class="cmt">// [118, 295, 47.2]</span></code></pre>
+<p>
+<strong>reduce</strong> deserves a slow walkthrough, because it's the general-purpose "boil an array down to one value" machine,
+and interviews probe it. Signature: <code>arr.reduce((accumulator, element) =&gt; newAccumulator, initialValue)</code>.
+The callback runs once per element; whatever it returns becomes the accumulator for the next round; the final accumulator
+is the answer.
+</p>
+<pre><code><span class="cmt">// SUM — watch the accumulator flow:</span>
+[1, 2, 3, 4].reduce((acc, n) =&gt; acc + n, 0)
+<span class="cmt">//  round 1: acc=0,  n=1 → returns 1</span>
+<span class="cmt">//  round 2: acc=1,  n=2 → returns 3</span>
+<span class="cmt">//  round 3: acc=3,  n=3 → returns 6</span>
+<span class="cmt">//  round 4: acc=6,  n=4 → returns 10 ← final result</span>
+
+<span class="cmt">// MAX — the accumulator can be a "best so far":</span>
+[3, 9, 4].reduce((best, n) =&gt; n &gt; best ? n : best, -Infinity)   <span class="cmt">// 9</span>
+
+<span class="cmt">// COUNTING — the accumulator can be an OBJECT used as a tally:</span>
+["js", "java", "js", "sql", "js"].reduce((tally, lang) =&gt; {
+  tally[lang] = (tally[lang] ?? 0) + 1;
+  return tally;
+}, {})
+<span class="cmt">// → { js: 3, java: 1, sql: 1 }</span>
+
+<span class="cmt">// GROUP BY — the interview classic: bucket objects by a key</span>
+const students = [
+  { name: "Asha", year: 3 }, { name: "Bo", year: 2 }, { name: "Cal", year: 3 }
+];
+students.reduce((groups, s) =&gt; {
+  (groups[s.year] ??= []).push(s);   <span class="cmt">// ??= : create the bucket if missing (Lesson 5)</span>
+  return groups;
+}, {})
+<span class="cmt">// → { 2: [Bo], 3: [Asha, Cal] }</span>
+
+<span class="cmt">// Omit initialValue → first element becomes acc (fine for sums; throws on []. Prefer passing it.)</span></code></pre>
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "map transforms 1-to-1, filter selects 0-to-n, reduce folds n-to-1 — anything, in fact: sum, max, counts, groupBy,
+  even map and filter themselves can be written as reduce. All three are non-mutating higher-order functions on
+  <code>Array.prototype</code>."
+</div>
+<p>Rounding out the toolkit:</p>
+<pre><code>[1, [2, [3, [4]]]].flat()      <span class="cmt">// [1, 2, [3, [4]]] — one level by default</span>
+[1, [2, [3, [4]]]].flat(Infinity) <span class="cmt">// [1, 2, 3, 4]</span>
+sentences.flatMap(s =&gt; s.split(" ")) <span class="cmt">// map then flatten one level — words from sentences</span>
+["a", "b", "c"].join("-")      <span class="cmt">// "a-b-c" — array → string (String.join in Java)</span>
+[1, 2].concat([3, 4], 5)       <span class="cmt">// [1,2,3,4,5] — non-mutating merge (spread does this too)</span>
+new Array(4).fill(0)           <span class="cmt">// [0,0,0,0] — initialize; beware fill(obj) shares ONE object</span>
+Array.from({ length: 5 }, (_, i) =&gt; i * i)  <span class="cmt">// [0,1,4,9,16] — build from scratch</span>
+nums.forEach(n =&gt; console.log(n))  <span class="cmt">// just loop — returns undefined, can't break/chain</span></code></pre>
+<p>The table to burn into memory — <strong>which methods mutate?</strong> (React and Redux will demand you know this cold, because mutating state breaks their change detection):</p>
+<table>
+  <thead><tr><th>MUTATE the original</th><th>Return something NEW (original untouched)</th></tr></thead>
+  <tbody>
+    <tr><td><code>push · pop · shift · unshift</code></td><td><code>map · filter · reduce</code></td></tr>
+    <tr><td><code>splice</code></td><td><code>slice · concat · flat · flatMap</code></td></tr>
+    <tr><td><code>sort · reverse · fill · copyWithin</code></td><td><code>toSorted · toReversed · toSpliced · with</code> (ES2023)</td></tr>
+    <tr><td>—</td><td><code>join · includes · indexOf · find · some · every</code> (read-only)</td></tr>
+  </tbody>
+</table>
+
+<h2>5 · Destructuring — unpacking in one line</h2>
+<p>
+<strong>Destructuring</strong> mirrors construction: the literal syntax on the <em>left</em> of <code>=</code> pulls values out
+instead of putting them in. Java has nothing like it (records get close); JS uses it everywhere — React hooks return
+<code>[state, setState]</code>, Express handlers destructure <code>req</code>, every import list is a destructure.
+</p>
+<pre><code><span class="cmt">// ARRAY destructuring — position-based</span>
+const [first, second] = [10, 20, 30];   <span class="cmt">// first=10, second=20 (30 ignored)</span>
+const [, , third] = [10, 20, 30];       <span class="cmt">// skip with holes: third=30</span>
+const [head, ...tail] = [1, 2, 3, 4];   <span class="cmt">// rest: head=1, tail=[2,3,4]</span>
+let a = 1, b = 2;
+[a, b] = [b, a];                        <span class="cmt">// SWAP without a temp variable — interview party trick</span>
+
+<span class="cmt">// OBJECT destructuring — name-based (order irrelevant)</span>
+const user = { id: 7, name: "Asha", address: { city: "Delhi", pin: 110078 } };
+const { name, id } = user;              <span class="cmt">// name="Asha", id=7</span>
+const { name: userName } = user;        <span class="cmt">// RENAME: variable is userName ("name" stays a key)</span>
+const { role = "student" } = user;      <span class="cmt">// DEFAULT: used only if the value is undefined</span>
+const { address: { city } } = user;     <span class="cmt">// NESTED: city="Delhi" (address itself NOT bound)</span>
+const { id: uid, ...rest } = user;      <span class="cmt">// rest = everything else: { name, address }</span>
+
+<span class="cmt">// IN PARAMETERS — the killer use: named arguments, Java-style builders not needed</span>
+function connect({ host, port = 5432, ssl = false }) {
+  return `${host}:${port} ssl=${ssl}`;
+}
+connect({ host: "db.local", ssl: true });   <span class="cmt">// caller passes one readable object</span>
+
+for (const [key, value] of Object.entries(user)) { }  <span class="cmt">// destructure per iteration</span></code></pre>
+
+<h2>6 · Spread and rest — three dots, two meanings</h2>
+<p>
+Same token <code>...</code>, opposite directions. <strong>Spread</strong> (in a call or literal) <em>explodes</em> a collection into
+individual pieces. <strong>Rest</strong> (in a parameter list or destructuring pattern) <em>gathers</em> pieces into a collection.
+Where it appears tells you which one it is.
+</p>
+<pre><code><span class="cmt">// SPREAD in array literals — copy / merge / insert</span>
+const base = [2, 3];
+const copy   = [...base];              <span class="cmt">// shallow copy (replaces slice())</span>
+const merged = [1, ...base, 4];        <span class="cmt">// [1, 2, 3, 4]</span>
+
+<span class="cmt">// SPREAD in calls — array → separate arguments (replaces apply, Lesson 3)</span>
+Math.max(...[5, 9, 2])                 <span class="cmt">// 9</span>
+
+<span class="cmt">// SPREAD in object literals — copy / merge; later keys WIN</span>
+const defaults = { theme: "dark", lang: "en" };
+const config = { ...defaults, lang: "hi" };   <span class="cmt">// { theme: "dark", lang: "hi" }</span>
+const updated = { ...user, year: 4 };         <span class="cmt">// "copy with one change" — THE React</span>
+                                              <span class="cmt">// state-update idiom you'll write daily</span>
+
+<span class="cmt">// REST — the gatherer (already met in Lessons 2 and §5)</span>
+function sum(...nums) { return nums.reduce((a, n) =&gt; a + n, 0); }
+const [winner, ...losers] = ["A", "B", "C"];</code></pre>
+<p>
+Critical caveat: spread copies are <strong>shallow</strong> — one level deep. Nested objects are shared references
+(<code>copy.address === user.address</code> after <code>{...user}</code>). Deep copying is a Lesson 5 topic (<code>structuredClone</code>).
+</p>
+
+<h2>7 · Four ways to loop — and which to use</h2>
+<pre><code>const scores = [90, 85, 77];
+for (let i = 0; i &lt; scores.length; i++) { }  <span class="cmt">// CLASSIC — full control, verbose</span>
+for (const s of scores) { }                  <span class="cmt">// FOR..OF — the VALUES. Your default. ✓</span>
+for (const k in scores) { }                  <span class="cmt">// FOR..IN — the KEYS ("0","1","2" as strings!)</span>
+scores.forEach((s, i) =&gt; { });               <span class="cmt">// FOREACH — callback per element</span></code></pre>
+<table>
+  <thead><tr><th></th><th>classic <code>for</code></th><th><code>for..of</code></th><th><code>for..in</code></th><th><code>forEach</code></th></tr></thead>
+  <tbody>
+    <tr><td>Iterates</td><td>whatever you index</td><td><strong>values</strong> of any iterable</td><td><strong>keys</strong> of an object (strings)</td><td>values + index</td></tr>
+    <tr><td><code>break</code>/<code>continue</code>?</td><td>Yes</td><td>Yes</td><td>Yes</td><td><strong>No</strong> — callback can't break</td></tr>
+    <tr><td><code>await</code> works naturally?</td><td>Yes</td><td>Yes</td><td>Yes</td><td>No (gotcha! — Lesson 7)</td></tr>
+    <tr><td>Works on Map/Set/string?</td><td>No (index only)</td><td><strong>Yes</strong></td><td>Not meaningfully</td><td>Map/Set have their own</td></tr>
+    <tr><td>Use for arrays?</td><td>When you need the index math</td><td><strong>Default choice</strong></td><td><strong>Never</strong> — keys are strings, order + inherited-key surprises</td><td>Fine for simple side effects</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">Gotcha</span>
+  <code>for..in</code> on an array hands you string keys (<code>"0" + 1</code> is <code>"01"</code>!), includes any custom properties,
+  and can walk inherited enumerable keys from the prototype chain (Lesson 3). It exists for plain objects —
+  and even there, <code>Object.keys/entries</code> + <code>for..of</code> is usually cleaner. Interview line:
+  "<code>for..in</code> → keys of objects; <code>for..of</code> → values of iterables."
+</div>
+
+<h2>8 · The iterable protocol — how for..of really works</h2>
+<p>
+Why does <code>for..of</code> work on arrays, strings, Maps, Sets — and your own objects if you wish? Because it doesn't know
+about any of them. It follows a <strong>contract</strong>, exactly like Java's <code>Iterable</code>/<code>Iterator</code> interfaces:
+</p>
+<ul>
+  <li>An <strong>iterable</strong> is any object with a method under the special key <code>Symbol.iterator</code> that returns an iterator. (Java: <code>Iterable.iterator()</code>.)</li>
+  <li>An <strong>iterator</strong> is any object with a <code>next()</code> method returning <code>{ value, done }</code>. (Java: <code>hasNext()</code>/<code>next()</code> fused into one call.)</li>
+</ul>
+<pre><code><span class="cmt">// What for..of does under the hood:</span>
+const it = [10, 20][Symbol.iterator]();
+it.next();   <span class="cmt">// { value: 10, done: false }</span>
+it.next();   <span class="cmt">// { value: 20, done: false }</span>
+it.next();   <span class="cmt">// { value: undefined, done: true } — loop ends</span>
+
+<span class="cmt">// Write your own iterable — a number range:</span>
+const range = {
+  from: 1, to: 4,
+  [Symbol.iterator]() {                 <span class="cmt">// computed key (§ Lesson 3) + method shorthand</span>
+    let current = this.from;
+    const last = this.to;
+    return {
+      next: () =&gt; current &lt;= last
+        ? { value: current++, done: false }
+        : { value: undefined, done: true }
+    };
+  }
+};
+for (const n of range) console.log(n);  <span class="cmt">// 1 2 3 4</span>
+[...range]                              <span class="cmt">// [1,2,3,4] — spread uses the SAME protocol!</span>
+const [x, y] = range;                   <span class="cmt">// so does array destructuring: x=1, y=2</span></code></pre>
+
+<h2>9 · Generators — iterators without the boilerplate</h2>
+<p>
+Writing <code>next()</code> machinery by hand is tedious. A <strong>generator function</strong> (<code>function*</code>) writes it for you:
+call it and you get an iterator; each <code>yield</code> inside is one <code>next()</code> result. The magic: the function
+<strong>pauses</strong> at each yield and resumes exactly there on the next call — a function you can freeze mid-flight.
+Java has no equivalent (the closest is a hand-rolled Iterator or Stream.iterate).
+</p>
+<pre><code>function* rangeGen(from, to) {
+  for (let n = from; n &lt;= to; n++) {
+    yield n;                       <span class="cmt">// pause here, hand out n, wait to be resumed</span>
+  }
+}
+
+const g = rangeGen(1, 3);
+g.next();   <span class="cmt">// { value: 1, done: false } — ran until the first yield, froze</span>
+g.next();   <span class="cmt">// { value: 2, done: false } — resumed, looped once, froze again</span>
+g.next();   <span class="cmt">// { value: 3, done: false }</span>
+g.next();   <span class="cmt">// { value: undefined, done: true } — function finished</span>
+
+for (const n of rangeGen(1, 4)) console.log(n);  <span class="cmt">// generators are iterable: 1 2 3 4</span>
+
+<span class="cmt">// LAZY + INFINITE — impossible with arrays, natural with generators:</span>
+function* fibonacci() {
+  let [a, b] = [0, 1];
+  while (true) {                   <span class="cmt">// infinite loop, yet safe: values are made ON DEMAND</span>
+    yield a;
+    [a, b] = [b, a + b];
+  }
+}
+const fib = fibonacci();
+fib.next().value; fib.next().value; fib.next().value;  <span class="cmt">// 0, 1, 1 — take only what you need</span>
+
+<span class="cmt">// The range object from §8, rewritten — compare the sizes:</span>
+const range2 = {
+  from: 1, to: 4,
+  *[Symbol.iterator]() {           <span class="cmt">// a generator AS the Symbol.iterator method</span>
+    for (let n = this.from; n &lt;= this.to; n++) yield n;
+  }
+};</code></pre>
+<p>Where you'll meet them: Redux-Saga, some async iteration patterns, and interviews. Day-to-day you'll <em>consume</em> iterables constantly and <em>write</em> generators rarely — but explaining lazy evaluation with a fibonacci generator is a strong interview move.</p>
+
+<h2>10 · Map, Set, WeakMap, WeakSet</h2>
+<p>ES6 added real collections — direct cousins of <code>java.util</code>. First, why a <code>Map</code> when objects already hold key–value pairs?</p>
+<pre><code>const m = new Map();
+m.set("name", "Krish");           <span class="cmt">// fluent: set returns the map</span>
+m.set(42, "the answer");          <span class="cmt">// number key STAYS a number (objects stringify keys!)</span>
+const objKey = { id: 1 };
+m.set(objKey, "metadata");        <span class="cmt">// OBJECT keys — impossible with plain objects</span>
+
+m.get(objKey)    <span class="cmt">// "metadata"</span>
+m.has(42)        <span class="cmt">// true</span>
+m.size           <span class="cmt">// 3 — a property (objects need Object.keys(o).length)</span>
+m.delete(42);
+for (const [k, v] of m) { }       <span class="cmt">// directly iterable, insertion order guaranteed</span>
+new Map(Object.entries(obj))      <span class="cmt">// object → Map;  Object.fromEntries(m) goes back</span></code></pre>
+<table>
+  <thead><tr><th></th><th>Plain object <code>{}</code></th><th><code>Map</code></th></tr></thead>
+  <tbody>
+    <tr><td>Key types</td><td>strings + symbols only (rest coerced)</td><td><strong>anything</strong> — objects, numbers, NaN</td></tr>
+    <tr><td>Size</td><td><code>Object.keys(o).length</code></td><td><code>m.size</code></td></tr>
+    <tr><td>Iteration</td><td>via <code>Object.entries</code></td><td>direct <code>for..of</code>, insertion order</td></tr>
+    <tr><td>Prototype baggage</td><td>inherits <code>toString</code> etc. — key collisions possible</td><td>none — pure data</td></tr>
+    <tr><td>JSON</td><td>serializes directly</td><td>needs conversion first (Lesson 5)</td></tr>
+    <tr><td>Use when</td><td>fixed, known, string-keyed shape (a record/DTO)</td><td>dynamic keys, frequent add/remove, non-string keys (a HashMap)</td></tr>
+  </tbody>
+</table>
+<p><code>Set</code> = <code>java.util.HashSet</code>: unique values, fast membership checks:</p>
+<pre><code>const s = new Set([1, 2, 2, 3, 2]);
+s.size            <span class="cmt">// 3 — duplicates dropped on entry</span>
+s.add(4); s.has(2); s.delete(1);
+[...new Set(arr)] <span class="cmt">// THE dedupe idiom — memorize it</span>
+
+<span class="cmt">// Set.has is O(1); arr.includes is O(n) — for many lookups, build a Set first:</span>
+const allowed = new Set(["admin", "editor"]);
+roles.filter(r =&gt; allowed.has(r));</code></pre>
+<p>
+<strong>WeakMap / WeakSet</strong> — the "know what they're for" pair. Keys must be objects, and the collection holds them
+<em>weakly</em>: if nothing else references a key object, the garbage collector may reclaim it, entry and all
+(Java parallel: <code>WeakHashMap</code>). Consequence: not iterable, no <code>size</code> — you can't observe what the GC took.
+Use case: attaching metadata or caches to objects you don't own, without preventing their cleanup — this is how libraries
+tag DOM nodes without leaking memory. Interview line: "WeakMap = object-keyed map that doesn't block garbage collection;
+therefore non-iterable; used for metadata and caches."
+</p>
+
+<h2>11 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "Difference between map and forEach?"</strong><br>
+  <code>map</code> returns a new transformed array and is chainable; <code>forEach</code> returns <code>undefined</code> and exists purely
+  for side effects. Neither mutates; neither can <code>break</code>. If you're building a result, use <code>map</code>.</li>
+  <li><strong>Q. "slice vs splice?"</strong><br>
+  <code>slice(start, end)</code> copies a portion, non-mutating, negatives allowed. <code>splice(start, deleteCount, ...items)</code>
+  removes/inserts in place — it mutates and returns the removed elements.</li>
+  <li><strong>Q. "Why does <code>[10, 9, 80].sort()</code> give [10, 80, 9]... wait, [10, 3, 80, 9]?"</strong><br>
+  Default sort coerces elements to strings and sorts lexicographically ("10" &lt; "3" &lt; "80" &lt; "9"). Always pass a comparator:
+  <code>(a, b) =&gt; a - b</code>. Also note sort mutates; use <code>toSorted</code> or spread-copy to preserve the original.</li>
+  <li><strong>Q. "Explain reduce."</strong><br>
+  Folds an array to a single value: the callback receives (accumulator, element) and returns the next accumulator, seeded by
+  initialValue. Demonstrate with sum, then with groupBy — an object accumulator whose buckets you push into — to show it can build anything.</li>
+  <li><strong>Q. "for..of vs for..in?"</strong><br>
+  <code>for..of</code> iterates <em>values</em> of anything implementing the iterable protocol (arrays, strings, Map, Set).
+  <code>for..in</code> iterates enumerable <em>keys</em> (as strings) of an object, including inherited ones — wrong tool for arrays.</li>
+  <li><strong>Q. "What makes something iterable? What's a generator?"</strong><br>
+  Iterable = has a <code>Symbol.iterator</code> method returning an iterator (<code>next()</code> → <code>{value, done}</code>) — JS's version
+  of Java's Iterable/Iterator. A generator (<code>function*</code>/<code>yield</code>) auto-builds an iterator from a function that pauses
+  at each yield — enabling lazy and even infinite sequences.</li>
+  <li><strong>Q. "Map vs plain object? Set vs array?"</strong><br>
+  Map: any key type, <code>.size</code>, ordered direct iteration, no prototype pollution — a true HashMap; objects suit fixed string-keyed records.
+  Set: uniqueness + O(1) <code>has</code> vs array's O(n) <code>includes</code>; <code>[...new Set(arr)]</code> dedupes. Weak variants hold object keys
+  without blocking GC, so they're non-iterable — used for metadata/caches.</li>
+  <li><strong>Q. "Is spread a deep copy?"</strong><br>
+  No — shallow, one level. Nested objects/arrays are shared references. Deep options: <code>structuredClone</code> (proper) or the JSON trick (lossy) — Lesson 5.</li>
+</ul>
+
+<h2>12 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">What is <code>[1, 5, 20, 10].sort()</code>?</div>
+  <button class="opt"><code>[1, 5, 10, 20]</code> — numbers sort numerically by default</button>
+  <button class="opt"><code>[1, 10, 20, 5]</code> — elements are coerced to strings and sorted alphabetically</button>
+  <button class="opt"><code>[20, 10, 5, 1]</code> — default sort is descending without a comparator</button>
+  <div class="fb" data-correct="No comparator → string comparison: \"1\" &lt; \"10\" &lt; \"20\" &lt; \"5\". Fix with sort((a, b) =&gt; a - b). Bonus points for remembering sort also MUTATES the array — toSorted() is the non-mutating twin." data-wrong="The default comparator stringifies: \"10\" sorts before \"5\" because \"1\" &lt; \"5\" character-wise → [1, 10, 20, 5]. Always pass (a, b) =&gt; a - b for numbers. And sort mutates in place, too."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What does <code>["a","b","a","c"].reduce((t, x) =&gt; ({ ...t, [x]: (t[x] ?? 0) + 1 }), {})</code> produce?</div>
+  <button class="opt"><code>4</code> — reduce always produces a number</button>
+  <button class="opt"><code>["a", "b", "c"]</code> — duplicate values are removed</button>
+  <button class="opt"><code>{ a: 2, b: 1, c: 1 }</code> — an object counting occurrences</button>
+  <div class="fb" data-correct="reduce can fold into ANY shape — here the accumulator is an object tally. Each round spreads the old tally and bumps the computed key [x]. This counting/groupBy pattern is the most-asked reduce question." data-wrong="reduce's result is whatever the accumulator ends up as — and here it's seeded with {} and built up as an object. Trace it: each element's count is (t[x] ?? 0) + 1 stored under the computed key [x], giving { a: 2, b: 1, c: 1 }. Deduping would be [...new Set(arr)]."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">After <code>const copy = { ...user }</code> where <code>user = { name: "A", address: { city: "Delhi" } }</code>, what does <code>copy.address.city = "Pune"</code> do?</div>
+  <button class="opt">Changes user.address.city too — spread is shallow, so both share one address object</button>
+  <button class="opt">Only changes copy — spread recursively cloned every nested level</button>
+  <button class="opt">TypeError — properties of a spread copy are read-only</button>
+  <div class="fb" data-correct="Spread copies one level: copy gets its own 'name' slot and its own 'address' SLOT — but that slot holds the same reference as user.address. Mutating through it hits the shared object. Deep copy needs structuredClone (Lesson 5)." data-wrong="Spread is a SHALLOW copy — top-level slots are duplicated, but nested objects come along as shared references (copy.address === user.address). So the write shows through user as well. Nothing is read-only. structuredClone gives a true deep copy."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Which is true about <code>for..in</code> used on an array?</div>
+  <button class="opt">It yields the element values, exactly like for..of but older syntax</button>
+  <button class="opt">It yields the indexes as strings, and may include extra or inherited properties</button>
+  <button class="opt">It throws a TypeError because arrays are not enumerable</button>
+  <div class="fb" data-correct="for..in walks enumerable KEYS — for an array that's \"0\", \"1\", \"2\" as strings (so key + 1 concatenates!), plus any custom properties and inherited enumerable keys. Use for..of for values; save for..in for plain-object keys, if at all." data-wrong="for..in is the KEY iterator, not the value iterator — on arrays it produces \"0\", \"1\", \"2\" as strings (watch \"0\" + 1 === \"01\"), and can pick up custom or inherited properties. It never throws on arrays; it's just the wrong tool. for..of yields values."></div>
+</div>
+
+<h2>13 · Do this next</h2>
+<ul>
+  <li>Grab this dataset and answer each question in ONE chained expression (no loops):
+  <code>const emps = [{name:"A",dept:"eng",sal:50},{name:"B",dept:"eng",sal:70},{name:"C",dept:"hr",sal:40},{name:"D",dept:"hr",sal:60},{name:"E",dept:"eng",sal:90}]</code> —
+  (a) names of everyone earning &gt; 50, (b) total salary via reduce, (c) highest-paid employee object via reduce, (d) <code>groupBy</code> dept via reduce, (e) depts as a deduped array via Set + map, (f) sorted by salary descending <em>without mutating</em> <code>emps</code>.</li>
+  <li>Implement <code>myReduce(arr, fn, init)</code> with a plain loop, then re-implement <code>myMap</code> and <code>myFilter</code> <em>on top of myReduce</em> — the classic proof that reduce is the universal fold.</li>
+  <li>Write a generator <code>take(iterable, n)</code> that yields only the first n values of any iterable, and use it to print the first 10 Fibonacci numbers from the infinite <code>fibonacci()</code> generator. Then spread your §8-style custom range into an array to prove the protocol connects everything.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  reduce deserves as many examples as it takes — if the accumulator flow is fuzzy, or you want more groupBy variations,
+  or Map-vs-object still feels arbitrary, ask me here. When you can write the groupBy reduce from memory, name which
+  methods mutate, and explain <code>Symbol.iterator</code> in a sentence, say <strong>"next"</strong> for
+  Lesson 5: Strings, Numbers &amp; Built-ins.
+</div>
+
+<div class="nav">
+  <span><a href="0003-objects-this-prototypes-classes.html">← Objects, this &amp; Prototypes</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0005-strings-numbers-builtins.html">Strings, Numbers &amp; Built-ins →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

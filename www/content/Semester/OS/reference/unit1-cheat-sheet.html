@@ -1,0 +1,258 @@
+<title>OS Unit I Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul,ol{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Reference &middot; print this one</p>
+<h1>Unit I &mdash; Exam Sheet</h1>
+<p class="deck">Overview, structures, services, system calls, processes, IPC and threads &mdash; every definition, list, table and formula from the seven lessons, on a few printable pages.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>Process state diagram</strong> &middot; <strong>PCB contents</strong> &middot; <strong>three schedulers table</strong> &middot; <strong>types of system call</strong> &middot; <strong>OS structures with diagrams</strong> &middot; <strong>process vs thread</strong> &middot; <strong>multithreading models</strong> &middot; <strong>shared memory vs message passing</strong> &middot; dual-mode operation &middot; types of OS &middot; boot sequence. <strong>Draw a diagram whenever one exists</strong> &mdash; this unit is marked on diagrams and lists, not on prose.</p>
+</div>
+
+<hr class="rule">
+
+<h2>Definitions to write verbatim <span class="tag">memorise</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Definition</th></tr></thead>
+<tbody>
+<tr><td><strong>Operating system</strong></td><td>(1) A program that manages the computer's hardware resources and allocates them fairly and efficiently. (2) A program acting as an interface between user and hardware, controlling execution and preventing improper use. The <strong>kernel</strong> is the one program running at all times.</td></tr>
+<tr><td><strong>Process</strong></td><td>A program in execution &mdash; an active entity with a program counter, resources and a memory image.</td></tr>
+<tr><td><strong>Thread</strong></td><td>A basic unit of CPU utilisation, comprising a thread ID, program counter, register set and stack.</td></tr>
+<tr><td><strong>PCB</strong></td><td>The data structure representing a process, holding everything the OS knows about it.</td></tr>
+<tr><td><strong>System call</strong></td><td>The programmatic way a program requests a service from the kernel &mdash; the only legal entry point.</td></tr>
+<tr><td><strong>Context switch</strong></td><td>Saving the state of the running process into its PCB and loading the next process's state from its PCB.</td></tr>
+<tr><td><strong>Race condition</strong></td><td>Several processes access shared data concurrently and the outcome depends on the order of access.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Functions, goals and structure</h2>
+
+<p><strong>Four-layer view:</strong> users &rarr; application programs &rarr; operating system &rarr; hardware.</p>
+<p><strong>Goals:</strong> convenience (primary), efficiency (secondary), ability to evolve.</p>
+<p><strong>Eight functions:</strong> process, memory, file, I/O device, secondary storage management; protection and security; networking; command interpretation.</p>
+
+<div class="formula">
+  <span class="name">Dual-mode operation</span>
+  <strong>mode bit = 0 &rarr; kernel mode</strong> (all instructions) &nbsp;&nbsp; <strong>mode bit = 1 &rarr; user mode</strong> (privileged instructions trap)<br>
+  <strong>Privileged:</strong> all I/O instructions &middot; set the timer &middot; interrupt management &middot; switch to kernel mode &middot; clear memory &middot; modify MMU registers &middot; halt.<br>
+  <em>Dual mode protects the OS from user programs; the timer protects it from programs that never stop.</em>
+</div>
+
+<div class="formula">
+  <span class="name">CPU utilisation under multiprogramming</span>
+  <strong>Utilisation = 1 &minus; p<sup>n</sup></strong> &nbsp; (p = fraction of time a process waits for I/O, n = processes in memory)<br>
+  p = 0.8: &nbsp; n=1 &rarr; 20 % &nbsp;&middot;&nbsp; n=2 &rarr; 36 % &nbsp;&middot;&nbsp; n=4 &rarr; 59 % &nbsp;&middot;&nbsp; n=10 &rarr; 89.3 %
+</div>
+
+<h2>OS structures <span class="tag">draw each</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Structure</th><th>Idea</th><th>Weakness</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td><strong>Simple</strong></td><td>No module separation; apps may call BIOS directly</td><td>A crashing program kills the system</td><td>MS-DOS</td></tr>
+<tr><td><strong>Monolithic</strong></td><td>Whole OS in one kernel address space</td><td>Hard to modify; any driver bug crashes all</td><td>Traditional UNIX</td></tr>
+<tr><td><strong>Layered</strong></td><td>Layer k uses only layer k&minus;1</td><td>Layer ordering is hard; slow (traverses all layers)</td><td>THE</td></tr>
+<tr><td><strong>Microkernel</strong></td><td>Only IPC + minimal process/memory in kernel; rest in user servers</td><td>Message-passing overhead</td><td>Mach, QNX, MINIX</td></tr>
+<tr><td><strong>Modular</strong></td><td>Small core + <strong>loadable kernel modules</strong></td><td>&mdash;</td><td>Linux, Solaris</td></tr>
+<tr><td><strong>Hybrid</strong></td><td>Mix of the above</td><td>&mdash;</td><td>macOS/Darwin, Windows</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Monolithic vs microkernel:</strong> everything vs only IPC in the kernel &middot; large vs small &middot; function calls vs messages &middot; <strong>faster</strong> vs slower &middot; lower vs <strong>higher reliability</strong> &middot; recompile vs add a user server.</p>
+<p><strong>Why modular wins:</strong> interfaces like layers, separability like a microkernel, <strong>speed like monolithic</strong> &mdash; modules run in kernel mode and call directly.</p>
+
+<h2>Types of OS</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Defining idea</th></tr></thead>
+<tbody>
+<tr><td><strong>Batch</strong></td><td>Similar jobs batched by an operator; resident monitor sequences them; no interaction</td></tr>
+<tr><td><strong>Multiprogramming</strong></td><td>Several jobs in memory; switch when one waits for <strong>I/O</strong>; goal = CPU utilisation</td></tr>
+<tr><td><strong>Multitasking / time sharing</strong></td><td>Switch on a <strong>time quantum</strong>; preemptive; goal = response time</td></tr>
+<tr><td><strong>Multiprocessing</strong></td><td>Two or more CPUs sharing bus, clock, memory, devices</td></tr>
+<tr><td><strong>Real time</strong></td><td><strong>Hard:</strong> a missed deadline is total failure. <strong>Soft:</strong> critical tasks get priority</td></tr>
+<tr><td><strong>Distributed</strong></td><td>No shared memory or clock; <strong>transparent</strong> &mdash; the user does not know which machine runs the job</td></tr>
+<tr><td><strong>Clustered</strong></td><td>Complete systems joined, sharing storage. Asymmetric = hot standby; symmetric = all active</td></tr>
+<tr><td><strong>Embedded / network</strong></td><td>Embedded: special-purpose, limited. Network: the user knows the machines and logs in explicitly</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>System boot <span class="tag">six steps</span></h2>
+
+<ol>
+<li>Power on; the PC is set to a fixed <strong>ROM</strong> address.</li>
+<li>The <strong>bootstrap program</strong> (BIOS / UEFI firmware) runs.</li>
+<li><strong>POST</strong> &mdash; power-on self-test of CPU, memory, devices.</li>
+<li>Locate the <strong>boot block</strong> &mdash; the first sector of the boot disk (MBR).</li>
+<li>The <strong>boot loader</strong> (GRUB, Windows Boot Manager) loads the kernel into memory.</li>
+<li>The kernel initialises, creates the first process (<code>init</code> / <code>systemd</code>), starts daemons, waits for events.</li>
+</ol>
+
+<p><strong>SYSGEN</strong> = configuring the OS for the specific machine: CPU, memory size, devices, options.</p>
+
+<h2>Services, interfaces and system programs</h2>
+
+<p><strong>Group A &mdash; helpful to the user:</strong> user interface &middot; program execution &middot; I/O operations &middot; file system manipulation &middot; communication &middot; error detection.<br>
+<strong>Group B &mdash; efficient system operation:</strong> resource allocation &middot; accounting &middot; protection and security.</p>
+
+<p><strong>CLI vs GUI:</strong> steep vs gentle learning &middot; faster vs slower for an expert &middot; very low vs high resource use &middot; <strong>excellent vs poor automation</strong> &middot; risky vs protected against typos.</p>
+
+<p><strong>Six categories of system program:</strong> file management &middot; status information &middot; file modification &middot; programming-language support &middot; program loading and execution &middot; communications. (Plus background services / daemons.)</p>
+
+<p><strong>Debugging:</strong> log files &middot; <strong>core dump</strong> = failed user process &middot; <strong>crash dump</strong> = failed kernel &middot; trace listings and counters for performance tuning &middot; <strong>Heisenbug</strong> = a bug that changes when observed.</p>
+
+<h2>System calls <span class="tag">high yield</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>UNIX</th><th>Windows</th></tr></thead>
+<tbody>
+<tr><td><strong>Process control</strong></td><td><code>fork, exit, wait, exec, kill</code></td><td><code>CreateProcess, ExitProcess, WaitForSingleObject</code></td></tr>
+<tr><td><strong>File management</strong></td><td><code>open, read, write, close, lseek</code></td><td><code>CreateFile, ReadFile, WriteFile, CloseHandle</code></td></tr>
+<tr><td><strong>Device management</strong></td><td><code>ioctl, read, write</code></td><td><code>SetConsoleMode, ReadConsole, WriteConsole</code></td></tr>
+<tr><td><strong>Information maintenance</strong></td><td><code>getpid, alarm, sleep, time</code></td><td><code>GetCurrentProcessID, SetTimer, Sleep</code></td></tr>
+<tr><td><strong>Communication</strong></td><td><code>pipe, shm_open, mmap, socket</code></td><td><code>CreatePipe, CreateFileMapping, MapViewOfFile</code></td></tr>
+<tr><td><strong>Protection</strong></td><td><code>chmod, umask, chown</code></td><td><code>SetFileSecurity</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Three parameter-passing methods:</strong> <strong>registers</strong> (fastest, but limited in number) &middot; <strong>block in memory</strong>, address in a register (no limit; Linux, Solaris) &middot; <strong>stack</strong> (no limit).</p>
+
+<p><strong>System call vs API vs function call:</strong> kernel mode + mode switch vs user mode, no switch. <code>printf()</code> is API; <code>write()</code> is the system call. APIs give portability and simplicity.</p>
+
+<p><strong>The <code>cp</code> trace:</strong> get both file names &rarr; <code>open</code> input (abort with message on failure) &rarr; <code>create</code> output (abort or ask to overwrite) &rarr; loop <code>read</code>/<code>write</code> with error checks &rarr; detect EOF &rarr; <code>close</code> both &rarr; message and <code>exit</code>.</p>
+
+<h2>Processes <span class="tag">draw the state diagram</span></h2>
+
+<div class="formula">
+  <span class="name">The five-state model</span>
+  NEW &mdash;<em>admitted</em>&rarr; READY &mdash;<em>dispatch</em>&rarr; RUNNING &mdash;<em>exit</em>&rarr; TERMINATED<br>
+  RUNNING &mdash;<em>interrupt</em>&rarr; READY &nbsp;&middot;&nbsp; RUNNING &mdash;<em>I/O wait</em>&rarr; WAITING &mdash;<em>I/O completion</em>&rarr; READY<br>
+  <strong>No arrow WAITING &rarr; RUNNING. No arrow READY &rarr; WAITING.</strong>
+</div>
+
+<p><strong>Memory layout:</strong> stack (down) &middot; free &middot; heap (up) &middot; data &middot; text.</p>
+
+<p><strong>PCB &mdash; eight fields:</strong> process state &middot; PID &middot; program counter &middot; CPU registers &middot; scheduling info (priority) &middot; memory-management info (base/limit, page tables) &middot; accounting info &middot; I/O status info (open files, devices).</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Long-term</th><th>Short-term</th><th>Medium-term</th></tr></thead>
+<tbody>
+<tr><td><strong>Transition</strong></td><td>New &rarr; Ready</td><td>Ready &rarr; Running</td><td>Swap out and back in</td></tr>
+<tr><td><strong>Speed</strong></td><td>Slowest (seconds/minutes)</td><td>Fastest (milliseconds)</td><td>In between</td></tr>
+<tr><td><strong>Controls</strong></td><td><strong>Degree of multiprogramming</strong></td><td>Which process runs</td><td>Reduces the degree</td></tr>
+<tr><td><strong>Present in</strong></td><td>Batch; minimal in time sharing</td><td>Every system</td><td>Systems with swapping</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Job mix:</strong> the long-term scheduler must pick a mix of I/O-bound and CPU-bound processes &mdash; all of one kind idles either the CPU or the devices.</p>
+
+<div class="formula">
+  <span class="name">fork() &mdash; the numerical rule</span>
+  <code>fork()</code> returns <strong>0 in the child</strong>, the <strong>child's PID in the parent</strong>, <strong>&minus;1 on failure</strong>.<br>
+  <strong>n successive unconditional forks &rarr; 2<sup>n</sup> processes = 2<sup>n</sup> &minus; 1 children</strong>; a later <code>printf</code> runs 2<sup>n</sup> times.<br>
+  <em>Conditional forks:</em> draw the tree &mdash; the doubling rule no longer applies.
+</div>
+
+<p><strong>Zombie</strong> = terminated, parent has not called <code>wait()</code>. <strong>Orphan</strong> = parent died first; re-parented to <code>init</code>. <strong>Cascading termination</strong> = killing a process kills all descendants.</p>
+
+<h2>Interprocess communication</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Shared memory</th><th>Message passing</th></tr></thead>
+<tbody>
+<tr><td><strong>Speed</strong></td><td><strong>Faster</strong></td><td>Slower &mdash; a system call per message</td></tr>
+<tr><td><strong>Kernel</strong></td><td>Only at setup</td><td>Every send and receive</td></tr>
+<tr><td><strong>Synchronisation</strong></td><td><strong>The programmer's job</strong></td><td>Handled by the OS</td></tr>
+<tr><td><strong>Suits</strong></td><td>Large data, one machine</td><td>Small data, across a network</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Bounded buffer:</strong> empty when <code>in == out</code>; full when <code>(in+1) % BUFFER_SIZE == out</code>; usable capacity <strong>BUFFER_SIZE &minus; 1</strong>.</p>
+
+<p><strong>Three message-passing design questions:</strong> <strong>naming</strong> &mdash; direct (name the process; poor modularity) or indirect (name a mailbox); <strong>synchronisation</strong> &mdash; blocking or non-blocking, with blocking&ndash;blocking called a <strong>rendezvous</strong>; <strong>buffering</strong> &mdash; zero capacity (sender must block), bounded (blocks when full), unbounded (never blocks).</p>
+
+<p><strong>Ordinary pipe:</strong> unidirectional, needs a parent&ndash;child relationship, no file-system name, dies with the processes. <strong>Named pipe (FIFO):</strong> bidirectional, no relationship needed, named via <code>mkfifo()</code>, persists.</p>
+
+<h2>Threads</h2>
+
+<p><strong>Own:</strong> thread ID, program counter, register set, <strong>stack</strong>. <strong>Share:</strong> code, data, heap, open files, signals, address space.</p>
+
+<p><strong>Four benefits:</strong> responsiveness &middot; resource sharing &middot; economy &middot; scalability.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Model</th><th>Advantage</th><th>Disadvantage</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td><strong>Many-to-one</strong></td><td>Fast &mdash; all in user space</td><td><strong>One blocking call blocks the process</strong>; no parallelism</td><td>Green Threads</td></tr>
+<tr><td><strong>One-to-one</strong></td><td>Real concurrency and parallelism</td><td>Kernel-thread creation cost &rarr; a cap on thread count</td><td><strong>Linux, Windows</strong></td></tr>
+<tr><td><strong>Many-to-many</strong></td><td>Both benefits; no artificial limit</td><td>Difficult to implement</td><td>Older Solaris; two-level in IRIX, HP-UX</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Amdahl's law</span>
+  <strong>speed-up &le; 1 / ( S + (1 &minus; S)/N )</strong>, &nbsp; S = serial fraction, N = cores. &nbsp; <strong>Ceiling = 1/S.</strong><br>
+  S = 0.25: N=2 &rarr; 1.6, N=4 &rarr; 2.286, max 4&times;. &nbsp; S = 0.05: N=8 &rarr; 5.93, max 20&times;.<br>
+  <em>Check: the answer must be less than N and less than 1/S.</em>
+</div>
+
+<p><strong>Concurrency</strong> = several tasks make progress (one core suffices). <strong>Parallelism</strong> = several execute at the same instant (needs several cores).</p>
+
+<p><strong>Five multicore challenges:</strong> identifying tasks &middot; balance &middot; data splitting &middot; data dependency &middot; testing and debugging.</p>
+
+<p><strong>Six threading issues:</strong> <code>fork</code>/<code>exec</code> semantics &middot; signal handling &middot; cancellation (asynchronous vs <strong>deferred</strong>, which stops at cancellation points) &middot; thread-local storage &middot; thread pools &middot; scheduler activations with LWPs and upcalls.</p>
+
+<hr class="rule">
+
+<h2>The ten most likely questions</h2>
+
+<ol>
+<li>Define an OS. Explain its functions and services. <span class="tag">L1, L3</span></li>
+<li>Explain the structures of an OS with diagrams; compare monolithic and microkernel. <span class="tag">L2</span></li>
+<li>Explain the types of operating system. <span class="tag">L2</span></li>
+<li>What is a system call? Explain its types with examples. <span class="tag">L4</span></li>
+<li>Draw and explain the process state diagram. What is a PCB? <span class="tag">L5</span></li>
+<li>Differentiate long-term, short-term and medium-term schedulers. <span class="tag">L5</span></li>
+<li>Explain the two models of IPC. Solve the bounded-buffer problem. <span class="tag">L6</span></li>
+<li>Differentiate process and thread. Explain the multithreading models. <span class="tag">L7</span></li>
+<li>Explain dual-mode operation and why a timer is needed. <span class="tag">L1</span></li>
+<li>Explain the system boot process. <span class="tag">L2</span></li>
+</ol>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="unit2-cheat-sheet.html">Unit II sheet &rarr;</a>
+</div>
+
+</div>

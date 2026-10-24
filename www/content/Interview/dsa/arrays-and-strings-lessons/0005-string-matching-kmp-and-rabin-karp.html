@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arrays &amp; Strings Lesson 05 — KMP &amp; Rabin-Karp Pattern Matching</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Arrays &amp; Strings Track · Lesson 5 of 5 · KMP, LPS Array, Rabin-Karp Rolling Hash</div>
+<h1>String Matching: KMP &amp; Rabin-Karp</h1>
+<p class="subtitle">Linear-time substring search without backtracking using deterministic preprocessing.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master foundational data structures from 0 level. This is Lesson 5 of 5 in Arrays &amp; Strings.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<div class="yt-embed">
+  <div class="yt-title">📺 Recommended Lecture</div>
+  <a href="https://www.youtube.com/watch?v=V5-7GzOfCVQ" target="_blank">9.1 Knuth-Morris-Pratt KMP String Matching Algorithm — Abdul Bari</a>
+  <span class="yt-desc">The classic whiteboard explanation of the Longest Prefix Suffix (LPS) table.</span>
+</div>
+
+<h2>1 · The One Idea</h2>
+<p>
+To check if pattern $P$ (length $M$) exists in text $T$ (length $N$), naive brute force compares character by character, resetting back to index 0 on mismatch ($O(N \cdot M)$ worst case). The <strong>Knuth-Morris-Pratt (KMP)</strong> algorithm precomputes an auxiliary <strong>LPS (Longest Proper Prefix which is also a Suffix)</strong> array in $O(M)$ time. When a mismatch occurs, instead of resetting the text pointer backward, KMP skips redundant comparisons using the LPS table, searching in guaranteed <strong>$O(N + M)$ time</strong> with zero text backtracking!
+</p>
+
+<h2>2 · Precomputing the LPS Array</h2>
+<pre><code>public class KMPAlgorithm {
+    public static int[] computeLPS(String pattern) {
+        int m = pattern.length();
+        int[] lps = new int[m];
+        int len = 0; <span class="cmt">// Length of previous longest prefix suffix</span>
+        int i = 1;
+
+        while (i &lt; m) {
+            if (pattern.charAt(i) == pattern.charAt(len)) {
+                len++;
+                lps[i] = len;
+                i++;
+            } else {
+                if (len != 0) {
+                    len = lps[len - 1]; <span class="cmt">// Fall back to shorter prefix</span>
+                } else {
+                    lps[i] = 0;
+                    i++;
+                }
+            }
+        }
+        return lps;
+    }
+
+    public static int search(String text, String pattern) {
+        int[] lps = computeLPS(pattern);
+        int i = 0, j = 0;
+
+        while (i &lt; text.length()) {
+            if (pattern.charAt(j) == text.charAt(i)) {
+                i++;
+                j++;
+            }
+            if (j == pattern.length()) {
+                return i - j; <span class="cmt">// Found match at index!</span>
+            } else if (i &lt; text.length() &amp;&amp; pattern.charAt(j) != text.charAt(i)) {
+                if (j != 0) j = lps[j - 1];
+                else i++;
+            }
+        }
+        return -1;
+    }
+}</code></pre>
+
+<h2>3 · Rabin-Karp: Rolling Hash</h2>
+<p>
+<strong>Rabin-Karp</strong> computes a hash value for the pattern and for each sliding window of length $M$ in the text. By using a <strong>Rolling Hash</strong> (where adding the next character and removing the oldest character takes $O(1)$ math), it checks potential matches in expected $O(N + M)$ time, making it ideal for multi-pattern searching (e.g. plagiarism detection).
+</p>
+
+<h2>Do this next</h2>
+<ul>
+  <li>Track complete! Next track: Linked List Foundations (Singly, Doubly, and LRU Cache from scratch).</li>
+</ul>
+
+<div class="nav">
+  <a href="0004-string-internals-and-stringbuilder.html">← Previous: String Internals</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="../linkedlist-foundations-lessons/0001-singly-and-doubly-linked-lists.html">Next Track: LinkedList Foundations →</a>
+</div>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 15 - Caching Fundamentals | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 15 of 66 · Redis, Memcached, Cache Stampede, Avalanche</div>
+  
+  <h1>Caching Fundamentals</h1>
+  <p class="subtitle">How to make your read latency 100x faster by storing frequently used data in ultra-fast RAM.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module D — Caching</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Reading data from a hard drive or SSD takes milliseconds. Reading data from RAM (memory) takes <strong>nanoseconds to microseconds</strong> — roughly 100 to 1,000 times faster. A <strong>Cache</strong> is a temporary, high-speed in-memory storage layer positioned in front of your database to intercept read queries and return responses instantly without hitting slow disk storage.</p>
+
+  <div class="arch-flow">
+    <div class="box">Client Request</div>
+    <div class="arrow-right"></div>
+    <div class="box">Backend API</div>
+    <div class="arrow-right"></div>
+    <div class="box cache">Redis / Memcached (RAM)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Database (Disk)</div>
+  </div>
+
+  <h2>2 · Cache Hit vs Cache Miss</h2>
+  <ul>
+    <li><strong>Cache Hit:</strong> The requested key is found in cache memory. Returned immediately in &lt; 2ms.</li>
+    <li><strong>Cache Miss:</strong> The key is not in cache. The backend must query the database, write the result into cache for future requests, and return it to the client.</li>
+    <li><strong>Cache Hit Ratio:</strong> <code>Hits / (Hits + Misses)</code>. A healthy system typically aims for &gt; 90% hit ratio.</li>
+  </ul>
+
+  <h2>3 · Redis vs Memcached: Which to Choose?</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Redis</th>
+        <th>Memcached</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Data Structures</strong></td>
+        <td>Rich: Strings, Lists, Sets, Sorted Sets (ZSet), Hashes, Bitmaps, HyperLogLog, Geospatial.</td>
+        <td>Pure Simple Key-Value strings only.</td>
+      </tr>
+      <tr>
+        <td><strong>Thread Model</strong></td>
+        <td>Single-threaded event loop (ultra predictable, no locking overhead).</td>
+        <td>Multi-threaded (scales well across many CPU cores for raw string throughput).</td>
+      </tr>
+      <tr>
+        <td><strong>Persistence to Disk</strong></td>
+        <td>Yes: RDB snapshots and AOF (Append-Only File) logging.</td>
+        <td>No: Pure volatile RAM. Crashes wipe all data.</td>
+      </tr>
+      <tr>
+        <td><strong>Replication &amp; HA</strong></td>
+        <td>Native Master-Replica replication, Redis Sentinel, Redis Cluster.</td>
+        <td>None built-in; must be managed by the client application.</td>
+      </tr>
+      <tr>
+        <td><strong>Verdict</strong></td>
+        <td>Default choice for 95% of modern system designs.</td>
+        <td>Great only for ultra-simple, massive multi-core string caching clusters.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · The 3 Big Cache Failure Modes</h2>
+  <p>Caching introduces specific operational hazards that every engineer must prepare for:</p>
+
+  <h3>1. Cache Penetration</h3>
+  <p>Clients repeatedly query for non-existent keys (e.g., hacker querying user ID <code>-99999</code>). The cache misses every time, and every single request hammers the database directly.</p>
+  <p><strong>Solution:</strong> Use a <strong>Bloom Filter</strong> in front of the cache to instantly check if the key exists, or cache the <code>null</code> value with a short 60-second TTL.</p>
+
+  <h3>2. Cache Breakdown (Hotspot Invalidated)</h3>
+  <p>A super-popular key (e.g., World Cup final score) expires its TTL. In that exact millisecond, 50,000 concurrent requests miss the cache and all hit the database simultaneously.</p>
+  <p><strong>Solution:</strong> Use a distributed mutex lock (e.g., Redis <code>SETNX</code>) so only 1 worker queries the database while the rest wait.</p>
+
+  <h3>3. Cache Avalanche</h3>
+  <p>Thousands of cached keys were created at the same time with the exact same 1-hour TTL. Exactly 1 hour later, all keys expire together, instantly drowning the database in queries.</p>
+  <p><strong>Solution:</strong> Add <strong>random jitter</strong> to your TTLs (e.g., <code>TTL = 3600 + random(0, 300)</code> seconds) so expirations are scattered evenly over time.</p>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Now that you understand where cache sits, how do we write data to it when users update their profiles? Next is Cache Write Policies.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0014-cap-theorem.html">← Previous: CAP Theorem</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0016-cache-write-policies.html">Next: Cache Write Policies →</a>
+  </div>
+</body>
+</html>

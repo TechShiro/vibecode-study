@@ -1,0 +1,183 @@
+<title>Minimum Spanning Trees — Prim's and Kruskal's</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit IV &middot; Lesson 21 of 24</p>
+<h1>Minimum Spanning Trees &mdash; Prim&rsquo;s and Kruskal&rsquo;s</h1>
+<p class="deck">The MST problem, the cut property, Prim&rsquo;s vertex-growing algorithm and Kruskal&rsquo;s edge-sorting algorithm &mdash; both traced step by step &mdash; with time complexities and comparison.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Find MST using Prim&rsquo;s / Kruskal&rsquo;s&rdquo;</strong> is a guaranteed 10-mark numerical. Show edges selected at each step, running weight, and the final MST weight. Know both algorithms and their complexities.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Prim's vs Kruskal's Minimum Spanning Tree Strategy</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Prim's Algorithm (Vertex Cut)</strong><span class="sub">Grows single connected tree from root</span></div>
+      <div class="flow-box">Always adds minimum-weight cut-edge connecting tree to unvisited vertex &bull; Best for dense graphs &bull; O(E log V)</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Kruskal's Algorithm (Edge Forest)</strong><span class="sub">Maintains disjoint forest of trees</span></div>
+      <div class="flow-box">Sorts all edges globally &bull; Adds edge if it doesn't form a cycle using Disjoint Set Union (DSU) &bull; O(E log E)</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 20 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">MST Algorithms</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">3.5 Prim's and Kruskal's Minimum Spanning Tree (MST)</div>
+    <div class="v-desc">Full side-by-side execution on the same graph with cut-property explanation and Disjoint Set Union find/union operations.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=4ZlRH0eK-qQ" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>MST definition</h2>
+<p>A <em class="term">spanning tree</em> of a connected undirected graph is a subgraph that is a tree connecting all vertices. A <em class="term">minimum spanning tree</em> has the least total edge weight.</p>
+
+<h2>Kruskal&rsquo;s algorithm</h2>
+
+<div class="formula">
+  <span class="name">Kruskal&rsquo;s</span>
+  1. Sort all edges by weight (ascending).<br>
+  2. For each edge (in order): if it does <strong>not form a cycle</strong> (check with Union-Find), add it to the MST.<br>
+  3. Stop when MST has V&minus;1 edges.<br><br>
+  <strong>Time: O(E log E)</strong> = O(E log V). Uses Union-Find for cycle detection.
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; Kruskal&rsquo;s</span>
+  <p>Graph: A&ndash;B(4), A&ndash;C(3), B&ndash;C(1), B&ndash;D(2), C&ndash;D(4), C&ndash;E(6), D&ndash;E(5). V=5, need 4 edges.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Edge</th><th>Weight</th><th>Action</th><th>MST edges</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>B&ndash;C</td><td>1</td><td>Add (no cycle)</td><td>{B-C}</td></tr>
+  <tr><td>2</td><td>B&ndash;D</td><td>2</td><td>Add (no cycle)</td><td>{B-C, B-D}</td></tr>
+  <tr><td>3</td><td>A&ndash;C</td><td>3</td><td>Add (no cycle)</td><td>{B-C, B-D, A-C}</td></tr>
+  <tr><td>4</td><td>A&ndash;B</td><td>4</td><td><strong>Skip</strong> (A-B-C cycle)</td><td>&mdash;</td></tr>
+  <tr><td>5</td><td>C&ndash;D</td><td>4</td><td><strong>Skip</strong> (B-C-D cycle)</td><td>&mdash;</td></tr>
+  <tr><td>6</td><td>D&ndash;E</td><td>5</td><td>Add (no cycle)</td><td>{B-C, B-D, A-C, D-E}</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>MST weight = 1 + 2 + 3 + 5 = 11.</strong> 4 edges for 5 vertices &check;.</p>
+</div>
+
+<h2>Prim&rsquo;s algorithm</h2>
+
+<div class="formula">
+  <span class="name">Prim&rsquo;s</span>
+  1. Start with any vertex. MST set = {start}.<br>
+  2. Find the <strong>minimum-weight edge</strong> connecting a vertex in MST to a vertex outside MST.<br>
+  3. Add that edge and vertex to MST.<br>
+  4. Repeat until all vertices are in MST.<br><br>
+  <strong>Time: O(V&sup2;)</strong> with adjacency matrix | <strong>O(E log V)</strong> with binary heap
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; Prim&rsquo;s (start at A)</span>
+  <p>Same graph. MST grows from A:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>MST set</th><th>Min crossing edge</th><th>Add vertex</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>{A}</td><td>A&ndash;C(3)</td><td>C</td></tr>
+  <tr><td>2</td><td>{A, C}</td><td>C&ndash;B(1)</td><td>B</td></tr>
+  <tr><td>3</td><td>{A, C, B}</td><td>B&ndash;D(2)</td><td>D</td></tr>
+  <tr><td>4</td><td>{A, C, B, D}</td><td>D&ndash;E(5)</td><td>E</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>MST edges:</strong> A&ndash;C(3), C&ndash;B(1), B&ndash;D(2), D&ndash;E(5). <strong>Weight = 11 &check;</strong> Same as Kruskal&rsquo;s.</p>
+</div>
+
+<h2>Comparison</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Kruskal&rsquo;s</th><th>Prim&rsquo;s</th></tr></thead>
+<tbody>
+<tr><td><strong>Approach</strong></td><td>Edge-based (sort, add if no cycle)</td><td>Vertex-based (grow from a vertex)</td></tr>
+<tr><td><strong>Best for</strong></td><td>Sparse graphs</td><td>Dense graphs</td></tr>
+<tr><td><strong>Data structure</strong></td><td>Union-Find</td><td>Priority queue / array</td></tr>
+<tr><td><strong>Time</strong></td><td>O(E log V)</td><td>O(V&sup2;) or O(E log V)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. An MST of a graph with V vertices has exactly:</p>
+  <div class="opts">
+    <button class="opt">V edges</button>
+    <button class="opt">E edges</button>
+    <button class="opt">V + 1 edges</button>
+    <button class="opt" data-ok="1">V &minus; 1 edges</button>
+  </div>
+  <p class="why">A tree with V vertices always has V-1 edges. Adding one more would create a cycle.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Kruskal&rsquo;s checks for cycles using:</p>
+  <div class="opts">
+    <button class="opt">Priority queue</button>
+    <button class="opt" data-ok="1">Union-Find (disjoint set) data structure</button>
+    <button class="opt">BFS</button>
+    <button class="opt">Adjacency matrix</button>
+  </div>
+  <p class="why">Union-Find: if two endpoints are in the same set, adding the edge creates a cycle. Nearly O(1) per operation with path compression.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Prim&rsquo;s algorithm with an adjacency matrix runs in:</p>
+  <div class="opts">
+    <button class="opt">O(V + E)</button>
+    <button class="opt">O(E log V)</button>
+    <button class="opt">O(V log V)</button>
+    <button class="opt" data-ok="1">O(V&sup2;)</button>
+  </div>
+  <p class="why">V iterations, each scanning V entries to find the minimum. With a binary heap it improves to O(E log V).</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Kruskal&rsquo;s is better for:</p>
+  <div class="opts">
+    <button class="opt">Weighted DAGs</button>
+    <button class="opt">Directed graphs</button>
+    <button class="opt">Dense graphs</button>
+    <button class="opt" data-ok="1">Sparse graphs (few edges)</button>
+  </div>
+  <p class="why">Kruskal's sorts edges O(E log E). For sparse graphs E is small. Prim's O(V²) is better when E ≈ V².</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Kruskal's algorithm in three lines.</summary>
+    <p class="ans">Sort edges by weight. Add each edge if it doesn't form a cycle (Union-Find). Stop at V-1 edges. O(E log V).</p></details>
+  <details class="card"><summary>Prim's algorithm in three lines.</summary>
+    <p class="ans">Start from any vertex. Always add the minimum-weight crossing edge. Grow until all vertices included. O(V²) or O(E log V).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0020-greedy-method-fractional-knapsack.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0022-huffman-coding.html">Next: Huffman Coding &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

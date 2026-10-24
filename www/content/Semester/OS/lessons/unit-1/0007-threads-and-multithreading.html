@@ -1,0 +1,371 @@
+<title>Threads and Multithreading</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit I &middot; Lesson 7 of 14</p>
+<h1>Threads and Multithreading</h1>
+<p class="deck">Single-threaded and multithreaded processes, what a thread owns and what it shares, the four benefits, user and kernel threads, the three multithreading models, multicore programming, Amdahl's law, and the threading issues.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two certainties. <strong>&ldquo;Differentiate process and thread&rdquo;</strong> &mdash; a table, every year, and the winning line is <em>what is shared versus what is private</em>. <strong>&ldquo;Explain the multithreading models with diagrams&rdquo;</strong> &mdash; three models, three diagrams, one advantage and one disadvantage each. The <strong>four benefits</strong> (responsiveness, resource sharing, economy, scalability) are a 4-mark list you should be able to write without thinking. <strong>Amdahl's law</strong> is the only numerical here, and it is easy marks when it appears.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Process vs Thread Memory Layout & Multithreading Models</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>Shared by all Threads in Process</strong><span class="sub">Code Segment &bull; Data Segment &bull; Open File Descriptors &bull; Heap Memory</span></div>
+    <div class="flow-box ok"><strong>Private per Thread</strong><span class="sub">Thread ID (TID) &bull; Program Counter (PC) &bull; Register Set &bull; Private Stack</span></div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>Many-to-One:</strong> User-level threads mapped to 1 kernel thread (blocking call blocks all)</div>
+    <div class="flow-box highlight"><strong>One-to-One (Linux):</strong> 1:1 mapping with kernel threads (true multicore parallelism)</div>
+    <div class="flow-box"><strong>Many-to-Many:</strong> M user threads multiplexed over N kernel threads</div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Threads & Multithreading</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Threads in Operating System & Multithreading Models Explained</div>
+    <div class="v-desc">Details why context switching threads is orders of magnitude faster than processes and breaks down Many-to-One, One-to-One, and Many-to-Many.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=v4RDTSgTBNc" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>What a thread is</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>thread</strong> is a <strong>basic unit of CPU utilisation</strong>. It comprises a <strong>thread ID, a program counter, a register set and a stack</strong>.<br><br>
+  It <strong>shares with other threads of the same process</strong>: the <strong>code section, the data section, and other OS resources such as open files and signals</strong>.<br><br>
+  A thread is also called a <strong>lightweight process (LWP)</strong>; a traditional process is a <strong>heavyweight process</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Each thread has its <strong>own</strong></th><th>All threads of a process <strong>share</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Thread ID</strong></td><td><strong>Code (text) section</strong></td></tr>
+<tr><td><strong>Program counter</strong></td><td><strong>Data section</strong> &mdash; globals and statics</td></tr>
+<tr><td><strong>Register set</strong></td><td><strong>Heap</strong></td></tr>
+<tr><td><strong>Stack</strong></td><td><strong>Open files, signals, address space</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The sentence that answers half the questions on this topic</span>
+  <p><strong>A thread owns exactly what it needs to execute independently &mdash; PC, registers, stack &mdash; and shares everything else.</strong> That is why creating a thread is cheap, why switching between threads is cheap, and why threads need synchronisation while separate processes do not.</p>
+</div>
+
+<h3>Single-threaded and multithreaded processes</h3>
+
+<p>A <strong>single-threaded</strong> process has one program counter and performs one task at a time. A <strong>multithreaded</strong> process has several program counters within the same address space, so it can perform several tasks at once.</p>
+
+<p>Examples worth quoting: a <strong>web browser</strong> displays images and text in one thread while retrieving data over the network in another; a <strong>word processor</strong> runs a display thread, a keystroke thread and a background spell-checking thread; a <strong>web server</strong> creates a thread per client request rather than a process per request.</p>
+
+<h2>Process vs thread &mdash; the table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Process</strong></th><th><strong>Thread</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Also called</strong></td><td>Heavyweight process</td><td>Lightweight process</td></tr>
+<tr><td><strong>Address space</strong></td><td>Its own, separate</td><td><strong>Shared</strong> with sibling threads</td></tr>
+<tr><td><strong>Creation cost</strong></td><td>High &mdash; must allocate memory and resources</td><td><strong>Low</strong> &mdash; roughly 30 times cheaper on Solaris</td></tr>
+<tr><td><strong>Context switch</strong></td><td>Expensive &mdash; must switch the address space, flush TLB</td><td><strong>Cheap</strong> &mdash; roughly 5 times cheaper; no address-space switch</td></tr>
+<tr><td><strong>Communication</strong></td><td>Needs IPC &mdash; shared memory or messages</td><td>Direct, through shared variables</td></tr>
+<tr><td><strong>Isolation</strong></td><td><strong>Strong</strong> &mdash; one crashing process does not kill the others</td><td><strong>None</strong> &mdash; one thread crashing kills the whole process</td></tr>
+<tr><td><strong>Synchronisation needed</strong></td><td>Only if data is deliberately shared</td><td><strong>Always</strong>, since data is shared by default</td></tr>
+<tr><td><strong>Blocking</strong></td><td>Blocking one process does not block others</td><td>Depends on the model &mdash; see many-to-one below</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Benefits of multithreading &mdash; the four-mark list</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Benefit</th><th>Explanation</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Responsiveness</strong></td><td>An interactive application keeps running even if part of it is blocked or performing a long operation &mdash; the browser stays usable while an image downloads</td></tr>
+<tr><td><strong>2. Resource sharing</strong></td><td>Threads share the memory and resources of their process <strong>by default</strong>, with no explicit arrangement &mdash; unlike processes, which need shared memory or message passing set up</td></tr>
+<tr><td><strong>3. Economy</strong></td><td>Allocating memory and resources for process creation is costly; threads share them, so creating and context-switching threads is far cheaper</td></tr>
+<tr><td><strong>4. Scalability</strong></td><td>On a <strong>multiprocessor</strong> architecture, threads may run in parallel on different cores. A single-threaded process can only ever use one core, however many exist</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>User threads and kernel threads</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>User-level threads</strong></th><th><strong>Kernel-level threads</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Managed by</strong></td><td>A <strong>thread library in user space</strong>, above the kernel</td><td>The <strong>operating system kernel</strong> directly</td></tr>
+<tr><td><strong>Kernel's awareness</strong></td><td>The kernel does not know they exist</td><td>The kernel knows and schedules each one</td></tr>
+<tr><td><strong>Creation and switching</strong></td><td><strong>Very fast</strong> &mdash; no system call, no mode switch</td><td>Slower &mdash; every operation is a system call</td></tr>
+<tr><td><strong>If one thread blocks</strong></td><td><strong>The whole process blocks</strong>, since the kernel sees only one schedulable entity</td><td>Only that thread blocks; the others keep running</td></tr>
+<tr><td><strong>True parallelism on multi-core</strong></td><td><strong>No</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Portability</strong></td><td>High &mdash; the library is portable</td><td>Lower &mdash; OS specific</td></tr>
+<tr><td><strong>Examples</strong></td><td>POSIX Pthreads (as a library), Java threads, Windows fibres</td><td>Windows threads, Linux tasks, Solaris</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Three <strong>thread libraries</strong> to name: <strong>POSIX Pthreads</strong> (a specification, implemented at user or kernel level), <strong>Windows threads</strong> (kernel level), and <strong>Java threads</strong> (implemented using whatever the host OS provides).</p>
+
+<h2>Multithreading models &mdash; draw all three</h2>
+
+<p>The models answer one question: <strong>how are user threads mapped onto kernel threads?</strong></p>
+
+<h3>1. Many-to-one</h3>
+
+<div class="formula">
+  <span class="name">Many-to-one</span>
+  U &nbsp; U &nbsp; U &nbsp; U &nbsp;&larr; user threads<br>
+  \ &nbsp; | &nbsp; | &nbsp; /<br>
+  <strong>K</strong> &nbsp;&larr; a single kernel thread
+</div>
+
+<p>Many user threads mapped to one kernel thread. Thread management is done by the library in user space, so it is <strong>efficient</strong>.</p>
+
+<ul>
+<li><strong>Advantage:</strong> thread creation and switching are very fast &mdash; entirely in user space.</li>
+<li><strong>Disadvantage 1:</strong> <strong>a single blocking system call blocks the entire process.</strong></li>
+<li><strong>Disadvantage 2:</strong> <strong>no true parallelism</strong> &mdash; only one thread can access the kernel at a time, so multiple cores are useless.</li>
+<li><em>Examples:</em> Solaris Green Threads, GNU Portable Threads. Few systems still use it.</li>
+</ul>
+
+<h3>2. One-to-one</h3>
+
+<div class="formula">
+  <span class="name">One-to-one</span>
+  U &nbsp;&nbsp; U &nbsp;&nbsp; U &nbsp;&nbsp; U &nbsp;&larr; user threads<br>
+  | &nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp; |<br>
+  <strong>K</strong> &nbsp;&nbsp; <strong>K</strong> &nbsp;&nbsp; <strong>K</strong> &nbsp;&nbsp; <strong>K</strong> &nbsp;&larr; one kernel thread each
+</div>
+
+<p>Each user thread gets its own kernel thread.</p>
+
+<ul>
+<li><strong>Advantage 1:</strong> more <strong>concurrency</strong> &mdash; when one thread blocks, another runs.</li>
+<li><strong>Advantage 2:</strong> <strong>true parallelism</strong> on multiprocessors.</li>
+<li><strong>Disadvantage:</strong> creating a user thread means creating a kernel thread, and <strong>the overhead of creating kernel threads can burden performance</strong>. Most implementations therefore <strong>restrict the number of threads</strong> supported.</li>
+<li><em>Examples:</em> <strong>Linux, Windows</strong> &mdash; that is, almost everything modern.</li>
+</ul>
+
+<h3>3. Many-to-many</h3>
+
+<div class="formula">
+  <span class="name">Many-to-many</span>
+  U &nbsp; U &nbsp; U &nbsp; U &nbsp; U &nbsp;&larr; many user threads<br>
+  \ &nbsp; \ &nbsp; | &nbsp; / &nbsp; /<br>
+  <strong>K</strong> &nbsp;&nbsp;&nbsp; <strong>K</strong> &nbsp;&nbsp;&nbsp; <strong>K</strong> &nbsp;&larr; a smaller number of kernel threads
+</div>
+
+<p>Multiplexes many user threads onto a <strong>smaller or equal</strong> number of kernel threads. The developer may create as many user threads as necessary, and the corresponding kernel threads can run in parallel.</p>
+
+<ul>
+<li><strong>Advantage:</strong> combines both benefits &mdash; no artificial limit on user threads, <strong>and</strong> real concurrency, since blocking one thread lets the kernel schedule another.</li>
+<li><strong>Disadvantage:</strong> <strong>difficult to implement</strong>; and because most systems now have many cores, the effort of limiting kernel threads has stopped being worthwhile.</li>
+<li><em>Variant &mdash; the two-level model:</em> like many-to-many, but it <strong>also allows a user thread to be bound to a kernel thread</strong>. Examples: IRIX, HP-UX, older Solaris.</li>
+</ul>
+
+<h2>Multicore programming</h2>
+
+<p>Placing several computing cores on a single chip. Two words must be kept apart:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th><strong>Concurrency</strong></th><th><strong>Parallelism</strong></th></tr></thead>
+<tbody>
+<tr><td>More than one task can make <strong>progress</strong></td><td>More than one task is executed <strong>at the same instant</strong></td></tr>
+<tr><td>Possible on a <strong>single core</strong>, by interleaving</td><td>Requires <strong>multiple cores</strong></td></tr>
+<tr><td>Every parallel system is concurrent</td><td>Not every concurrent system is parallel</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Five challenges of multicore programming</strong> &mdash; a clean 5-mark list:</p>
+
+<ol>
+<li><strong>Identifying tasks</strong> &mdash; finding areas that can be divided into separate, concurrent tasks.</li>
+<li><strong>Balance</strong> &mdash; making sure the tasks do equal work of equal value, or a core will idle.</li>
+<li><strong>Data splitting</strong> &mdash; dividing the data the tasks operate on across the cores.</li>
+<li><strong>Data dependency</strong> &mdash; where one task depends on another's data, execution must be synchronised.</li>
+<li><strong>Testing and debugging</strong> &mdash; far harder than for single-threaded code, since execution paths are many and timing-dependent.</li>
+</ol>
+
+<p>Two kinds of parallelism: <strong>data parallelism</strong> distributes subsets of the <em>same data</em> across cores, each doing the <em>same operation</em> (summing halves of an array); <strong>task parallelism</strong> distributes <em>different threads doing different operations</em> across cores.</p>
+
+<h2>Numerical &mdash; Amdahl's law</h2>
+
+<div class="formula">
+  <span class="name">Amdahl's law</span>
+  <strong>speed-up &le; 1 / ( S + (1 &minus; S) / N )</strong><br><br>
+  where <strong>S</strong> is the fraction of the program that is <strong>strictly serial</strong> and <strong>N</strong> is the number of processing cores.<br>
+  As <strong>N &rarr; &infin;</strong>, the speed-up approaches <strong>1 / S</strong> &mdash; the hard ceiling.
+</div>
+
+<div class="solve">
+  <span class="lbl">Q1. An application is 75 % parallel and 25 % serial. Find the speed-up on 2 cores and on 4 cores, and the maximum possible speed-up.</span>
+  <p>Here <strong>S = 0.25</strong> and 1 &minus; S = 0.75.</p>
+  <p><strong>N = 2:</strong> &nbsp; speed-up = 1 / (0.25 + 0.75/2) = 1 / (0.25 + 0.375) = 1 / 0.625 = <strong>1.6</strong></p>
+  <p><strong>N = 4:</strong> &nbsp; speed-up = 1 / (0.25 + 0.75/4) = 1 / (0.25 + 0.1875) = 1 / 0.4375 = <strong>2.286</strong></p>
+  <p><strong>N &rarr; &infin;:</strong> &nbsp; speed-up &rarr; 1 / S = 1 / 0.25 = <strong>4</strong></p>
+  <p><em>Reading:</em> doubling from 2 cores to 4 gains only 0.69, and <strong>no number of cores can ever beat 4&times;</strong>. That ceiling is the entire lesson of Amdahl's law: <strong>the serial fraction, not the core count, sets the limit.</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q2. A program has a 5 % serial portion. What speed-up is achievable on 8 cores, and what is the theoretical maximum?</span>
+  <p><strong>S = 0.05</strong>, N = 8.</p>
+  <p>speed-up = 1 / (0.05 + 0.95/8) = 1 / (0.05 + 0.11875) = 1 / 0.16875 = <strong>5.926</strong></p>
+  <p>Maximum = 1 / 0.05 = <strong>20&times;</strong></p>
+  <p><em>Sanity check:</em> the speed-up must always be <strong>less than N</strong> and <strong>less than 1/S</strong>. Here 5.93 &lt; 8 and 5.93 &lt; 20. Both hold. If your answer ever exceeds N, you have inverted the formula.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q3 &mdash; the reverse question. How much of a program must be parallelisable to achieve a 10&times; speed-up on 16 cores?</span>
+  <p>Let the parallel fraction be P, so S = 1 &minus; P. We need</p>
+  <p>10 = 1 / ((1 &minus; P) + P/16) &nbsp;&rArr;&nbsp; (1 &minus; P) + P/16 = 0.1</p>
+  <p>1 &minus; P + 0.0625P = 0.1 &nbsp;&rArr;&nbsp; 1 &minus; 0.9375P = 0.1 &nbsp;&rArr;&nbsp; 0.9375P = 0.9</p>
+  <p><strong>P = 0.96</strong> &mdash; the program must be <strong>96 % parallel</strong>, leaving only 4 % serial.</p>
+  <p><em>Reading:</em> a 4 % serial fraction already caps you at 25&times; whatever the hardware. Getting to a 10&times; real speed-up therefore demands near-total parallelisation &mdash; which is why writing parallel software is hard, and why the question is worth asking on an exam.</p>
+</div>
+
+<h2>Threading issues</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Issue</th><th>The problem</th><th>Resolution</th></tr></thead>
+<tbody>
+<tr><td><strong><code>fork()</code> and <code>exec()</code> semantics</strong></td><td>If a thread in a multithreaded process calls <code>fork()</code>, does the new process duplicate <strong>all</strong> threads or only the calling one?</td><td>UNIX provides <strong>both versions</strong>. If <code>exec()</code> is called immediately after, duplicating only the calling thread is right, since everything is about to be replaced anyway</td></tr>
+<tr><td><strong>Signal handling</strong></td><td>Which thread of a multithreaded process should receive a signal?</td><td>Four options: deliver to <strong>the thread the signal applies to</strong>; to <strong>every thread</strong>; to <strong>certain threads</strong>; or to a designated <strong>specific thread</strong> that handles all signals. Synchronous signals (divide by zero) go to the causing thread; asynchronous ones (Ctrl-C) to any or all</td></tr>
+<tr><td><strong>Thread cancellation</strong></td><td>Terminating a thread before it finishes &mdash; the <em>target thread</em></td><td><strong>Asynchronous cancellation:</strong> terminate it immediately &mdash; risks leaving shared data inconsistent and resources unfreed. <strong>Deferred cancellation:</strong> the target checks periodically at <em>cancellation points</em> whether it should stop &mdash; safer, and the default</td></tr>
+<tr><td><strong>Thread-local storage (TLS)</strong></td><td>A thread sometimes needs its <em>own</em> copy of certain data, not the shared version &mdash; a transaction ID, for instance</td><td>TLS gives each thread private data that persists across function calls. Distinguish it from local variables, which vanish when the function returns</td></tr>
+<tr><td><strong>Thread pools</strong></td><td>Creating a thread per request is costly and unbounded &mdash; a server could be overwhelmed</td><td>Create a <strong>pool</strong> of threads at start-up that wait for work. Faster (the thread already exists) and it <strong>bounds</strong> the number of threads</td></tr>
+<tr><td><strong>Scheduler activations</strong></td><td>In many-to-many models, the user library and the kernel must communicate</td><td>The kernel gives the application a set of virtual processors (<strong>LWPs</strong>) and notifies it of events by <strong>upcalls</strong>, handled by an upcall handler in the library</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Which of these is NOT shared between threads of the same process?</p>
+  <div class="opts">
+    <button class="opt">The data section</button>
+    <button class="opt">The code section</button>
+    <button class="opt">Open files</button>
+    <button class="opt" data-ok="1">The stack</button>
+  </div>
+  <p class="why">Each thread has its own thread ID, program counter, register set and stack. Everything else — code, data, heap, files, signals — is shared.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the many-to-one model, a blocking system call:</p>
+  <div class="opts">
+    <button class="opt">Is converted into a non-blocking call</button>
+    <button class="opt">Blocks only the calling thread</button>
+    <button class="opt" data-ok="1">Blocks the entire process</button>
+    <button class="opt">Causes a context switch to another process only</button>
+  </div>
+  <p class="why">The kernel sees just one schedulable entity, so it has no way to run the other user threads. That, plus the absence of real parallelism, is why the model has largely died out.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The main drawback of the one-to-one model is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The overhead of creating a kernel thread per user thread, which forces a cap on thread count</button>
+    <button class="opt">It cannot be implemented on Linux</button>
+    <button class="opt">It gives no parallelism</button>
+    <button class="opt">A blocking call stops the whole process</button>
+  </div>
+  <p class="why">One-to-one is what Linux and Windows actually use. Its cost is that every user thread is a kernel object, so most implementations restrict how many you may create.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A program is 90 % parallel. Its maximum speed-up, on any number of cores, is:</p>
+  <div class="opts">
+    <button class="opt">90×</button>
+    <button class="opt">9×</button>
+    <button class="opt">Unbounded</button>
+    <button class="opt" data-ok="1">10×</button>
+  </div>
+  <p class="why">S = 0.10, so the ceiling is 1/S = 10. On 8 cores you would get 1/(0.1 + 0.9/8) = 4.71 — still well short of the ceiling.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Deferred cancellation is safer than asynchronous cancellation because:</p>
+  <div class="opts">
+    <button class="opt">It terminates the thread faster</button>
+    <button class="opt">It never actually cancels the thread</button>
+    <button class="opt">It converts the thread into a process</button>
+    <button class="opt" data-ok="1">The target thread stops only at a cancellation point, so shared data is left consistent</button>
+  </div>
+  <p class="why">Killing a thread mid-update can leave shared structures half-written and resources unreleased. Deferred cancellation lets the thread choose a safe moment.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Concurrency without parallelism means:</p>
+  <div class="opts">
+    <button class="opt">The system has no scheduler</button>
+    <button class="opt">Only one task ever makes progress</button>
+    <button class="opt">Several tasks execute at literally the same instant</button>
+    <button class="opt" data-ok="1">Several tasks make progress by interleaving on a single core</button>
+  </div>
+  <p class="why">Parallelism needs multiple cores; concurrency only needs interleaving. Every parallel system is concurrent, but not the reverse.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A thread pool improves on creating a thread per request because it:</p>
+  <div class="opts">
+    <button class="opt">Removes the need for synchronisation</button>
+    <button class="opt">Converts user threads into kernel threads</button>
+    <button class="opt" data-ok="1">Is faster to service a request and bounds the total number of threads</button>
+    <button class="opt">Allows unlimited concurrent requests</button>
+  </div>
+  <p class="why">The thread already exists, so there is no creation cost, and the pool size caps how many threads can ever exist — which protects the server from being overwhelmed.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a thread, and say exactly what it owns and what it shares.</summary>
+    <p class="ans">A thread is a basic unit of CPU utilisation, comprising a thread ID, program counter, register set and stack. It shares the code section, data section, heap and other OS resources such as open files and signals with the other threads of its process. It is also called a lightweight process.</p></details>
+  <details class="card"><summary>Compare process and thread on six points.</summary>
+    <p class="ans">Address space: separate vs shared. Creation cost: high vs low. Context switch: expensive vs cheap. Communication: needs IPC vs direct through shared variables. Isolation: strong vs none, since one thread crashing kills the process. Synchronisation: only when data is deliberately shared vs always.</p></details>
+  <details class="card"><summary>Give the four benefits of multithreading.</summary>
+    <p class="ans">Responsiveness — the application keeps running while part of it blocks. Resource sharing — threads share memory and resources by default. Economy — creation and context switching are far cheaper than for processes. Scalability — threads can run in parallel on multiple cores, which a single-threaded process never can.</p></details>
+  <details class="card"><summary>Compare user-level and kernel-level threads.</summary>
+    <p class="ans">User-level threads are managed by a library above the kernel, are very fast to create and switch, are portable, but block the whole process on a blocking call and give no true parallelism. Kernel-level threads are managed and scheduled by the OS, are slower because every operation is a system call, but block only themselves and can run in parallel on multiple cores.</p></details>
+  <details class="card"><summary>Describe the three multithreading models with one advantage and one disadvantage each.</summary>
+    <p class="ans">Many-to-one: efficient user-space management, but one blocking call stops the process and there is no parallelism. One-to-one: real concurrency and parallelism, but a kernel thread per user thread is costly, so the count is capped; used by Linux and Windows. Many-to-many: combines both benefits with no artificial limit, but is difficult to implement; the two-level model additionally allows binding a user thread to a kernel thread.</p></details>
+  <details class="card"><summary>Distinguish concurrency from parallelism, and name the five multicore challenges.</summary>
+    <p class="ans">Concurrency means several tasks make progress, possible by interleaving on one core; parallelism means they execute at the same instant, requiring multiple cores. The challenges are identifying tasks, balance, data splitting, data dependency, and testing and debugging.</p></details>
+  <details class="card"><summary>State Amdahl's law and its consequence.</summary>
+    <p class="ans">speed-up &le; 1 / (S + (1 − S)/N), where S is the serial fraction and N the number of cores. As N grows without bound the speed-up approaches 1/S, so the serial fraction — not the core count — sets the ceiling. A 25 % serial program can never beat 4&times;.</p></details>
+  <details class="card"><summary>Name the six threading issues.</summary>
+    <p class="ans">fork() and exec() semantics, signal handling, thread cancellation (asynchronous vs deferred), thread-local storage, thread pools, and scheduler activations with LWPs and upcalls.</p></details>
+</div>
+
+<p class="ask">That completes Unit I. Unit II opens with the subject's guaranteed numerical &mdash; CPU scheduling.</p>
+
+<div class="nav">
+  <a href="0006-interprocess-communication.html">&larr; IPC</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-2/0008-cpu-scheduling-concepts.html">Next: CPU Scheduling Concepts &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

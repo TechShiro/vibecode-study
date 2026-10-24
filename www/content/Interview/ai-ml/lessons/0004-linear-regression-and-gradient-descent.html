@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 04 – Linear Regression & Gradient Descent</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module B · Lesson 4 of 17 · Classical Machine Learning</div>
+  <h1>Linear Regression & Gradient Descent</h1>
+  <p class="subtitle">The fundamental supervised learning algorithm: analytical closed-form Normal Equations vs iterative numerical optimization.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Classical Machine Learning</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Linear Regression models the relationship between independent input features <code>X</code> and a continuous target variable <code>y</code> as a linear equation: <code>y_pred = Xw + b</code>. To find the optimal weights <code>w</code> and bias <code>b</code>, we minimize the <strong>Mean Squared Error (MSE)</strong> cost function. We can solve this either mathematically in one shot via the <strong>Normal Equation</strong>, or iteratively step-by-step using <strong>Gradient Descent</strong> (which scales to billions of records).</p>
+
+  <h2>2 · Mathematical Formulation</h2>
+  <p>Given <em>N</em> training examples with <em>D</em> features:</p>
+  <ul>
+    <li><strong>Hypothesis:</strong> <code>y&#770; = w<sub>1</sub>x<sub>1</sub> + w<sub>2</sub>x<sub>2</sub> + ... + w<sub>D</sub>x<sub>D</sub> + b = Xw</code> (with bias absorbed into <em>X</em>).</li>
+    <li><strong>Cost Function (MSE / L2 Loss):</strong>
+      <br><code>J(w) = (1 / 2N) &sum;<sub>i=1..N</sub> (y&#770;<sup>(i)</sup> - y<sup>(i)</sup>)<sup>2</sup> = (1 / 2N) ||Xw - y||<sup>2</sup></code>
+    </li>
+    <li><strong>Analytical Closed-Form (The Normal Equation):</strong>
+      <br>Setting gradient &nabla;J(w) = 0 yields: <code>w* = (X<sup>T</sup>X)<sup>-1</sup> X<sup>T</sup>y</code>.
+      <br><em>Limitation:</em> Matrix inversion of <code>X<sup>T</sup>X</code> takes $O(D^3)$ time—computationally infeasible when features $D > 10,000$.
+    </li>
+  </ul>
+
+  <h2>3 · Optimization: Gradient Descent Variants</h2>
+  <p>Instead of inverting large matrices, Gradient Descent takes iterative steps proportional to the negative of the cost function's gradient:</p>
+  <p><code>w &larr; w - &alpha; &nabla;J(w)</code> where <code>&nabla;J(w) = (1/N) X<sup>T</sup>(Xw - y)</code> and <code>&alpha;</code> is the Learning Rate.</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr><th>Variant</th><th>Batch Size</th><th>Pros</th><th>Cons</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Batch GD</strong></td><td>Entire Dataset (N)</td><td>Guaranteed monotonic convergence to global minimum.</td><td>Very slow on large datasets; cannot fit in RAM.</td></tr>
+      <tr><td><strong>Stochastic GD (SGD)</strong></td><td>1 sample</td><td>Extremely fast; can escape shallow local minima.</td><td>High variance, oscillates wildly around minimum.</td></tr>
+      <tr><td><strong>Mini-Batch GD</strong></td><td>32 to 512 samples</td><td><strong>Industry standard</strong>: GPU parallelizable via SIMD, stable convergence.</td><td>Requires tuning batch size hyperparameter.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Complete NumPy Implementation from Scratch</h2>
+  <pre><code>import numpy as np
+
+class LinearRegressionScratch:
+    def __init__(self, learning_rate=0.01, epochs=1000):
+        self.lr = learning_rate
+        self.epochs = epochs
+        self.weights = None
+        self.bias = None
+        self.loss_history = []
+
+    def fit(self, X, y):
+        n_samples, n_features = X.shape
+        self.weights = np.zeros(n_features)
+        self.bias = 0.0
+
+        for epoch in range(self.epochs):
+            # 1. Forward Pass (Prediction)
+            y_pred = np.dot(X, self.weights) + self.bias
+            
+            # 2. Compute MSE Loss
+            loss = (1 / (2 * n_samples)) * np.sum((y_pred - y) ** 2)
+            self.loss_history.append(loss)
+
+            # 3. Compute Gradients
+            dw = (1 / n_samples) * np.dot(X.T, (y_pred - y))
+            db = (1 / n_samples) * np.sum(y_pred - y)
+
+            # 4. Gradient Descent Update
+            self.weights -= self.lr * dw
+            self.bias -= self.lr * db
+
+    def predict(self, X):
+        return np.dot(X, self.weights) + self.bias
+
+# Verification on synthetic data
+X = 2 * np.random.rand(100, 1)
+y = 4 + 3 * X.squeeze() + np.random.randn(100) * 0.2  # True w=3, b=4
+
+model = LinearRegressionScratch(learning_rate=0.1, epochs=500)
+model.fit(X, y)
+print(f"Learned Weight: {model.weights[0]:.3f} (True: 3.0) | Bias: {model.bias:.3f} (True: 4.0)")</code></pre>
+
+  <h2>5 · Regularization: Ridge vs Lasso</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">L2</div>
+      <h3>Ridge Regression</h3>
+      <p>Adds squared magnitude penalty: <code>&lambda; &sum; w<sub>j</sub><sup>2</sup></code>. Shrinks weight coefficients smoothly towards zero, preventing multicollinearity without completely removing features.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">L1</div>
+      <h3>Lasso Regression</h3>
+      <p>Adds absolute magnitude penalty: <code>&lambda; &sum; |w<sub>j</sub>|</code>. Drives unimportant feature weights <strong>exactly to zero</strong>, acting as an automatic feature selection mechanism.</p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0003-dimensionality-reduction-pca-tsne-umap.html">← Lesson 03: Dimensionality Reduction</a>
+    <a href="0005-logistic-regression-and-classification-metrics.html">Lesson 05: Logistic Regression & Classification Metrics →</a>
+  </nav>
+</body>
+</html>

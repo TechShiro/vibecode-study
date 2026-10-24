@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 01 – Architecture & ANSI-SPARC 3-Tier Model</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module A · Lesson 1 of 17 · Architecture & Data Independence</div>
+  <h1>DBMS Architecture & ANSI-SPARC 3-Tier Model</h1>
+  <p class="subtitle">Why traditional file systems fail at scale and how 3-tier abstraction guarantees physical and logical data independence.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module A – Foundations & Modeling</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Before Database Management Systems, computer applications saved records directly into flat files (CSV, binary structs). This caused catastrophic real-world failures: <strong>data redundancy</strong> (duplication across departments), <strong>data inconsistency</strong> (updating an address in one file but not another), <strong>lack of concurrent access coordination</strong> (two users overwriting the same bank record simultaneously), and <strong>absence of crash recovery</strong>. A DBMS is a specialized software engine that sits between user applications and the physical storage hardware, providing a declarative interface (SQL), ACID guarantees, and abstracting data representation through the <strong>ANSI-SPARC 3-Tier Architecture</strong>.</p>
+
+  <div class="arch-flow">
+    <div class="box">External Level (User Views)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Logical / Conceptual Level (Tables & Relationships)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Internal / Physical Level (Pages, B+ Trees, Storage)</div>
+  </div>
+
+  <h2>2 · File System vs DBMS</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Criterion</th><th>File Processing System</th><th>Database Management System (DBMS)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Data Redundancy</strong></td><td>High; each department keeps separate duplicate files.</td><td>Controlled and normalized; single source of truth.</td></tr>
+      <tr><td><strong>Concurrency Control</strong></td><td>Coarse; entire file locked or prone to lost updates.</td><td>Fine-grained; row/page-level locks, MVCC transactions.</td></tr>
+      <tr><td><strong>Crash Recovery</strong></td><td>Manual backups; intermediate crashed writes corrupt files.</td><td>Automatic recovery via Write-Ahead Logging (WAL) & ARIES.</td></tr>
+      <tr><td><strong>Data Abstraction</strong></td><td>Zero; app code must parse byte offsets and record lengths.</td><td>High; declarative SQL queries independent of physical storage.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The ANSI-SPARC 3-Level Architecture</h2>
+  <p>Introduced in 1975 by the American National Standards Institute, this architecture separates user views from the underlying hardware storage to achieve <strong>Data Independence</strong>:</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">Level 1</div>
+      <h3>External Level (View Level)</h3>
+      <p>The individual user or application view. A customer support rep only sees customer names and tickets, while an accountant sees billing ledgers. Different users see customized subsets of data while hiding sensitive columns.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Level 2</div>
+      <h3>Conceptual / Logical Level</h3>
+      <p>The community-wide view of the database. Defines <strong>WHAT</strong> data is stored: entities, attributes, primary/foreign keys, and integrity constraints. It is independent of disk hardware and operating system specifics.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Level 3</div>
+      <h3>Internal / Physical Level</h3>
+      <p>Describes <strong>HOW</strong> data is physically stored on persistent media: disk page layout (4KB/8KB/16KB), record formats (slotted pages), index types (B+ trees, hash tables), compression codecs, and encryption.</p>
+    </div>
+  </div>
+
+  <h2>4 · Data Independence: Logical vs Physical</h2>
+  <p>The ultimate power of the 3-tier architecture is allowing changes at one level without breaking the level above it:</p>
+
+  <div class="callout info">
+    <h4>Logical Data Independence</h4>
+    <p>The ability to modify the <strong>Conceptual Schema</strong> (e.g., splitting a table <code>Employees</code> into <code>EmployeeInfo</code> and <code>EmployeeSalary</code>, or adding a new attribute) without modifying existing <strong>External Views</strong> or application code. External views are simply updated to map to the new schema.</p>
+  </div>
+
+  <div class="callout warning">
+    <h4>Physical Data Independence</h4>
+    <p>The ability to modify the <strong>Internal / Physical Schema</strong> (e.g., migrating from HDD to NVMe SSD, adding a secondary B+ Tree index, changing compression from Snappy to ZSTD, or reorganizing clustered storage) without altering the <strong>Conceptual Schema</strong> or breaking application SQL queries.</p>
+  </div>
+
+  <h2>5 · High-Level DBMS Engine Anatomy</h2>
+  <p>A modern production DBMS engine (PostgreSQL, MySQL InnoDB, SQLite) contains two cooperating subsystems:</p>
+  <ul>
+    <li><strong>Query Processor</strong>: Parser (creates AST) &rarr; Query Optimizer (cost-based plan generator) &rarr; Execution Engine (Volcano iterator tree).</li>
+    <li><strong>Storage Engine</strong>: Buffer Pool Manager (caches disk pages in RAM) &rarr; Concurrency Control / Lock Manager &rarr; Log Manager (WAL for crash durability) &rarr; Data File Manager.</li>
+  </ul>
+
+  <nav class="bottom-nav">
+    <a href="../INDEX.md">← Course Index</a>
+    <a href="0002-er-modeling-and-relational-mapping.html">Lesson 02: ER Modeling & Relational Mapping →</a>
+  </nav>
+</body>
+</html>

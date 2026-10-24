@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trie Lesson 01 — Trie Basics</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Trie Track · Lesson 1 of 2 · the prefix tree: insert, search, startsWith</div>
+<h1>Trie (Prefix Tree) — Basics</h1>
+<p class="subtitle">A tree where each edge is a letter and each root-to-node path is a prefix — so any prefix question about a dictionary of any size costs O(word length), not O(dictionary size).</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "implement Trie" and its wildcard/dictionary variants are staple OA questions, and the
+  structure unlocks two famous hard problems in Lesson 2. This is Lesson 1 of the 2-lesson trie track.
+  <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Store a dictionary as a tree keyed by characters: the root is the empty string, and following edges
+<code>c → a → t</code> lands on the node representing prefix <code>"cat"</code>. Words sharing a prefix
+<strong>share that path</strong> — that's the compression and the power. Any operation phrased "…with this prefix"
+walks one path of length L, so insert, exact search, and prefix search are all <strong>O(L)</strong>, no matter
+whether the trie holds ten words or ten million. A boolean <code>isEnd</code> on a node marks "a whole word ends
+here," distinguishing the word <code>"car"</code> from the mere prefix <code>"car"</code> inside
+<code>"carpet"</code>.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Prefix", "starts with", autocomplete, dictionary lookups repeated many times, "search many words in one
+  structure/grid", "shortest root/replace words". If you're about to loop
+  <code>for (String w : dict) if (w.startsWith(p))</code> — that O(N·L) scan is the trie's cue. (Bit trick: treating
+  numbers as 30-bit strings gives a <em>binary trie</em> for max-XOR — Lesson 2.)
+</div>
+
+<h2>2 · Core template — Implement Trie (LC 208)</h2>
+<p>
+The node holds a <code>children</code> array indexed by <code>c - 'a'</code> and the <code>isEnd</code> flag.
+All three operations are the same walk: follow child links one character at a time, creating nodes (insert) or
+returning false on a missing link (search/startsWith).
+</p>
+<pre><code>class Trie {
+    static class TrieNode {
+        TrieNode[] children = new TrieNode[26]; <span class="cmt">// lowercase a–z; children[c-'a']</span>
+        boolean isEnd = false;                  <span class="cmt">// a complete word terminates at this node</span>
+    }
+    private final TrieNode root = new TrieNode(); <span class="cmt">// root = empty prefix</span>
+
+    public void insert(String word) {
+        TrieNode cur = root;
+        for (char c : word.toCharArray()) {
+            int i = c - 'a';
+            if (cur.children[i] == null)
+                cur.children[i] = new TrieNode(); <span class="cmt">// lay track as we go</span>
+            cur = cur.children[i];
+        }
+        cur.isEnd = true;                       <span class="cmt">// mark ONLY the last node</span>
+    }
+
+    public boolean search(String word) {        <span class="cmt">// whole-word match</span>
+        TrieNode n = walk(word);
+        return n != null &amp;&amp; n.isEnd;            <span class="cmt">// path exists AND a word ends there</span>
+    }
+
+    public boolean startsWith(String prefix) {  <span class="cmt">// prefix match</span>
+        return walk(prefix) != null;            <span class="cmt">// path existing is enough — ignore isEnd</span>
+    }
+
+    private TrieNode walk(String s) {           <span class="cmt">// shared walker: node for s, or null</span>
+        TrieNode cur = root;
+        for (char c : s.toCharArray()) {
+            cur = cur.children[c - 'a'];
+            if (cur == null) return null;       <span class="cmt">// missing link → s isn't in the trie</span>
+        }
+        return cur;
+    }
+}</code></pre>
+<p><strong>Time</strong> O(L) per insert/search/startsWith, L = word length. <strong>Space</strong> O(total characters inserted × 26 slots) worst case — shared prefixes cost nothing extra.</p>
+
+<h3>children[26] array vs HashMap — the trade-off</h3>
+<table>
+  <thead><tr><th></th><th><code>TrieNode[26]</code> array</th><th><code>Map&lt;Character, TrieNode&gt;</code></th></tr></thead>
+  <tbody>
+    <tr><td>Child lookup</td><td>O(1), a raw index — fastest</td><td>O(1) amortized, with hashing overhead</td></tr>
+    <tr><td>Memory</td><td>26 refs per node even if 1 child is used — wasteful for sparse tries</td><td>Pays only for children that exist</td></tr>
+    <tr><td>Alphabet</td><td>Fixed &amp; small (a–z). Unicode/digits/mixed case → array blows up</td><td>Any alphabet, no remapping</td></tr>
+    <tr><td>Interview default</td><td><strong>Use this</strong> when the problem says lowercase a–z (most do)</td><td>Use for unknown/large alphabets, or when memory is flagged</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">isEnd is the whole point — don't skip it</span>
+  After inserting <code>"carpet"</code>, the node for <code>"car"</code> <em>exists</em> but <code>isEnd</code> is
+  false there. <code>search("car")</code> must return false while <code>startsWith("car")</code> returns true. The
+  classic bug is <code>search</code> returning "path exists" — which silently turns it into <code>startsWith</code>.
+</div>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Build the structure</td><td>LC 208</td><td>The core template, verbatim.</td></tr>
+    <tr><td><code>'.'</code> wildcard search</td><td>LC 211</td><td>On <code>'.'</code>, the walk <strong>branches</strong>: DFS into every non-null child. Iterative walk → recursive.</td></tr>
+    <tr><td>Shortest root replaces word</td><td>LC 648</td><td>Insert roots; walking each word, <strong>stop at the first <code>isEnd</code></strong> — that's the shortest root.</td></tr>
+    <tr><td>Buildable-one-letter-at-a-time</td><td>LC 720</td><td>Insert all words; DFS only through children with <code>isEnd == true</code> — every prefix must itself be a word.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Add and Search Word — '.' wildcard (LC 211)</h3>
+<p>
+<code>add</code> is plain insert. <code>search</code> meets <code>'.'</code>, which matches <em>any</em> character —
+so instead of following one link, try <strong>all 26</strong> and succeed if any branch does. That turns the linear
+walk into a DFS over (node, position-in-pattern).
+</p>
+<pre><code>class WordDictionary {
+    TrieNode root = new TrieNode();       <span class="cmt">// same TrieNode as the core</span>
+
+    public void addWord(String word) { <span class="cmt">/* identical to Trie.insert */</span> }
+
+    public boolean search(String word) { return dfs(word, 0, root); }
+
+    private boolean dfs(String w, int i, TrieNode node) {
+        if (node == null) return false;   <span class="cmt">// walked off the trie</span>
+        if (i == w.length()) return node.isEnd; <span class="cmt">// pattern consumed → is a word ending HERE?</span>
+        char c = w.charAt(i);
+        if (c == '.') {
+            for (TrieNode child : node.children)      <span class="cmt">// '.' = branch into every live child</span>
+                if (child != null &amp;&amp; dfs(w, i + 1, child)) return true;
+            return false;
+        }
+        return dfs(w, i + 1, node.children[c - 'a']); <span class="cmt">// literal char = normal single step</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(L) for literal-only queries; worst case O(26<sup>d</sup>·L) with d dots (in practice bounded by trie size — a query of all dots visits every node of that depth). <strong>Space</strong> O(L) recursion.</p>
+
+<h3>Case: Replace Words (LC 648)</h3>
+<p>
+Given root words and a sentence, replace each word with its <strong>shortest</strong> root prefix. Insert all roots
+into a trie; for each sentence word, walk character by character and return as soon as you hit an
+<code>isEnd</code> node — walking in order guarantees the first hit is the shortest.
+</p>
+<pre><code>String replaceWords(List&lt;String&gt; dictionary, String sentence) {
+    TrieNode root = new TrieNode();
+    for (String r : dictionary) insert(root, r);       <span class="cmt">// core insert</span>
+    StringBuilder sb = new StringBuilder();
+    for (String word : sentence.split(" ")) {
+        if (sb.length() &gt; 0) sb.append(' ');
+        sb.append(shortestRoot(root, word));
+    }
+    return sb.toString();
+}
+String shortestRoot(TrieNode root, String word) {
+    TrieNode cur = root;
+    for (int i = 0; i &lt; word.length(); i++) {
+        cur = cur.children[word.charAt(i) - 'a'];
+        if (cur == null) return word;         <span class="cmt">// no root prefixes this word — keep it</span>
+        if (cur.isEnd) return word.substring(0, i + 1); <span class="cmt">// FIRST isEnd = shortest root: stop</span>
+    }
+    return word;                              <span class="cmt">// word ran out before any root ended</span>
+}</code></pre>
+<p><strong>Time</strong> O(total root chars) to build + O(total sentence chars) to scan. <strong>Space</strong> O(total root chars × 26).</p>
+
+<h3>Case: Longest Word in Dictionary (LC 720)</h3>
+<p>
+Find the longest word buildable one character at a time, where <em>every prefix is also a word</em>
+(<code>"world"</code> needs <code>"w","wo","wor","worl"</code> all present). In trie terms: the deepest node reachable
+through <strong>isEnd-only</strong> nodes. Insert everything, then DFS refusing to enter any child with
+<code>isEnd == false</code>; iterate children a→z so ties resolve to the lexicographically smaller word for free.
+</p>
+<pre><code>String longestWord(String[] words) {
+    TrieNode root = new TrieNode();
+    for (String w : words) insert(root, w);
+    return dfs(root, new StringBuilder(), "");
+}
+String dfs(TrieNode node, StringBuilder path, String best) {
+    if (path.length() &gt; best.length()) best = path.toString(); <span class="cmt">// strictly longer wins; a→z order settles ties</span>
+    for (int i = 0; i &lt; 26; i++) {
+        TrieNode child = node.children[i];
+        if (child != null &amp;&amp; child.isEnd) {   <span class="cmt">// only step onto complete words — the chain rule</span>
+            path.append((char) ('a' + i));
+            best = dfs(child, path, best);
+            path.deleteCharAt(path.length() - 1); <span class="cmt">// backtrack</span>
+        }
+    }
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(total chars) build + O(total chars) DFS. <strong>Space</strong> O(total chars × 26).</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong><code>search</code> vs <code>startsWith</code>:</strong> same walk, but search additionally requires <code>isEnd</code>. Returning path-exists from search is the classic 208 bug.</li>
+  <li><strong>Mark <code>isEnd</code> only on the last node</strong> — never along the way — and never <em>unset</em> it when inserting a longer word over a shorter one (<code>"car"</code> then <code>"carpet"</code> must leave both findable).</li>
+  <li><strong>Duplicate inserts</strong> are harmless: the walk finds every node already present and re-sets <code>isEnd</code>.</li>
+  <li><strong>One word a prefix of another</strong> (<code>"app"</code>, <code>"apple"</code>): both live on one path with two <code>isEnd</code> marks. Most trie edge cases are this shape.</li>
+  <li><strong>Empty string:</strong> walking zero chars returns the root — <code>startsWith("")</code> is true; <code>search("")</code> is whatever <code>root.isEnd</code> is (LC never inserts it).</li>
+  <li><strong>Alphabet assumptions:</strong> <code>c - 'a'</code> assumes lowercase a–z. Uppercase, digits, or Unicode → resize the array or switch to a HashMap.</li>
+  <li><strong>Wildcard at the end</strong> (LC 211, e.g. <code>"ca."</code>): the pattern-consumed check must still test <code>isEnd</code> — <code>'.'</code> matches a character, not "anything including nothing".</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You insert only <code>"carpet"</code> into a fresh trie. What do <code>search("car")</code> and <code>startsWith("car")</code> return?</div>
+  <button class="opt"><code>true</code> and <code>true</code> — the nodes for c-a-r all exist</button>
+  <button class="opt"><code>false</code> and <code>false</code> — "car" was never inserted anywhere</button>
+  <button class="opt"><code>false</code> and <code>true</code> — the path exists, but no word ends at the 'r' node</button>
+  <div class="fb" data-correct="The path c→a→r exists (so startsWith is true) but isEnd is only set at 't' of carpet — so search('car') is false. This distinction is the entire job of the isEnd flag." data-wrong="The path for 'car' DOES exist inside 'carpet' (startsWith true), but search demands isEnd at the final node, which is only set at the end of 'carpet'. So: search false, startsWith true."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In LC 211, why does a <code>'.'</code> in the query force a switch from the linear walk to DFS?</div>
+  <button class="opt"><code>'.'</code> matches any character, so the walk must branch into every non-null child and succeed if any branch does</button>
+  <button class="opt"><code>'.'</code> is not in a–z, so the trie must be rebuilt with a 27-letter alphabet first</button>
+  <button class="opt">DFS is needed to visit nodes in sorted order so the smallest match is returned</button>
+  <div class="fb" data-correct="A literal char follows exactly one link; '.' can stand for any of up to 26 links, so you recursively try each live child at that depth — a DFS over (node, index) returning true if any path matches." data-wrong="'.' is never stored in the trie — it lives only in the QUERY, meaning 'any single character here'. That one-to-many step is what turns the single-path walk into a branching DFS."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Roots <code>{"cat", "ca"}</code> are in the trie; you run LC 648's walk on the word <code>"cattle"</code>. What replaces it, and why?</div>
+  <button class="opt"><code>"cat"</code> — the longest root wins because it matches more characters</button>
+  <button class="opt"><code>"ca"</code> — walking char by char, the first <code>isEnd</code> encountered is the shortest root, and you stop there</button>
+  <button class="opt"><code>"cattle"</code> — a root must equal the whole word for a replacement to happen</button>
+  <div class="fb" data-correct="The walk visits c, then a — where isEnd (from 'ca') is already true — and returns immediately. Walking in prefix order means the FIRST isEnd is automatically the SHORTEST root, no comparisons needed." data-wrong="648 asks for the SHORTEST root. Since the walk goes character by character from the top, the first isEnd it meets ('ca' at depth 2) is necessarily the shortest — it returns before ever reaching 'cat'."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/implement-prefix-tree">NeetCode — Implement Trie (Prefix Tree)</a>, then <a href="https://neetcode.io/problems/design-word-search-data-structure">NeetCode — Design Add and Search Word</a> for the wildcard DFS.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 208 (type the template until it's muscle memory) → LC 211 (wildcard DFS) → LC 648 (first-isEnd-wins walk) → LC 720 (isEnd-gated DFS). Then re-implement 208 with a HashMap of children and state when you'd prefer each.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on why <code>startsWith</code> ignores <code>isEnd</code>, want a picture of <code>"app"/"apple"</code>
+  sharing a path, or curious how the 26-array cost compares to a HashMap in real memory? Ask in the chat. When you can
+  write LC 208 from a blank file in under five minutes, say <strong>"next"</strong> for Lesson 2: Word Search II and
+  the binary trie for maximum XOR.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-trie-advanced.html">Trie Advanced →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

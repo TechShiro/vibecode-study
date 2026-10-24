@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 15 – The Transformer Architecture & Self-Attention</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module E · Lesson 15 of 17 · The Modern AI Foundation</div>
+  <h1>The Transformer Architecture & Self-Attention</h1>
+  <p class="subtitle">The complete mathematics and engineering of Queries, Keys, Values, Multi-Head Attention, and GPT decoders.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module E – NLP & Large Language Models</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In 2017, Vaswani et al. published <em>"Attention Is All You Need"</em>, rendering recurrent networks obsolete. The fatal bottleneck of LSTMs was <strong>sequential processing</strong>: token 1000 could not be processed until tokens 1 through 999 finished one by one (impossible to parallelize across GPU clusters). The Transformer processes <strong>the entire sequence simultaneously in parallel</strong>, calculating pairwise relationships between every word in $O(1)$ sequential operations using <strong>Self-Attention</strong>.</p>
+
+  <h2>2 · Recommended Deep-Dive Lectures</h2>
+  <p>Watch these two masterpieces to gain both intuitive visual geometry and line-by-line PyTorch implementation skills:</p>
+  <div class="card-grid">
+    <div class="card">
+      <h3>3Blue1Brown: Visualizing Attention & Transformers</h3>
+      <div class="video-container">
+        <iframe src="https://www.youtube-nocookie.com/embed/zjkBMFhNj_g" title="Visualizing Attention - 3Blue1Brown" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Andrej Karpathy: Building GPT from Scratch</h3>
+      <div class="video-container">
+        <iframe src="https://www.youtube-nocookie.com/embed/kCc8FmEb1nY" title="Building GPT from Scratch - Andrej Karpathy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <h2>3 · Scaled Dot-Product Attention: The Exact Mathematics</h2>
+  <p>Every token projects into three vectors: a <strong>Query (Q)</strong> ("what am I searching for?"), a <strong>Key (K)</strong> ("what do I contain?"), and a <strong>Value (V)</strong> ("what content do I communicate?"):</p>
+  <div class="callout info">
+    <h4>The Universal Attention Formula</h4>
+    <p><code>Attention(Q, K, V) = softmax( (Q K<sup>T</sup>) / &radic;d<sub>k</sub> ) &times; V</code></p>
+    <ul>
+      <li><code>Q K<sup>T</sup></code>: Computes pairwise dot product similarity between every query and every key.</li>
+      <li><code>&radic;d<sub>k</sub></code>: <strong>Scaling Factor</strong>. For large dimensions, dot products grow large, pushing softmax into regions with vanishingly small gradients. Dividing by &radic;d<sub>k</sub> restores unit variance.</li>
+      <li><code>softmax(...)</code>: Converts raw attention scores into probability weights that sum to 1.0.</li>
+      <li>Multiplication by <code>V</code>: Computes a weighted sum of information across all tokens.</li>
+    </ul>
+  </div>
+
+  <h2>4 · Causal Masking (Decoder / GPT Models)</h2>
+  <p>In generative autoregressive models (GPT), token <em>t</em> must <strong>never peek into the future</strong> (tokens <em>t+1, t+2</em>). To enforce this during parallel training, we apply a <strong>Causal Lower-Triangular Mask</strong>, replacing all upper-triangular scores with <code>-&infin;</code> before softmax:</p>
+  <pre><code># Upper triangle set to -inf -> softmax(-inf) becomes 0.0 attention!
+mask = torch.tril(torch.ones(seq_len, seq_len))
+scores = scores.masked_fill(mask == 0, float('-inf'))</code></pre>
+
+  <h2>5 · Complete Self-Attention Head in PyTorch</h2>
+  <pre><code>import torch
+import torch.nn as nn
+import math
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model, n_heads):
+        super(MultiHeadAttention, self).__init__()
+        assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.head_dim = d_model // n_heads
+
+        self.q_proj = nn.Linear(d_model, d_model)
+        self.k_proj = nn.Linear(d_model, d_model)
+        self.v_proj = nn.Linear(d_model, d_model)
+        self.out_proj = nn.Linear(d_model, d_model)
+
+    def forward(self, x, mask=None):
+        B, S, D = x.shape  # Batch, Sequence Length, Embedding Dim
+
+        # 1. Project and split into heads: (B, S, D) -> (B, n_heads, S, head_dim)
+        Q = self.q_proj(x).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+        K = self.k_proj(x).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+        V = self.v_proj(x).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+
+        # 2. Scaled Dot-Product: (B, H, S, d_k) @ (B, H, d_k, S) -> (B, H, S, S)
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.head_dim)
+
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+
+        attention_weights = torch.softmax(scores, dim=-1)
+        context = torch.matmul(attention_weights, V)  # (B, H, S, head_dim)
+
+        # 3. Concatenate heads and project out
+        context = context.transpose(1, 2).contiguous().view(B, S, D)
+        return self.out_proj(context)</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0014-nlp-foundations-embeddings-and-rnns.html">← Lesson 14: NLP Foundations</a>
+    <a href="0016-llm-fine-tuning-lora-rag-and-inference.html">Lesson 16: LLM Fine-Tuning & RAG →</a>
+  </nav>
+</body>
+</html>

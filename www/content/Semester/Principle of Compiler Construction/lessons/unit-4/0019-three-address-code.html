@@ -1,0 +1,351 @@
+<title>Intermediate Code Generation — Three-Address Code</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit IV &middot; Lesson 19 of 22</p>
+<h1>Intermediate Code Generation &mdash; Three-Address Code</h1>
+<p class="deck">Intermediate representations, the eight instruction forms of Three-Address Code (TAC), quadruples, triples, indirect triples, and optimization trade-offs with worked translation matrices.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Generate Three-Address Code, Quadruples, and Triples for the given expression&rdquo;</strong> is a guaranteed 10&ndash;15 mark question. <strong>&ldquo;Compare Quadruples, Triples, and Indirect Triples with respect to instruction reordering&rdquo;</strong> is a frequent 5-marker. Always write the TAC statement list first, label temporaries clearly ($t_1, t_2, \dots$), and construct clean side-by-side tables.</p>
+</div>
+
+<!-- CURATED VIDEO MASTERCLASS -->
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Three-Address Code Forms &amp; Generation</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Three Address Code in Compiler Design with Solved Examples</a>
+    <span class="v-meta">Gate Smashers &middot; 16:15</span>
+    <div class="v-why">Step-by-step translation of complex expressions into 3-address instructions using temporary variables and operator precedence.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Quadruples, Triples &amp; Indirect Triples</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Quadruples, Triples &amp; Indirect Triples Representation</a>
+    <span class="v-meta">Neso Academy &middot; 18:40</span>
+    <div class="v-why">In-depth comparison of internal data structures, memory trade-offs, and why indirect triples solve the optimization reordering bottleneck.</div>
+  </div>
+</div>
+
+<h2>1. Role of Intermediate Code in Compiler Architecture</h2>
+
+<p>Intermediate Code Generation (ICG) sits precisely between the syntax/semantic analysis frontend and the target-dependent code generation backend:</p>
+
+<div class="formula">
+  <span class="name">The $M \times N$ to $M + N$ Engineering Advantage</span>
+  Source ($M$ Languages) &rarr; <strong>Frontend</strong> &rarr; <em>Intermediate Representation (TAC)</em> &rarr; <strong>Backend</strong> &rarr; Target ($N$ Machines)<br><br>
+  <em>By translating source programs into a machine-independent intermediate form, a compiler for $M$ source languages and $N$ target architectures requires only $M$ frontends + $N$ backends (instead of $M \times N$ individual translators).</em>
+</div>
+
+<h2>2. Formal Definition of Three-Address Code (TAC)</h2>
+
+<p><strong>Three-Address Code</strong> is an intermediate language where every statement contains <strong>at most three memory addresses</strong>: at most two source operands and at most one result destination.</p>
+
+<div class="formula">
+  <span class="name">General TAC Format</span>
+  $$\textbf{x = y op z}$$
+  <em>where <strong>x</strong> is the destination, <strong>op</strong> is a binary operator, and <strong>y</strong>, <strong>z</strong> are operands (variables, constants, or compiler-generated temporaries).</em>
+</div>
+
+<h2>3. The Eight Standard Forms of TAC Instructions</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Instruction Category</th><th>General Syntax</th><th>Compiler Description</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>1. Binary Assignment</strong></td>
+  <td><code>x = y op z</code></td>
+  <td>Arithmetic, logical, or bitwise operation with two operands (e.g., <code>t1 = a + b</code>).</td>
+</tr>
+<tr>
+  <td><strong>2. Unary Assignment</strong></td>
+  <td><code>x = op y</code></td>
+  <td>Unary operations such as negation, bitwise NOT, or logical NOT (e.g., <code>t2 = -c</code>).</td>
+</tr>
+<tr>
+  <td><strong>3. Copy Statement</strong></td>
+  <td><code>x = y</code></td>
+  <td>Assigns the value of variable $y$ directly to destination $x$.</td>
+</tr>
+<tr>
+  <td><strong>4. Unconditional Jump</strong></td>
+  <td><code>goto L</code></td>
+  <td>Directly transfers execution control to instruction label $L$.</td>
+</tr>
+<tr>
+  <td><strong>5. Conditional Jump</strong></td>
+  <td><code>if x relop y goto L</code><br><code>if x goto L</code> / <code>ifFalse x goto L</code></td>
+  <td>Evaluates relation; transfers execution to label $L$ if condition is true (or false).</td>
+</tr>
+<tr>
+  <td><strong>6. Indexed Array Access</strong></td>
+  <td><code>x = y[i]</code> &nbsp;(Array load)<br><code>x[i] = y</code> &nbsp;(Array store)</td>
+  <td>Accesses or updates an element at indexed byte offset $i$ relative to array base $y$.</td>
+</tr>
+<tr>
+  <td><strong>7. Pointer / Address Ops</strong></td>
+  <td><code>x = &amp;y</code> &nbsp;(Address-of)<br><code>x = *y</code> &nbsp;(Pointer dereference)<br><code>*x = y</code> &nbsp;(Pointer store)</td>
+  <td>Loads the memory address of $y$ into $x$, or stores/reads values across pointers.</td>
+</tr>
+<tr>
+  <td><strong>8. Procedure Call / Return</strong></td>
+  <td><code>param x</code><br><code>call p, n</code><br><code>return y</code></td>
+  <td>Pushes actual parameter $x$; calls procedure $p$ with $n$ parameters; returns value $y$.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>4. Representations of Three-Address Code</h2>
+
+<!-- ARCHITECTURE FLOWCHART: TAC REPRESENTATIONS -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Data Structure Implementations of Three-Address Code</span>
+  
+  <div class="flow-col">
+    <div class="flow-row" style="gap:2rem;">
+      <div class="flow-box highlight" style="min-width:13rem;">
+        <strong>Quadruples</strong>
+        <span class="sub">4 Fields: <code>(op, arg1, arg2, result)</code></span>
+        <div style="font-size:.78rem; margin-top:.3rem;">Explicit Temporaries ($t_1, t_2$)</div>
+      </div>
+
+      <div class="flow-box highlight" style="min-width:13rem;">
+        <strong>Triples</strong>
+        <span class="sub">3 Fields: <code>(op, arg1, arg2)</code></span>
+        <div style="font-size:.78rem; margin-top:.3rem;">Implicit Results via Position Index <code>(i)</code></div>
+      </div>
+
+      <div class="flow-box ok" style="min-width:13rem; border-color:var(--ok);">
+        <strong style="color:var(--ok);">Indirect Triples</strong>
+        <span class="sub">Pointer Array &rarr; Triple Array</span>
+        <div style="font-size:.78rem; margin-top:.3rem;">Reorder Pointers during Optimization</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>1. Quadruples</h3>
+<p>A quadruple record contains four fields: <strong>(op, arg1, arg2, result)</strong>.</p>
+<ul>
+  <li>The <code>result</code> field stores an explicit temporary variable name (e.g. <code>t1</code>) or user identifier.</li>
+  <li>For unary operations, <code>arg2</code> is left blank. For unconditional jumps, <code>op</code> is <code>goto</code> and the target label is placed in <code>result</code>.</li>
+</ul>
+
+<h3>2. Triples</h3>
+<p>A triple record contains only three fields: <strong>(op, arg1, arg2)</strong>.</p>
+<ul>
+  <li>Temporaries are eliminated completely: the result of an operation is identified implicitly by its <strong>record index position</strong>: <code>(0), (1), (2), ...</code>.</li>
+  <li>Whenever a subsequent instruction uses the result of a prior triple, it references the index of that triple in parentheses.</li>
+</ul>
+
+<h3>3. Indirect Triples</h3>
+<p>Indirect triples store the triples in a sequential array, and maintain a separate <strong>array of pointers</strong> that defines the execution sequence.</p>
+<ul>
+  <li>During compiler optimization (such as instruction scheduling, code motion, or dead-code elimination), only the <strong>pointer array is modified</strong>.</li>
+  <li>The triple records themselves remain fixed in place, completely avoiding the need to search and rewrite instruction index references!</li>
+</ul>
+
+<h2>5. Full Worked Numerical Matrix</h2>
+
+<p>Let us translate the arithmetic assignment statement:</p>
+<div class="formula">
+  a = b * - c + b * - c
+</div>
+
+<h3>Step 1: Three-Address Code (TAC)</h3>
+<pre class="mono">
+t1 = - c
+t2 = b * t1
+t3 = - c
+t4 = b * t3
+t5 = t2 + t4
+a  = t5
+</pre>
+
+<h3>Step 2: Side-by-Side Representation Matrix</h3>
+
+<div class="tw">
+<table>
+<thead>
+  <tr>
+    <th colspan="5" style="text-align:center; border-right:2px solid var(--rule);">Quadruples Representation</th>
+    <th colspan="4" style="text-align:center;">Triples Representation</th>
+  </tr>
+  <tr>
+    <th class="num">#</th><th>op</th><th>arg1</th><th>arg2</th><th style="border-right:2px solid var(--rule);">result</th>
+    <th class="num">#</th><th>op</th><th>arg1</th><th>arg2</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="num">0</td><td>uminus</td><td>c</td><td></td><td style="border-right:2px solid var(--rule);"><strong>t1</strong></td>
+    <td class="num">(0)</td><td>uminus</td><td>c</td><td></td>
+  </tr>
+  <tr>
+    <td class="num">1</td><td>*</td><td>b</td><td>t1</td><td style="border-right:2px solid var(--rule);"><strong>t2</strong></td>
+    <td class="num">(1)</td><td>*</td><td>b</td><td>(0)</td>
+  </tr>
+  <tr>
+    <td class="num">2</td><td>uminus</td><td>c</td><td></td><td style="border-right:2px solid var(--rule);"><strong>t3</strong></td>
+    <td class="num">(2)</td><td>uminus</td><td>c</td><td></td>
+  </tr>
+  <tr>
+    <td class="num">3</td><td>*</td><td>b</td><td>t3</td><td style="border-right:2px solid var(--rule);"><strong>t4</strong></td>
+    <td class="num">(3)</td><td>*</td><td>b</td><td>(2)</td>
+  </tr>
+  <tr>
+    <td class="num">4</td><td>+</td><td>t2</td><td>t4</td><td style="border-right:2px solid var(--rule);"><strong>t5</strong></td>
+    <td class="num">(4)</td><td>+</td><td>(1)</td><td>(3)</td>
+  </tr>
+  <tr>
+    <td class="num">5</td><td>=</td><td>t5</td><td></td><td style="border-right:2px solid var(--rule);"><strong>a</strong></td>
+    <td class="num">(5)</td><td>=</td><td>a</td><td>(4)</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<h3>Step 3: Indirect Triples Representation</h3>
+<div class="tw">
+<table>
+<thead>
+  <tr>
+    <th colspan="2" style="text-align:center; border-right:2px solid var(--rule);">Pointer Array</th>
+    <th colspan="4" style="text-align:center;">Statement Array (Triples)</th>
+  </tr>
+  <tr>
+    <th class="num">Index</th><th style="border-right:2px solid var(--rule);">Statement Ptr</th>
+    <th class="num">#</th><th>op</th><th>arg1</th><th>arg2</th>
+  </tr>
+</thead>
+<tbody>
+  <tr><td class="num">0</td><td style="border-right:2px solid var(--rule);"><strong>35</strong></td><td class="num">35</td><td>uminus</td><td>c</td><td></td></tr>
+  <tr><td class="num">1</td><td style="border-right:2px solid var(--rule);"><strong>36</strong></td><td class="num">36</td><td>*</td><td>b</td><td>(35)</td></tr>
+  <tr><td class="num">2</td><td style="border-right:2px solid var(--rule);"><strong>37</strong></td><td class="num">37</td><td>uminus</td><td>c</td><td></td></tr>
+  <tr><td class="num">3</td><td style="border-right:2px solid var(--rule);"><strong>38</strong></td><td class="num">38</td><td>*</td><td>b</td><td>(37)</td></tr>
+  <tr><td class="num">4</td><td style="border-right:2px solid var(--rule);"><strong>39</strong></td><td class="num">39</td><td>+</td><td>(36)</td><td>(38)</td></tr>
+  <tr><td class="num">5</td><td style="border-right:2px solid var(--rule);"><strong>40</strong></td><td class="num">40</td><td>=</td><td>a</td><td>(39)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>6. Master Comparison: Quadruples vs Triples vs Indirect Triples</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Comparison Criteria</th><th>Quadruples</th><th>Triples</th><th>Indirect Triples</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Record Fields</strong></td>
+  <td>4: <code>(op, arg1, arg2, result)</code></td>
+  <td>3: <code>(op, arg1, arg2)</code></td>
+  <td>3: <code>(op, arg1, arg2)</code> + Pointer Array</td>
+</tr>
+<tr>
+  <td><strong>Temporary Variables</strong></td>
+  <td>Explicitly declared and entered in Symbol Table.</td>
+  <td>None. Implicitly designated by triple index.</td>
+  <td>None. Implicitly designated by triple index.</td>
+</tr>
+<tr>
+  <td><strong>Instruction Reordering</strong></td>
+  <td><strong style="color:var(--ok);">Easy</strong>: moving a row does not invalidate operands since temporaries have explicit names.</td>
+  <td><strong style="color:var(--accent);">Disastrous</strong>: moving a row changes its index, requiring scanning and updating all triple references across code!</td>
+  <td><strong style="color:var(--ok);">Extremely Easy</strong>: reorder only pointers in the pointer list; triple statement array remains untouched.</td>
+</tr>
+<tr>
+  <td><strong>Memory Footprint</strong></td>
+  <td>Largest (stores 4 fields per op + symbol table temporaries).</td>
+  <td>Smallest (stores only 3 fields, no temporary names).</td>
+  <td>Moderate (small extra array of pointers).</td>
+</tr>
+<tr>
+  <td><strong>Optimizing Compilers</strong></td>
+  <td>Preferred for local optimizations.</td>
+  <td>Rarely used in practice.</td>
+  <td><strong>Industry Standard</strong> for optimizing pipelines.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Why does instruction reordering cause severe problems in the Triples representation?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Because temporary results are referenced by their array index; moving a triple changes its position number</button>
+    <button class="opt">Because triples cannot represent conditional jumps</button>
+    <button class="opt">Because triples cannot represent binary operators</button>
+    <button class="opt">Because triples require too many symbol table entries</button>
+  </div>
+  <p class="why">In triples, `(1)` means the result of the instruction at index 1. If instructions are moved, deleted, or reordered, all index references throughout the entire code block break.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. How do Indirect Triples resolve the reordering bottleneck while preserving the compact size of triples?</p>
+  <div class="opts">
+    <button class="opt">By adding a fifth field to each triple</button>
+    <button class="opt">By replacing all operators with quadruples</button>
+    <button class="opt" data-ok="1">By maintaining a separate array of pointers to the triples and reordering only the pointers</button>
+    <button class="opt">By re-computing all expressions at runtime</button>
+  </div>
+  <p class="why">The statement triples stay at fixed memory addresses. Reordering execution involves swapping pointers in the auxiliary pointer table.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In a Quadruple record for the unconditional jump `goto L`, which fields are populated?</p>
+  <div class="opts">
+    <button class="opt">op = goto, arg1 = L, result = empty</button>
+    <button class="opt">op = goto, arg1 = L, arg2 = L, result = L</button>
+    <button class="opt" data-ok="1">op = goto, result = L (arg1 and arg2 are empty)</button>
+    <button class="opt">Quadruples cannot represent gotos</button>
+  </div>
+  <p class="why">In quadruples, jump target labels are conventionally placed in the `result` field, with operands left blank.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Three-Address Code statements contain at most how many memory addresses?</p>
+  <div class="opts">
+    <button class="opt">At most two addresses</button>
+    <button class="opt">Four addresses</button>
+    <button class="opt" data-ok="1">At most three addresses (two operands and one result)</button>
+    <button class="opt">Exactly three addresses always</button>
+  </div>
+  <p class="why">TAC instructions have at most three addresses. Some instructions (like copies `x = y` or jumps `goto L`) have fewer.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Contrast Quadruples and Triples in terms of temporaries.</summary>
+    <p class="ans">Quadruples explicitly store temporary variables ($t_1, t_2$) in a 4th `result` field, requiring symbol table space. Triples omit the result field and designate temporary values implicitly by the index of the triple that computed them.</p></details>
+  <details class="card"><summary>What are the eight standard instruction forms of Three-Address Code?</summary>
+    <p class="ans">1. Binary assignment ($x = y\ op\ z$)<br>2. Unary assignment ($x = op\ y$)<br>3. Copy ($x = y$)<br>4. Unconditional jump ($goto\ L$)<br>5. Conditional jump ($if\ x\ relop\ y\ goto\ L$)<br>6. Indexed array access ($x = y[i]$, $x[i] = y$)<br>7. Address/Pointer operations ($x = \&y$, $x = *y$, $*x = y$)<br>8. Procedure calls ($param\ x$, $call\ p, n$, $return\ y$).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0018-syntax-directed-translation.html">&larr; Previous: SDT &amp; SDD</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0020-translation-of-expressions.html">Next: Translation of Expressions &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

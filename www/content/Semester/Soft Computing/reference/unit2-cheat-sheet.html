@@ -1,0 +1,260 @@
+<title>SC Unit II Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul,ol{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:0 1.4rem}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Reference &middot; print this one</p>
+<h1>Unit II &mdash; Exam Sheet</h1>
+<p class="deck">Fuzzy sets, operations, relations, rules, reasoning, fuzzification and defuzzification, the three inference models and fuzzy C-means &mdash; every formula, plus the answer to every worked numerical in the seven lessons.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>Unit II is where all the numericals live.</strong> In order of likelihood: <strong>defuzzification by centroid</strong> &middot; <strong>max&ndash;min composition</strong> &middot; <strong>the ten set operations on one pair</strong> &middot; <strong>Mamdani / Sugeno / Tsukamoto on one problem</strong> &middot; <strong>the two classical laws that fail</strong> &middot; features and &alpha;-cuts of a fuzzy set &middot; GMP &middot; one FCM iteration. The answer key at the end has every worked result &mdash; use it to check your own attempts, not to read instead of them.</p>
+</div>
+
+<hr class="rule">
+
+<h2>Fuzzy sets <span class="tag">definitions</span></h2>
+
+<div class="grid">
+<div>
+<ul>
+<li><strong>Fuzzy set:</strong> A = {(x, &mu;<sub>A</sub>(x)) | x &isin; X}, &nbsp; &mu;: X &rarr; <strong>[0,1]</strong></li>
+<li><strong>Support:</strong> &mu;(x) <strong>&gt;</strong> 0</li>
+<li><strong>Core:</strong> &mu;(x) <strong>=</strong> 1</li>
+<li><strong>Boundary:</strong> 0 &lt; &mu;(x) &lt; 1</li>
+<li><strong>Height:</strong> max &mu;(x)</li>
+<li><strong>Normal:</strong> height = 1; otherwise <strong>subnormal</strong></li>
+<li><strong>Crossover point:</strong> &mu;(x) = 0.5</li>
+<li><strong>&alpha;-cut:</strong> A<sub>&alpha;</sub> = {x | &mu;(x) <strong>&ge;</strong> &alpha;} &mdash; a <strong>CRISP</strong> set</li>
+<li><strong>Strong &alpha;-cut:</strong> uses <strong>&gt;</strong> instead</li>
+<li><strong>Cardinality:</strong> |A| = &sum;&mu;(x); relative = |A|/|X|</li>
+<li><strong>Convex:</strong> &mu;(&lambda;x&#8321;+(1&minus;&lambda;)x&#8322;) &ge; min(&mu;(x&#8321;), &mu;(x&#8322;))</li>
+</ul>
+</div>
+<div>
+<h3>Membership functions</h3>
+<p><strong>Triangular</strong> (a,b,c):<br>max( min( (x&minus;a)/(b&minus;a), (c&minus;x)/(c&minus;b) ), 0 )</p>
+<p><strong>Trapezoidal</strong> (a,b,c,d):<br>max( min( (x&minus;a)/(b&minus;a), 1, (d&minus;x)/(d&minus;c) ), 0 )</p>
+<p><strong>Gaussian</strong> (c,&sigma;): exp( &minus;(x&minus;c)&sup2; / 2&sigma;&sup2; )</p>
+<p><strong>Bell</strong> (a,b,c): 1 / (1 + |(x&minus;c)/a|<sup>2b</sup>)</p>
+<p><strong>Sigmoid</strong> (a,c): 1 / (1 + e<sup>&minus;a(x&minus;c)</sup>)</p>
+</div>
+</div>
+
+<p><strong>The &alpha;-cut is the bridge</strong> between fuzzy and classical set theory &mdash; it turns a fuzzy set into a crisp one, and the &alpha;-cuts <strong>nest</strong>: as &alpha; rises the cut can only shrink.</p>
+
+<h2>Set operations <span class="tag">numerical</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>Formula</th><th>Operation</th><th>Formula</th></tr></thead>
+<tbody>
+<tr><td><strong>Union</strong></td><td><strong>max</strong>(&mu;<sub>A</sub>, &mu;<sub>B</sub>)</td><td><strong>Algebraic sum</strong></td><td>&mu;<sub>A</sub>+&mu;<sub>B</sub><strong>&minus;&mu;<sub>A</sub>&mu;<sub>B</sub></strong></td></tr>
+<tr><td><strong>Intersection</strong></td><td><strong>min</strong>(&mu;<sub>A</sub>, &mu;<sub>B</sub>)</td><td><strong>Algebraic product</strong></td><td>&mu;<sub>A</sub> &middot; &mu;<sub>B</sub></td></tr>
+<tr><td><strong>Complement</strong></td><td>1 &minus; &mu;<sub>A</sub></td><td><strong>Bounded sum</strong></td><td>min(1, &mu;<sub>A</sub>+&mu;<sub>B</sub>)</td></tr>
+<tr><td><strong>Difference A&minus;B</strong></td><td><strong>min(&mu;<sub>A</sub>, 1&minus;&mu;<sub>B</sub>)</strong></td><td><strong>Bounded difference</strong></td><td>max(0, &mu;<sub>A</sub>+&mu;<sub>B</sub>&minus;1)</td></tr>
+<tr><td><strong>Disjunctive sum</strong></td><td>(A &cap; B&#772;) &cup; (A&#772; &cap; B)</td><td><strong>CON / DIL</strong></td><td>&mu;&sup2; &nbsp;/&nbsp; &mu;<sup>0.5</sup></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The two laws that FAIL &mdash; guaranteed question</span>
+  <p><strong>Law of excluded middle:</strong> A &cup; A&#772; &ne; X. &nbsp;&nbsp; <strong>Law of contradiction:</strong> A &cap; A&#772; &ne; &empty;.</p>
+  <p><strong>Proof, one line:</strong> take &mu;<sub>A</sub> = 0.3, so &mu;<sub>A&#772;</sub> = 0.7. Then max(0.3, 0.7) = <strong>0.7 &ne; 1</strong> and min(0.3, 0.7) = <strong>0.3 &ne; 0</strong>.</p>
+  <p><strong>Everything else holds &mdash; including BOTH De Morgan laws.</strong> The two failures return only when A is crisp.</p>
+</div>
+
+<h2>Relations and composition <span class="tag">numerical</span></h2>
+
+<div class="formula">
+  <span class="name">The three formulas</span>
+  <strong>Cartesian product:</strong> &nbsp; &mu;<sub>A&times;B</sub>(x,y) = <strong>min</strong>( &mu;<sub>A</sub>(x), &mu;<sub>B</sub>(y) )<br><br>
+  <strong>Max&ndash;min composition:</strong> &nbsp; &mu;<sub>R&compfn;S</sub>(x,z) = <strong>max<sub>y</sub>[ min( &mu;<sub>R</sub>(x,y), &mu;<sub>S</sub>(y,z) ) ]</strong><br><br>
+  <strong>Max&ndash;product composition:</strong> &nbsp; &mu;<sub>R&middot;S</sub>(x,z) = <strong>max<sub>y</sub>[ &mu;<sub>R</sub>(x,y) &times; &mu;<sub>S</sub>(y,z) ]</strong>
+</div>
+
+<p><strong>Method:</strong> ordinary matrix multiplication with <strong>&times; &rarr; min</strong> and <strong>+ &rarr; max</strong>. &nbsp; <strong>Domain</strong> = row maxima &middot; <strong>Range</strong> = column maxima &middot; <strong>Inverse</strong> = transpose.</p>
+
+<p><strong>The check to run:</strong> since a&middot;b &le; min(a,b) on [0,1], <strong>every max&ndash;product entry must be &le; the corresponding max&ndash;min entry</strong>. And an m&times;n composed with n&times;p must give <strong>m&times;p</strong>.</p>
+
+<p><strong>Tolerance relation</strong> = reflexive + symmetric. &nbsp; <strong>Equivalence (similarity)</strong> = reflexive + symmetric + <strong>transitive</strong>. Transitive closure needs at most <strong>R<sup>n&minus;1</sup></strong>.</p>
+
+<h2>Rules and reasoning</h2>
+
+<p><strong>Linguistic variable</strong> = <strong>(x, T(x), U, G, M)</strong> &mdash; name, term set, universe, syntactic rule, semantic rule.</p>
+
+<p><strong>Hedges:</strong> <strong>very = &mu;&sup2;</strong> &middot; extremely = &mu;&sup3; &middot; <strong>somewhat = &mu;<sup>0.5</sup></strong> &middot; not = 1 &minus; &mu;</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Implication</th><th>&mu;<sub>R</sub>(x,y) =</th></tr></thead>
+<tbody>
+<tr><td><strong>Mamdani (min)</strong></td><td><strong>min(&mu;<sub>A</sub>, &mu;<sub>B</sub>)</strong> &nbsp;<em>&larr; the default</em></td></tr>
+<tr><td>Larsen (product)</td><td>&mu;<sub>A</sub> &middot; &mu;<sub>B</sub></td></tr>
+<tr><td>Zadeh (max&ndash;min)</td><td>max( min(&mu;<sub>A</sub>, &mu;<sub>B</sub>), 1&minus;&mu;<sub>A</sub> )</td></tr>
+<tr><td>Kleene&ndash;Dienes</td><td>max( 1&minus;&mu;<sub>A</sub>, &mu;<sub>B</sub> )</td></tr>
+<tr><td>&#321;ukasiewicz</td><td>min( 1, 1&minus;&mu;<sub>A</sub>+&mu;<sub>B</sub> )</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Generalised modus ponens &mdash; the compositional rule of inference</span>
+  <strong>B&prime; = A&prime; &compfn; R</strong> &nbsp;&nbsp;&nbsp; &mu;<sub>B&prime;</sub>(y) = <strong>max<sub>x</sub>[ min( &mu;<sub>A&prime;</sub>(x), &mu;<sub>R</sub>(x,y) ) ]</strong><br>
+  <span style="font-size:.9em">Build R from the rule with an implication operator <em>first</em>, then compose the observed input with it.</span>
+</div>
+
+<p><strong>Aggregation:</strong> conjunctive system &rarr; <strong>min</strong>; <strong>disjunctive system &rarr; max, and that is the standard.</strong></p>
+
+<h2>Fuzzification and defuzzification <span class="tag">highest yield</span></h2>
+
+<p><strong>Seven fuzzification methods:</strong> intuition &middot; inference &middot; rank ordering &middot; angular fuzzy sets &middot; neural networks &middot; genetic algorithms &middot; inductive reasoning.</p>
+
+<div class="grid">
+<div>
+<div class="formula">
+  <span class="name">Centroid (COG) &mdash; the default</span>
+  <strong>z* = &sum;&mu;(z)&middot;z / &sum;&mu;(z)</strong><br>
+  continuous: &int;&mu;(z)z dz / &int;&mu;(z) dz
+</div>
+<div class="formula">
+  <span class="name">Weighted average &mdash; SYMMETRIC MFs only</span>
+  <strong>z* = &sum;&mu;(z&#772;<sub>i</sub>)&middot;z&#772;<sub>i</sub> / &sum;&mu;(z&#772;<sub>i</sub>)</strong>
+</div>
+</div>
+<div>
+<div class="formula">
+  <span class="name">Centre of sums &mdash; overlaps counted TWICE</span>
+  <strong>z* = &sum;A<sub>i</sub>&middot;z&#772;<sub>i</sub> / &sum;A<sub>i</sub></strong>
+</div>
+<div class="formula">
+  <span class="name">Mean of maxima</span>
+  <strong>z* = (a + b)/2</strong> over the max plateau [a,b]<br>
+  <strong>SOM = a &nbsp;&nbsp; LOM = b</strong>
+</div>
+</div>
+</div>
+
+<p><strong>Also:</strong> <strong>max-membership (height)</strong> &mdash; needs a <em>unique</em> peak, so it fails on a plateau &middot; <strong>centre of largest area</strong> &mdash; for disconnected output sets &middot; <strong>&lambda;-cut</strong> &mdash; yields a crisp <em>set</em>, not a value.</p>
+
+<h2>Fuzzy inference systems</h2>
+
+<p><strong>Four blocks:</strong> Fuzzifier &rarr; Inference engine &rarr; Defuzzifier, all served by the <strong>Knowledge base = rule base + database</strong>. <em>Say both components.</em></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th><strong>Mamdani</strong></th><th><strong>Sugeno</strong></th><th><strong>Tsukamoto</strong></th></tr></thead>
+<tbody>
+<tr><td>Consequent</td><td>A fuzzy set</td><td><strong>z = px + qy + r</strong></td><td>A <strong>monotonic</strong> fuzzy set</td></tr>
+<tr><td>Per-rule output</td><td>A clipped fuzzy set</td><td>Crisp z<sub>i</sub></td><td>z<sub>i</sub> = &mu;<sup>&minus;1</sup>(w<sub>i</sub>)</td></tr>
+<tr><td>Aggregation</td><td><strong>Yes, by max</strong></td><td>No</td><td>No</td></tr>
+<tr><td>Defuzzification</td><td><strong>Yes, centroid</strong></td><td><strong>No</strong> &mdash; weighted average</td><td><strong>No</strong> &mdash; weighted average</td></tr>
+<tr><td>Cost</td><td>High</td><td>Low</td><td>Low</td></tr>
+<tr><td>Interpretability</td><td><strong>High</strong></td><td>Low</td><td>Low</td></tr>
+<tr><td>Year</td><td>1975</td><td>1985</td><td>1979</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Mamdani's five steps:</strong> fuzzify &rarr; apply the operator (min for AND) to get w<sub>i</sub> &rarr; <strong>clip</strong> each consequent at w<sub>i</sub> &rarr; <strong>aggregate by max</strong> &rarr; <strong>defuzzify by centroid</strong>.</p>
+
+<p><strong>Sugeno and Tsukamoto both finish with</strong> <strong>z* = &sum;w<sub>i</sub>z<sub>i</sub> / &sum;w<sub>i</sub></strong>. Sugeno underpins <strong>ANFIS</strong>. Tsukamoto needs <strong>monotonic</strong> consequents so that &mu;(z) = w<sub>i</sub> has a <em>unique</em> solution.</p>
+
+<h2>Fuzzy C-Means</h2>
+
+<div class="formula">
+  <span class="name">Objective function, subject to &sum;<sub>j</sub>&mu;<sub>ij</sub> = 1</span>
+  <strong>J<sub>m</sub> = &sum;<sub>i=1</sub><sup>n</sup> &sum;<sub>j=1</sub><sup>c</sup> (&mu;<sub>ij</sub>)<sup>m</sup> &Vert;x<sub>i</sub> &minus; c<sub>j</sub>&Vert;&sup2;</strong>
+</div>
+<div class="formula">
+  <span class="name">Centres &nbsp;|&nbsp; Memberships</span>
+  <strong>c<sub>j</sub> = &sum;(&mu;<sub>ij</sub>)<sup>m</sup>x<sub>i</sub> / &sum;(&mu;<sub>ij</sub>)<sup>m</sup></strong><br><br>
+  <strong>&mu;<sub>ij</sub> = 1 / &sum;<sub>k=1</sub><sup>c</sup> ( d<sub>ij</sub> / d<sub>ik</sub> )<sup>2/(m&minus;1)</sup></strong>
+</div>
+
+<p><strong>m</strong> = the fuzzifier; <strong>standard m = 2</strong>. <strong>m &rarr; 1 gives K-means</strong>; large m blurs every membership toward 1/c.<br>
+<strong>Steps:</strong> initialise U &rarr; compute centres &rarr; update memberships &rarr; stop when &Vert;&Delta;U&Vert; &lt; &epsilon;.<br>
+<strong>Always check that each POINT's memberships sum to 1 across the clusters.</strong></p>
+
+<p><strong>FCM vs K-means:</strong> graded membership in every cluster versus a single hard label. Both alternate centre and assignment updates, both are sensitive to initialisation, and both find only a local optimum.</p>
+
+<hr class="rule">
+
+<h2>Answer key &mdash; every worked numerical in the unit <span class="tag">check your attempts here</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Lesson</th><th>Problem</th><th>Answer</th></tr></thead>
+<tbody>
+<tr><td><strong>4</strong></td><td>Features of A = {0.2/1, 0.5/2, 0.8/3, 1.0/4, 0.7/5, 0.3/6}</td><td>Core <strong>{4}</strong> &middot; height <strong>1.0, normal</strong> &middot; crossover <strong>x = 2</strong> &middot; &alpha;-cut(0.5) = <strong>{2,3,4,5}</strong> &middot; &alpha;-cut(0.8) = <strong>{3,4}</strong> &middot; <strong>strong</strong> &alpha;-cut(0.5) = <strong>{3,4,5}</strong> &middot; |A| = <strong>3.5</strong>, relative <strong>0.583</strong></td></tr>
+<tr><td><strong>5</strong></td><td>A = {0.3, 0.7, 1.0, 0.2}, B = {0.8, 0.4, 0.6, 0.9}</td><td>Union <strong>0.8, 0.7, 1.0, 0.9</strong> &middot; intersection <strong>0.3, 0.4, 0.6, 0.2</strong> &middot; A&minus;B <strong>0.2, 0.6, 0.4, 0.1</strong> &middot; alg. sum <strong>0.86, 0.82, 1.00, 0.92</strong> &middot; alg. product <strong>0.24, 0.28, 0.60, 0.18</strong> &middot; bounded diff <strong>0.1, 0.1, 0.6, 0.1</strong></td></tr>
+<tr><td><strong>6</strong></td><td>R (2&times;3) &compfn; S (3&times;2), R = [[.7,.5,.3],[.2,.9,.6]], S = [[.4,.8],[.6,.1],[.9,.5]]</td><td>Max&ndash;min <strong>[[0.5, 0.7], [0.6, 0.5]]</strong><br>Max&ndash;product <strong>[[0.30, 0.56], [0.54, 0.30]]</strong></td></tr>
+<tr><td><strong>8</strong></td><td>Centroid, &mu; = 0.1,0.3,0.6,1.0,0.8,0.4,0.2 over z = 1&hellip;7</td><td>&sum;&mu;z = 14.3, &sum;&mu; = 3.4 &rarr; <strong>z* = 4.21</strong></td></tr>
+<tr><td><strong>8</strong></td><td>Weighted average: z&#772;&#8321;=4 at &mu;=0.8, z&#772;&#8322;=7 at &mu;=0.5</td><td>6.7 / 1.3 = <strong>z* = 5.15</strong></td></tr>
+<tr><td><strong>8</strong></td><td>MOM on a plateau [4,5]</td><td><strong>MOM = 4.5 &middot; SOM = 4 &middot; LOM = 5</strong>; max-membership <strong>fails</strong> (no unique peak)</td></tr>
+<tr><td><strong>8</strong></td><td>Centre of sums: A&#8321;=1.0 at z&#772;&#8321;=3, A&#8322;=2.4 at z&#772;&#8322;=7</td><td>19.8 / 3.4 = <strong>z* = 5.82</strong></td></tr>
+<tr><td><strong>9</strong></td><td><strong>Mamdani</strong>, w&#8321;=0.5, w&#8322;=0.4, aggregated &mu; = 0.2,0.4,0.5,0.5,0.5,0.2 over z = 0,2,4,6,8,10</td><td>11.8 / 2.3 = <strong>z* = 5.13</strong></td></tr>
+<tr><td><strong>9</strong></td><td><strong>Sugeno</strong>, same w, z&#8321;=5, z&#8322;=4</td><td>(0.5&times;5 + 0.4&times;4)/0.9 = 4.1/0.9 = <strong>z* = 4.56</strong></td></tr>
+<tr><td><strong>9</strong></td><td><strong>Tsukamoto</strong>, same w, z&#8321;=5, z&#8322;=6</td><td>(0.5&times;5 + 0.4&times;6)/0.9 = 4.9/0.9 = <strong>z* = 5.44</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The point of lesson 9 in one line:</strong> same inputs, same rules, same firing strengths &mdash; <strong>three different answers, 5.13 / 4.56 / 5.44</strong>. The choice of model is a genuine design decision, not a formality.</p>
+
+<hr class="rule">
+
+<div class="box exam">
+  <span class="lbl">Ten-minute final scan before you walk in</span>
+  <ol>
+    <li>Union = <strong>max</strong>, intersection = <strong>min</strong>. Do not swap them.</li>
+    <li><strong>A &minus; B = min(&mu;<sub>A</sub>, 1&minus;&mu;<sub>B</sub>)</strong> &mdash; <em>never</em> &mu;<sub>A</sub> &minus; &mu;<sub>B</sub>.</li>
+    <li>Algebraic sum keeps the <strong>&minus;&mu;<sub>A</sub>&mu;<sub>B</sub></strong> term.</li>
+    <li><strong>&alpha;-cut uses &ge;</strong>, not &gt;. The strong cut uses &gt;.</li>
+    <li>Composition = matrix multiply with <strong>min and max swapped in</strong>; max&ndash;product &le; max&ndash;min everywhere.</li>
+    <li><strong>Centroid z* must land inside the support</strong> &mdash; check it.</li>
+    <li>The two failing laws: <strong>excluded middle and contradiction</strong>. De Morgan holds.</li>
+    <li>Knowledge base = rule base <strong>+ database</strong>.</li>
+    <li><strong>Sugeno and Tsukamoto need NO defuzzification.</strong></li>
+    <li>FCM memberships sum to 1 <em>across clusters</em>, and m = 2 is standard.</li>
+  </ol>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The eight most likely questions</span>
+  <ol>
+    <li><strong>Defuzzify the given output set by the centroid method</strong> (and name the other methods). <span class="tag">L8</span></li>
+    <li><strong>Compute the max&ndash;min composition of two fuzzy relations</strong> (and by max&ndash;product). <span class="tag">L6</span></li>
+    <li>Perform all set operations on the given pair of fuzzy sets. <span class="tag">L5</span></li>
+    <li><strong>Which properties of classical sets are not satisfied by fuzzy sets? Prove it.</strong> <span class="tag">L5</span></li>
+    <li><strong>Compare Mamdani, Sugeno and Tsukamoto</strong> inference. <span class="tag">L9</span></li>
+    <li>Define fuzzy set, support, core, height, &alpha;-cut; find them for the given set. <span class="tag">L4</span></li>
+    <li>Explain fuzzy if&ndash;then rules and solve a GMP problem. <span class="tag">L7</span></li>
+    <li>Explain the fuzzy C-means algorithm and its objective function. <span class="tag">L10</span></li>
+  </ol>
+</div>
+
+<div class="nav">
+  <a href="unit1-cheat-sheet.html">&larr; Unit I sheet</a>
+  <a href="../index.html">All lessons</a>
+  <a href="../GLOSSARY.md">Glossary</a>
+</div>
+
+</div>

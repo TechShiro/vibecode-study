@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 09 – Concurrency Control & Two-Phase Locking (2PL)</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module C · Lesson 9 of 17 · Lock-Based Protocols</div>
+  <h1>Concurrency Control & Two-Phase Locking (2PL)</h1>
+  <p class="subtitle">Preventing race conditions, dirty reads, and lost updates using formal locking mechanisms.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Transactions & Concurrency</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>To automatically prevent non-serializable interleavings without requiring human analysis of execution traces, database engines use <strong>Lock-Based Protocols</strong>. A lock is a hardware-enforced permission slip. If every transaction obeys the <strong>Two-Phase Locking (2PL) rule</strong>, the resulting schedule is guaranteed to be conflict serializable.</p>
+
+  <h2>2 · Shared (S) vs Exclusive (X) Locks</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">S</div>
+      <h3>Shared Lock (Read Lock)</h3>
+      <p>Acquired prior to reading data: <code>LOCK-S(Q)</code>. Multiple concurrent transactions can hold shared locks on the same item simultaneously.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">X</div>
+      <h3>Exclusive Lock (Write Lock)</h3>
+      <p>Acquired prior to modifying data: <code>LOCK-X(Q)</code>. Only ONE transaction can hold an exclusive lock. No other transaction may read or write the item.</p>
+    </div>
+  </div>
+
+  <table class="vs-table">
+    <thead>
+      <tr><th>Lock Request / Held</th><th>Shared Lock (S) Held</th><th>Exclusive Lock (X) Held</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Shared Lock (S) Requested</strong></td><td><strong style="color:var(--good-color,#22c55e)">GRANTED</strong></td><td><strong style="color:var(--danger-color,#ef4444)">WAIT (Blocked)</strong></td></tr>
+      <tr><td><strong>Exclusive Lock (X) Requested</strong></td><td><strong style="color:var(--danger-color,#ef4444)">WAIT (Blocked)</strong></td><td><strong style="color:var(--danger-color,#ef4444)">WAIT (Blocked)</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The Two-Phase Locking (2PL) Protocol</h2>
+  <p>Under 2PL, a transaction must execute in two distinct consecutive phases:</p>
+  <div class="arch-flow">
+    <div class="box">Phase 1: Growing Phase (Locks Acquired)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Lock Point (Maximum Locks Held)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Phase 2: Shrinking Phase (Locks Released)</div>
+  </div>
+  <p><strong>The Core 2PL Invariant:</strong> Once a transaction releases a single lock, it enters the shrinking phase and <strong>CAN NEVER ACQUIRE ANY NEW LOCKS</strong>.</p>
+
+  <h2>4 · Variants of Two-Phase Locking</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>2PL Variant</th><th>Rule</th><th>Serializability</th><th>Cascading Rollbacks?</th><th>Deadlocks Possible?</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Basic 2PL</strong></td>
+        <td>Locks released dynamically during shrinking phase.</td>
+        <td>Guaranteed</td>
+        <td>Yes (vulnerable)</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><strong>Strict 2PL</strong></td>
+        <td>All <strong>Exclusive (X) locks</strong> held until transaction COMMITS or ABORTS.</td>
+        <td>Guaranteed</td>
+        <td><strong>NO</strong> (Cascadeless)</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><strong>Rigorous 2PL</strong></td>
+        <td>All locks (both <strong>S and X</strong>) held until transaction COMMITS or ABORTS.</td>
+        <td>Guaranteed (Commit order)</td>
+        <td><strong>NO</strong> (Strict)</td>
+        <td>Yes</td>
+      </tr>
+      <tr>
+        <td><strong>Conservative 2PL</strong></td>
+        <td>Pre-claims ALL required locks before execution begins; if any unavailable, waits.</td>
+        <td>Guaranteed</td>
+        <td>Depends on release</td>
+        <td><strong>NO Deadlocks</strong> (impractical in OLTP)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5 · Multiple Granularity Locking (MGL) & Intention Locks</h2>
+  <p>Locking row-by-row for a query that scans a 10,000,000-row table produces massive locking overhead. Locking the entire database freezes all other users. DBMS uses an <strong>ancestor-tree hierarchy</strong> (Database &rarr; Table &rarr; Page &rarr; Row) with <strong>Intention Locks</strong>:</p>
+  <ul>
+    <li><strong>Intention Shared (IS)</strong>: Indicates that explicit shared locks will be acquired on lower-level descendants.</li>
+    <li><strong>Intention Exclusive (IX)</strong>: Indicates that explicit exclusive locks will be acquired on lower-level descendants.</li>
+    <li><strong>Shared with Intention Exclusive (SIX)</strong>: Reading the entire table, but selectively updating certain specific rows.</li>
+  </ul>
+  <p><em>To lock a row in X mode, a transaction must first acquire IX on the Database, IX on the Table, and IX on the Page!</em></p>
+
+  <nav class="bottom-nav">
+    <a href="0008-schedules-and-serializability.html">← Lesson 08: Schedules & Serializability</a>
+    <a href="0010-deadlock-handling-in-databases.html">Lesson 10: Deadlock Handling in Databases →</a>
+  </nav>
+</body>
+</html>

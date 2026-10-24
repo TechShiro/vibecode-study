@@ -1,0 +1,377 @@
+<title>The Role of the Lexical Analyser</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit II &middot; Lesson 5 of 10</p>
+<h1>The Role of the Lexical Analyser</h1>
+<p class="deck">Tokens, patterns and lexemes kept apart, the attributes a token carries, why lexical analysis is separated from parsing at all, token-counting numericals, and lexical errors with their four recovery strategies.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Define token, pattern and lexeme with examples&rdquo; is a guaranteed 2&ndash;5 marker</strong>, and the marks are lost by students who cannot keep the three apart &mdash; so learn the one-line test below. <strong>&ldquo;Why is lexical analysis separated from syntax analysis?&rdquo;</strong> has exactly three reasons and they are worth memorising as three words: <em>simplicity, efficiency, portability</em>. <strong>Token-counting numericals</strong> appear in objective sections constantly and are free marks once you know that a string literal is <em>one</em> token. Lexical error recovery is a standard 4-mark list.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Role of Lexical Analyser &amp; Core Distinction</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=BgNdtk9h8Ok" target="_blank">Lec-3: Lexical Analysis in Compiler Design with Examples</a>
+    <span class="v-meta">Gate Smashers &middot; 9:10</span>
+    <div class="v-why">The definitive exam lecture on the primary functions of lexical analysis, token stream generation, whitespace stripping, and parser handoff.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Token, Pattern, Lexeme &amp; Attributes</span>
+      <span class="best-tag">Top Numerical Guide</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=5qH6ZWi14AA" target="_blank">Tokens, Pattern, Lexemes and Attributes of tokens in Compiler Design</a>
+    <span class="v-meta">Start Practicing &middot; 15:50</span>
+    <div class="v-why">Deep dive into token attributes, symbol-table pointers, and step-by-step token-counting numericals with common trap questions resolved.</div>
+  </div>
+</div>
+
+<h2>What the lexical analyser does</h2>
+
+<div class="formula">
+  <span class="name">The primary task</span>
+  The <strong>lexical analyser</strong> is the <strong>first phase</strong> of a compiler. It <strong>reads the stream of characters</strong> making up the source program, <strong>groups them into meaningful sequences called lexemes</strong>, and for each lexeme <strong>produces a token</strong> of the form<br><br>
+  <strong>&lang; token-name, attribute-value &rang;</strong><br><br>
+  which it passes to the parser.
+</div>
+
+<!-- FLOWCHART: PARSER-SCANNER INTERACTION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">System Architecture: Scanner-Parser-Symbol Table Communication</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:1.2rem; flex-wrap:wrap; margin:1rem 0;">
+    <div class="flow-box highlight" style="min-width:11rem; max-width:13rem;">
+      <strong style="color:var(--accent);">Source Program</strong>
+      <span class="sub">Character Stream</span>
+    </div>
+
+    <span class="flow-arrow-right">&rarr;</span>
+
+    <div class="flow-box ok" style="min-width:14rem; max-width:16rem; border:2px solid var(--ok);">
+      <strong style="color:var(--ok);">LEXICAL ANALYSER</strong>
+      <span class="sub">(Scanner subroutine)</span>
+      <div style="margin-top:.4rem; font-size:.74rem; background:var(--paper); padding:.2rem .4rem; border-radius:4px; border:1px solid var(--rule);">
+        Emits: &lang;token_name, attr&rang;
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; align-items:center; gap:.2rem;">
+      <div style="font-size:.74rem; font-weight:700; color:var(--ok); background:var(--ok-bg); padding:.15rem .5rem; border-radius:4px; border:1px solid var(--ok);">
+        token &rarr;
+      </div>
+      <div style="font-size:.74rem; font-weight:700; color:var(--accent); background:var(--panel); padding:.15rem .5rem; border-radius:4px; border:1px solid var(--rule);">
+        &larr; getNextToken()
+      </div>
+    </div>
+
+    <div class="flow-box highlight" style="min-width:14rem; max-width:16rem;">
+      <strong>SYNTAX ANALYSER</strong>
+      <span class="sub">(Parser master controller)</span>
+      <div style="margin-top:.4rem; font-size:.74rem; background:var(--paper); padding:.2rem .4rem; border-radius:4px; border:1px solid var(--rule);">
+        &rarr; To Semantic Analyser
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:center; margin-top:1.2rem;">
+    <div style="border:1.5px dashed var(--accent-soft); border-radius:6px; background:var(--panel); padding:.7rem 2rem; text-align:center; min-width:20rem;">
+      <strong style="color:var(--accent); font-size:.9rem;">SYMBOL TABLE</strong>
+      <span style="display:block; font-size:.76rem; color:var(--ink-soft); margin-top:.2rem;">
+        &uarr;&darr; Scanner stores identifiers / pointers &nbsp;&middot;&nbsp; Parser verifies scopes &uarr;&darr;
+      </span>
+    </div>
+  </div>
+
+  <span style="font-size:.82em; display:block; margin-top:.8rem; text-align:center; color:var(--ink-soft);">
+    <strong>The lexical analyser operates as a subroutine of the parser, not a separate physical pass.</strong> The parser calls <code>getNextToken()</code> on demand, and the scanner consumes characters until the next token is found.
+  </span>
+</div>
+
+<h3>Its other jobs</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Task</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Strip out whitespace and comments</strong></td><td>Blanks, tabs, newlines and comments never reach the parser</td></tr>
+<tr><td><strong>Correlate error messages with the source</strong></td><td>It <strong>counts newlines</strong>, so it can attach a <strong>line number</strong> to every error the compiler later reports</td></tr>
+<tr><td><strong>Enter identifiers into the symbol table</strong></td><td>Each new identifier gets a symbol-table entry; the token carries a <strong>pointer</strong> to it</td></tr>
+<tr><td><strong>Expand macros</strong></td><td>In some designs the lexical analyser performs macro pre-processing</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The process is sometimes split in two: <strong>scanning</strong>, which does the simple character-level work such as deleting comments and compacting whitespace, and <strong>lexical analysis proper</strong>, which produces the tokens. Mentioning that split is worth a mark.</p>
+
+<h2>Token, pattern, lexeme &mdash; the distinction that gets tested</h2>
+
+<div class="formula">
+  <span class="name">The three definitions</span>
+  A <strong>TOKEN</strong> is a pair consisting of a <strong>token name</strong> and an optional <strong>attribute value</strong>. The token name is an <strong>abstract symbol</strong> representing a kind of lexical unit &mdash; a keyword, or a sequence of input characters denoting an identifier. It is what the <strong>parser</strong> works with.<br><br>
+  A <strong>PATTERN</strong> is a <strong>description of the form</strong> that the lexemes of a token may take. For keywords it is just the sequence of characters; for identifiers and other tokens it is a more complex structure &mdash; normally a <strong>regular expression</strong>.<br><br>
+  A <strong>LEXEME</strong> is a <strong>sequence of characters in the source program</strong> that <strong>matches the pattern</strong> for a token and is identified by the lexical analyser as an instance of that token.
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-line test</span>
+  <p><strong>Pattern is the RULE. Lexeme is the actual TEXT in the file. Token is the CATEGORY the parser is told about.</strong></p>
+  <p>Or, as a sentence: <em>&ldquo;the lexeme</em> <code>count</code> <em>matches the pattern for identifiers, so the lexical analyser emits the token</em> &lang;id, ptr&rang;<em>.&rdquo;</em> One rule, many lexemes, one token name.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Token</th><th>Informal description of the <strong>pattern</strong></th><th>Sample <strong>lexemes</strong></th></tr></thead>
+<tbody>
+<tr><td><code><strong>if</strong></code></td><td>The characters <code>i</code>, <code>f</code></td><td><code>if</code></td></tr>
+<tr><td><code><strong>else</strong></code></td><td>The characters <code>e</code>, <code>l</code>, <code>s</code>, <code>e</code></td><td><code>else</code></td></tr>
+<tr><td><code><strong>comparison</strong></code></td><td><code>&lt;</code> or <code>&gt;</code> or <code>&lt;=</code> or <code>&gt;=</code> or <code>==</code> or <code>!=</code></td><td><code>&lt;=</code>, <code>!=</code></td></tr>
+<tr><td><code><strong>id</strong></code></td><td>A letter, followed by letters and digits</td><td><code>pi</code>, <code>score</code>, <code>D2</code>, <code>count</code></td></tr>
+<tr><td><code><strong>number</strong></code></td><td>Any numeric constant</td><td><code>3.14159</code>, <code>0</code>, <code>6.02e23</code></td></tr>
+<tr><td><code><strong>literal</strong></code></td><td>Anything between <code>"</code> and <code>"</code> except another <code>"</code></td><td><code>"core dumped"</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Two points examiners probe. <strong>Each keyword has its own token</strong> &mdash; <code>if</code> and <code>else</code> are <em>different</em> tokens, not two lexemes of one &ldquo;keyword&rdquo; token. And <strong>all the comparison operators share one token</strong>, <code>comparison</code>, distinguished by an attribute &mdash; because the parser's grammar treats them identically.</p>
+
+<h3>Attributes of tokens</h3>
+
+<p>When more than one lexeme matches a pattern, the analyser must pass the parser <strong>additional information</strong> about the particular lexeme found. That extra information is the <strong>attribute value</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Token</th><th>Attribute value</th></tr></thead>
+<tbody>
+<tr><td><strong>Identifier</strong></td><td>A <strong>pointer to its symbol-table entry</strong>, which holds the lexeme, its type, and where it was first seen</td></tr>
+<tr><td><strong>Number</strong></td><td>Its <strong>numeric value</strong>, or a pointer to a constant table</td></tr>
+<tr><td><strong>Comparison operator</strong></td><td>A code such as <strong>LT, LE, EQ, NE, GT, GE</strong> saying which operator it was</td></tr>
+<tr><td><strong>Keyword, punctuation</strong></td><td><strong>None needed</strong> &mdash; the token name says everything</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Give the token sequence, with attributes, for <code>E = M * C ** 2</code></span>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">
+  &lang;<strong>id</strong>, pointer to symbol-table entry for E&rang; &nbsp; &lang;<strong>assign_op</strong>&rang; &nbsp; &lang;<strong>id</strong>, pointer to M&rang; &nbsp; &lang;<strong>mult_op</strong>&rang;<br>
+  &lang;<strong>id</strong>, pointer to C&rang; &nbsp; &lang;<strong>exp_op</strong>&rang; &nbsp; &lang;<strong>number</strong>, integer value 2&rang;
+  </p>
+  <p><strong>Seven tokens.</strong> Note that <code>**</code> is <strong>one</strong> token, not two &mdash; the analyser must use the <strong>longest-match rule</strong>, which Lesson 10 formalises. Note also that <code>=</code>, <code>*</code> and <code>**</code> need no attribute, while every identifier does.</p>
+</div>
+
+<h2>Why separate lexical analysis from parsing?</h2>
+
+<div class="formula">
+  <span class="name">Three reasons &mdash; memorise as three words</span>
+  <strong>1. SIMPLICITY of design.</strong> Separating the two lets each be simplified. A parser that also had to handle whitespace and comments would be far more complex than one that deals with tokens only.<br><br>
+  <strong>2. Compiler EFFICIENCY is improved.</strong> A separate lexical analyser lets us apply <strong>specialised techniques &mdash; particularly buffering &mdash; that serve only the lexical task</strong>. Reading characters is where most of the compiler's I/O time goes, so speeding it up matters.<br><br>
+  <strong>3. Compiler PORTABILITY is enhanced.</strong> <strong>Input-device-specific peculiarities and character-set oddities can be confined to the lexical analyser</strong>, leaving the rest of the compiler untouched when the platform changes.
+</div>
+
+<div class="box">
+  <span class="lbl">The deeper reason, if you want the extra mark</span>
+  <p><strong>Regular expressions are enough to describe tokens, but not enough to describe syntax.</strong> Identifiers, numbers and operators form a <em>regular</em> language, recognisable by a finite automaton with no memory. Balanced parentheses and nested blocks are <em>not</em> regular &mdash; they need a stack, so they need a context-free grammar and a pushdown automaton. <strong>The split between lexical and syntax analysis is exactly the split between regular and context-free languages</strong>, and using the weaker, faster machine wherever it suffices is why the design is fast.</p>
+</div>
+
+<h2>Token-counting numericals</h2>
+
+<div class="box exam">
+  <span class="lbl">The four rules that decide every counting question</span>
+  <p><strong>1. A string literal in double quotes is ONE token</strong>, however long, and whatever is inside it &mdash; commas, spaces and <code>%d</code> included.</p>
+  <p><strong>2. Every punctuation mark is a separate token</strong> &mdash; each comma, semicolon, bracket and brace counts.</p>
+  <p><strong>3. Multi-character operators are ONE token</strong> &mdash; <code>&lt;=</code>, <code>==</code>, <code>++</code>, <code>&amp;&amp;</code>, <code>**</code> each count once, by the longest-match rule.</p>
+  <p><strong>4. Whitespace and comments are NOT tokens.</strong> They are discarded before the parser sees anything.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 1. How many tokens are in <code>x = a + 15;</code>?</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">#</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Lexeme</strong></td><td class="num"><code>x</code></td><td class="num"><code>=</code></td><td class="num"><code>a</code></td><td class="num"><code>+</code></td><td class="num"><code>15</code></td><td class="num"><code>;</code></td></tr>
+  <tr><td><strong>Token</strong></td><td class="num">id</td><td class="num">assign</td><td class="num">id</td><td class="num">add</td><td class="num">number</td><td class="num">semicolon</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Answer: 6 tokens.</strong> The spaces contribute nothing.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2. How many tokens are in <code>printf("i = %d, &amp;i = %x", i, &amp;i);</code>?</span>
+  <p>This is the classic, and the trap is the string.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">#</th><th>Lexeme</th><th>Token</th></tr></thead>
+  <tbody>
+  <tr><td class="num">1</td><td><code>printf</code></td><td>id</td></tr>
+  <tr><td class="num">2</td><td><code>(</code></td><td>punctuation</td></tr>
+  <tr><td class="num">3</td><td><code>"i = %d, &amp;i = %x"</code></td><td><strong>literal &mdash; ONE token</strong></td></tr>
+  <tr><td class="num">4</td><td><code>,</code></td><td>punctuation</td></tr>
+  <tr><td class="num">5</td><td><code>i</code></td><td>id</td></tr>
+  <tr><td class="num">6</td><td><code>,</code></td><td>punctuation</td></tr>
+  <tr><td class="num">7</td><td><code>&amp;</code></td><td>operator</td></tr>
+  <tr><td class="num">8</td><td><code>i</code></td><td>id</td></tr>
+  <tr><td class="num">9</td><td><code>)</code></td><td>punctuation</td></tr>
+  <tr><td class="num">10</td><td><code>;</code></td><td>punctuation</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Answer: 10 tokens.</strong></p>
+  <p><em>The trap:</em> the commas, spaces and <code>&amp;</code> <strong>inside the quotes</strong> are part of the literal and are <strong>not</strong> counted. Counting them gives 15 or more, which is the wrong answer everyone writes first.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 3. How many tokens are in <code>int max(int a, int b);</code>?</span>
+  <p><code>int</code>(1) &nbsp;<code>max</code>(2) &nbsp;<code>(</code>(3) &nbsp;<code>int</code>(4) &nbsp;<code>a</code>(5) &nbsp;<code>,</code>(6) &nbsp;<code>int</code>(7) &nbsp;<code>b</code>(8) &nbsp;<code>)</code>(9) &nbsp;<code>;</code>(10)</p>
+  <p><strong>Answer: 10 tokens.</strong> Note that each occurrence of the keyword <code>int</code> counts <strong>separately</strong> &mdash; the question asks for the number of tokens, not the number of <em>distinct</em> tokens. If it asked for distinct ones the answer would be 6: <code>int</code>, <code>max</code>, <code>(</code>, <code>a</code> / <code>b</code> as <code>id</code>, <code>,</code>, <code>)</code>, <code>;</code>. <strong>Read the wording.</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 4. How many tokens are in <code>if (a &gt;= b) count++; /* tally */</code>?</span>
+  <p><code>if</code>(1) &nbsp;<code>(</code>(2) &nbsp;<code>a</code>(3) &nbsp;<code>&gt;=</code>(4) &nbsp;<code>b</code>(5) &nbsp;<code>)</code>(6) &nbsp;<code>count</code>(7) &nbsp;<code>++</code>(8) &nbsp;<code>;</code>(9)</p>
+  <p><strong>Answer: 9 tokens.</strong></p>
+  <p><em>Two traps together:</em> <code>&gt;=</code> and <code>++</code> are <strong>one token each</strong>, not two, by the longest-match rule; and the <strong>comment contributes nothing</strong>, having been stripped before tokens were produced.</p>
+</div>
+
+<h2>Lexical errors and recovery</h2>
+
+<div class="box">
+  <span class="lbl">How little the lexical analyser can actually detect</span>
+  <p>It sees only a small part of the program, so its power to spot errors is limited. Given <code>fi (a == f(x))</code> in C, it <strong>cannot tell</strong> whether <code>fi</code> is a misspelling of <code>if</code> or a genuine, undeclared function name &mdash; <code>fi</code> is a perfectly valid identifier, so it emits <strong>&lang;id, fi&rang;</strong> and lets the parser complain. <strong>A lexical error occurs only when no pattern matches at all</strong> &mdash; an illegal character such as <code>@</code> or <code>#</code>, an unterminated string or comment, or an ill-formed number such as <code>12abc</code>.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Recovery strategy</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td><strong>Panic mode</strong></td><td><strong>Delete successive characters</strong> from the remaining input until the analyser can find a well-formed token. This is the <strong>simplest and most common</strong> strategy, and it may confuse the parser, but it never loops for ever</td></tr>
+<tr><td><strong>Delete</strong></td><td>Delete one extraneous character</td></tr>
+<tr><td><strong>Insert</strong></td><td>Insert one missing character</td></tr>
+<tr><td><strong>Replace</strong></td><td>Replace one incorrect character by a correct one</td></tr>
+<tr><td><strong>Transpose</strong></td><td>Swap two adjacent characters</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The last four are called <strong>minimal-distance</strong> or <strong>error-correction</strong> transformations: the analyser looks for the <strong>smallest number of transformations</strong> that turn the bad text into a legal one. It is elegant, but expensive, so <strong>panic mode is what real compilers use</strong>.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In <code>count = count + 1;</code>, the word <code>count</code> is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A lexeme; the token is id, and the pattern is &ldquo;a letter followed by letters and digits&rdquo;</button>
+    <button class="opt">All three at once</button>
+    <button class="opt">A token; the lexeme is id</button>
+    <button class="opt">A pattern; the token is the text itself</button>
+  </div>
+  <p class="why">Pattern is the rule, lexeme is the actual text in the file, token is the category reported to the parser. One pattern, many lexemes, one token name.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. How many tokens are in <code>printf("i = %d, &amp;i = %x", i, &amp;i);</code>?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">10</button>
+    <button class="opt">7</button>
+    <button class="opt">15</button>
+    <button class="opt">12</button>
+  </div>
+  <p class="why">The whole quoted string is one token, so the commas, spaces and ampersand inside it are not counted. Counting them is the mistake almost everyone makes first.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. How many tokens are in <code>if (a &gt;= b) count++;</code>?</p>
+  <div class="opts">
+    <button class="opt">10</button>
+    <button class="opt">7</button>
+    <button class="opt" data-ok="1">9</button>
+    <button class="opt">11</button>
+  </div>
+  <p class="why">Both <code>&gt;=</code> and <code>++</code> are single tokens by the longest-match rule. Splitting them into two each gives 11, which is the trap.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The three reasons for separating lexical analysis from parsing are:</p>
+  <div class="opts">
+    <button class="opt">Speed, memory, accuracy</button>
+    <button class="opt">Type checking, error recovery, optimisation</button>
+    <button class="opt">Scanning, screening, parsing</button>
+    <button class="opt" data-ok="1">Simplicity of design, compiler efficiency, compiler portability</button>
+  </div>
+  <p class="why">Efficiency comes specifically from being able to apply specialised buffering to the character-reading task; portability comes from confining input-device and character-set peculiarities to one phase.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Given <code>fi (a == f(x))</code> in C, the lexical analyser will:</p>
+  <div class="opts">
+    <button class="opt">Report a lexical error immediately</button>
+    <button class="opt">Correct it to <code>if</code> automatically</button>
+    <button class="opt">Skip the line entirely</button>
+    <button class="opt" data-ok="1">Emit ⟨id, fi⟩ and let the parser complain</button>
+  </div>
+  <p class="why"><code>fi</code> is a perfectly valid identifier, so no pattern fails. A lexical error occurs only when no pattern matches at all — an illegal character, an unterminated string, or a malformed number.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The attribute value of an identifier token is:</p>
+  <div class="opts">
+    <button class="opt">Nothing — identifiers need no attribute</button>
+    <button class="opt">The regular expression it matched</button>
+    <button class="opt" data-ok="1">A pointer to its symbol-table entry</button>
+    <button class="opt">Its numeric value</button>
+  </div>
+  <p class="why">A number carries its value, a comparison operator carries a code such as LE or NE, and keywords and punctuation need no attribute because the token name says everything.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. The simplest and most widely used lexical error recovery strategy is:</p>
+  <div class="opts">
+    <button class="opt">Transposing adjacent characters</button>
+    <button class="opt">Halting compilation</button>
+    <button class="opt">Minimal-distance correction</button>
+    <button class="opt" data-ok="1">Panic mode — delete successive characters until a well-formed token is found</button>
+  </div>
+  <p class="why">The insert, delete, replace and transpose transformations are the minimal-distance approach — elegant but expensive. Panic mode may confuse the parser, but it always terminates.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the primary task of the lexical analyser and its other jobs.</summary>
+    <p class="ans">It reads the character stream, groups characters into lexemes, and produces a token ⟨token-name, attribute-value⟩ for each, which it passes to the parser. It also strips whitespace and comments, counts newlines so errors can be given line numbers, enters identifiers into the symbol table, and in some designs expands macros. It runs as a subroutine of the parser, called through getNextToken, not as a separate pass.</p></details>
+  <details class="card"><summary>Define token, pattern and lexeme, with the one-line test.</summary>
+    <p class="ans">A token is a pair of an abstract token name and an optional attribute value — the category the parser works with. A pattern is a description of the form the lexemes of a token may take, normally a regular expression — the rule. A lexeme is the actual sequence of characters in the source that matches a pattern — the text in the file.</p></details>
+  <details class="card"><summary>What attribute does each kind of token carry?</summary>
+    <p class="ans">Identifier: a pointer to its symbol-table entry. Number: its numeric value or a pointer to a constant table. Comparison operator: a code such as LT, LE, EQ, NE, GT or GE. Keywords and punctuation: none, because the token name says everything.</p></details>
+  <details class="card"><summary>Give the three reasons for separating lexical from syntax analysis.</summary>
+    <p class="ans">Simplicity of design — each phase is simpler when neither handles the other's job. Compiler efficiency — specialised buffering techniques can be applied to the character-reading task alone. Compiler portability — input-device and character-set peculiarities are confined to one phase. The deeper reason is that tokens form a regular language recognisable by a finite automaton, while syntax is context-free and needs a stack.</p></details>
+  <details class="card"><summary>Give the four rules for counting tokens.</summary>
+    <p class="ans">A double-quoted string literal is one token however long. Every punctuation mark counts separately. Multi-character operators such as &lt;=, ==, ++ and ** are one token each by longest match. Whitespace and comments are not tokens at all. Also check whether the question asks for tokens or for <em>distinct</em> tokens.</p></details>
+  <details class="card"><summary>When is something a lexical error, and what are the recovery strategies?</summary>
+    <p class="ans">Only when no pattern matches at all — an illegal character, an unterminated string or comment, or a malformed number such as 12abc. A misspelling like <code>fi</code> for <code>if</code> is not a lexical error, because it is a valid identifier. Recovery: panic mode, deleting successive characters until a well-formed token appears — the simplest and most used; and the minimal-distance transformations of delete, insert, replace and transpose one character.</p></details>
+</div>
+
+<p class="ask">Next: the buffering scheme that makes reading those characters fast &mdash; and the sentinel trick that halves the tests per character.</p>
+
+<div class="nav">
+  <a href="../unit-1/0004-transition-diagrams-bootstrapping-jit.html">&larr; Unit I</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0006-input-buffering.html">Next: Input Buffering &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

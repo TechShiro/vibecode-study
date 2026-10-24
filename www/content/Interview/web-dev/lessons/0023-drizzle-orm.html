@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 23 — Drizzle ORM: Schema, Migrations &amp; Queries</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 23 of 24 · typed schema, migrations, queries</div>
+<h1>Drizzle ORM: Schema, Migrations &amp; Queries</h1>
+<p class="subtitle">Your SQL knowledge from Lessons 21–22 stays — Drizzle just teaches TypeScript to read it, so column typos die at compile time instead of 2 a.m. in production.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 23 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The gap: SQL strings are invisible to TypeScript</h2>
+<p>
+In Lesson 22 you talked to Postgres from Node with the <code>pg</code> package and parameterized queries.
+That's correct and safe — but look at it through TypeScript's eyes:
+</p>
+
+<pre><code><span class="cmt">// Lesson 22 style — raw pg. Safe from injection, but...</span>
+const result = await pool.query(
+  'SELECT id, usernme, email FROM users WHERE id = $1',  <span class="cmt">// typo: "usernme"</span>
+  [42]
+);
+const user = result.rows[0];      <span class="cmt">// type: any — TS has no idea what's inside</span>
+console.log(user.username.length); <span class="cmt">// compiles fine, EXPLODES at runtime</span></code></pre>
+
+<p>Three separate problems hide in those five lines:</p>
+<ul>
+  <li><strong>The SQL is a string.</strong> To TypeScript it's just text. The typo <code>usernme</code> compiles happily and fails only when the query actually runs — maybe in production, on the one code path you didn't test.</li>
+  <li><strong>No autocomplete.</strong> The editor can't suggest column names, because it can't see your database. You keep a mental copy of the schema and hope it's in sync.</li>
+  <li><strong>Results are <code>any</code>.</strong> <code>result.rows</code> is untyped. Rename a column in the database and every query that reads the old name still compiles. The type system — the whole reason you learned TS in Lesson 20 — is switched off exactly where bugs are most expensive.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Same story as raw JDBC: <code>resultSet.getString("usernme")</code> compiles and throws at runtime.
+  Java's answer was Hibernate/JPA — mapped entity classes that the compiler can check. Tonight you meet the
+  TypeScript generation's answer, which learned from Hibernate's mistakes.
+</div>
+
+<h2>2 · The options ladder: driver → query builder → ORM</h2>
+<p>There are three rungs between you and Postgres, each trading control for safety and convenience:</p>
+<ol>
+  <li><strong>Raw driver</strong> (<code>pg</code>) — you write SQL strings, you map rows by hand. Full control, zero help.</li>
+  <li><strong>Query builder</strong> — you compose SQL from functions (<code>select().from().where()</code>). The <em>structure</em> is checked, but often not the columns.</li>
+  <li><strong>ORM</strong> (Object-Relational Mapper) — a two-way translator: tables ↔ objects, SQL queries ↔ method calls. It knows your schema, so it can type your queries <em>and</em> your results.</li>
+</ol>
+<p>
+The classic ORM promise: "never write SQL again." The classic ORM disease, which Java devs know from Hibernate:
+it's a <strong>leaky abstraction</strong>. Heavy ORMs generate SQL you can't predict, hide performance cliffs,
+and invite the <strong>N+1 problem</strong> — you fetch 100 users in one query, then the ORM lazily fires 100 more
+queries to fetch each user's posts. The database does 101 round trips where 1 join would do. Sooner or later
+you end up reading the generated SQL anyway — so the SQL knowledge from Lessons 21–22 was never optional.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "An ORM maps tables to objects and queries to typed function calls. The tradeoff is abstraction leak:
+  you gain type safety and productivity but can lose sight of the actual SQL — which is how N+1 query
+  problems happen. That's why I like Drizzle: it's a thin, typed layer where each call maps to one
+  predictable SQL statement."
+</div>
+
+<h2>3 · Why Drizzle (and an honest look at Prisma)</h2>
+<p>Drizzle sits deliberately on rung 2.5 — a typed query builder with ORM conveniences. Its pitch:</p>
+<ul>
+  <li><strong>SQL-transparent.</strong> <code>db.select().from(users).where(eq(users.id, 1))</code> — you can read the SQL right through it. "If you know SQL, you know Drizzle" is the actual slogan.</li>
+  <li><strong>Fully typed.</strong> The schema lives in TypeScript, so queries and results are checked against it with zero code generation step.</li>
+  <li><strong>Lightweight.</strong> A small library, no separate query engine process, minimal cold-start cost — which is why it's the favourite in serverless environments (Vercel, edge functions).</li>
+</ul>
+<p>
+The other big name is <strong>Prisma</strong> — you'll see it in many job posts, so know both honestly:
+</p>
+
+<table>
+  <thead><tr><th></th><th>Drizzle</th><th>Prisma</th></tr></thead>
+  <tbody>
+    <tr><td>Schema defined in</td><td>TypeScript files (<code>pgTable(...)</code>)</td><td>Its own <code>schema.prisma</code> language</td></tr>
+    <tr><td>Types come from</td><td>Pure TS inference, instant</td><td>A <code>prisma generate</code> codegen step after each schema change</td></tr>
+    <tr><td>Query style</td><td>SQL-shaped (<code>select/from/where</code>) + relational API</td><td>Object-shaped (<code>prisma.user.findMany</code>)</td></tr>
+    <tr><td>SQL visibility</td><td>High — each call ≈ one predictable statement</td><td>Lower — engine decides the SQL</td></tr>
+    <tr><td>Runtime weight</td><td>Thin JS library</td><td>Heavier client (historically a Rust engine)</td></tr>
+    <tr><td>Migrations</td><td><code>drizzle-kit generate</code> → plain SQL files</td><td><code>prisma migrate</code> → SQL files</td></tr>
+    <tr><td>Learning curve if you know SQL</td><td>Very small</td><td>Small, but it's "its own thing"</td></tr>
+    <tr><td>In interviews</td><td colspan="2">Both are respected, mainstream choices — what matters is that you can justify yours</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Prisma feels like full JPA/Hibernate: declare entities, let the engine write SQL. Drizzle feels like
+  jOOQ: a typed DSL that mirrors SQL one-to-one. Java teams argue Hibernate vs jOOQ the same way TS teams
+  argue Prisma vs Drizzle — and for the same reasons.
+</div>
+
+<h3>Prisma in practice — enough to read (and pass an interview on) a Prisma codebase</h3>
+<p>
+Since half the job posts mention Prisma, here is the same "users and posts" world in Prisma, end to end.
+The workflow has three moving parts: a schema file in Prisma's own language, a <em>generate</em> step that
+builds a typed client, and that client as your query API.
+</p>
+
+<pre><code><span class="cmt">// prisma/schema.prisma — Prisma's own schema language (NOT TypeScript)</span>
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"     <span class="cmt">// what `prisma generate` builds</span>
+}
+
+model User {
+  id    Int    @id @default(autoincrement())
+  email String @unique
+  name  String?                     <span class="cmt">// ? = nullable</span>
+  posts Post[]                      <span class="cmt">// 1:N relation — a User has many Posts</span>
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  published Boolean  @default(false)
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  Int                     <span class="cmt">// the actual FK column</span>
+  createdAt DateTime @default(now())
+}</code></pre>
+
+<p>The lifecycle after every schema change (compare with Drizzle's in section 7):</p>
+
+<pre><code><span class="cmt"># 1. write/edit schema.prisma</span>
+npx prisma migrate dev --name add-posts   <span class="cmt"># diffs schema → writes SQL migration → applies it</span>
+npx prisma generate                        <span class="cmt"># (re)builds the typed client into node_modules</span>
+<span class="cmt"># prisma db push  = quick prototyping, no migration files (like drizzle-kit push)</span>
+<span class="cmt"># prisma studio   = a GUI to browse your tables in the browser</span></code></pre>
+
+<p>Querying — object-shaped instead of SQL-shaped:</p>
+
+<pre><code>import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
+
+<span class="cmt">// CREATE — nested write creates the user AND a post in one call</span>
+const user = await prisma.user.create({
+  data: {
+    email: 'krish@example.com',
+    name: 'Krish',
+    posts: { create: [{ title: 'Hello Prisma' }] },
+  },
+})
+
+<span class="cmt">// READ — where / orderBy / take map to WHERE / ORDER BY / LIMIT</span>
+const published = await prisma.post.findMany({
+  where: { published: true, title: { contains: 'drizzle' } },
+  orderBy: { createdAt: 'desc' },
+  take: 10,
+  include: { author: true },        <span class="cmt">// JOIN-ish: nests the related User — Prisma's N+1 killer,</span>
+})                                  <span class="cmt">// same job as Drizzle's `with:` in section 10</span>
+
+<span class="cmt">// UPDATE and DELETE</span>
+await prisma.post.update({ where: { id: 1 }, data: { published: true } })
+await prisma.post.delete({ where: { id: 1 } })
+
+<span class="cmt">// TRANSACTION — same bank-transfer shape as section 11</span>
+await prisma.$transaction(async (tx) =&gt; {
+  await tx.account.update({ where: { id: 1 }, data: { balance: { decrement: 500 } } })
+  await tx.account.update({ where: { id: 2 }, data: { balance: { increment: 500 } } })
+})</code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "I've used Drizzle, and I can read Prisma. The mental map: <code>schema.prisma</code> + <code>generate</code>
+  ≈ Drizzle's TS schema with inference; <code>migrate dev</code> ≈ <code>drizzle-kit generate</code> +
+  <code>migrate</code>; <code>findMany({ include })</code> ≈ the relational query API's <code>with</code>.
+  Same concepts, different dialect — the transferable skill is knowing what SQL you expect underneath."
+</div>
+
+<h2>4 · Setup: three packages and two files</h2>
+<p>Drizzle for Postgres needs the ORM, the driver you already know, and a CLI dev tool:</p>
+
+<pre><code>npm install drizzle-orm pg          <span class="cmt"># the ORM + the node-postgres driver from Lesson 22</span>
+npm install -D drizzle-kit @types/pg <span class="cmt"># CLI for migrations + TS types for pg (dev-only)</span></code></pre>
+
+<p><strong>File 1 — <code>drizzle.config.ts</code></strong> at the project root. This configures the <em>CLI</em>, not your app: where the schema lives, where migration files go, how to reach the database.</p>
+
+<pre><code>import { defineConfig } from 'drizzle-kit';
+
+export default defineConfig({
+  schema: './src/db/schema.ts',      <span class="cmt">// where your tables are defined</span>
+  out: './drizzle',                  <span class="cmt">// generated migration .sql files land here</span>
+  dialect: 'postgresql',
+  dbCredentials: {
+    url: process.env.DATABASE_URL!,  <span class="cmt">// e.g. postgres://user:pass@localhost:5432/devlog</span>
+  },
+});</code></pre>
+
+<p><strong>File 2 — <code>src/db/index.ts</code></strong>, the client your app imports. Note it's the same <code>Pool</code> from Lesson 22 — Drizzle wraps the driver, it doesn't replace it:</p>
+
+<pre><code>import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import * as schema from './schema';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+<span class="cmt">// passing the schema unlocks the relational query API (section 10)</span>
+export const db = drizzle(pool, { schema });</code></pre>
+
+<div class="callout tip">
+  <span class="label">TS rust? Recap pointer</span>
+  Everything here uses TypeScript from Lesson 20's primer — interfaces, generics, inference,
+  <code>!</code> non-null assertion. If any syntax looks alien, skim that primer again before continuing;
+  Drizzle is 90% "TypeScript doing its inference thing."
+</div>
+
+<h2>5 · Schema in TypeScript</h2>
+<p>
+Here is the users/posts schema from Lesson 21 rebuilt as code. Each <code>pgTable</code> call mirrors a
+<code>CREATE TABLE</code> — same constraints, new spelling:
+</p>
+
+<pre><code><span class="cmt">// src/db/schema.ts</span>
+import {
+  pgTable, serial, integer, text, varchar, boolean,
+  timestamp, uuid, jsonb, pgEnum, index, uniqueIndex,
+} from 'drizzle-orm/pg-core';
+
+<span class="cmt">// CREATE TYPE role AS ENUM ('user', 'admin');</span>
+export const roleEnum = pgEnum('role', ['user', 'admin']);
+
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),                       <span class="cmt">// SERIAL PRIMARY KEY</span>
+  username: varchar('username', { length: 50 }).notNull().unique(),
+  email: text('email').notNull().unique(),
+  role: roleEnum('role').notNull().default('user'),
+  isActive: boolean('is_active').notNull().default(true),
+  profile: jsonb('profile'),                           <span class="cmt">// flexible extras — Lesson 22 rules apply</span>
+  createdAt: timestamp('created_at', { withTimezone: true })  <span class="cmt">// timestamptz — always</span>
+    .notNull().defaultNow(),
+});
+
+export const posts = pgTable('posts', {
+  id: uuid('id').primaryKey().defaultRandom(),         <span class="cmt">// uuid PK this time, for contrast</span>
+  title: varchar('title', { length: 200 }).notNull(),
+  body: text('body').notNull(),
+  authorId: integer('author_id')
+    .notNull()
+    .references(() =&gt; users.id, { onDelete: 'cascade' }),  <span class="cmt">// FK + ON DELETE CASCADE</span>
+  publishedAt: timestamp('published_at', { withTimezone: true }),  <span class="cmt">// nullable = draft</span>
+}, (table) =&gt; [
+  index('posts_author_idx').on(table.authorId),        <span class="cmt">// CREATE INDEX — FK columns, Lesson 22!</span>
+]);</code></pre>
+
+<p>Mapping table, SQL ↔ Drizzle:</p>
+<table>
+  <thead><tr><th>SQL (Lesson 21)</th><th>Drizzle column builder</th></tr></thead>
+  <tbody>
+    <tr><td><code>SERIAL PRIMARY KEY</code></td><td><code>serial('id').primaryKey()</code></td></tr>
+    <tr><td><code>VARCHAR(50) NOT NULL UNIQUE</code></td><td><code>varchar('c', { length: 50 }).notNull().unique()</code></td></tr>
+    <tr><td><code>BOOLEAN DEFAULT true</code></td><td><code>boolean('c').default(true)</code></td></tr>
+    <tr><td><code>TIMESTAMPTZ DEFAULT now()</code></td><td><code>timestamp('c', { withTimezone: true }).defaultNow()</code></td></tr>
+    <tr><td><code>UUID DEFAULT gen_random_uuid()</code></td><td><code>uuid('c').defaultRandom()</code></td></tr>
+    <tr><td><code>REFERENCES users(id) ON DELETE CASCADE</code></td><td><code>.references(() =&gt; users.id, { onDelete: 'cascade' })</code></td></tr>
+    <tr><td><code>CREATE INDEX ... ON (col)</code></td><td><code>index('name').on(table.col)</code> in the table's third argument</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Two names per column: the TS property (<code>isActive</code>, camelCase, what your code uses) and the SQL
+  column name (<code>'is_active'</code>, snake_case, what Postgres stores). Drizzle translates between them.
+  Mixing them up — writing <code>is_active</code> in a query — is a compile error, which is exactly the point.
+</div>
+
+<h2>6 · The payoff: <code>$inferSelect</code> and <code>$inferInsert</code></h2>
+<p>
+Because the schema is TypeScript, Drizzle can hand you the row types for free — no interface written by hand,
+no codegen:
+</p>
+
+<pre><code>export type User = typeof users.$inferSelect;
+<span class="cmt">// { id: number; username: string; email: string; role: 'user' | 'admin';</span>
+<span class="cmt">//   isActive: boolean; profile: unknown; createdAt: Date }</span>
+
+export type NewUser = typeof users.$inferInsert;
+<span class="cmt">// id, createdAt, role, isActive become OPTIONAL — they have defaults.</span>
+<span class="cmt">// username and email stay REQUIRED — notNull with no default.</span></code></pre>
+
+<p>Now the Lesson-22 horror scene replays with a different ending:</p>
+
+<pre><code>const u = await db.select().from(users);  <span class="cmt">// u: User[] — automatically</span>
+console.log(u[0].usernme);
+<span class="cmt">// ^ TS error: Property 'usernme' does not exist on type 'User'.</span>
+<span class="cmt">//   Did you mean 'username'? — caught BEFORE the code ever runs</span></code></pre>
+
+<p>
+And it's alive: add a column to <code>pgTable</code> and every query in the codebase that's now wrong turns
+red in the editor. Your schema and your types cannot drift apart, because they are the same file.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Drizzle's schema is TypeScript, so row types are <em>inferred</em> — <code>$inferSelect</code> for reads,
+  <code>$inferInsert</code> for writes, with defaulted columns optional on insert. A column typo or a schema
+  change becomes a compile error instead of a runtime crash."
+</div>
+
+<h2>7 · Migrations: <code>generate</code> vs <code>push</code></h2>
+<p>
+Lesson 22 ended on migrations as a concept: schema changes as versioned files, replayable in order on any
+database. drizzle-kit makes that real. The professional workflow:
+</p>
+
+<pre><code>npx drizzle-kit generate   <span class="cmt"># diff schema.ts vs previous snapshot → writes ./drizzle/0001_xyz.sql</span>
+npx drizzle-kit migrate    <span class="cmt"># run pending .sql files against DATABASE_URL, record them as applied</span></code></pre>
+
+<p>The generated file is plain SQL you can read — and you <em>should</em> read it before applying, every time:</p>
+
+<pre><code><span class="cmt">-- drizzle/0000_flat_wolverine.sql (generated)</span>
+CREATE TYPE "role" AS ENUM('user', 'admin');
+CREATE TABLE "users" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "username" varchar(50) NOT NULL,
+  "email" text NOT NULL,
+  ...
+  CONSTRAINT "users_username_unique" UNIQUE("username")
+);</code></pre>
+
+<p>
+The shortcut, <code>npx drizzle-kit push</code>, skips files entirely and syncs the live database to match
+<code>schema.ts</code> right now. Faster for toy projects — but there's no history, no review step, and no
+replayable record for teammates or production.
+</p>
+
+<table>
+  <thead><tr><th></th><th><code>generate</code> + <code>migrate</code></th><th><code>push</code></th></tr></thead>
+  <tbody>
+    <tr><td>Produces SQL files?</td><td>Yes — versioned, reviewable, committed to git</td><td>No — applies changes directly</td></tr>
+    <tr><td>History/replayable?</td><td>Yes, in order, on any environment</td><td>No</td></tr>
+    <tr><td>Best for</td><td>Real projects, teams, production</td><td>Solo prototyping, throwaway experiments</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Migration files are append-only history. Never edit an already-applied migration to "fix" it — change
+  <code>schema.ts</code> and generate a <em>new</em> migration. Editing history breaks every database that
+  already ran the old version. (Same rule as never rewriting pushed git commits.)
+</div>
+
+<h2>8 · Queries: CRUD, typed end to end</h2>
+<p>Every operator is an imported function — that's how the type checking reaches inside your <code>WHERE</code>:</p>
+
+<pre><code>import { eq, ne, gt, lt, like, ilike, inArray, and, or, desc, count } from 'drizzle-orm';
+import { db } from './db';
+import { users, posts } from './db/schema';</code></pre>
+
+<p><strong>INSERT</strong> — with multi-row and <code>RETURNING</code>, just like Lesson 21:</p>
+
+<pre><code><span class="cmt">// INSERT INTO users (username, email) VALUES ($1, $2) RETURNING *</span>
+const [krish] = await db.insert(users)
+  .values({ username: 'krish', email: 'krish@nsut.ac.in' })  <span class="cmt">// NewUser — checked!</span>
+  .returning();                    <span class="cmt">// without this, inserts return nothing useful</span>
+
+await db.insert(users).values([   <span class="cmt">// multi-row: pass an array</span>
+  { username: 'asha', email: 'asha@example.com' },
+  { username: 'ravi', email: 'ravi@example.com', role: 'admin' },
+]);</code></pre>
+
+<p><strong>SELECT</strong> — read the SQL through it:</p>
+
+<pre><code><span class="cmt">// SELECT * FROM users WHERE role = 'admin' AND is_active = true</span>
+<span class="cmt">// ORDER BY created_at DESC LIMIT 10 OFFSET 0</span>
+const admins = await db.select().from(users)
+  .where(and(eq(users.role, 'admin'), eq(users.isActive, true)))
+  .orderBy(desc(users.createdAt))
+  .limit(10).offset(0);
+
+<span class="cmt">// partial select — SELECT id, username FROM users; result type shrinks to match</span>
+const names = await db.select({ id: users.id, username: users.username }).from(users);
+
+<span class="cmt">// more operators, mapping straight to Lesson 21 WHERE clauses</span>
+await db.select().from(users).where(ilike(users.email, '%@nsut.ac.in'));  <span class="cmt">// ILIKE</span>
+await db.select().from(users).where(inArray(users.id, [1, 2, 3]));        <span class="cmt">// IN (…)</span>
+await db.select().from(posts).where(gt(posts.publishedAt, new Date('2026-01-01')));</code></pre>
+
+<p><strong>UPDATE / DELETE / COUNT:</strong></p>
+
+<pre><code><span class="cmt">// UPDATE users SET is_active = false WHERE id = $1 RETURNING *</span>
+const [updated] = await db.update(users)
+  .set({ isActive: false })
+  .where(eq(users.id, krish.id))
+  .returning();
+
+<span class="cmt">// DELETE FROM posts WHERE author_id = $1</span>
+await db.delete(posts).where(eq(posts.authorId, krish.id));
+
+<span class="cmt">// SELECT count(*) FROM users</span>
+const [{ value: total }] = await db.select({ value: count() }).from(users);</code></pre>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Just like raw SQL, <code>db.update(...)</code> and <code>db.delete(...)</code> with no <code>.where()</code>
+  hit <strong>every row</strong>. Drizzle won't stop you — the Lesson 21 forgot-the-WHERE horror story is
+  alive and well one abstraction level up. And under the hood every one of these calls becomes a
+  parameterized <code>$1, $2</code> query, so the SQL-injection door from Lesson 22 stays closed by default.
+</div>
+
+<h2>9 · Joins and the nested result shape</h2>
+<p>
+<code>leftJoin</code> works exactly like Lesson 21's <code>LEFT JOIN</code>, with one surprise in the result
+shape: instead of one flat row, you get <strong>one object per table</strong>, and the right side is
+<code>null</code> where the join found no match — the typed version of the NULL-padded row:
+</p>
+
+<pre><code><span class="cmt">// SELECT * FROM users LEFT JOIN posts ON posts.author_id = users.id</span>
+const rows = await db.select().from(users)
+  .leftJoin(posts, eq(posts.authorId, users.id));
+
+<span class="cmt">// rows: Array&lt;{ users: User; posts: Post | null }&gt;</span>
+for (const row of rows) {
+  console.log(row.users.username, row.posts?.title ?? '(no posts yet)');
+}</code></pre>
+
+<p>
+One row per user-post <em>pair</em>, so a user with three posts appears three times — same as raw SQL.
+Grouping pairs into "user with posts array" is your job... or the next section's.
+</p>
+
+<h2>10 · The relational query API — killing N+1 boilerplate</h2>
+<p>
+For the everyday "give me users <em>with</em> their posts, nested" case, Drizzle has a second API.
+First declare how tables relate (this is metadata for queries — the real FK lives in the table definition):
+</p>
+
+<pre><code><span class="cmt">// at the bottom of schema.ts</span>
+import { relations } from 'drizzle-orm';
+
+export const usersRelations = relations(users, ({ many }) =&gt; ({
+  posts: many(posts),                <span class="cmt">// one user → many posts</span>
+}));
+
+export const postsRelations = relations(posts, ({ one }) =&gt; ({
+  author: one(users, {               <span class="cmt">// each post → one user</span>
+    fields: [posts.authorId],
+    references: [users.id],
+  }),
+}));</code></pre>
+
+<p>Then — remember we passed <code>{ schema }</code> to <code>drizzle()</code> in section 4 — query nested data in one call:</p>
+
+<pre><code>const activeUsers = await db.query.users.findMany({
+  where: (u, { eq }) =&gt; eq(u.isActive, true),
+  columns: { id: true, username: true },     <span class="cmt">// only these user columns</span>
+  with: {
+    posts: {                                 <span class="cmt">// nest each user's posts inside</span>
+      columns: { id: true, title: true },
+      limit: 5,
+    },
+  },
+});
+<span class="cmt">// type: Array&lt;{ id: number; username: string;</span>
+<span class="cmt">//               posts: Array&lt;{ id: string; title: string }&gt; }&gt;</span></code></pre>
+
+<p>
+Why this matters: the naive hand-rolled version is <em>the</em> N+1 bug — fetch N users, then loop and fire one
+posts query per user. Drizzle compiles <code>with</code> into a single SQL statement, so you get the nested shape
+your React components want, at one-round-trip cost, with full types.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "N+1 is when an ORM fetches a list in 1 query, then lazily fires N more for each item's relations.
+  The fix is eager loading — a join or a nested-select API like Drizzle's <code>with</code> — so it's
+  one round trip instead of N+1."
+</div>
+
+<h2>11 · Transactions in Drizzle</h2>
+<p>
+The Lesson 22 bank transfer — two updates that must both happen or neither — translates directly.
+<code>db.transaction</code> runs your callback between <code>BEGIN</code> and <code>COMMIT</code>; any thrown
+error triggers <code>ROLLBACK</code> automatically:
+</p>
+
+<pre><code>await db.transaction(async (tx) =&gt; {          <span class="cmt">// BEGIN</span>
+  <span class="cmt">// inside, use tx exactly like db — same API, same types</span>
+  const [from] = await tx.update(accounts)
+    .set({ balance: sql`${accounts.balance} - 500` })
+    .where(eq(accounts.id, 1))
+    .returning();
+
+  if (from.balance &lt; 0) {
+    throw new Error('insufficient funds');    <span class="cmt">// → ROLLBACK, nothing saved</span>
+  }
+
+  await tx.update(accounts)
+    .set({ balance: sql`${accounts.balance} + 500` })
+    .where(eq(accounts.id, 2));
+});                                            <span class="cmt">// callback returns → COMMIT</span></code></pre>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Use <code>tx</code>, not <code>db</code>, for every query inside the callback. A <code>db.update(...)</code>
+  inside the transaction body runs on a <em>different pooled connection</em>, outside the transaction —
+  it commits even when the transaction rolls back. Classic, painful, silent bug.
+  (That <code>sql</code> template tag is Drizzle's escape hatch for raw SQL fragments — still parameterized, still safe.)
+</div>
+
+<h2>12 · Wiring it in: Express and Next.js</h2>
+<p>
+<strong>Express</strong> — in Lesson 18 your service layer held an in-memory array. That was the point of
+layering: only the service changes, routes and controllers don't notice:
+</p>
+
+<pre><code><span class="cmt">// services/posts.service.ts — before: const posts = []; now:</span>
+import { db } from '../db';
+import { posts } from '../db/schema';
+import { eq } from 'drizzle-orm';
+
+export const postsService = {
+  findAll: () =&gt; db.select().from(posts),
+  findOne: async (id: string) =&gt; {
+    const [post] = await db.select().from(posts).where(eq(posts.id, id));
+    return post ?? null;                    <span class="cmt">// controller turns null into 404, as before</span>
+  },
+  create: async (data: typeof posts.$inferInsert) =&gt; {
+    const [created] = await db.insert(posts).values(data).returning();
+    return created;
+  },
+};</code></pre>
+
+<p>
+<strong>Next.js</strong> — server components (Lesson 15) run on the server, so they can query the database
+directly, no API route in between. Mutations go in a server action (Lesson 16) that revalidates:
+</p>
+
+<pre><code><span class="cmt">// app/posts/page.tsx — a server component; async and DB access are fine here</span>
+import { db } from '@/db';
+
+export default async function PostsPage() {
+  const allPosts = await db.query.posts.findMany({
+    with: { author: { columns: { username: true } } },
+  });
+  return (
+    &lt;ul&gt;
+      {allPosts.map((p) =&gt; (
+        &lt;li key={p.id}&gt;{p.title} — {p.author.username}&lt;/li&gt;
+      ))}
+    &lt;/ul&gt;
+  );
+}</code></pre>
+
+<pre><code><span class="cmt">// app/posts/actions.ts — a server action for the mutation</span>
+'use server';
+import { revalidatePath } from 'next/cache';
+import { db } from '@/db';
+import { posts } from '@/db/schema';
+
+export async function createPost(formData: FormData) {
+  await db.insert(posts).values({
+    title: String(formData.get('title')),
+    body: String(formData.get('body')),
+    authorId: 1,                          <span class="cmt">// real app: from the session (Lesson 19)</span>
+  });
+  revalidatePath('/posts');               <span class="cmt">// refresh the cached listing</span>
+}</code></pre>
+
+<p>
+That is the whole track connected: React renders, Next.js decides where, Drizzle types the query,
+Postgres stores the truth. Lesson 24 assembles exactly this into one small complete app.
+</p>
+
+<h2>13 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What is an ORM and what are its tradeoffs?"</strong><br>
+  An ORM maps database tables to objects and SQL to typed function calls, giving type safety, autocomplete, and less
+  boilerplate. Tradeoffs: it's a leaky abstraction — generated SQL can be inefficient or surprising (N+1 queries), and
+  you still need SQL knowledge to debug it. Thin, SQL-transparent ORMs like Drizzle minimize the leak.</li>
+  <li><strong>"What is the N+1 query problem?"</strong><br>
+  Fetching a list with 1 query, then triggering N additional queries — one per item — for related data. Fixed with eager
+  loading: a join, or a nested-relations API (Drizzle's <code>with</code>) that compiles to a single statement.</li>
+  <li><strong>"Drizzle vs Prisma — how do you choose?"</strong><br>
+  Prisma: schema in its own DSL, a generate step, object-style queries, heavier client. Drizzle: schema in plain TS with
+  instant inference, SQL-shaped queries, thin and serverless-friendly. Both mainstream; I pick Drizzle when I want to see
+  the SQL and keep the runtime light.</li>
+  <li><strong>"How do migrations work in your project?"</strong><br>
+  Schema changes are edits to <code>schema.ts</code>; <code>drizzle-kit generate</code> diffs that against the last
+  snapshot and emits a versioned SQL file, which is reviewed, committed, and applied with <code>migrate</code> in each
+  environment. <code>push</code> exists for prototyping but keeps no history.</li>
+  <li><strong>"How does Drizzle prevent SQL injection?"</strong><br>
+  Every query compiles to a parameterized statement — values travel as <code>$1, $2</code> parameters, never concatenated
+  into SQL text. Even the raw <code>sql</code> template tag parameterizes its interpolations.</li>
+  <li><strong>"How do you run a transaction in an ORM?"</strong><br>
+  <code>db.transaction(async (tx) =&gt; ...)</code> — the callback runs inside BEGIN/COMMIT; a thrown error rolls back.
+  All queries inside must go through <code>tx</code> so they share the transaction's connection.</li>
+</ul>
+
+<h2>14 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Your teammate renames the column property <code>username</code> to <code>handle</code> in <code>schema.ts</code>. What happens to an old query using <code>users.username</code>?</div>
+  <button class="opt">Nothing until runtime — the query fails when Postgres rejects the unknown column</button>
+  <button class="opt">Drizzle silently maps the old name to the new one via the migration history</button>
+  <button class="opt">It becomes a TypeScript compile error immediately — schema and query types are the same source</button>
+  <div class="fb" data-correct="Exactly — because the schema IS TypeScript, every query is checked against it. Schema drift becomes red squiggles in the editor, not production crashes. This is the core payoff over raw SQL strings." data-wrong="That's the raw-pg world (or a magic ORMs don't have). Drizzle's schema is the TypeScript source of truth, so any query referencing a removed property fails to compile — the error surfaces before the code ever runs."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A page fetches 50 users, then loops and calls <code>db.select().from(posts).where(eq(posts.authorId, u.id))</code> per user. What is this, and what's the fix?</div>
+  <button class="opt">A deadlock risk — wrap the loop in <code>db.transaction</code> so the queries share a connection</button>
+  <button class="opt">The N+1 problem — replace the loop with one query: a join, or <code>findMany({ with: { posts: true } })</code></button>
+  <button class="opt">Normal ORM behaviour — 51 small queries are cheaper for Postgres than one big join</button>
+  <div class="fb" data-correct="51 round trips where one would do — that's N+1. Eager-load instead: a leftJoin, or the relational API's `with`, which compiles the nesting into a single SQL statement." data-wrong="No locks are contended here, and many round trips are almost never cheaper — each one pays network latency. This is the classic N+1 pattern; fix it with eager loading (join or the relational `with` API) so it's one query."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">When is <code>drizzle-kit push</code> the wrong choice?</div>
+  <button class="opt">On a shared or production database — it applies changes directly with no versioned, reviewable history</button>
+  <button class="opt">During solo prototyping — push can't create new tables, only alter existing ones</button>
+  <button class="opt">Never — push and generate/migrate produce identical migration files</button>
+  <div class="fb" data-correct="Right. push syncs the live DB to schema.ts with no SQL files, no review step, no replayable record — fine for a throwaway prototype, dangerous anywhere teammates or production data exist. Real projects use generate → review → migrate." data-wrong="push handles new tables fine and produces NO files at all — that's exactly the problem. Without versioned SQL files there's no history to review or replay, which is why it's for prototyping only."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Inside <code>db.transaction(async (tx) =&gt; { ... })</code>, one query accidentally uses <code>db</code> instead of <code>tx</code>. What's the consequence?</div>
+  <button class="opt">A compile error — Drizzle's types forbid using <code>db</code> inside a transaction callback</button>
+  <button class="opt">That query runs on a separate connection outside the transaction — it commits even if the transaction rolls back</button>
+  <button class="opt">Nothing — <code>db</code> and <code>tx</code> are the same object inside the callback</button>
+  <div class="fb" data-correct="Exactly — a transaction lives on ONE connection. db.query grabs a different pooled connection, so that statement is outside the BEGIN/COMMIT and survives a rollback. Silent partial writes: always use tx inside the callback." data-wrong="It compiles fine, which is what makes it dangerous. Transactions are per-connection; db pulls a fresh connection from the pool, so that query runs outside the transaction and won't roll back with it."></div>
+</div>
+
+<h2>15 · Do this next</h2>
+<ul>
+  <li>In a fresh folder: install the three packages, write <code>drizzle.config.ts</code> and <code>src/db/schema.ts</code> with the users/posts tables from section 5, run <code>drizzle-kit generate</code>, open the generated SQL file and read every line, then <code>migrate</code> and verify with <code>\d users</code> in psql.</li>
+  <li>Write a <code>seed.ts</code> script: insert 3 users and 6 posts, then (a) list active users with their post titles via <code>findMany({ with })</code>, (b) do the same with an explicit <code>leftJoin</code>, and console.log both result shapes to see flat-pairs vs nested. Hover the variables in your editor and admire the inferred types.</li>
+  <li>Take your Express CRUD API from Lesson 18 and swap its in-memory array for Drizzle calls in the service layer only — routes and controllers must not change. Then break something on purpose: rename a schema property and watch which files light up red.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure why <code>$inferInsert</code> marks some fields optional, when to pick <code>push</code> vs
+  <code>generate</code>, or how <code>with</code> avoids N+1 under the hood? Ask in the chat — any question is
+  fair game. When you can explain the ORM tradeoff, the migration workflow, and the tx-not-db rule in your own
+  words, say <strong>"next"</strong> for the finale — Lesson 24: Full-Stack Wiring &amp; Interview Drill.
+</div>
+
+<div class="nav">
+  <span><a href="0022-postgres-indexes-transactions.html">← Indexes &amp; Transactions</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0024-fullstack-capstone-interview.html">Capstone →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

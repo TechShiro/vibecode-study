@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Lesson 07 — SQL vs NoSQL</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">System Design · HLD · Lesson 7 of 66 · databases, sql, nosql, relational</div>
+<h1>SQL vs NoSQL Databases</h1>
+<p class="subtitle">The most frequent architectural decision you will make. Picking the wrong database paradigm will doom your system's scaling potential or cripple your data integrity.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master System Design for interviews — HLD + LLD. This is Lesson 7 of 66.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<!-- ─── 1 · THE ONE IDEA ─── -->
+<h2>1 · The One Idea</h2>
+<p>
+<strong>SQL (Relational)</strong> databases are built for strict schema, strong data integrity (ACID), and complex relationships via <code>JOIN</code>s, but they are historically hard to scale horizontally. 
+<strong>NoSQL (Non-Relational)</strong> databases sacrifice complex querying and strict schemas to achieve extreme horizontal scalability, high performance, and flexible data models.
+</p>
+
+<!-- ─── 2 · SQL / RELATIONAL DATABASES ─── -->
+<h2>2 · SQL (Relational Databases)</h2>
+<p>
+Data is stored in highly structured <strong>Tables</strong> (rows and columns). Relationships between tables are enforced via Foreign Keys.
+</p>
+<ul>
+  <li><strong>Examples:</strong> PostgreSQL, MySQL, Oracle, SQL Server.</li>
+  <li><strong>ACID Guarantees:</strong> 
+    <ul>
+      <li><strong>A</strong>tomicity: All parts of a transaction succeed, or it all rolls back.</li>
+      <li><strong>C</strong>onsistency: Data must adhere to all constraints/schemas.</li>
+      <li><strong>I</strong>solation: Concurrent transactions don't interfere with each other.</li>
+      <li><strong>D</strong>urability: Once committed, data survives crashes.</li>
+    </ul>
+  </li>
+  <li><strong>Best for:</strong> Financial systems, inventory, systems where data relationships are complex and data integrity is non-negotiable.</li>
+</ul>
+
+<!-- ─── 3 · THE 4 TYPES OF NOSQL DATABASES ─── -->
+<h2>3 · The 4 Families of NoSQL</h2>
+<p>NoSQL is not one thing—it is a blanket term for four entirely different database paradigms.</p>
+
+<table class="vs-table">
+  <thead><tr><th>Type</th><th>How it stores data</th><th>Examples</th><th>Best Used For</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Key-Value</strong></td>
+      <td>A hash map (dictionary). Unique key points to a blob of data.</td>
+      <td>Redis, Memcached, DynamoDB</td>
+      <td>Caching, session storage, shopping carts, leaderboards. Extreme read/write speed.</td>
+    </tr>
+    <tr>
+      <td><strong>Document</strong></td>
+      <td>JSON/BSON objects. Each document can have a completely different structure.</td>
+      <td>MongoDB, Couchbase</td>
+      <td>Content management, user profiles, product catalogs. Great when schema changes rapidly.</td>
+    </tr>
+    <tr>
+      <td><strong>Column-Family</strong></td>
+      <td>Stores data by columns rather than rows. Highly optimized for massive write throughput across distributed nodes.</td>
+      <td>Cassandra, HBase</td>
+      <td>Time-series data, IoT sensor data, massive logging (e.g., Discord messages, Netflix viewing history).</td>
+    </tr>
+    <tr>
+      <td><strong>Graph</strong></td>
+      <td>Nodes (entities) and Edges (relationships). Highly optimized for traversing deep connections.</td>
+      <td>Neo4j, Amazon Neptune</td>
+      <td>Social networks (friends of friends), recommendation engines, fraud detection.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── 4 · VISUALIZING THE DIFFERENCE ─── -->
+<h2>4 · Mental Models: SQL vs Document vs Graph</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- SQL -->
+  <text class="lbl" x="120" y="20" font-size="14" font-weight="700">SQL (Relational)</text>
+  <rect class="cell" x="20" y="40" width="200" height="80" rx="4"/>
+  <text class="lbl" x="120" y="55" font-size="11" text-decoration="underline">Users Table</text>
+  <text class="wt" x="30" y="75" font-size="9" text-anchor="start">id | name  | team_id</text>
+  <text class="wt" x="30" y="90" font-size="9" text-anchor="start">1  | Alice | 100</text>
+  <text class="wt" x="30" y="105" font-size="9" text-anchor="start">2  | Bob   | 100</text>
+  
+  <rect class="cell" x="20" y="150" width="200" height="65" rx="4"/>
+  <text class="lbl" x="120" y="165" font-size="11" text-decoration="underline">Teams Table</text>
+  <text class="wt" x="30" y="185" font-size="9" text-anchor="start">id  | team_name</text>
+  <text class="wt" x="30" y="200" font-size="9" text-anchor="start">100 | Engineering</text>
+  
+  <line class="edge hl" x1="120" y1="120" x2="120" y2="150" marker-end="url(#arrow)"/>
+  <text class="wt" x="125" y="135" font-size="8" fill="var(--accent)">Foreign Key (JOIN)</text>
+
+  <!-- Document -->
+  <text class="lbl" x="360" y="20" font-size="14" font-weight="700">Document (NoSQL)</text>
+  <rect class="node" x="260" y="40" width="200" height="150" rx="4"/>
+  <text class="lbl inv" x="360" y="55" font-size="11" text-decoration="underline">User Document (JSON)</text>
+  <text class="wt" x="270" y="75" font-size="10" text-anchor="start">{</text>
+  <text class="wt" x="280" y="90" font-size="10" text-anchor="start">"id": 1,</text>
+  <text class="wt" x="280" y="105" font-size="10" text-anchor="start">"name": "Alice",</text>
+  <text class="wt" x="280" y="120" font-size="10" text-anchor="start">"team": {</text>
+  <text class="wt" x="290" y="135" font-size="10" text-anchor="start">"name": "Engineering"</text>
+  <text class="wt" x="280" y="150" font-size="10" text-anchor="start">}</text>
+  <text class="wt" x="270" y="165" font-size="10" text-anchor="start">}</text>
+  <text class="wt" x="360" y="210" font-size="9">Data is denormalized (nested).</text>
+  <text class="wt" x="360" y="225" font-size="9">No JOINs needed.</text>
+
+  <!-- Graph -->
+  <text class="lbl" x="600" y="20" font-size="14" font-weight="700">Graph (NoSQL)</text>
+  <circle cx="550" cy="80" r="25" fill="var(--accent)" stroke="var(--accent)"/>
+  <text class="lbl inv" x="550" y="80" font-size="10">Alice</text>
+  
+  <circle cx="650" cy="80" r="25" fill="var(--accent)" stroke="var(--accent)"/>
+  <text class="lbl inv" x="650" y="80" font-size="10">Bob</text>
+  
+  <circle cx="600" cy="170" r="30" fill="var(--good)" stroke="var(--good)"/>
+  <text class="lbl inv" x="600" y="170" font-size="9">Engineering</text>
+  
+  <path d="M 550,105 L 585,145" fill="none" stroke="var(--rule)" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="wt" x="550" y="135" font-size="8" transform="rotate(45 550 135)">WORKS_IN</text>
+  
+  <path d="M 650,105 L 615,145" fill="none" stroke="var(--rule)" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="wt" x="660" y="130" font-size="8" transform="rotate(-45 660 130)">WORKS_IN</text>
+  
+  <path d="M 575,80 L 625,80" fill="none" stroke="var(--rule)" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="wt" x="600" y="70" font-size="8">KNOWS</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="var(--rule)"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>SQL uses strict normalized tables + joins. Document nests data for fast read of a single entity. Graph explicitly stores relationships as first-class citizens.</figcaption>
+</figure>
+
+<!-- ─── 5 · SCALING: THE REAL REASON NOSQL EXISTS ─── -->
+<h2>5 · Scaling: The Real Reason NoSQL Exists</h2>
+<p>
+The core motivation behind the NoSQL movement in the 2000s (led by Google and Amazon) wasn't just "we hate schemas." It was <strong>Horizontal Scalability</strong>.
+</p>
+<ul>
+  <li><strong>SQL scaling:</strong> To scale an RDBMS, you traditionally buy a bigger server (Vertical Scaling). Sharding SQL across multiple machines is notoriously difficult because you break foreign keys and <code>JOIN</code>s across shards.</li>
+  <li><strong>NoSQL scaling:</strong> Built from day one to be distributed across hundreds of cheap commodity servers (Horizontal Scaling). Because data is typically denormalized (e.g., self-contained JSON documents), a node can return the entire document without talking to other nodes.</li>
+</ul>
+
+<!-- ─── 6 · DECISION FRAMEWORK: WHEN TO USE WHICH ─── -->
+<h2>6 · Decision Framework</h2>
+
+<table class="vs-table">
+  <thead><tr><th>Scenario</th><th>Winner</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Financial Ledger / Payments</strong></td><td><strong>SQL</strong></td><td>ACID guarantees are strictly required. Cannot risk inconsistent reads or partial writes.</td></tr>
+    <tr><td><strong>E-Commerce Product Catalog</strong></td><td><strong>NoSQL (Document)</strong></td><td>A TV has different attributes (screen size) than a T-shirt (size, color). Rigid schemas fail here; JSON shines.</td></tr>
+    <tr><td><strong>Real-time Leaderboard</strong></td><td><strong>NoSQL (Key-Value)</strong></td><td>Requires extreme in-memory read/write speeds (Redis Sorted Sets).</td></tr>
+    <tr><td><strong>Uber/Lyft Ride Tracking</strong></td><td><strong>NoSQL (Column/KV)</strong></td><td>Massive influx of GPS coordinates per second. Cassandra handles heavy writes perfectly.</td></tr>
+    <tr><td><strong>Social Network Friend Suggestions</strong></td><td><strong>NoSQL (Graph)</strong></td><td>Finding "friends of friends of friends" in SQL requires multiple expensive JOINs. Graph DBs do this instantly.</td></tr>
+    <tr><td><strong>Default / Starting a new project</strong></td><td><strong>SQL (PostgreSQL)</strong></td><td>Postgres is incredibly powerful. It now supports JSONB, effectively giving you NoSQL features inside a relational engine. Always start SQL unless you have massive scale needs.</td></tr>
+  </tbody>
+</table>
+
+<!-- ─── 7 · INTERVIEW ANGLE ─── -->
+<h2>7 · System Design Interview Angle</h2>
+<p>In a system design interview, <strong>database selection is a major scoring point</strong>. Follow this playbook:</p>
+<ol>
+  <li><strong>Default to Postgres/MySQL.</strong> Say: <em>"I will use PostgreSQL because the data is highly structured, requires ACID compliance, and easily handles our projected load."</em></li>
+  <li><strong>Pivot to NoSQL only with justification.</strong> <em>"However, for the chat message storage, we expect 100,000 writes per second. Relational databases will bottleneck here, so I will use a Wide-Column NoSQL database like Cassandra which handles massive write throughput effortlessly."</em></li>
+  <li><strong>Mention Denormalization.</strong> If you pick NoSQL, explicitly state that you are giving up <code>JOIN</code>s and will <em>denormalize</em> the data (store redundant copies of data so it can be fetched in one query).</li>
+</ol>
+
+<!-- ─── 8 · QUIZZES ─── -->
+<h2>8 · Check Yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You are designing a system to store logs for millions of IoT devices. Each device sends a temperature reading every second. Which database is BEST suited for this extreme write-heavy workload?</div>
+  <button class="opt">SQL (MySQL)</button>
+  <button class="opt">NoSQL (Column-family like Cassandra)</button>
+  <button class="opt">NoSQL (Graph like Neo4j)</button>
+  <div class="fb" data-correct="Correct! Cassandra and HBase are wide-column stores specifically designed for massive time-series/log write throughput without blocking." data-wrong="SQL databases will choke trying to index thousands of inserts per second across a massive table. Graph DBs are for complex relationships, not time-series data."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why is it generally harder to scale a traditional SQL database horizontally compared to a NoSQL database?</div>
+  <button class="opt">Sharding breaks the ability to easily perform JOINs and enforce Foreign Keys across different servers.</button>
+  <button class="opt">SQL databases cannot run on Linux servers.</button>
+  <button class="opt">SQL databases do not support indexes.</button>
+  <div class="fb" data-correct="Exactly! If Table A is on Server 1, and Table B is on Server 2, you can no longer do a simple `JOIN` between them. NoSQL solves this by embedding related data inside a single document/row." data-wrong="SQL databases heavily use indexes and run perfectly on Linux. The issue is distributed relational architecture (JOINs across network boundaries)."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In the ACID acronym, what does "Atomicity" guarantee?</div>
+  <button class="opt">Data is encrypted at rest.</button>
+  <button class="opt">Transactions run on a single CPU core.</button>
+  <button class="opt">All operations in a transaction succeed entirely, or fail entirely (all-or-nothing).</button>
+  <div class="fb" data-correct="Right! Atomicity ensures that if a bank transfer deducts money from Account A but crashes before adding to Account B, the whole transaction rolls back. No partial states." data-wrong="Atomicity is about the 'all-or-nothing' execution of a transaction, preventing partial data updates."></div>
+</div>
+
+<!-- ─── 9 · DO THIS NEXT ─── -->
+<h2>9 · Do This Next</h2>
+<ul>
+  <li>Research <strong>NewSQL</strong> (like Google Spanner or CockroachDB) — modern databases that attempt to provide SQL's ACID guarantees with NoSQL's horizontal scalability.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Your teacher</span>
+  Say <strong>"next"</strong> to advance to Lesson 8 — In-Memory Databases.
+</div>
+
+<div class="nav">
+  <a href="0006-how-the-internet-works.html">← Lesson 6</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0008-in-memory-databases.html">Lesson 8 →</a>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

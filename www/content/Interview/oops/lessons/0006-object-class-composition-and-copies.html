@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 06 — Object Class, Composition &amp; Copies</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 6 of 8</div>
+<h1>The Object Class, Composition &amp; Copies</h1>
+<p class="subtitle">How objects are compared, connected to other objects, duplicated, and finally cleaned up — the life story of a Java object.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero.
+  This is Lesson 6 of 8. <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Every Java class you write secretly has a parent: <code>java.lang.Object</code>. Even if you never type <code>extends</code>,
+you get it for free. <strong>Object defines what every object can do: describe itself (<code>toString</code>), compare itself
+(<code>equals</code>, <code>hashCode</code>), and be cleaned up by the garbage collector.</strong>
+</p>
+<p>
+This lesson follows an object through its life: how it's <em>compared</em>, how it <em>relates</em> to other objects
+(association, aggregation, composition), how it's <em>copied</em> (and the famous shallow-copy bug), why some objects
+refuse to change at all (immutability), and how it <em>dies</em> (garbage collection — and why Java has no destructor).
+</p>
+
+<h2>2 · The Object class: toString, equals, hashCode</h2>
+<p>
+Start with the question that trips everyone: <strong>when are two objects "the same"?</strong>
+</p>
+<ul>
+  <li><code>==</code> asks: are these <em>the same object in memory</em>? (Same house address.)</li>
+  <li><code>equals()</code> should ask: do these have <em>the same value</em>? (Same person, even if the address on file differs.)</li>
+</ul>
+<p>
+Analogy: two photocopies of your Aadhaar card. <code>==</code> says "different sheets of paper" — false.
+A sensible <code>equals()</code> says "same person" — true. But Object's <em>default</em> <code>equals()</code> just does <code>==</code>.
+If you want value comparison, you must override it.
+</p>
+<pre><code>class Employee {
+    String id;
+    Employee(String id) { this.id = id; }
+
+    @Override
+    public String toString() {          <span class="cmt">// default would print Employee@1b6d3586 — useless</span>
+        return "Employee(" + id + ")";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;               <span class="cmt">// same object? done</span>
+        if (!(o instanceof Employee)) return false;
+        return id.equals(((Employee) o).id);      <span class="cmt">// same VALUE = equal</span>
+    }
+    <span class="cmt">// hashCode intentionally missing... watch what breaks below</span>
+}</code></pre>
+
+<h3>The contract — and how HashMap breaks without it</h3>
+<p>
+The rule Java asks you to keep: <strong>if two objects are <code>equals()</code>, they must return the same <code>hashCode()</code>.</strong>
+Why? Because <code>HashMap</code> and <code>HashSet</code> work like a library with numbered shelves:
+</p>
+<ul>
+  <li><code>hashCode()</code> tells the map <strong>which shelf (bucket)</strong> to look at.</li>
+  <li><code>equals()</code> then finds <strong>the exact book</strong> on that shelf.</li>
+</ul>
+<p>
+Override <code>equals</code> but not <code>hashCode</code>, and two "equal" employees hash to <em>different shelves</em>.
+The map searches the wrong shelf and finds nothing:
+</p>
+<pre><code>Map&lt;Employee, Integer&gt; salary = new HashMap&lt;&gt;();
+salary.put(new Employee("E42"), 50000);
+
+Integer s = salary.get(new Employee("E42"));  <span class="cmt">// a NEW but equal key</span>
+System.out.println(s);                        <span class="cmt">// null !!  wrong shelf, book never found</span></code></pre>
+<div class="trace">
+<span class="step">put(E42-a): E42-a.hashCode() → default (memory-based) → shelf <span class="ptr">17</span> → stored there</span>
+<span class="step now">get(E42-b): E42-b.hashCode() → a DIFFERENT default hash → shelf <span class="ptr">92</span></span>
+<span class="step">map searches shelf 92 → empty → returns <span class="ptr">null</span> (equals() was never even called)</span>
+<span class="step">fix: override hashCode() → both keys hash to the same shelf → equals() finds the entry</span>
+</div>
+<pre><code>@Override
+public int hashCode() {
+    return id.hashCode();               <span class="cmt">// built from the SAME fields equals() uses</span>
+}
+<span class="cmt">// or for multiple fields:  return Objects.hash(id, name);</span></code></pre>
+<div class="callout trap">
+  <span class="label">The rule to say out loud</span>
+  Override <code>equals()</code> and <code>hashCode()</code> <strong>together, always, using the same fields</strong> — or neither.
+  Equal objects must have equal hash codes. (The reverse is not required: two unequal objects may share a hash code — that's
+  just a "collision", and <code>equals()</code> sorts it out on the shelf.)
+</div>
+
+<h2>3 · How objects relate: association, aggregation, composition</h2>
+<p>
+Objects rarely live alone — a <code>Team</code> has <code>Player</code>s, an <code>Order</code> has a <code>Customer</code>.
+"Has-a" comes in three strengths. The test is always: <strong>what happens to the part when the whole dies?</strong>
+</p>
+<ul>
+  <li><strong>Association</strong> — "knows about." A doctor treats a patient. Both live completely independent lives.</li>
+  <li><strong>Aggregation</strong> — weak has-a. A team has players. Delete the team; the players still exist and can join another team.</li>
+  <li><strong>Composition</strong> — strong has-a. A house has rooms. Demolish the house; the rooms are gone. The part cannot exist without the whole.</li>
+</ul>
+<p>UML draws the strength of the bond on the "whole" end of the line:</p>
+<pre><code><span class="cmt">Association:   Doctor ────────────&gt; Patient      (plain arrow: just "uses / knows")</span>
+<span class="cmt">Aggregation:   Team   ◇───────────&gt; Player       (hollow diamond: has, but doesn't own)</span>
+<span class="cmt">Composition:   House  ◆───────────&gt; Room         (filled diamond: owns; part dies with whole)</span></code></pre>
+<p>In Java, the difference shows up in <strong>who creates the part and who holds the only reference</strong>:</p>
+<pre><code><span class="cmt">// ASSOCIATION — Doctor merely uses a Patient passed in; keeps no ownership</span>
+class Doctor {
+    void treat(Patient p) { <span class="cmt">/* uses p, doesn't store or own it */</span> }
+}
+
+<span class="cmt">// AGGREGATION — Team receives ALREADY-EXISTING players from outside</span>
+class Team {
+    private List&lt;Player&gt; players;
+    Team(List&lt;Player&gt; players) {        <span class="cmt">// created elsewhere → they outlive the team</span>
+        this.players = players;
+    }
+}
+
+<span class="cmt">// COMPOSITION — House builds its OWN rooms; nobody outside holds them</span>
+class House {
+    private final List&lt;Room&gt; rooms = new ArrayList&lt;&gt;();
+    House() {
+        rooms.add(new Room("kitchen"));  <span class="cmt">// born inside the house...</span>
+        rooms.add(new Room("bedroom"));  <span class="cmt">// ...die with the house (no outside refs)</span>
+    }
+}</code></pre>
+<div class="callout tip">
+  <span class="label">is-a vs has-a in one breath</span>
+  <strong>is-a</strong> = inheritance (<code>Circle extends Shape</code> — a circle IS a shape).
+  <strong>has-a</strong> = one object holds a reference to another (a car HAS an engine) — and association, aggregation,
+  and composition are just three strengths of has-a. Interviewers love: "when would you prefer composition over inheritance?"
+  Answer: almost always when there's no true is-a — composition is more flexible and doesn't leak the parent's internals.
+</div>
+
+<h2>4 · Shallow copy vs deep copy — the bug demo</h2>
+<p>
+Copying an object sounds trivial until the object <em>contains another object</em>. Then:
+</p>
+<ul>
+  <li><strong>Shallow copy</strong>: copy the outer box, but inner references still point to the <em>same</em> inner objects. Like forwarding someone a <em>shared Google Doc link</em> — you both edit one document.</li>
+  <li><strong>Deep copy</strong>: copy the outer box <em>and</em> fresh copies of everything inside. Like sending an <em>attachment</em> — each person edits their own file.</li>
+</ul>
+<p>Here is the classic bug, with a <code>Team</code> holding a <code>List</code>:</p>
+<pre><code>class Team {
+    String name;
+    List&lt;String&gt; players;
+
+    Team(String name, List&lt;String&gt; players) {
+        this.name = name;
+        this.players = players;
+    }
+
+    <span class="cmt">// SHALLOW copy "constructor" — looks innocent, hides a landmine</span>
+    Team shallowCopy() {
+        return new Team(this.name, this.players);   <span class="cmt">// SAME list object shared!</span>
+    }
+
+    <span class="cmt">// DEEP copy — a brand-new list with the same contents</span>
+    Team deepCopy() {
+        return new Team(this.name, new ArrayList&lt;&gt;(this.players));
+    }
+}
+
+Team a = new Team("Riders", new ArrayList&lt;&gt;(List.of("Virat", "Rohit")));
+Team b = a.shallowCopy();
+
+b.players.add("Dhoni");                 <span class="cmt">// I only touched the COPY...</span>
+System.out.println(a.players);          <span class="cmt">// [Virat, Rohit, Dhoni] — original corrupted!</span>
+
+Team c = a.deepCopy();
+c.players.add("Bumrah");
+System.out.println(a.players);          <span class="cmt">// [Virat, Rohit, Dhoni] — safe this time</span></code></pre>
+<p>
+Why did the original change? Because <code>a.players</code> and <code>b.players</code> are two variables holding
+<strong>one shared list</strong>. Shallow copy duplicated the reference, not the list.
+</p>
+<div class="callout trap">
+  <span class="label">Where this bites in real interviews</span>
+  Java's built-in <code>clone()</code> is shallow by default, and <code>new ArrayList&lt;&gt;(old)</code> deep-copies only
+  <em>one level</em> — if the list holds mutable objects, the copies still share those inner objects.
+  A true deep copy must copy every mutable level. Model answer: "shallow copies references; deep copies the objects
+  behind them, recursively."
+</div>
+
+<h2>5 · Immutability — why String never changes</h2>
+<p>
+An <strong>immutable</strong> object can never change after construction. Like a printed train ticket:
+need a different seat? You get a <em>new</em> ticket; the old one is never edited.
+Every String method that "changes" it — <code>toUpperCase()</code>, <code>concat()</code> — actually returns a brand-new String.
+</p>
+<p>Why did Java make String immutable? Four interview-ready reasons:</p>
+<ul>
+  <li><strong>Safe sharing / string pool.</strong> Java stores literals in a common pool: <code>String s1 = "hi"; String s2 = "hi";</code> point to <em>one</em> object. Only safe because nobody can modify it under the other's feet.</li>
+  <li><strong>Safe HashMap keys.</strong> If a key mutated after insertion, its <code>hashCode</code> would change and the entry would be lost on the wrong shelf (Section 2's bug — forever).</li>
+  <li><strong>Security.</strong> File paths, URLs, class names travel as Strings. If callers could mutate one after a security check, they could swap the target post-check.</li>
+  <li><strong>Thread safety for free.</strong> No changes → no race conditions → share across threads with zero locks.</li>
+</ul>
+<p>The recipe for your own immutable class (memorize the four moves):</p>
+<pre><code>final class Money {                     <span class="cmt">// 1. final class — nobody can subclass and mutate</span>
+    private final int amount;           <span class="cmt">// 2. private final fields — set once, in the constructor</span>
+    private final List&lt;String&gt; tags;
+
+    Money(int amount, List&lt;String&gt; tags) {
+        this.amount = amount;
+        this.tags = new ArrayList&lt;&gt;(tags);   <span class="cmt">// 3. defensive copy IN — caller can't mutate later</span>
+    }
+
+    <span class="cmt">// 4. no setters; getters return copies of anything mutable</span>
+    List&lt;String&gt; getTags() { return new ArrayList&lt;&gt;(tags); }   <span class="cmt">// defensive copy OUT</span>
+    Money add(int x) { return new Money(amount + x, tags); }    <span class="cmt">// "changes" return NEW objects</span>
+}</code></pre>
+
+<h2>6 · Garbage collection — why Java has no destructor</h2>
+<p>
+In C++, you write a <strong>destructor</strong> — a special method (named after the class, with a tilde in front)
+that runs automatically when the object is destroyed, because <em>you</em> manage memory there: every object you
+create must later be freed by hand. Forget one → memory leak.
+</p>
+<p>
+Java made a different deal. The <strong>garbage collector (GC)</strong> is like the cleanup crew in a food court:
+you don't wash your own tray; when you walk away and no one is using it, the crew collects it — on <em>their</em> schedule.
+The GC periodically finds objects <strong>no reference can reach</strong> and frees them automatically.
+</p>
+<pre><code>void demo() {
+    Team t = new Team("Riders", new ArrayList&lt;&gt;());
+    t = null;               <span class="cmt">// the object is now unreachable...</span>
+}                           <span class="cmt">// ...GC will reclaim it eventually — YOU never free memory</span></code></pre>
+<p>So the honest interview answer to "constructor and destructor?":</p>
+<ul>
+  <li><strong>Constructor</strong>: special method, same name as class, no return type, runs at <code>new</code> to initialize the object. Java has these, fully.</li>
+  <li><strong>Destructor</strong>: Java <strong>doesn't have one</strong>, because GC owns deallocation and runs at an unpredictable time — so "run my cleanup at destruction" can't be promised. (<code>finalize()</code> tried, was unreliable, and is now deprecated/removed.)</li>
+  <li>For non-memory resources (files, sockets, DB connections) Java uses <strong><code>AutoCloseable</code> + try-with-resources</strong>: cleanup at a <em>predictable</em> point — end of the block — instead of at destruction.</li>
+</ul>
+<pre><code>try (FileReader fr = new FileReader("data.txt")) {
+    <span class="cmt">// use fr ...</span>
+}   <span class="cmt">// fr.close() runs HERE, guaranteed — even if an exception was thrown.</span>
+    <span class="cmt">// This is Java's disciplined replacement for destructor-style cleanup.</span></code></pre>
+<div class="callout tip">
+  <span class="label">Bonus depth (Q21 preview)</span>
+  Where do objects live? <strong>Objects on the heap</strong> (shared, GC-managed); <strong>local variables and references on the
+  stack</strong> (per-method, freed instantly on return). <code>Team t = new Team(...)</code> → <code>t</code> is a stack reference
+  pointing to a heap object. GC only patrols the heap.
+</div>
+
+<h2>7 · Interview questions this lesson answers</h2>
+<p>Quoted from your senior's Top-25 list, with 2-line model answers.</p>
+<ul>
+  <li>
+    <strong>Q3. "What is constructor and destructor?"</strong> (destructor half)<br>
+    A constructor initializes an object at <code>new</code>. Java has no destructor — the garbage collector frees unreachable
+    objects automatically at an unpredictable time; for files/sockets, use <code>AutoCloseable</code> with try-with-resources instead.
+  </li>
+  <li>
+    <strong>Q14. "Difference between is-a and has-a relationship."</strong><br>
+    is-a = inheritance: <code>Circle extends Shape</code>. has-a = one object holds a reference to another: a Car has an Engine.
+    Prefer has-a (composition) unless the subclass truly IS a special kind of the parent.
+  </li>
+  <li>
+    <strong>Q15. "Explain composition vs aggregation."</strong><br>
+    Both are has-a. Aggregation is weak ownership — parts arrive from outside and outlive the whole (Team–Players).
+    Composition is strong ownership — the whole creates its parts and they die with it (House–Rooms).
+  </li>
+  <li>
+    <strong>Q17. "Difference between deep copy and shallow copy."</strong><br>
+    Shallow copies the object but shares its inner references — mutate the copy's list, the original changes too.
+    Deep copies every mutable level, giving fully independent objects. Java's <code>clone()</code> is shallow by default.
+  </li>
+</ul>
+
+<h2>8 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You override <code>equals()</code> in class <code>Point</code> but not <code>hashCode()</code>. You <code>put</code> a Point in a HashMap, then <code>get</code> with a new-but-equal Point. What happens?</div>
+  <button class="opt">It works — HashMap calls <code>equals()</code> on every stored key until one matches</button>
+  <button class="opt">It throws an exception — Java detects that the equals/hashCode contract is broken</button>
+  <button class="opt">It returns <code>null</code> — the two equal keys hash to different buckets, so the lookup searches the wrong one</button>
+  <div class="fb" data-correct="hashCode() picks the bucket first; equals() only runs inside that bucket. With the default memory-based hashCode, equal keys land in different buckets and the entry is never found." data-wrong="HashMap never scans all keys and never validates the contract for you. It trusts hashCode() to pick the bucket — a wrong bucket silently returns null. Override both methods, always together."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">An <code>Order</code> object creates its own <code>OrderLine</code> objects in its constructor, and no other code ever gets a reference to them. When the Order is deleted, the lines are meaningless. This relationship is:</div>
+  <button class="opt">Aggregation — the Order has OrderLines but doesn't control their lifetime</button>
+  <button class="opt">Composition — the Order owns its lines, which cannot exist without it</button>
+  <button class="opt">Association — the Order simply uses OrderLines while processing</button>
+  <div class="fb" data-correct="Created inside the whole, referenced only by the whole, dies with the whole — that's the filled-diamond, strong-ownership relationship: composition." data-wrong="Apply the lifetime test: the parts are created BY the whole and die WITH the whole. That strong ownership is composition; aggregation would mean the lines arrive from outside and outlive the order."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q"><code>Team b = a.shallowCopy();</code> then <code>b.players.add("Dhoni");</code>. Why does <code>a.players</code> also show Dhoni?</div>
+  <button class="opt">Both teams' <code>players</code> fields hold references to one shared List object</button>
+  <button class="opt">Java Lists are static, so every Team instance always shares one list</button>
+  <button class="opt">The <code>add()</code> method broadcasts changes to all copies of a Team</button>
+  <div class="fb" data-correct="Shallow copy duplicated the reference, not the list. Two variables, one underlying object — mutate through either and both 'see' it. Deep copy (new ArrayList<>(old)) breaks the sharing." data-wrong="Nothing is static and nothing broadcasts. The shallow copy stored the SAME list reference in both objects, so there is only one list in memory being mutated."></div>
+</div>
+
+<h2>9 · Do this next</h2>
+<ul>
+  <li><strong>Reproduce the bug:</strong> write the Employee-HashMap example with <code>equals</code> only, watch <code>get</code> return null, then add <code>hashCode</code> and watch it work. Feeling the bug beats reading about it.</li>
+  <li><strong>Classify (30 seconds each):</strong> Library–Books, Student–Course, Human–Heart, Car–Driver. Say association / aggregation / composition and justify with the lifetime test.</li>
+  <li><strong>Break then fix:</strong> write the shallow-copy Team bug from memory, then fix it with a deep copy. This exact demo is a great thing to offer in an interview.</li>
+  <li><strong>Recite:</strong> the four reasons String is immutable — pool, HashMap keys, security, thread safety.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want to see how HashMap buckets actually store entries, why <code>finalize()</code> failed, or more classify-this-relationship
+  drills? Ask in the chat. When you can state the equals/hashCode contract, pass the lifetime test on any has-a pair,
+  and demo the shallow-copy bug from memory, say <strong>"next"</strong> and we move to Lesson 7: C++ interview concepts in Java terms.
+</div>
+
+<div class="nav">
+  <span><a href="0005-abstraction-and-interfaces.html">← Abstraction &amp; Interfaces</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0007-cpp-interview-concepts-in-java-terms.html">C++ Concepts in Java Terms →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

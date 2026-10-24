@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 12 – Database Recovery & ARIES Algorithm</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module C · Lesson 12 of 17 · Durability & Write-Ahead Logging</div>
+  <h1>Database Crash Recovery & ARIES Algorithm</h1>
+  <p class="subtitle">How databases recover from catastrophic crashes without losing a single committed transaction using WAL and ARIES.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Transactions & Concurrency</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Writing dirty database pages directly to disk on every single <code>UPDATE</code> is impossibly slow (thousands of random I/O operations per second). To achieve high performance, modern databases cache pages in RAM (the Buffer Pool) and write modifications out asynchronously. But what happens if the power cord is yanked out while dirty pages reside only in RAM? The DBMS guarantees <strong>Durability</strong> via the <strong>Write-Ahead Logging (WAL)</strong> protocol and the <strong>ARIES</strong> recovery algorithm.</p>
+
+  <h2>2 · Buffer Pool Management: STEAL vs NO-STEAL, FORCE vs NO-FORCE</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Policy</th><th>Definition</th><th>Impact on Recovery</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>STEAL</strong></td>
+        <td>The DBMS can write uncommitted dirty pages to disk to free up buffer pool memory for other transactions.</td>
+        <td>Requires <strong>UNDO</strong> logging (to roll back uncommitted changes if crash occurs).</td>
+      </tr>
+      <tr>
+        <td><strong>NO-STEAL</strong></td>
+        <td>The buffer manager NEVER writes a page to disk until the transaction has committed.</td>
+        <td>No undo needed, but buffer memory can exhaust on large transactions.</td>
+      </tr>
+      <tr>
+        <td><strong>FORCE</strong></td>
+        <td>All pages updated by a transaction MUST be flushed to disk before <code>COMMIT</code> returns.</td>
+        <td>No REDO needed, but causes massive random disk write bottlenecks.</td>
+      </tr>
+      <tr>
+        <td><strong>NO-FORCE</strong></td>
+        <td>Transaction can commit as soon as its WAL records are flushed; dirty data pages stay in RAM.</td>
+        <td>Maximum performance! Requires <strong>REDO</strong> logging during crash recovery.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p><strong>Every high-performance database (Postgres, MySQL InnoDB, Oracle, SQL Server) implements STEAL + NO-FORCE.</strong></p>
+
+  <h2>3 · The Write-Ahead Logging (WAL) Protocol</h2>
+  <div class="callout warning">
+    <h4>The Fundamental WAL Rule</h4>
+    <p>Before a dirty data page can be written from RAM to non-volatile disk storage, all log records describing the updates on that page MUST already be written and flushed to durable disk storage (<code>PageLSN &le; FlushedLSN</code>).</p>
+  </div>
+  <p>Log records are strictly sequential (append-only), converting random data modifications into high-speed sequential disk I/O.</p>
+
+  <h2>4 · Log Sequence Numbers (LSN) & Checkpointing</h2>
+  <ul>
+    <li><strong>LSN (Log Sequence Number)</strong>: Monotonically increasing 64-bit integer assigned to every log record.</li>
+    <li><strong>PageLSN</strong>: Header field stored in every physical data page indicating the LSN of the latest update applied to that page.</li>
+    <li><strong>Fuzzy Checkpointing</strong>: Periodically, the DBMS writes a checkpoint record containing the <strong>Dirty Page Table (DPT)</strong> (list of dirty pages in RAM and their <code>RecLSN</code> - first unwritten log LSN) and the <strong>Active Transaction Table (TT)</strong>. This avoids scanning gigabytes of historic logs during crash recovery.</li>
+  </ul>
+
+  <h2>5 · The ARIES Algorithm (3 Recovery Phases)</h2>
+  <p>Developed by C. Mohan at IBM, ARIES (Algorithms for Recovery and Isolation Exploiting Semantics) executes in 3 sequential phases upon database restart:</p>
+
+  <div class="arch-flow">
+    <div class="box">Phase 1: Analysis Phase (Scan Forward)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Phase 2: Redo Phase ("Repeating History")</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Phase 3: Undo Phase (Rollback Losers)</div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>Analysis Phase</h3>
+      <p>Scans the log forward starting from the last checkpoint record to the end of the log. Identifies which transactions were active at crash time (the <strong>Losers</strong>) and reconstructs the Dirty Page Table (DPT) and Transaction Table.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>Redo Phase ("Repeating History")</h3>
+      <p>Finds the smallest <code>RecLSN</code> in the DPT and scans forward to the end of the log, reapplying ALL logged updates (even those of aborted transactions) to restore the exact buffer cache state at the moment of the crash.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">3</div>
+      <h3>Undo Phase</h3>
+      <p>Scans backward from crash point, reversing the operations of all active Loser transactions. As operations are undone, ARIES writes <strong>Compensation Log Records (CLRs)</strong> so that if another crash occurs during recovery, the undo work is never repeated!</p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0011-mvcc-and-sql-isolation-levels.html">← Lesson 11: MVCC & Isolation Levels</a>
+    <a href="0013-storage-engine-and-page-layout.html">Lesson 13: Storage Engine & Page Layout →</a>
+  </nav>
+</body>
+</html>

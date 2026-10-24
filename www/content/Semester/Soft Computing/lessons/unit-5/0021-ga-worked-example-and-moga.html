@@ -1,0 +1,298 @@
+<title>GA Full Worked Numerical and Multi-Objective Genetic Algorithms (MOGA)</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit V &middot; Lesson 21 of 23</p>
+<h1>GA Worked Example and Multi-Objective GA</h1>
+<p class="deck">A complete step-by-step GA manual numerical (fitness evaluation, roulette wheel selection, single-point crossover, bit mutation), followed by Multi-Objective Optimization, Pareto dominance, and NSGA-II principles.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>&ldquo;Solve one complete generation of a Genetic Algorithm to maximize f(x) = x&sup2;&rdquo;</strong> is a guaranteed 10-marker. University evaluators look for the exact table structure: chromosome string &rarr; decoded integer &rarr; fitness &rarr; selection probability &rarr; cumulative range &rarr; mating pool &rarr; crossover calculation &rarr; final generation comparison. For theory, <strong>Pareto dominance and NSGA-II non-dominated sorting</strong> are top-tier questions.</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Crossover &amp; Mutation Operators</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=1i8muvzZkPw" target="_blank">Crossover and Mutation in Genetic Algorithms with Examples</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 8:10</span>
+    <div class="v-why">Definitive comparison of genetic operators: Single-point, Two-point, Multi-point, Uniform crossover, and Bit-flip / Inversion mutation to escape local minima.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Multi-Objective Optimization (MOGA) &amp; Pareto Front</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Multi-Objective Optimization, Pareto Dominance &amp; NSGA-II</a>
+    <span class="v-meta">Gate Smashers &middot; Masterclass Reference</span>
+    <div class="v-why">Detailed explanation of conflicting trade-offs (e.g. speed vs cost), Pareto dominance $u \succ v$, non-dominated sorting, and the Pareto optimal frontier.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: PARETO DOMINANCE GEOMETRY -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Multi-Objective Pareto Dominance Taxonomy</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem;">
+    <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--ok); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        Pareto Dominance Condition ($u \succ v$)
+      </div>
+      <div class="flow-col">
+        <div class="flow-box ok"><strong>Condition 1: Never Worse</strong><span class="sub">$\forall i \in \{1, \dots, k\}: f_i(u) \le f_i(v)$</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box ok"><strong>Condition 2: Strictly Better in At Least One</strong><span class="sub">$\exists j \in \{1, \dots, k\}: f_j(u) < f_j(v)$</span></div>
+      </div>
+      <p style="font-size:.8rem; color:var(--ok); margin:.8rem 0 0; text-align:center;">If both hold, solution $u$ dominates solution $v$.</p>
+    </div>
+
+    <div style="border:1.5px solid var(--accent); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--accent); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        The Non-Dominated Pareto Frontier
+      </div>
+      <div class="flow-col">
+        <div class="flow-box highlight"><strong>Rank 1 Front (Optimal Set)</strong><span class="sub">No point in the population dominates any point in Rank 1</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box"><strong>Crowding Distance Preservation</strong><span class="sub">NSGA-II mechanism preserving diversity across the full compromise curve</span></div>
+      </div>
+      <p style="font-size:.8rem; color:var(--ink-soft); margin:.8rem 0 0; text-align:center;">Provides engineers with a menu of non-inferior compromise designs.</p>
+    </div>
+  </div>
+</div>
+
+
+<h2>Full Worked Numerical: One Generation of GA</h2>
+<div class="solve"><span class="lbl">Problem specification</span>
+<p><strong>Objective:</strong> Maximize <code>f(x) = x&sup2;</code> where <code>x</code> is an integer in the range <code>[0, 31]</code>.<br>
+<strong>Encoding:</strong> 5-bit binary strings (since 2<sup>5</sup> = 32 integers from <code>00000</code> to <code>11111</code>).<br>
+<strong>Population size (N):</strong> 4 individuals.<br>
+<strong>Given Initial Population P(0):</strong><br>
+&bull; S<sub>1</sub> = <code>01101</code><br>
+&bull; S<sub>2</sub> = <code>11000</code><br>
+&bull; S<sub>3</sub> = <code>01000</code><br>
+&bull; S<sub>4</sub> = <code>10011</code></p>
+</div>
+
+<h3>Step 1: Fitness Evaluation &amp; Selection Probabilities</h3>
+<p>First, decode each binary chromosome into an integer <code>x</code>, compute its fitness <code>f(x) = x&sup2;</code>, and find its selection probability <code>P_i = f_i / &Sigma;f</code>:</p>
+
+<div class="tw"><table>
+<thead><tr>
+  <th>String</th>
+  <th>Binary Chromosome</th>
+  <th>Decoded x</th>
+  <th>Fitness f(x) = x&sup2;</th>
+  <th>P<sub>i</sub> = f<sub>i</sub> / &Sigma;f</th>
+  <th>Expected Count (f<sub>i</sub> / f&#772;)</th>
+  <th>Cumulative Range [0, 1)</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><strong>S<sub>1</sub></strong></td>
+  <td><code>01101</code></td>
+  <td class="num">13</td>
+  <td class="num">169</td>
+  <td class="num">169 / 1170 = <strong>0.144</strong></td>
+  <td class="num">0.58</td>
+  <td>[0.000, 0.144)</td>
+</tr>
+<tr>
+  <td><strong>S<sub>2</sub></strong></td>
+  <td><code>11000</code></td>
+  <td class="num">24</td>
+  <td class="num">576</td>
+  <td class="num">576 / 1170 = <strong>0.492</strong></td>
+  <td class="num">1.97</td>
+  <td>[0.144, 0.636)</td>
+</tr>
+<tr>
+  <td><strong>S<sub>3</sub></strong></td>
+  <td><code>01000</code></td>
+  <td class="num">8</td>
+  <td class="num">64</td>
+  <td class="num">64 / 1170 = <strong>0.055</strong></td>
+  <td class="num">0.22</td>
+  <td>[0.636, 0.691)</td>
+</tr>
+<tr>
+  <td><strong>S<sub>4</sub></strong></td>
+  <td><code>10011</code></td>
+  <td class="num">19</td>
+  <td class="num">361</td>
+  <td class="num">361 / 1170 = <strong>0.309</strong></td>
+  <td class="num">1.23</td>
+  <td>[0.691, 1.000]</td>
+</tr>
+</tbody>
+<tfoot>
+<tr>
+  <th colspan="3">Total (&Sigma;)</th>
+  <th class="num"><strong>1170</strong></th>
+  <th class="num"><strong>1.000</strong></th>
+  <th class="num"><strong>4.00</strong></th>
+  <th>&mdash;</th>
+</tr>
+<tr>
+  <th colspan="3">Average (f&#772;)</th>
+  <th class="num"><strong>292.5</strong></th>
+  <th colspan="3">&mdash;</th>
+</tr>
+</tfoot>
+</table></div>
+
+<h3>Step 2: Roulette Wheel Selection (Mating Pool Formation)</h3>
+<p>Generate 4 random numbers <code>r &isin; [0, 1)</code> to simulate spinning the roulette wheel 4 times:</p>
+<ul>
+  <li>Random <code>r₁ = 0.52</code> falls in range <code>[0.144, 0.636)</code> &rarr; <strong>Select S<sub>2</sub></strong></li>
+  <li>Random <code>r₂ = 0.09</code> falls in range <code>[0.000, 0.144)</code> &rarr; <strong>Select S<sub>1</sub></strong></li>
+  <li>Random <code>r₃ = 0.28</code> falls in range <code>[0.144, 0.636)</code> &rarr; <strong>Select S<sub>2</sub></strong></li>
+  <li>Random <code>r₄ = 0.83</code> falls in range <code>[0.691, 1.000]</code> &rarr; <strong>Select S<sub>4</sub></strong></li>
+</ul>
+<p><strong>Mating Pool:</strong> <code>{S₂, S₁, S₂, S₄}</code>. The weakest chromosome <code>S₃</code> (fitness 64) is eliminated, while the strongest <code>S₂</code> (fitness 576) receives 2 reproductive copies.</p>
+
+<h3>Step 3: Crossover Operation</h3>
+<p>Pair the selected individuals into two mating pairs and apply single-point crossover:</p>
+
+<p><strong>Pair 1 (S₂ &times; S₁):</strong> Cut point after bit position 4 (<code>k = 4</code>):</p>
+<div class="formula"><span class="name">Crossover Pair 1 (Site = 4)</span>
+Parent 1 (S<sub>2</sub>): <code>1 1 0 0 | 0</code> &nbsp;&rarr;&nbsp; Offspring 1 (O<sub>1</sub>): <code>1 1 0 0 1</code> (x = 25)<br>
+Parent 2 (S<sub>1</sub>): <code>0 1 1 0 | 1</code> &nbsp;&rarr;&nbsp; Offspring 2 (O<sub>2</sub>): <code>0 1 1 0 0</code> (x = 12)
+</div>
+
+<p><strong>Pair 2 (S₂ &times; S₄):</strong> Cut point after bit position 2 (<code>k = 2</code>):</p>
+<div class="formula"><span class="name">Crossover Pair 2 (Site = 2)</span>
+Parent 1 (S<sub>2</sub>): <code>1 1 | 0 0 0</code> &nbsp;&rarr;&nbsp; Offspring 3 (O<sub>3</sub>): <code>1 1 0 1 1</code> (x = 27)<br>
+Parent 2 (S<sub>4</sub>): <code>1 0 | 0 1 1</code> &nbsp;&rarr;&nbsp; Offspring 4 (O<sub>4</sub>): <code>1 0 0 0 0</code> (x = 16)
+</div>
+
+<h3>Step 4: Mutation</h3>
+<p>Let mutation occur on <strong>Offspring 2 (O<sub>2</sub>)</strong> at bit position 4 (flipping <code>0 &rarr; 1</code> with probability <code>p_m</code>):</p>
+<div class="formula"><span class="name">Mutation on O₂</span>
+Before: <code>0 1 1 0 0</code> (x = 12)<br>
+After: &nbsp;<code>0 1 1 1 0</code> (x = 14)
+</div>
+
+<h3>Step 5: Generation 1 Evaluation &amp; Comparison</h3>
+<div class="tw"><table>
+<thead><tr><th>Offspring</th><th>Chromosome</th><th>Decoded x</th><th>New Fitness f(x) = x&sup2;</th></tr></thead>
+<tbody>
+<tr><td>O<sub>1</sub></td><td><code>11001</code></td><td class="num">25</td><td class="num"><strong>625</strong></td></tr>
+<tr><td>O<sub>2</sub></td><td><code>01110</code></td><td class="num">14</td><td class="num"><strong>196</strong></td></tr>
+<tr><td>O<sub>3</sub></td><td><code>11011</code></td><td class="num">27</td><td class="num"><strong>729</strong></td></tr>
+<tr><td>O<sub>4</sub></td><td><code>10000</code></td><td class="num">16</td><td class="num"><strong>256</strong></td></tr>
+</tbody>
+<tfoot>
+<tr><th colspan="3">Generation 1 Total Fitness</th><th class="num"><strong>1806</strong> (was 1170)</th></tr>
+<tr><th colspan="3">Generation 1 Average Fitness (f&#772;)</th><th class="num"><strong>451.5</strong> (was 292.5)</th></tr>
+<tr><th colspan="3">Generation 1 Maximum Fitness</th><th class="num"><strong>729</strong> (was 576)</th></tr>
+</tfoot>
+</table></div>
+<div class="box win"><span class="lbl">Numerical result summary</span>
+<p>In just a single generation:
+<strong>Average fitness rose from 292.5 to 451.5 (+54.4%)</strong>, and <strong>maximum fitness jumped from 576 to 729 (x = 27)</strong>. This demonstrates the power of schema recombination and selective pressure.</p></div>
+
+<h2>Multi-Objective Genetic Algorithm (MOGA)</h2>
+<p>In classical single-objective optimization, the goal is to find one unique global optimum. However, real-world problems almost always require optimizing <strong>multiple conflicting objectives</strong> simultaneously (e.g., minimizing production cost while maximizing structural durability and fuel efficiency).</p>
+
+<h3>Concept of Pareto Dominance</h3>
+<p>When objectives conflict, no single solution is universally superior. Instead, we use the principle of <strong>Pareto Dominance</strong> introduced by Vilfredo Pareto:</p>
+
+<div class="formula"><span class="name">Mathematical Definition of Dominance</span>
+A solution <strong>u</strong> is said to <em>dominate</em> solution <strong>v</strong> (written as <strong>u &prec; v</strong>) if and only if:<br>
+1. <strong>u</strong> is <em>no worse</em> than <strong>v</strong> in all objective functions: f<sub>k</sub>(u) &le; f<sub>k</sub>(v) &forall; k.<br>
+2. <strong>u</strong> is <em>strictly better</em> than <strong>v</strong> in at least one objective: &exist; j such that f<sub>j</sub>(u) &lt; f<sub>j</sub>(v).
+</div>
+
+<ul>
+  <li><strong>Non-Dominated Solution:</strong> A solution that is not dominated by any other feasible solution in the current population.</li>
+  <li><strong>Pareto Optimal Set:</strong> The set of all non-dominated solutions across the entire feasible search space.</li>
+  <li><strong>Pareto Front:</strong> The plot of the Pareto optimal set projected in the objective function space. Every point on the front represents an optimal trade-off.</li>
+</ul>
+
+<h2>NSGA-II (Non-dominated Sorting Genetic Algorithm II)</h2>
+<p>Developed by <strong>Kalyanmoy Deb et al. (2002)</strong>, <strong>NSGA-II</strong> is the gold standard benchmark algorithm for multi-objective optimization due to its computational efficiency and preservation of diversity:</p>
+
+<div class="tw"><table>
+<thead><tr><th>Feature</th><th>How NSGA-II Works</th><th>Why It Matters</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Fast Non-Dominated Sorting</strong></td>
+  <td>Classifies the population into hierarchical fronts: <code>F₁</code> (non-dominated), <code>F₂</code> (non-dominated after removing F₁), <code>F₃</code>, etc. Time complexity: <code>O(M &middot; N&sup2;)</code> where M is number of objectives.</td>
+  <td>Ensures convergence toward the true Pareto front across generations.</td>
+</tr>
+<tr>
+  <td><strong>Crowding Distance Operator</strong></td>
+  <td>Measures the density of neighbouring solutions around a specific point in objective space. Points with larger cuboid distances are in less crowded areas.</td>
+  <td>Promotes uniform spread of solutions along the front <em>without</em> needing a user-specified sharing parameter (&sigma;<sub>share</sub>).</td>
+</tr>
+<tr>
+  <td><strong>Crowded-Comparison Operator (&prec;<sub>n</sub>)</strong></td>
+  <td>Between individuals <code>i</code> and <code>j</code>, <code>i &prec;<sub>n</sub> j</code> if:
+    <br>&bull; <code>rank(i) &lt; rank(j)</code> (lower front is better), OR
+    <br>&bull; <code>rank(i) == rank(j)</code> AND <code>crowding_distance(i) &gt; crowding_distance(j)</code>.
+  </td>
+  <td>Simultaneously drives solutions toward the Pareto front and spreads them evenly.</td>
+</tr>
+<tr>
+  <td><strong>Elitist Replacement (2N &rarr; N)</strong></td>
+  <td>Combines parent population <code>P_t</code> and offspring <code>Q_t</code> into a pool of size <code>2N</code>. Fills <code>P_{t+1}</code> front by front (F₁, F₂, ...) until <code>N</code> slots are occupied.</td>
+  <td>Guarantees that previous high-quality trade-offs are never discarded.</td>
+</tr>
+</tbody></table></div>
+
+<h2>Single-Objective GA vs Multi-Objective GA (MOGA)</h2>
+<div class="tw"><table>
+<thead><tr><th>Criterion</th><th>Single-Objective GA</th><th>Multi-Objective GA (e.g. NSGA-II)</th></tr></thead>
+<tbody>
+<tr><td><strong>Goal</strong></td><td>Find a single optimal point (global maximum/minimum)</td><td>Find an entire set of Pareto-optimal trade-off solutions</td></tr>
+<tr><td><strong>Evaluation</strong></td><td>Scalar fitness value f(x)</td><td>Vector of objective functions [f₁(x), f₂(x), ..., f_m(x)]</td></tr>
+<tr><td><strong>Ranking</strong></td><td>Direct numerical sort by fitness</td><td>Non-dominated sorting into rank fronts (F₁, F₂, ...)</td></tr>
+<tr><td><strong>Diversity</strong></td><td>Maintained primarily via mutation</td><td>Explicitly guarded via crowding distance / niching</td></tr>
+<tr><td><strong>Outcome</strong></td><td>Single best chromosome</td><td>Pareto Front curve / surface for decision-maker selection</td></tr>
+</tbody></table></div>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. When is solution A said to &ldquo;dominate&rdquo; solution B in multi-objective optimization?</p>
+<div class="opts">
+<button class="opt">A was created in an earlier generation than B</button>
+<button class="opt">A has a higher arithmetic mean across all objectives than B</button>
+<button class="opt">A has a smaller chromosome length than B</button>
+<button class="opt" data-ok="1">A is no worse than B in all objectives, and strictly better than B in at least one objective</button>
+</div><p class="why">This is the rigorous mathematical definition of Pareto dominance (A &prec; B).</p></div>
+
+<div class="q"><p class="stem">2. In NSGA-II, what purpose does the &ldquo;crowding distance&rdquo; parameter serve?</p>
+<div class="opts">
+<button class="opt" data-ok="1">It rewards solutions located in less densely populated regions to maintain diversity along the Pareto front</button>
+<button class="opt">It measures how many bits were flipped during mutation</button>
+<button class="opt">It controls the probability of single-point crossover</button>
+<button class="opt">It calculates the physical Euclidean distance between parents in the mating pool</button>
+</div><p class="why">Crowding distance estimates the perimeter of the cuboid formed by nearest neighbours; higher distance means lower local crowding, preventing clustering.</p></div>
+
+<div class="q"><p class="stem">3. In the worked GA numerical for f(x) = x&sup2;, why did chromosome S₂ (11000) receive 2 copies in the mating pool?</p>
+<div class="opts">
+<button class="opt">Because it had the most zeroes in its binary string</button>
+<button class="opt" data-ok="1">Because its high fitness (576) gave it ~49.2% of the roulette wheel area, making it most likely to be selected</button>
+<button class="opt">Because it was hard-coded by elitism</button>
+<button class="opt">Because its rank was 1</button>
+</div><p class="why">Fitness-proportionate selection allocates expected copies e_i = f_i / f&#772; = 576 / 292.5 &approx; 1.97, meaning it statistically wins roughly two spins.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>Write down the roulette wheel selection probability and expected count formulas.</summary><p class="ans">Selection probability: P_i = f_i / &Sigma;f_j. Expected count: e_i = f_i / f&#772; (where f&#772; = average population fitness).</p></details>
+<details class="card"><summary>What is the Pareto front?</summary><p class="ans">The set of all non-dominated solutions plotted in the objective space. Moving along the Pareto front requires trading off improvement in one objective for degradation in another.</p></details>
+<details class="card"><summary>Name the three defining mechanisms of NSGA-II.</summary><p class="ans">1. Fast non-dominated sorting (O(M&middot;N&sup2;)). 2. Crowding distance computation for diversity preservation. 3. Elitist (2N &rarr; N) selection merging parent and child pools.</p></details>
+</div>
+
+<div class="nav">
+<a href="0020-genetic-algorithm-fundamentals.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0022-particle-swarm-optimization.html">Next: Particle Swarm Optimization &rarr;</a>
+<a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

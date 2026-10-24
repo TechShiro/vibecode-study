@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 31 - WebSockets &amp; Real-Time Web | Web Dev Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">Web Dev · Advanced Frontend · Lesson 31 of 35 · Socket.io, Rooms, Real-Time Events</div>
+  
+  <h1>WebSockets &amp; Real-Time Web with Socket.io</h1>
+  <p class="subtitle">Building full-duplex interactive web applications: live chat, collaborative whiteboards, and game state.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module F — Advanced Frontend</span>
+  </div>
+
+  <div class="yt-embed">
+    <div class="yt-title">📺 Recommended Lecture</div>
+    <a href="https://www.youtube.com/watch?v=1BfCnjr_Vjg" target="_blank">WebSockets in 100 Seconds &amp; Beyond with Socket.io — Fireship</a>
+    <span class="yt-desc">Fast, visual breakdown of full-duplex communication and room broadcasting.</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>HTTP is fundamentally pull-based: a client asks, the server answers, and the socket closes. For chat apps or live gaming, polling every second floods servers with empty HTTP headers. <strong>WebSockets</strong> keep an open, persistent TCP connection between client and server. <strong>Socket.io</strong> wraps raw WebSockets with automatic reconnection, heartbeat pings, fallback to long-polling for corporate firewalls, and <strong>Rooms</strong> for targeted broadcasting.</p>
+
+  <h2>2 · Building a Node.js + Socket.io Server in 20 Lines</h2>
+  <pre><code>import { createServer } from 'http';
+import { Server } from 'socket.io';
+
+const httpServer = createServer();
+const io = new Server(httpServer, {
+  cors: { origin: 'http://localhost:3000' }
+});
+
+io.on('connection', (socket) =&gt; {
+  console.log('Client connected:', socket.id);
+
+  <span class="cmt">// Joining a specific chat room</span>
+  socket.on('join_room', (roomId) =&gt; {
+    socket.join(roomId);
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+  });
+
+  <span class="cmt">// Broadcasting message only to participants in that room</span>
+  socket.on('send_message', ({ roomId, message, user }) =&gt; {
+    io.to(roomId).emit('receive_message', { user, message, time: Date.now() });
+  });
+
+  socket.on('disconnect', () =&gt; {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+httpServer.listen(4000, () =&gt; console.log('Socket server live on port 4000'));</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do you measure and optimize how fast web pages render? Next: Web Performance &amp; Core Web Vitals.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0030-react-state-management-zustand-tanstack.html">← Previous: State Management</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0032-web-performance-and-core-web-vitals.html">Next: Web Performance &amp; Core Web Vitals →</a>
+  </div>
+</body>
+</html>

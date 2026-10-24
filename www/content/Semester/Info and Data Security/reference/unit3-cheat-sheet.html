@@ -1,0 +1,142 @@
+<title>IDS Unit III Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul,ol{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Reference &middot; print this one</p>
+<h1>Unit III &mdash; Exam Sheet</h1>
+<p class="deck">Authentication and Key Management &mdash; entity authentication, passwords, challenge-response, ZKP, biometrics, KDC, Kerberos, Diffie&ndash;Hellman, certificates, hijacking &mdash; on one printable page.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>Kerberos three exchanges</strong> is the highest-probability question (10 marks). Then: <strong>challenge-response protocol</strong> (5 marks), <strong>four methods of public-key distribution</strong> (5 marks), <strong>zero-knowledge proofs</strong> (5 marks), <strong>biometrics comparison</strong> (5 marks). DH may appear here or in Unit IV.</p>
+</div>
+
+<hr class="rule">
+
+<h2>Entity vs message authentication <span class="tag">definition</span></h2>
+
+<p><strong>Entity:</strong> proves identity in real-time (timeliness required). <strong>Message:</strong> proves origin/integrity of a message (can be verified later).</p>
+
+<h2>Three authentication factors <span class="tag">memorise</span></h2>
+
+<p><strong>Know</strong> (password) &middot; <strong>Have</strong> (token) &middot; <strong>Are</strong> (biometric). MFA = &ge;2 from different categories.</p>
+
+<h2>Passwords</h2>
+
+<p><strong>Attacks:</strong> eavesdropping, replay, dictionary, brute-force, file theft, phishing.</p>
+<p><strong>Defences:</strong> hashing, salting, key stretching (bcrypt), account lockout, TLS.</p>
+<p><strong>OTP:</strong> S/Key = hash chain used backwards; TOTP = HMAC(&lfloor;time/30&rfloor;); HOTP = HMAC(counter).</p>
+
+<h2>Challenge-response <span class="tag">protocol</span></h2>
+
+<div class="formula">
+  <span class="name">Symmetric unilateral</span>
+  B &rarr; A: R<sub>B</sub> &nbsp;&nbsp; A &rarr; B: E<sub>K</sub>(R<sub>B</sub>) &nbsp;&nbsp; B checks decryption.
+</div>
+
+<p><strong>Why it works:</strong> fresh nonce each time &rarr; old responses invalid. <strong>Reflection attack:</strong> attacker forwards challenge to second session; fix: directional keys / include IDs.</p>
+
+<h2>Zero-Knowledge Proofs <span class="tag">definition</span></h2>
+
+<p><strong>Completeness:</strong> honest prover always convinces. <strong>Soundness:</strong> dishonest prover fails. <strong>Zero-knowledge:</strong> verifier learns nothing.</p>
+
+<div class="formula">
+  <span class="name">Fiat&ndash;Shamir</span>
+  Setup: v = s&sup2; mod n. Round: commit x = r&sup2;, challenge bit e, respond y = r&middot;s<sup>e</sup>. Check: y&sup2; = x&middot;v<sup>e</sup>. Cheat prob = 2<sup>&minus;t</sup>.
+</div>
+
+<h2>Biometrics <span class="tag">comparison table</span></h2>
+
+<p>FAR = impostor accepted. FRR = genuine rejected. EER = FAR = FRR (lower = better).</p>
+<p>Types: fingerprint, iris, retina, face, voice, hand geometry, signature dynamics.</p>
+<p><strong>Advantage:</strong> can&rsquo;t forget/lose. <strong>Disadvantage:</strong> can&rsquo;t change if compromised.</p>
+
+<h2>Symmetric-key distribution <span class="tag">KDC</span></h2>
+
+<p>KDC shares master key with each user, generates session keys on demand. Needham&ndash;Schroeder: vulnerable to replay of old ticket. Fix: timestamps (Denning&ndash;Sacco) or Kerberos.</p>
+
+<h2>Kerberos v5 <span class="tag">guaranteed question</span></h2>
+
+<div class="formula">
+  <span class="name">Three exchanges</span>
+  <strong>1. AS exchange:</strong> Client &rarr; AS: ID<sub>C</sub>. AS &rarr; Client: E<sub>K<sub>C</sub></sub>(K<sub>C,TGS</sub>, TGT).<br>
+  <strong>2. TGS exchange:</strong> Client &rarr; TGS: TGT + Auth. TGS &rarr; Client: E<sub>K<sub>C,TGS</sub></sub>(K<sub>C,V</sub>, Ticket<sub>V</sub>).<br>
+  <strong>3. App exchange:</strong> Client &rarr; V: Ticket<sub>V</sub> + Auth. V &rarr; Client: E<sub>K<sub>C,V</sub></sub>(TS+1).
+</div>
+
+<p><strong>Password never sent.</strong> TGT = single sign-on. Timestamps prevent replay. Authenticator proves possession of session key.</p>
+
+<h2>Diffie&ndash;Hellman <span class="tag">key agreement</span></h2>
+
+<div class="formula">
+  <span class="name">DH</span>
+  A = g<sup>a</sup> mod p, B = g<sup>b</sup> mod p, K = g<sup>ab</sup> mod p. Security: DLP.
+</div>
+
+<p><strong>MITM:</strong> no authentication &rarr; Mallory does DH with both sides. <strong>Fix:</strong> sign public values (STS protocol) or certificates.</p>
+
+<h2>Public-key distribution <span class="tag">four methods</span></h2>
+
+<ol>
+<li><strong>Public announcement</strong> &mdash; no authentication</li>
+<li><strong>Directory</strong> &mdash; tamper risk</li>
+<li><strong>Online authority</strong> &mdash; bottleneck</li>
+<li><strong>Certificates (CA)</strong> &mdash; standard, offline verification</li>
+</ol>
+
+<p><strong>X.509:</strong> version, serial, algorithm, issuer, validity, subject, public key, CA signature.</p>
+<p><strong>CRL:</strong> revoked certificates. <strong>OCSP:</strong> online status check.</p>
+
+<h2>Hijacking <span class="tag">attacks</span></h2>
+
+<p><strong>MITM:</strong> during key exchange. <strong>Session hijacking:</strong> takeover of live session after auth. <strong>Replay:</strong> resend old messages. All exploit gaps in freshness/authentication.</p>
+
+<hr class="rule">
+
+<h2>Five-minute scan before you walk in</h2>
+
+<ol>
+<li><strong>Entity = real-time identity. Message = origin + integrity.</strong></li>
+<li><strong>Know &middot; Have &middot; Are.</strong> MFA = different categories.</li>
+<li><strong>Challenge-response:</strong> B sends nonce, A encrypts with K. Fresh nonce = no replay.</li>
+<li><strong>ZKP:</strong> completeness, soundness, zero-knowledge. Fiat&ndash;Shamir: y&sup2; = x&middot;v<sup>e</sup>.</li>
+<li><strong>FAR/FRR/EER.</strong> Can&rsquo;t change biometrics if compromised.</li>
+<li><strong>Kerberos:</strong> AS &rarr; TGT &rarr; TGS &rarr; Ticket &rarr; Service. Password never sent. Timestamps.</li>
+<li><strong>DH:</strong> g<sup>ab</sup> mod p. MITM because no auth. Fix: sign the public values.</li>
+<li><strong>Four PK distribution methods.</strong> Certificates = standard (X.509).</li>
+<li><strong>Hijacking:</strong> MITM &ne; session hijacking &ne; replay. Know the differences.</li>
+<li><strong>S/Key:</strong> hash chain backwards. <strong>TOTP:</strong> HMAC(time/30).</li>
+</ol>
+
+<div class="box exam">
+  <span class="lbl">The five most likely questions</span>
+  <ol>
+    <li><strong>Explain Kerberos authentication with diagram.</strong> <span class="tag">10 marks</span></li>
+    <li>Explain challenge-response protocol and how it prevents replay. <span class="tag">5 marks</span></li>
+    <li>Compare four methods of public-key distribution. <span class="tag">5 marks</span></li>
+    <li>What are zero-knowledge proofs? Explain Fiat&ndash;Shamir. <span class="tag">5 marks</span></li>
+    <li>Explain biometric authentication with FAR, FRR and EER. <span class="tag">5 marks</span></li>
+  </ol>
+</div>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="unit2-cheat-sheet.html">&larr; Unit II sheet</a>
+</div>
+
+</div>

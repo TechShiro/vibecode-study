@@ -1,0 +1,388 @@
+<title>Classic Synchronization Problems</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit II &middot; Lesson 13 of 14</p>
+<h1>Classic Problems of Synchronisation</h1>
+<p class="deck">The bounded buffer, readers&ndash;writers in both variants, dining philosophers with the deadlock and its four fixes, and the sleeping barber &mdash; every solution written in full with the semaphores named and initialised.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>These three problems are the highest-value theory in Unit II &mdash; one of them appears in every paper, usually for 10 marks.</strong> The answer format is fixed and you should follow it exactly: <strong>(1) state the problem, (2) list the shared variables with their initial values, (3) write the producer/consumer or reader/writer code, (4) explain why it works, (5) name the remaining flaw.</strong> For dining philosophers, the marks are in the <strong>deadlock scenario and its four remedies</strong>, not in the code. <strong>Always state the initial value of every semaphore</strong> &mdash; that line alone is often worth a mark.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Producer-Consumer Bounded Buffer Semaphore Coordination</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Producer Process</strong><span class="sub">Waits for empty slot & mutex</span></div>
+      <div class="flow-box"><code>wait(empty);<br>wait(mutex);<br>/* Add item to buffer */<br>signal(mutex);<br>signal(full);</code></div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Consumer Process</strong><span class="sub">Waits for item & mutex</span></div>
+      <div class="flow-box"><code>wait(full);<br>wait(mutex);<br>/* Remove item from buffer */<br>signal(mutex);<br>signal(empty);</code></div>
+    </div>
+  </div>
+  <div class="flow-col" style="margin-top:0.6rem;">
+    <div class="flow-box" style="max-width:32rem;"><strong>Initial State:</strong> <code>mutex = 1, empty = N (buffer capacity), full = 0</code></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Synchronization Problems</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-3.11: Solution of Producer Consumer Problem using Semaphores</div>
+    <div class="v-desc">Covers bounded-buffer producer-consumer, readers-writers reader preference versus writer starvation, and dining philosophers deadlock.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=hh9g5kKl_aE" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>1. The bounded-buffer (producer&ndash;consumer) problem</h2>
+
+<p><strong>The problem.</strong> A pool of <strong>n buffers</strong> is shared by a producer process and a consumer process. The producer must not add to a <strong>full</strong> buffer; the consumer must not remove from an <strong>empty</strong> one; and no two processes may manipulate the buffer at the same instant.</p>
+
+<div class="formula">
+  <span class="name">Shared data &mdash; three semaphores, and their initial values</span>
+  <strong>semaphore mutex = 1;</strong> &nbsp;&nbsp;&mdash; binary; provides <strong>mutual exclusion</strong> on the buffer<br>
+  <strong>semaphore full = 0;</strong> &nbsp;&nbsp;&nbsp;&mdash; counting; counts <strong>filled</strong> slots<br>
+  <strong>semaphore empty = n;</strong> &nbsp;&mdash; counting; counts <strong>free</strong> slots<br><br>
+  <span style="font-size:.85em">Initially there are n free slots and no filled ones, which is exactly what those two values say.</span>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Producer</th><th>Consumer</th></tr></thead>
+<tbody>
+<tr>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+do {<br>
+&nbsp;&nbsp;/* produce an item in next_p */<br>
+&nbsp;&nbsp;<strong>wait(empty);</strong>&nbsp;&nbsp;/* claim a free slot */<br>
+&nbsp;&nbsp;<strong>wait(mutex);</strong>&nbsp;&nbsp;/* enter CS */<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* add next_p to the buffer */<br>
+&nbsp;&nbsp;<strong>signal(mutex);</strong>&nbsp;/* leave CS */<br>
+&nbsp;&nbsp;<strong>signal(full);</strong>&nbsp;&nbsp;/* one more filled */<br>
+} while (true);
+</td>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+do {<br>
+&nbsp;&nbsp;<strong>wait(full);</strong>&nbsp;&nbsp;&nbsp;/* claim a filled slot */<br>
+&nbsp;&nbsp;<strong>wait(mutex);</strong>&nbsp;&nbsp;/* enter CS */<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* remove an item into next_c */<br>
+&nbsp;&nbsp;<strong>signal(mutex);</strong>&nbsp;/* leave CS */<br>
+&nbsp;&nbsp;<strong>signal(empty);</strong>&nbsp;/* one more free */<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* consume the item */<br>
+} while (true);
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The symmetry to point out &mdash; it reads as understanding</span>
+  <p>The producer <strong>waits on <code>empty</code> and signals <code>full</code></strong>; the consumer <strong>waits on <code>full</code> and signals <code>empty</code></strong>. Each consumes one kind of slot and produces the other. Note also that <strong><code>empty</code> and <code>full</code> always sum to n</strong> when nobody is inside the critical section &mdash; a useful check.</p>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The ordering trap &mdash; this is the question examiners actually ask</span>
+  <p><strong>&ldquo;What happens if the producer executes <code>wait(mutex)</code> before <code>wait(empty)</code>?&rdquo;</strong></p>
+  <p><strong>Answer: deadlock.</strong> Suppose the buffer is full. The producer acquires <code>mutex</code>, then blocks on <code>wait(empty)</code> &mdash; <em>while still holding the mutex</em>. The consumer then blocks on <code>wait(mutex)</code>, so it can never remove an item, so <code>empty</code> is never signalled, so the producer waits for ever. <strong>Rule: always acquire the counting semaphore <em>before</em> the mutex, and release in the reverse order.</strong></p>
+</div>
+
+<h2>2. The readers&ndash;writers problem</h2>
+
+<p><strong>The problem.</strong> A data set is shared among several concurrent processes. <strong>Readers</strong> only read it; <strong>writers</strong> both read and write. The rule: <strong>any number of readers may read simultaneously, but a writer must have exclusive access</strong> &mdash; no other writer and no reader.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Situation</th><th>Allowed?</th></tr></thead>
+<tbody>
+<tr><td>Reader &ndash; Reader</td><td><strong>Yes</strong> &mdash; reading does not change the data</td></tr>
+<tr><td>Reader &ndash; Writer</td><td><strong>No</strong></td></tr>
+<tr><td>Writer &ndash; Writer</td><td><strong>No</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Variant</th><th>Rule</th><th>Who starves</th></tr></thead>
+<tbody>
+<tr><td><strong>First readers&ndash;writers problem</strong> (readers' preference)</td><td>No reader is kept waiting unless a writer has already obtained permission to use the object</td><td><strong>Writers may starve</strong> &mdash; a continuous stream of readers keeps the writer out for ever</td></tr>
+<tr><td><strong>Second readers&ndash;writers problem</strong> (writers' preference)</td><td>Once a writer is ready, it performs its write as soon as possible &mdash; new readers must wait behind it</td><td><strong>Readers may starve</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Neither variant is starvation-free.</strong> Say that explicitly; it is the concluding sentence the answer wants. A fair solution requires a third, queue-ordering semaphore.</p>
+
+<div class="formula">
+  <span class="name">First readers&ndash;writers solution &mdash; shared data</span>
+  <strong>semaphore rw_mutex = 1;</strong> &nbsp;&mdash; mutual exclusion for <strong>writers</strong>, and for the <em>first</em> and <em>last</em> reader<br>
+  <strong>semaphore mutex = 1;</strong> &nbsp;&nbsp;&nbsp;&mdash; protects the <code>read_count</code> variable itself<br>
+  <strong>int read_count = 0;</strong> &nbsp;&nbsp;&mdash; how many readers are currently reading
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Writer</th><th>Reader</th></tr></thead>
+<tbody>
+<tr>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+do {<br>
+&nbsp;&nbsp;<strong>wait(rw_mutex);</strong><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* writing is performed */<br>
+&nbsp;&nbsp;<strong>signal(rw_mutex);</strong><br>
+} while (true);
+</td>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+do {<br>
+&nbsp;&nbsp;wait(mutex);<br>
+&nbsp;&nbsp;<strong>read_count++;</strong><br>
+&nbsp;&nbsp;<strong>if (read_count == 1) wait(rw_mutex);</strong><br>
+&nbsp;&nbsp;signal(mutex);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* reading is performed */<br>
+&nbsp;&nbsp;wait(mutex);<br>
+&nbsp;&nbsp;<strong>read_count--;</strong><br>
+&nbsp;&nbsp;<strong>if (read_count == 0) signal(rw_mutex);</strong><br>
+&nbsp;&nbsp;signal(mutex);<br>
+} while (true);
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The two lines that carry the whole solution</span>
+  <p><strong><code>if (read_count == 1) wait(rw_mutex);</code></strong> &mdash; only the <strong>first</strong> reader locks the writers out. Readers 2, 3, 4 &hellip; walk straight in, which is exactly what &ldquo;many readers at once&rdquo; means.</p>
+  <p><strong><code>if (read_count == 0) signal(rw_mutex);</code></strong> &mdash; only the <strong>last</strong> reader to leave lets the writers back in.</p>
+  <p>The second semaphore, <code>mutex</code>, exists purely because <code>read_count++</code> is itself a shared-variable update, and would otherwise be a race condition &mdash; exactly the one traced in Lesson 11.</p>
+</div>
+
+<p><strong>Where it appears in practice:</strong> <strong>reader&ndash;writer locks</strong> in real kernels, and database systems, where a shared lock is granted for reading and an exclusive lock for writing. They pay off when there are many more readers than writers and when readers hold the lock for a long time.</p>
+
+<h2>3. The dining-philosophers problem</h2>
+
+<p><strong>The problem.</strong> Five philosophers sit around a circular table. In the centre is a bowl of rice; between each pair of philosophers is a <strong>single chopstick</strong> &mdash; five chopsticks for five philosophers. A philosopher alternately <strong>thinks</strong> and <strong>eats</strong>, and to eat she must pick up <strong>both</strong> the chopstick on her left and the one on her right, <strong>one at a time</strong>, and may take only a chopstick that is not already held.</p>
+
+<p>It is the standard abstraction of <strong>allocating several resources among several processes without deadlock and without starvation</strong> &mdash; open your answer with that sentence.</p>
+
+<div class="formula">
+  <span class="name">The naive solution &mdash; one semaphore per chopstick</span>
+  <strong>semaphore chopstick[5];</strong> &nbsp;&mdash; all initialised to <strong>1</strong><br><br>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; margin-top:.4rem">
+  /* philosopher i */<br>
+  do {<br>
+  &nbsp;&nbsp;<strong>wait(chopstick[i]);</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* left */<br>
+  &nbsp;&nbsp;<strong>wait(chopstick[(i+1) % 5]);</strong>&nbsp;/* right */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* eat */<br>
+  &nbsp;&nbsp;<strong>signal(chopstick[i]);</strong><br>
+  &nbsp;&nbsp;<strong>signal(chopstick[(i+1) % 5]);</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* think */<br>
+  } while (true);
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Why it deadlocks &mdash; this is the marked part of the answer</span>
+  <p><strong>Suppose all five philosophers become hungry at the same instant and each picks up her left chopstick.</strong> All five chopsticks are now held. Every philosopher then waits for her right chopstick, which is her neighbour's left one. <strong>No philosopher can proceed and none will release. The system is deadlocked, and all five starve.</strong></p>
+  <p>All four Coffman conditions hold: <strong>mutual exclusion</strong> (a chopstick is held by one philosopher), <strong>hold and wait</strong> (each holds one and waits for another), <strong>no preemption</strong> (a chopstick cannot be snatched), and <strong>circular wait</strong> (P0 waits for P1's, &hellip; P4 waits for P0's).</p>
+</div>
+
+<h3>The four remedies &mdash; learn all four</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Remedy</th><th>How it breaks the deadlock</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><strong>Allow at most four philosophers</strong> to sit at the table simultaneously</td><td>With 4 philosophers and 5 chopsticks, at least one philosopher can always get both &mdash; <strong>breaks hold-and-wait / circular wait</strong></td><td>Reduced concurrency. Implemented with a counting semaphore initialised to 4</td></tr>
+<tr><td class="num">2</td><td><strong>Pick up both chopsticks only if both are available</strong>, in a critical section</td><td>No philosopher can ever hold exactly one &mdash; <strong>breaks hold and wait</strong></td><td>Needs an extra mutex around the pick-up; slightly less parallel</td></tr>
+<tr><td class="num">3</td><td><strong>Asymmetric solution:</strong> an <strong>odd</strong>-numbered philosopher picks up her <strong>left</strong> chopstick first, an <strong>even</strong>-numbered one her <strong>right</strong> first</td><td><strong>Breaks the circular wait</strong> &mdash; two neighbours contend for the same chopstick first, so one of them always loses and releases</td><td>None &mdash; <strong>the elegant answer, and the one to give if only one is asked for</strong></td></tr>
+<tr><td class="num">4</td><td><strong>Monitor solution</strong> with three states &mdash; <em>thinking</em>, <em>hungry</em>, <em>eating</em> &mdash; and a condition variable per philosopher</td><td>A philosopher may only move to <em>eating</em> if <strong>neither neighbour is eating</strong>; otherwise she waits on her condition variable</td><td>Deadlock-free, but <strong>still not starvation-free</strong> &mdash; see Lesson 14</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The sentence to close with</span>
+  <p><strong>Any satisfactory solution must guard against deadlock <em>and</em> starvation &mdash; a deadlock-free solution does not automatically eliminate the possibility of starvation.</strong> Remedies 1 to 4 all remove deadlock; only careful additional ordering removes starvation.</p>
+</div>
+
+<h2>4. The sleeping-barber problem</h2>
+
+<p>Worth knowing because it is the fourth classic, and it appears when a paper wants something less predictable.</p>
+
+<p><strong>The problem.</strong> A barber shop has <strong>one barber, one barber chair and n chairs</strong> for waiting customers. If there is no customer, the barber <strong>sleeps</strong>. When a customer arrives: if the barber is asleep, the customer <strong>wakes him</strong>; if the barber is busy and a waiting chair is free, the customer <strong>sits and waits</strong>; if all chairs are full, the customer <strong>leaves</strong>.</p>
+
+<div class="formula">
+  <span class="name">Shared data</span>
+  <strong>semaphore customers = 0;</strong> &nbsp;&mdash; counts waiting customers; the barber waits on it<br>
+  <strong>semaphore barbers = 0;</strong> &nbsp;&nbsp;&nbsp;&mdash; counts free barbers; the customer waits on it<br>
+  <strong>semaphore mutex = 1;</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&mdash; protects the <code>waiting</code> counter<br>
+  <strong>int waiting = 0;</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&mdash; number of customers currently seated, waiting
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Barber</th><th>Customer</th></tr></thead>
+<tbody>
+<tr>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+do {<br>
+&nbsp;&nbsp;<strong>wait(customers);</strong>&nbsp;/* sleep if none */<br>
+&nbsp;&nbsp;wait(mutex);<br>
+&nbsp;&nbsp;<strong>waiting--;</strong><br>
+&nbsp;&nbsp;<strong>signal(barbers);</strong>&nbsp;/* I am ready */<br>
+&nbsp;&nbsp;signal(mutex);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* cut hair */<br>
+} while (true);
+</td>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+wait(mutex);<br>
+if (<strong>waiting &lt; n</strong>) {<br>
+&nbsp;&nbsp;<strong>waiting++;</strong><br>
+&nbsp;&nbsp;<strong>signal(customers);</strong>&nbsp;/* wake barber */<br>
+&nbsp;&nbsp;signal(mutex);<br>
+&nbsp;&nbsp;<strong>wait(barbers);</strong>&nbsp;&nbsp;&nbsp;/* wait my turn */<br>
+&nbsp;&nbsp;&nbsp;&nbsp;/* get haircut */<br>
+} else {<br>
+&nbsp;&nbsp;signal(mutex);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* shop full — leave */<br>
+}
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>The summary table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Problem</th><th>Models</th><th>Semaphores</th><th>Key insight</th></tr></thead>
+<tbody>
+<tr><td><strong>Bounded buffer</strong></td><td>Any producer&ndash;consumer pipeline</td><td><code>mutex</code> = 1, <code>full</code> = 0, <code>empty</code> = n</td><td>Counting semaphore <strong>before</strong> the mutex, or deadlock</td></tr>
+<tr><td><strong>Readers&ndash;writers</strong></td><td>Shared databases, file access</td><td><code>rw_mutex</code> = 1, <code>mutex</code> = 1, <code>read_count</code> = 0</td><td>Only the <strong>first</strong> reader locks and the <strong>last</strong> unlocks</td></tr>
+<tr><td><strong>Dining philosophers</strong></td><td>Allocating several resources among several processes</td><td><code>chopstick[5]</code>, all = 1</td><td>The naive version <strong>deadlocks</strong>; the asymmetric rule fixes it</td></tr>
+<tr><td><strong>Sleeping barber</strong></td><td>A server with a bounded request queue</td><td><code>customers</code> = 0, <code>barbers</code> = 0, <code>mutex</code> = 1</td><td>Two semaphores at 0 make the two sides wait for each other</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In the bounded-buffer solution, the semaphore <code>empty</code> is initialised to:</p>
+  <div class="opts">
+    <button class="opt">0</button>
+    <button class="opt">n − 1</button>
+    <button class="opt">1</button>
+    <button class="opt" data-ok="1">n, the number of buffer slots</button>
+  </div>
+  <p class="why">All n slots start free and none is filled, so empty = n and full = 0. When nobody is inside the critical section, empty + full = n always.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. If the producer executes wait(mutex) before wait(empty), the result is:</p>
+  <div class="opts">
+    <button class="opt">No change — the order is irrelevant</button>
+    <button class="opt">Starvation of the consumer only</button>
+    <button class="opt">Loss of mutual exclusion</button>
+    <button class="opt" data-ok="1">Deadlock when the buffer is full</button>
+  </div>
+  <p class="why">The producer blocks on empty while still holding the mutex, so the consumer can never enter to free a slot. Acquire the counting semaphore first, always.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In the readers–writers solution, wait(rw_mutex) is executed by a reader:</p>
+  <div class="opts">
+    <button class="opt">By every reader</button>
+    <button class="opt" data-ok="1">Only when it is the first reader — when read_count becomes 1</button>
+    <button class="opt">Never</button>
+    <button class="opt">Only when it is the last reader</button>
+  </div>
+  <p class="why">If every reader locked, readers could not read concurrently, which is the whole point. Only the first locks out writers, and only the last lets them back in.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In the first readers–writers problem, who can starve?</p>
+  <div class="opts">
+    <button class="opt">Both, equally</button>
+    <button class="opt" data-ok="1">Writers — a continuous stream of readers keeps them waiting for ever</button>
+    <button class="opt">Nobody — it is starvation-free</button>
+    <button class="opt">Readers</button>
+  </div>
+  <p class="why">The second variant reverses it: writers get preference, so readers may starve. Neither classic variant is starvation-free, and saying so is the concluding mark.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The dining-philosophers deadlock occurs when:</p>
+  <div class="opts">
+    <button class="opt">Two adjacent philosophers eat simultaneously</button>
+    <button class="opt" data-ok="1">All five become hungry at once and each picks up her left chopstick</button>
+    <button class="opt">A philosopher drops a chopstick</button>
+    <button class="opt">One philosopher eats for ever</button>
+  </div>
+  <p class="why">All five chopsticks are then held and every philosopher waits on her neighbour's — a circular wait, with all four Coffman conditions satisfied.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The asymmetric solution to dining philosophers has:</p>
+  <div class="opts">
+    <button class="opt">Only one philosopher eat at a time</button>
+    <button class="opt">Every philosopher take the left first</button>
+    <button class="opt">Philosophers take both chopsticks atomically</button>
+    <button class="opt" data-ok="1">Odd philosophers take the left chopstick first, even ones the right first</button>
+  </div>
+  <p class="why">It breaks the circular wait: two neighbours now contend for the same chopstick first, so one loses and releases. It costs no concurrency, unlike the four-at-a-table rule.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A deadlock-free solution to dining philosophers:</p>
+  <div class="opts">
+    <button class="opt">Is automatically starvation-free</button>
+    <button class="opt">Requires exactly five chopsticks per philosopher</button>
+    <button class="opt" data-ok="1">Does not automatically eliminate the possibility of starvation</button>
+    <button class="opt">Cannot exist</button>
+  </div>
+  <p class="why">Deadlock and starvation are separate requirements. Even the monitor solution, which is deadlock-free, can starve a philosopher whose neighbours alternate.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the bounded-buffer solution with initial values.</summary>
+    <p class="ans">mutex = 1, full = 0, empty = n. The producer does wait(empty), wait(mutex), add, signal(mutex), signal(full). The consumer does wait(full), wait(mutex), remove, signal(mutex), signal(empty). Each waits on one counting semaphore and signals the other.</p></details>
+  <details class="card"><summary>What happens if the mutex is acquired before the counting semaphore?</summary>
+    <p class="ans">Deadlock. A producer facing a full buffer blocks on wait(empty) while still holding the mutex, so the consumer can never enter to free a slot and signal empty. Always acquire the counting semaphore first and release in reverse order.</p></details>
+  <details class="card"><summary>State the readers–writers rule and its two variants.</summary>
+    <p class="ans">Many readers may read simultaneously, but a writer needs exclusive access. Reader–reader is allowed; reader–writer and writer–writer are not. The first variant gives readers preference and may starve writers; the second gives writers preference and may starve readers. Neither is starvation-free.</p></details>
+  <details class="card"><summary>Write the reader's code and explain the two conditional lines.</summary>
+    <p class="ans">wait(mutex); read_count++; if (read_count == 1) wait(rw_mutex); signal(mutex); read; wait(mutex); read_count--; if (read_count == 0) signal(rw_mutex); signal(mutex). Only the first reader locks writers out and only the last unlocks, which is what permits concurrent reading. The inner mutex protects read_count, which is itself shared.</p></details>
+  <details class="card"><summary>State the dining-philosophers problem and why the naive solution deadlocks.</summary>
+    <p class="ans">Five philosophers, five chopsticks, one between each pair; a philosopher needs both neighbouring chopsticks to eat and picks them up one at a time. It abstracts allocating several resources among several processes. If all five pick up their left chopstick at once, all five are held and each waits on her neighbour's — mutual exclusion, hold and wait, no preemption and circular wait all hold.</p></details>
+  <details class="card"><summary>Give the four remedies for dining philosophers.</summary>
+    <p class="ans">Allow at most four at the table; pick up both chopsticks only when both are available, inside a critical section; the asymmetric rule where odd philosophers take the left first and even ones the right first; and a monitor solution with thinking, hungry and eating states plus one condition variable per philosopher. All remove deadlock; none automatically removes starvation.</p></details>
+  <details class="card"><summary>Describe the sleeping-barber problem and its semaphores.</summary>
+    <p class="ans">One barber, one barber chair, n waiting chairs. The barber sleeps when no customer waits; an arriving customer wakes him, sits if a chair is free, or leaves if all are full. Semaphores: customers = 0, which the barber waits on; barbers = 0, which the customer waits on; mutex = 1 protecting the waiting counter.</p></details>
+</div>
+
+<p class="ask">Next: the language construct that removes the chance of misusing a semaphore altogether &mdash; monitors.</p>
+
+<div class="nav">
+  <a href="0012-semaphores.html">&larr; Semaphores</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0014-monitors.html">Next: Monitors &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greedy Lesson 03 — Reachability &amp; Heap Greedy</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Greedy Track · Lesson 3 of 3 · furthest reach, restart arguments, and heaps</div>
+<h1>Reachability &amp; Heap Greedy</h1>
+<p class="subtitle">Two final greedy engines: a running frontier that answers "can I get there / how fast", and a heap that re-sorts the world after every choice. Plus the track cheat sheet.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Jump Game and Gas Station are stock Uber/PhonePe OA questions, and heap-greedy
+  (merge costs, capital scheduling) is a Goldman favorite. Lesson 3 of 3 in the greedy track.
+  <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Some greedies don't sort at all. <strong>Reachability greedy</strong> sweeps once, maintaining the
+<strong>furthest index reachable so far</strong> — a frontier that only grows; a position is winnable iff the
+frontier never falls behind you (you saw this shape in Partition Labels). And when the "best next choice" changes
+after every pick — cheapest two sticks, most profitable affordable project — a one-time sort isn't enough:
+<strong>heap greedy</strong> keeps candidates in a <code>PriorityQueue</code> so the current best is always on top,
+at O(log n) per commit.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  <strong>Reachability:</strong> "can you reach the end", "minimum jumps/steps", "starting point that survives a
+  circuit" — an array where each element extends how far you can go. <strong>Heap greedy:</strong> "repeatedly
+  combine/pick the two smallest", "at each step choose the best available under a constraint" — the candidate pool
+  changes as you commit, so the best must be re-computed cheaply. If you catch yourself wanting to re-sort inside
+  a loop, that's the heap trigger.
+</div>
+
+<h2>2 · Core template — the furthest-reach sweep</h2>
+<pre><code><span class="cmt">// LC 55 Jump Game: nums[i] = max jump length from i. Can you reach the last index?</span>
+boolean canJump(int[] nums) {
+    int reach = 0;                       <span class="cmt">// furthest index reachable so far</span>
+    for (int i = 0; i &lt; nums.length; i++) {
+        if (i &gt; reach) return false;     <span class="cmt">// gap: frontier fell behind → stuck forever</span>
+        reach = Math.max(reach, i + nums[i]); <span class="cmt">// greedy: extend the frontier</span>
+        if (reach &gt;= nums.length - 1) return true;
+    }
+    return true;                         <span class="cmt">// loop ended → last index was within reach</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Why safe? The frontier is the max over all reachable
+positions — it doesn't matter <em>which</em> jumps you take, only how far the best of them extends. No choice is
+ever "wasted", so tracking the max loses nothing. (The DP version is O(n²); this is the poster child for
+"greedy beats DP when a monotone frontier summarizes the state.")</p>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Can you reach?</td><td>LC 55</td><td>The core template — one growing frontier, gap check.</td></tr>
+    <tr><td>Fewest jumps</td><td>LC 45</td><td>Two frontiers: current jump's edge + next jump's best reach; count when you cross the edge.</td></tr>
+    <tr><td>Surviving start point</td><td>LC 134</td><td>Running tank + restart argument: a failed prefix can't hide the answer.</td></tr>
+    <tr><td>Merge cheapest two</td><td>LC 1167</td><td>Min-heap; pop two smallest, push their sum, accumulate cost (Huffman's idea).</td></tr>
+    <tr><td>Best affordable pick</td><td>LC 502</td><td>Two heaps/sorted list: unlock projects by capital, always take max profit.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Jump Game II (LC 45) — fewest jumps via two frontiers</h3>
+<p>
+Think BFS on the array: everything reachable in ≤ k jumps is a contiguous window. Sweep with
+<code>curEnd</code> (the far edge of the current jump's window) and <code>farthest</code> (best reach seen inside
+it). When <code>i</code> hits <code>curEnd</code>, you <em>must</em> jump — and the greedy-safe landing is
+whatever gave <code>farthest</code>.
+</p>
+<pre><code>int jump(int[] nums) {
+    int jumps = 0, curEnd = 0, farthest = 0;
+    for (int i = 0; i &lt; nums.length - 1; i++) {   <span class="cmt">// note: stop BEFORE the last index</span>
+        farthest = Math.max(farthest, i + nums[i]);
+        if (i == curEnd) {               <span class="cmt">// exhausted this jump's window → commit a jump</span>
+            jumps++;
+            curEnd = farthest;           <span class="cmt">// next window = best reach found</span>
+        }
+    }
+    return jumps;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Looping to <code>nums.length - 1</code> matters:
+including the last index can count a phantom extra jump when you land exactly on it.</p>
+
+<h3>Case: Gas Station (LC 134) — the restart argument</h3>
+<p>
+Circular route; <code>gain[i] = gas[i] - cost[i]</code>. If total gain &lt; 0, no start works. Otherwise sweep with
+a running tank; whenever the tank drops below zero at station <code>i</code>, <strong>restart from
+<code>i + 1</code></strong>. Why can you skip every station in the failed stretch? Because you arrived at each of
+them with tank ≥ 0 — starting <em>at</em> one of them means starting with an empty tank, i.e. with less or equal
+fuel than the run that already failed. None of them can succeed, so jumping straight past the failure point is safe.
+</p>
+<pre><code>int canCompleteCircuit(int[] gas, int[] cost) {
+    int total = 0, tank = 0, start = 0;
+    for (int i = 0; i &lt; gas.length; i++) {
+        int gain = gas[i] - cost[i];
+        total += gain;
+        tank  += gain;
+        if (tank &lt; 0) {                  <span class="cmt">// stranded before i+1</span>
+            start = i + 1;               <span class="cmt">// restart PAST the failure — no stretch station can win</span>
+            tank = 0;
+        }
+    }
+    return total &gt;= 0 ? start : -1;      <span class="cmt">// total gain ≥ 0 guarantees the surviving start works</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). The two-part proof (restart-skip + "total ≥ 0 ⇒ the
+last surviving start completes the circle") is a beloved interview follow-up — rehearse it.</p>
+
+<h3>Case: Minimum Cost to Connect Sticks (LC 1167) — heap greedy / Huffman's idea</h3>
+<p>
+Connecting sticks of lengths a and b costs a + b; minimize total cost to connect all. Every early merge's weight is
+<em>re-paid</em> in each later merge that includes it — so the smallest sticks should be merged first (they get
+counted the most times). This is exactly <strong>Huffman coding</strong>: frequent symbols get short codes;
+light sticks get merged deep.
+</p>
+<pre><code>int connectSticks(int[] sticks) {
+    PriorityQueue&lt;Integer&gt; pq = new PriorityQueue&lt;&gt;(); <span class="cmt">// min-heap: smallest on top</span>
+    for (int s : sticks) pq.offer(s);
+    int cost = 0;
+    while (pq.size() &gt; 1) {
+        int merged = pq.poll() + pq.poll();  <span class="cmt">// greedy: ALWAYS the two smallest</span>
+        cost += merged;
+        pq.offer(merged);                    <span class="cmt">// the new stick competes with the rest</span>
+    }
+    return cost;
+}</code></pre>
+<p><strong>Time</strong> O(n log n), <strong>Space</strong> O(n). Exchange argument: if an optimal merge tree ever
+combines a non-smallest pair first, swapping in the two smallest sticks at that depth can only reduce (or keep) the
+total weighted cost. Note why a one-time sort fails: the merged stick's size is <em>new data</em> that must be
+re-ranked — hence the heap.</p>
+
+<h3>Case: IPO (LC 502) — two-constraint heap greedy (sketch)</h3>
+<p>
+Pick at most k projects; each needs <code>capital[i]</code> upfront and pays <code>profits[i]</code>; maximize
+final capital. Two moving parts → two orderings: sort projects by capital, and keep a <strong>max-heap of
+profits</strong> for the ones you can currently afford. Each round: unlock all newly-affordable projects into the
+heap, then greedily take the top profit (safe — profit adds directly to capital, so the biggest affordable profit
+can never hurt).
+</p>
+<pre><code>int findMaximizedCapital(int k, int w, int[] profits, int[] capital) {
+    int n = profits.length;
+    int[][] proj = new int[n][2];
+    for (int i = 0; i &lt; n; i++) proj[i] = new int[]{capital[i], profits[i]};
+    Arrays.sort(proj, (a, b) -&gt; Integer.compare(a[0], b[0])); <span class="cmt">// by capital needed</span>
+    PriorityQueue&lt;Integer&gt; best = new PriorityQueue&lt;&gt;((a, b) -&gt; b - a); <span class="cmt">// max-heap of profits</span>
+    int i = 0;
+    while (k-- &gt; 0) {
+        while (i &lt; n &amp;&amp; proj[i][0] &lt;= w) best.offer(proj[i++][1]); <span class="cmt">// unlock affordable</span>
+        if (best.isEmpty()) break;       <span class="cmt">// nothing affordable → stop early</span>
+        w += best.poll();                <span class="cmt">// take the richest unlocked project</span>
+    }
+    return w;
+}</code></pre>
+<p><strong>Time</strong> O(n log n + k log n), <strong>Space</strong> O(n). The shape to remember: <em>sort by the
+gating constraint, heap by the objective</em>.</p>
+
+<h2>4 · Greedy vs DP — the decision guide</h2>
+<table>
+  <thead><tr><th>Question to ask</th><th>Points to greedy</th><th>Points to DP</th></tr></thead>
+  <tbody>
+    <tr><td>Does an early commit change later options' <em>value</em>?</td><td>No — only shrinks the remaining set uniformly</td><td>Yes — subproblem worth depends on the choice (coins {1,3,4})</td></tr>
+    <tr><td>Can you state a 2-sentence exchange/restart argument?</td><td>Yes → code it</td><td>No, and no counterexample found either → brute force / DP</td></tr>
+    <tr><td>Does one monotone quantity (frontier, tank, end time) summarize the past?</td><td>Yes (LC 55/45/134)</td><td>No — you need per-state answers (LC 322, LIS)</td></tr>
+    <tr><td>Do 3–5-element counterexamples exist?</td><td>Hunted 30s, found none, argument holds</td><td>Found one — stop, it's DP</td></tr>
+    <tr><td>Constraints</td><td>n ~ 10⁵–10⁶: an O(n²) DP can't pass — a greedy/heap likely exists</td><td>n ≤ ~10³ and "count the ways / max value with tradeoffs"</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">OA triage in one line</span>
+  Big n + min/max <em>count</em> or boolean → try greedy with a safety argument. "Number of ways", tradeoff-y
+  values, or a found counterexample → DP. When unsure and time-poor: write the DP — correct-but-slower usually
+  scores partial marks; wrong-greedy scores zero.
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>LC 55:</strong> single-element array is trivially true; zeros are only fatal if the frontier lands exactly on them with nothing beyond.</li>
+  <li><strong>LC 45:</strong> loop bound is <code>nums.length - 1</code>; guaranteed-reachable per constraints, so no gap check needed there.</li>
+  <li><strong>LC 134:</strong> answer is unique when it exists (constraint says so); return <code>-1</code> only via the total-gain check, never mid-loop.</li>
+  <li><strong>Heap direction.</strong> Sticks want a <em>min</em>-heap, IPO profits a <em>max</em>-heap — flipping the comparator is the most common heap-greedy bug. In Java, max-heap = <code>new PriorityQueue&lt;&gt;(Collections.reverseOrder())</code>.</li>
+  <li><strong>Overflow.</strong> Merge costs and running capital can exceed int on big inputs — reach for <code>long</code> in OAs even when LC constraints don't force it.</li>
+  <li><strong>Heap with one element</strong> (LC 1167 single stick): cost 0; the <code>size() &gt; 1</code> guard already handles it.</li>
+  <li><strong>IPO with zero affordable projects:</strong> break out instead of polling an empty heap.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Gas Station, the tank goes negative at station i after starting from s. Why can every station in s..i be skipped as a candidate start?</div>
+  <button class="opt">Because those stations were already visited once, and revisiting any station is forbidden on a circular route</button>
+  <button class="opt">Because the failed run arrived at each of them with tank ≥ 0, so starting there with an empty tank does no better and still strands you by i</button>
+  <button class="opt">Because stations before the failure point always have below-average gas values on any failing route</button>
+  <div class="fb" data-correct="That's the restart argument: any mid-stretch start begins with 0 fuel where the failed run had ≥ 0, so it reaches i with an even lower tank — guaranteed to fail. Jump straight to i+1." data-wrong="Revisiting rules and gas averages aren't the reason. Compare fuel levels: the failed run had tank ≥ 0 at every intermediate station, so an empty-tank start there is dominated and fails by i too."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does Connect Sticks need a heap instead of sorting the sticks once and sweeping?</div>
+  <button class="opt">Each merge creates a new stick whose size must be re-ranked against the remaining sticks</button>
+  <button class="opt">Sorting is O(n log n) while a heap builds in O(n), making the heap asymptotically faster overall</button>
+  <button class="opt">Java's Arrays.sort is unstable on ints, so equal sticks could merge in the wrong order</button>
+  <div class="fb" data-correct="Right — the merged stick is new data that may be bigger or smaller than unprocessed sticks; the pool's ordering changes after every commit, which is exactly what a PriorityQueue maintains at O(log n) per operation." data-wrong="Total cost is O(n log n) either way, and stability is irrelevant for a multiset of lengths. The real issue: merges inject new values into the pool, so a one-time sort goes stale immediately."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You suspect a problem is greedy but can't find an exchange argument in 30 seconds, and n ≤ 500. Best OA move?</div>
+  <button class="opt">Submit the greedy anyway — sample tests passing is strong evidence it's correct</button>
+  <button class="opt">Skip the problem entirely, since unprovable greedies waste time better spent elsewhere</button>
+  <button class="opt">Write the DP/brute force — n is small enough to pass, and a correct slow solution beats a fast wrong one</button>
+  <div class="fb" data-correct="With n ≤ 500 even O(n²)–O(n³) passes. Unproven greedy fails hidden tests for zero marks; the DP is safe. If the DP and greedy agree on random small inputs, you can even switch back with confidence." data-wrong="Samples are chosen to be friendly — wrong greedies routinely pass them and die on hidden tests. Small n is a gift: take the provably correct DP."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/jump-game">NeetCode — Jump Game</a> and <a href="https://neetcode.io/problems/gas-station">NeetCode — Gas Station</a>; then skim <a href="https://cp-algorithms.com/others/huffman.html">CP-Algorithms — Huffman coding</a> for the merge-cost proof.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 55 → LC 45 → LC 134 → LC 1167 (or LC 1046 Last Stone Weight if 1167 is locked — same heap loop, max-heap) → LC 502 → LC 630 (Course Schedule III — sort by deadline + max-heap eviction, the hard capstone) → revisit LC 763 and notice it's the same frontier as LC 45.</li>
+  <li>Then run the cheat sheet below as a self-test: cover the template column, reconstruct each one-liner from the trigger.</li>
+</ul>
+
+<h2>8 · Greedy cheat sheet</h2>
+<p>The whole track on one card. Print it (the theme toggle and nav vanish in print), or keep it open during OA prep.</p>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Two-list matching</td><td>Assign resources to demands</td><td>Sort both; smallest resource that satisfies easiest demand</td><td>O(n log n)</td><td>455</td></tr>
+    <tr><td>Feasibility sweep</td><td>"Can you place/fit k?"</td><td>Sweep; commit whenever local condition holds (neighbors empty)</td><td>O(n)</td><td>605</td></tr>
+    <tr><td>Frontier partition</td><td>"Split into most parts"</td><td>Track max last-occurrence; cut when i catches the frontier</td><td>O(n)</td><td>763</td></tr>
+    <tr><td>Spend inflexible first</td><td>Making change / simulation</td><td>When paying out, use the least-flexible denomination first</td><td>O(n)</td><td>860</td></tr>
+    <tr><td>Max non-overlap selection</td><td>"Keep most / remove fewest intervals"</td><td>Sort by END; keep if start ≥ lastEnd</td><td>O(n log n)</td><td>435</td></tr>
+    <tr><td>Min piercing points</td><td>"Min arrows / points covering all"</td><td>Sort by end; new arrow only when start &gt; arrow position</td><td>O(n log n)</td><td>452</td></tr>
+    <tr><td>Min resources</td><td>"Min rooms/servers for all"</td><td>Sort by start; min-heap of end times; reuse if peek ≤ start</td><td>O(n log n)</td><td>253</td></tr>
+    <tr><td>Cooldown scheduling</td><td>"Same task needs gap n"</td><td>max((maxFreq−1)(n+1)+ties, total tasks)</td><td>O(n)</td><td>621</td></tr>
+    <tr><td>Reachability</td><td>"Can you reach the end?"</td><td>reach = max(reach, i + nums[i]); fail if i &gt; reach</td><td>O(n)</td><td>55</td></tr>
+    <tr><td>Fewest jumps</td><td>"Min jumps/steps to end"</td><td>Two frontiers: jump++ when i hits curEnd; curEnd = farthest</td><td>O(n)</td><td>45</td></tr>
+    <tr><td>Circular restart</td><td>"Which start survives the loop?"</td><td>Running tank; on negative, restart at i+1; check total ≥ 0</td><td>O(n)</td><td>134</td></tr>
+    <tr><td>Merge-cost / Huffman</td><td>"Repeatedly combine two smallest"</td><td>Min-heap; pop two, push sum, add to cost</td><td>O(n log n)</td><td>1167</td></tr>
+    <tr><td>Gated best pick</td><td>"Best affordable choice, k times"</td><td>Sort by gate (capital); max-heap by objective (profit)</td><td>O(n log n)</td><td>502</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Track complete. Want me to quiz you from the cheat sheet, dry-run Jump Game II or Gas Station on a custom array,
+  or stress-test a greedy you invented against brute force? Ask in the chat. When the cheat sheet feels like yours,
+  say <strong>"next"</strong> to start the Top-K track — heaps get a full treatment there, starting with
+  PriorityQueue internals.
+</div>
+
+<div class="nav">
+  <span><a href="0002-scheduling-and-intervals.html">← Scheduling &amp; Intervals</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../top-k-lessons/0001-heaps-and-priorityqueue.html">Heaps &amp; PriorityQueue →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<title>Controlled Access and Channelization</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 17 of 27</p>
+<h1>Controlled Access and Channelization</h1>
+<p class="deck">The two collision-free families. Reservation, polling and token passing decide <em>who may speak</em>; FDMA, TDMA and CDMA divide <em>the channel itself</em>. Includes a fully worked CDMA encode-and-decode &mdash; the one numerical in this lesson.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two questions. (1) <strong>"Explain controlled access methods"</strong> &mdash; 5 marks, three short paragraphs with a diagram each; the token-passing half is the part most often asked alone. (2) <strong>"Differentiate FDMA, TDMA and CDMA"</strong> &mdash; a three-column table, and if CDMA appears as a numerical, the chip-code walkthrough below is exactly the shape it takes. Do not confuse <strong>FDMA/TDMA</strong> (access methods, many stations) with <strong>FDM/TDM</strong> (multiplexing techniques, one sender's streams) &mdash; examiners set that trap deliberately.</p>
+</div>
+
+<h2>Controlled access</h2>
+
+<p>Stations <strong>consult one another to find which station has the right to send</strong>. A station cannot transmit unless it has been authorised by the other stations. The defining property: <strong>no collisions are possible</strong>.</p>
+
+<h3>1. Reservation</h3>
+
+<ul>
+<li><strong>A station must reserve a slot before sending data.</strong></li>
+<li>Time is divided into intervals. In each interval a <strong>reservation frame</strong> precedes the data frames.</li>
+<li>If there are <strong>N</strong> stations, the reservation frame has <strong>N minislots</strong> &mdash; one per station. A station that wishes to send in the coming interval sets a bit in <strong>its own</strong> minislot.</li>
+<li>After the reservation frame, the stations that made reservations transmit their data frames <strong>in the order of their minislots</strong>.</li>
+<li><strong>Advantage:</strong> collision-free, and demand is known before transmission. <strong>Disadvantage:</strong> the reservation frame is overhead paid in every interval, even when few stations have data.</li>
+</ul>
+
+<h3>2. Polling</h3>
+
+<ul>
+<li>Used where one device is designated as the <strong>primary station</strong> and the others as <strong>secondary stations</strong>. All data exchange goes <strong>through the primary</strong>, even between two secondaries.</li>
+<li><strong>Poll function</strong> &mdash; used when the primary wants to <em>receive</em>. It asks each secondary in turn whether it has anything to send. A secondary replies either with a <strong>NAK</strong> (nothing to send) or with a data frame.</li>
+<li><strong>Select function</strong> &mdash; used when the primary wants to <em>send</em>. It alerts the intended secondary with a SEL frame and waits for an acknowledgement before transmitting.</li>
+<li><strong>Advantage:</strong> collision-free and orderly; the primary can prioritise. <strong>Disadvantages:</strong> the <strong>polling overhead</strong> of asking stations that have nothing to send, and the <strong>primary is a single point of failure</strong> &mdash; if it fails, the whole system stops.</li>
+</ul>
+
+<h3>3. Token passing</h3>
+
+<ul>
+<li>Stations are organised in a <strong>logical ring</strong>. A special frame called the <strong>token</strong> circulates around it.</li>
+<li><strong>A station may transmit only while it holds the token.</strong> When it finishes (or its holding time expires), it passes the token to its logical successor.</li>
+<li>Because there is exactly one token, exactly one station can transmit at a time &mdash; hence no collisions.</li>
+<li><strong>Token management is essential</strong>, and is worth stating as a disadvantage: stations must be limited in how long they may hold the token; <strong>a lost token</strong> must be regenerated; and a <strong>duplicated token</strong> must be removed. One station is usually designated <strong>monitor</strong> for this.</li>
+<li>Used in <strong>Token Ring (IEEE 802.5)</strong> and <strong>FDDI</strong>.</li>
+</ul>
+
+<div class="box win">
+  <span class="lbl">The three in one line each</span>
+  <p><strong>Reservation: book your slot in advance. Polling: a primary asks each station in turn. Token passing: hold the token, or stay silent.</strong></p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Reservation</th><th>Polling</th><th>Token passing</th></tr></thead>
+<tbody>
+<tr><td><strong>Control</strong></td><td>Distributed, via minislots</td><td><strong>Centralised</strong> at the primary</td><td>Distributed, via the token</td></tr>
+<tr><td><strong>Topology</strong></td><td>Any shared medium</td><td>Star / multipoint</td><td><strong>Logical ring</strong></td></tr>
+<tr><td><strong>Overhead</strong></td><td>The reservation frame each interval</td><td>Polling messages to idle stations</td><td>Token circulation and management</td></tr>
+<tr><td><strong>Single point of failure</strong></td><td>None</td><td><strong>The primary station</strong></td><td>Token loss (a monitor recovers it)</td></tr>
+<tr><td><strong>Used in</strong></td><td>Satellite links, DOCSIS</td><td>Mainframe terminal networks, Bluetooth</td><td><strong>Token Ring, FDDI</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Channelization</h2>
+
+<p>The available bandwidth of the link is <strong>shared in time, frequency or code</strong> among the stations. Each station gets a portion and uses it without contention.</p>
+
+<h3>FDMA &mdash; Frequency Division Multiple Access</h3>
+
+<ul>
+<li>The <strong>available bandwidth is divided into frequency bands</strong>, and each station is allocated <strong>one band to own</strong>.</li>
+<li>Each station <strong>transmits continuously</strong> on its own band. Bands are separated by <strong>guard bands</strong>.</li>
+<li><strong>The distinction from FDM:</strong> FDM is a <em>physical-layer multiplexing technique</em> that combines several signals from <em>one</em> source point into one link. FDMA is an <em>access method</em> in the data link layer that shares a link among <em>different stations</em>. Stating this difference is often a mark on its own.</li>
+</ul>
+
+<h3>TDMA &mdash; Time Division Multiple Access</h3>
+
+<ul>
+<li>Stations <strong>share the bandwidth in time</strong>. Each is allocated a <strong>time slot</strong> during which it alone may transmit.</li>
+<li>Each station uses the <strong>whole bandwidth</strong>, but only during its slot.</li>
+<li><strong>The main difficulty is synchronisation</strong> &mdash; every station must know exactly when its slot begins, despite differing propagation delays. <strong>Guard times</strong> are inserted between slots to absorb the mismatch.</li>
+</ul>
+
+<h3>CDMA &mdash; Code Division Multiple Access</h3>
+
+<ul>
+<li><strong>All stations transmit simultaneously over the entire frequency band.</strong> There is no division of time and no division of frequency.</li>
+<li>Separation is by <strong>code</strong>: each station is assigned a unique <strong>chip sequence (code)</strong>, and the codes are <strong>orthogonal</strong> to one another.</li>
+<li>The signals from all stations add together on the medium. A receiver recovers one station's data by <strong>multiplying the composite signal by that station's code and summing</strong> &mdash; the orthogonality causes every other station's contribution to cancel to zero.</li>
+<li>The codes used are typically <strong>Walsh codes</strong>, generated from a Walsh table.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">The two CDMA rules</span>
+  <strong>Encoding (on the medium):</strong> &nbsp; Composite = &Sigma; (d<sub>i</sub> &times; c<sub>i</sub>) &nbsp; over all stations<br>
+  <strong>Decoding (at the receiver):</strong> &nbsp; d<sub>i</sub> = (Composite &middot; c<sub>i</sub>) &divide; N<br>
+  d = data bit as &plusmn;1 (0 is silence) &nbsp;&middot;&nbsp; c = the station's chip code &nbsp;&middot;&nbsp; N = code length
+</div>
+
+<p><strong>Data is represented as &plusmn;1, not 0/1</strong>: a bit 1 is sent as <strong>+1</strong>, a bit 0 as <strong>&minus;1</strong>, and a station with nothing to send contributes <strong>0</strong>. Getting this encoding wrong is the commonest way to lose the whole numerical.</p>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; CDMA, encode then decode</span>
+  <p><strong>Q.</strong> Four stations use the Walsh codes below. Station 1 sends bit 1, station 2 sends bit 0, station 3 is silent, station 4 sends bit 1. Find the composite signal, then recover station 2's data from it.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Station</th><th>Chip code</th><th>Data sent</th><th>As &plusmn;1</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>c<sub>1</sub> = [+1 +1 +1 +1]</td><td>1</td><td>d<sub>1</sub> = +1</td></tr>
+  <tr><td>2</td><td>c<sub>2</sub> = [+1 &minus;1 +1 &minus;1]</td><td>0</td><td>d<sub>2</sub> = &minus;1</td></tr>
+  <tr><td>3</td><td>c<sub>3</sub> = [+1 +1 &minus;1 &minus;1]</td><td>silent</td><td>d<sub>3</sub> = 0</td></tr>
+  <tr><td>4</td><td>c<sub>4</sub> = [+1 &minus;1 &minus;1 +1]</td><td>1</td><td>d<sub>4</sub> = +1</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 1 &mdash; the composite signal on the medium.</strong></p>
+  <p>d<sub>1</sub>c<sub>1</sub> = +1 &times; [+1 +1 +1 +1] = [+1 +1 +1 +1]<br>
+  d<sub>2</sub>c<sub>2</sub> = &minus;1 &times; [+1 &minus;1 +1 &minus;1] = [&minus;1 +1 &minus;1 +1]<br>
+  d<sub>3</sub>c<sub>3</sub> = 0 &times; [+1 +1 &minus;1 &minus;1] = [&nbsp;0 &nbsp;0 &nbsp;0 &nbsp;0]<br>
+  d<sub>4</sub>c<sub>4</sub> = +1 &times; [+1 &minus;1 &minus;1 +1] = [+1 &minus;1 &minus;1 +1]</p>
+
+  <p>Add them element by element:<br>
+  position 1: 1 &minus; 1 + 0 + 1 = <strong>1</strong><br>
+  position 2: 1 + 1 + 0 &minus; 1 = <strong>1</strong><br>
+  position 3: 1 &minus; 1 + 0 &minus; 1 = <strong>&minus;1</strong><br>
+  position 4: 1 + 1 + 0 + 1 = <strong>3</strong></p>
+
+  <p><strong>Composite signal = [1&nbsp; 1&nbsp; &minus;1&nbsp; 3]</strong></p>
+
+  <p><strong>Step 2 &mdash; recover station 2's data.</strong> Multiply the composite by c<sub>2</sub> element by element, sum, and divide by N = 4.</p>
+
+  <p>[1, 1, &minus;1, 3] &middot; [+1, &minus;1, +1, &minus;1]<br>
+  = (1)(+1) + (1)(&minus;1) + (&minus;1)(+1) + (3)(&minus;1)<br>
+  = 1 &minus; 1 &minus; 1 &minus; 3 = <strong>&minus;4</strong></p>
+
+  <p>d<sub>2</sub> = &minus;4 &divide; 4 = <strong>&minus;1</strong> &nbsp;&rarr;&nbsp; which decodes to bit <strong>0</strong>. &#10003; That is exactly what station 2 sent.</p>
+
+  <p><strong>Step 3 &mdash; verify the others (do this in the exam if there is time; it is quick and it proves the method).</strong></p>
+  <p>Station 1: [1,1,&minus;1,3] &middot; [+1,+1,+1,+1] = 1 + 1 &minus; 1 + 3 = 4 &rarr; 4/4 = <strong>+1</strong> = bit 1 &#10003;<br>
+  Station 3: [1,1,&minus;1,3] &middot; [+1,+1,&minus;1,&minus;1] = 1 + 1 + 1 &minus; 3 = 0 &rarr; 0/4 = <strong>0</strong> = silent &#10003;<br>
+  Station 4: [1,1,&minus;1,3] &middot; [+1,&minus;1,&minus;1,+1] = 1 &minus; 1 + 1 + 3 = 4 &rarr; 4/4 = <strong>+1</strong> = bit 1 &#10003;</p>
+
+  <p><em>Sanity check:</em> every result must come out as exactly <strong>+1, &minus;1 or 0</strong> after dividing by N. If you get a fraction, the arithmetic is wrong &mdash; orthogonal codes guarantee clean values.</p>
+</div>
+
+<h3>The comparison table</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>FDMA</th><th>TDMA</th><th>CDMA</th></tr></thead>
+<tbody>
+<tr><td><strong>Shares by</strong></td><td><strong>Frequency</strong></td><td><strong>Time</strong></td><td><strong>Code</strong></td></tr>
+<tr><td><strong>Each station gets</strong></td><td>One frequency band, all the time</td><td>The whole band, in its own slot</td><td><strong>The whole band, all the time</strong></td></tr>
+<tr><td><strong>Simultaneous transmission</strong></td><td>Yes, on different frequencies</td><td>No &mdash; one at a time</td><td><strong>Yes, on the same frequency</strong></td></tr>
+<tr><td><strong>Separation mechanism</strong></td><td>Bandpass filters</td><td>Slot timing</td><td>Orthogonal chip codes</td></tr>
+<tr><td><strong>Overhead / difficulty</strong></td><td>Guard bands</td><td><strong>Synchronisation</strong>; guard times</td><td>Code assignment and power control</td></tr>
+<tr><td><strong>Capacity limit</strong></td><td>Hard &mdash; set by the number of bands</td><td>Hard &mdash; set by the number of slots</td><td><strong>Soft</strong> &mdash; more users degrade quality gradually</td></tr>
+<tr><td><strong>Signal type</strong></td><td>Analog</td><td>Digital</td><td>Digital, spread spectrum (DSSS)</td></tr>
+<tr><td><strong>Used in</strong></td><td>First-generation cellular (AMPS)</td><td>GSM, 2G cellular</td><td>3G cellular, IS-95</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The distinction that is deliberately trapped</span>
+  <p><strong>FDM and TDM are multiplexing techniques at the physical layer</strong>, combining several streams from one source point onto one link. <strong>FDMA and TDMA are access methods at the data link layer</strong>, sharing one link among several independent stations. The mechanism is similar; the setting and the layer are not. If a question names the access method, say "access method, data link layer" somewhere in the answer.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Controlled Access & Channelization Taxonomies</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Controlled Access Protocols</strong><span class="sub">Eliminates collisions through ordered turn-taking</span></div>
+      <div class="flow-box"><strong>Reservation:</strong> Stations reserve time slots in mini-frame</div>
+      <div class="flow-box"><strong>Polling:</strong> Primary controller queries secondary devices</div>
+      <div class="flow-box"><strong>Token Passing:</strong> Token rotates around ring topology</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Channelization Protocols</strong><span class="sub">Multiplexes medium capacity simultaneously</span></div>
+      <div class="flow-box"><strong>FDMA:</strong> Bandwidth divided into distinct frequency bands</div>
+      <div class="flow-box"><strong>TDMA:</strong> Stations share frequency using synchronized time slots</div>
+      <div class="flow-box"><strong>CDMA:</strong> Unique orthogonal chipping codes (Walsh codes)</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 17 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Controlled Access & Channelization</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">3.9 & 3.10 &mdash; Controlled Access and Channelization Protocols</div>
+    <div class="v-desc">Detailed coverage of Reservation, Polling, Token Ring, FDMA, TDMA, and the CDMA orthogonal chip code matrix multiplication.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=4x0oT7AeNYs" target="_blank" rel="noopener">Watch on YouTube &rarr; (KnowledgeGATE by Sanchit Sir)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In the polling method, the <em>select</em> function is used when:</p>
+  <div class="opts">
+    <button class="opt">The primary station wants to receive data from a secondary</button>
+    <button class="opt">A secondary station wants to pass the token onward</button>
+    <button class="opt">Two secondary stations wish to communicate directly</button>
+    <button class="opt" data-ok="1">The primary station has data to send to a secondary</button>
+  </div>
+  <p class="why">Select = primary sends; poll = primary asks to receive. Note also that two secondaries can never communicate directly — everything passes through the primary, which is why its failure stops the system.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The reservation frame in the reservation method contains:</p>
+  <div class="opts">
+    <button class="opt">A token that circulates around a logical ring of stations</button>
+    <button class="opt" data-ok="1">One minislot per station, in which that station books its turn</button>
+    <button class="opt">The full data frames of every station wishing to transmit</button>
+    <button class="opt">A chip code identifying each station uniquely by code</button>
+  </div>
+  <p class="why">N stations means N minislots; setting the bit in your own minislot books your place in the interval that follows. Stations then transmit in minislot order, so collisions are impossible.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In CDMA, all stations transmit:</p>
+  <div class="opts">
+    <button class="opt">Only after receiving a token from the previous station</button>
+    <button class="opt" data-ok="1">Simultaneously over the entire band, separated by orthogonal codes</button>
+    <button class="opt">In turn, each using the entire band during its own time slot</button>
+    <button class="opt">Continuously, each on its own separate frequency band</button>
+  </div>
+  <p class="why">That is exactly what makes CDMA different: no division of frequency and no division of time. Everyone talks at once on the whole band, and orthogonal chip codes let a receiver pick out one signal and cancel the rest.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In CDMA a station that has nothing to send contributes which value to the composite signal?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">0, so its code drops out of the sum entirely</button>
+    <button class="opt">Its full chip code, unmultiplied by any data</button>
+    <button class="opt">−1, the same encoding as a data bit of 0</button>
+    <button class="opt">+1, so that its code is always present</button>
+  </div>
+  <p class="why">Bit 1 → +1, bit 0 → −1, silent → 0. Confusing "silent" with "sending a 0" is the standard error and it corrupts the whole composite signal — a silent station contributes nothing, a station sending 0 contributes its negated code.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The main practical difficulty of TDMA is:</p>
+  <div class="opts">
+    <button class="opt">Regenerating the token whenever it is lost in transit</button>
+    <button class="opt">Providing guard bands between the frequency channels</button>
+    <button class="opt" data-ok="1">Synchronisation &mdash; each station must know exactly when its slot starts</button>
+    <button class="opt">Assigning orthogonal codes to every station on the link</button>
+  </div>
+  <p class="why">Different propagation delays make slot boundaries hard to agree on, which is why guard times are inserted. Guard bands belong to FDMA, code assignment to CDMA, and token recovery to token passing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The difference between FDM and FDMA is that:</p>
+  <div class="opts">
+    <button class="opt">FDM divides by frequency; FDMA divides by time instead</button>
+    <button class="opt">FDM is used on wireless links; FDMA only on wired links</button>
+    <button class="opt" data-ok="1">FDM is physical-layer multiplexing; FDMA is a data link access method</button>
+    <button class="opt">There is no difference &mdash; the two names mean the same thing</button>
+  </div>
+  <p class="why">The mechanism is similar but the setting differs: FDM combines several streams from one source point onto one link at the physical layer; FDMA shares one link among independent stations at the data link layer. Examiners set this trap deliberately.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the three controlled access methods and state each in one line.</summary>
+    <p class="ans">Reservation — a station books a slot in a reservation frame containing one minislot per station. Polling — a primary station asks each secondary in turn (poll to receive, select to send). Token passing — a token circulates a logical ring and only its holder may transmit.</p></details>
+  <details class="card"><summary>Give the disadvantages of polling and of token passing.</summary>
+    <p class="ans">Polling: the overhead of polling stations that have nothing to send, and the primary is a single point of failure. Token passing: token management — limiting how long a station may hold it, regenerating a lost token, and removing a duplicated one; a monitor station handles this.</p></details>
+  <details class="card"><summary>Name the three channelization methods and what each divides.</summary>
+    <p class="ans">FDMA divides frequency — each station owns a band all the time. TDMA divides time — each station uses the whole band in its own slot. CDMA divides by code — all stations use the whole band all the time, separated by orthogonal chip codes.</p></details>
+  <details class="card"><summary>State the CDMA encoding and decoding rules.</summary>
+    <p class="ans">Encoding: the composite on the medium is Σ(dᵢ × cᵢ). Decoding: dᵢ = (composite · cᵢ) ÷ N, where the dot is element-wise multiply-and-sum and N is the code length. Data is ±1 — bit 1 → +1, bit 0 → −1, silent → 0.</p></details>
+  <details class="card"><summary>Give four differences between FDMA, TDMA and CDMA.</summary>
+    <p class="ans">Shares by frequency / time / code. Each station gets one band always / the whole band in its slot / the whole band always. Separation by filters / slot timing / orthogonal codes. Overhead is guard bands / synchronisation and guard times / code assignment and power control. Capacity is hard-limited for FDMA and TDMA, soft for CDMA.</p></details>
+  <details class="card"><summary>Distinguish FDM from FDMA.</summary>
+    <p class="ans">FDM is a physical-layer multiplexing technique combining several signals from one source point onto one link. FDMA is a data link layer access method sharing one link among several independent stations. Same idea, different layer and setting.</p></details>
+</div>
+
+<p class="ask">Want three more CDMA numericals with different code sets and a silent station in each? Ask &mdash; that is the shape the question keeps.</p>
+
+<div class="nav">
+  <a href="0016-random-access.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0018-ethernet.html">Next: Ethernet &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

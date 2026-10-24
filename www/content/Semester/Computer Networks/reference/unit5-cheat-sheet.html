@@ -1,0 +1,279 @@
+<title>CN Unit V Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Cheat sheet is denser than a lesson — tighten everything for print. */
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Reference &middot; print this one</p>
+<h1>Unit V &mdash; Exam Sheet</h1>
+<p class="deck">Application layer and security on one page. Almost entirely descriptive &mdash; which means it is fast marks if prepared and a disaster if skipped. The one calculation is RSA.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>DNS resolution diagram</strong> &middot; <strong>SMTP/POP3/IMAP comparison</strong> &middot; <strong>HTTP message format and persistent vs non-persistent</strong> &middot; <strong>RSA numerical</strong> &middot; <strong>symmetric vs asymmetric</strong> &middot; firewall and IDS types. Six topics, and none of them is long.</p>
+</div>
+
+<hr class="rule">
+
+<h2>Protocol map <span class="tag">memorise</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Protocol</th><th>Port</th><th>Transport</th><th>Protocol</th><th>Port</th><th>Transport</th></tr></thead>
+<tbody>
+<tr><td>FTP data / control</td><td class="num"><strong>20 / 21</strong></td><td>TCP</td><td>DNS</td><td class="num">53</td><td><strong>UDP</strong></td></tr>
+<tr><td>SSH</td><td class="num">22</td><td>TCP</td><td>DHCP server / client</td><td class="num"><strong>67 / 68</strong></td><td><strong>UDP</strong></td></tr>
+<tr><td>TELNET</td><td class="num">23</td><td>TCP</td><td>TFTP</td><td class="num">69</td><td><strong>UDP</strong></td></tr>
+<tr><td>SMTP</td><td class="num">25</td><td>TCP</td><td>SNMP</td><td class="num">161</td><td><strong>UDP</strong></td></tr>
+<tr><td>HTTP / HTTPS</td><td class="num">80 / 443</td><td>TCP</td><td>POP3 / IMAP4</td><td class="num">110 / 143</td><td>TCP</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The rule if you forget:</strong> bulk or lossless &rarr; TCP. Short request-reply, or needed before a connection is possible &rarr; UDP.</p>
+<p><strong>Client-server:</strong> fixed roles, server always-on with a well-known address, <strong>client always initiates</strong>, server is the bottleneck and single point of failure. <strong>P2P:</strong> every peer is both, self-scaling, no single point of failure, weak security.</p>
+
+<h2>DNS <span class="tag">10 marks</span></h2>
+
+<p><strong>Why distributed:</strong> a single file would be a single point of failure, could not carry the query volume, would be far from most users, and would need constant redistribution.</p>
+<p><strong>Namespace:</strong> inverted tree, max 128 levels. Label &le; 63 chars, name &le; 255. <strong>FQDN</strong> ends at the root (trailing dot); <strong>PQDN</strong> does not.</p>
+<p><strong>TLDs:</strong> generic (com, org, edu) &middot; country (in, uk) &middot; <strong>inverse (in-addr.arpa)</strong> for reverse lookup.</p>
+
+<div class="formula">
+  <span class="name">Domain vs zone</span>
+  A <strong>domain</strong> is a subtree of the namespace. A <strong>zone</strong> is what a server is actually responsible for &mdash; the domain <strong>minus any delegated subdomains</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Recursive</th><th>Iterative</th></tr></thead>
+<tbody>
+<tr><td>Work done by</td><td>The <strong>server</strong></td><td>The <strong>client</strong></td></tr>
+<tr><td>Reply is</td><td>The final answer or an error</td><td>A <strong>referral</strong></td></tr>
+<tr><td>Queries sent by client</td><td>One</td><td>Several</td></tr>
+<tr><td>Used between</td><td>Host &harr; local server</td><td>Local server &harr; root/TLD/authoritative</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>A real lookup uses both:</strong> the host-to-local-server half is recursive, the local-server-to-hierarchy half is iterative.</p>
+<p><strong>Servers:</strong> root (delegates) &middot; primary (creates and maintains the zone file) &middot; secondary (gets it by <strong>zone transfer</strong>, cannot update) &middot; local/resolver.</p>
+<p><strong>Caching:</strong> cuts time and traffic; staleness managed by <strong>TTL</strong> and by marking replies <strong>unauthoritative</strong>.</p>
+<p><strong>Records:</strong> <strong>A</strong> (IPv4) &middot; AAAA (IPv6) &middot; NS (name server) &middot; CNAME (alias) &middot; <strong>MX</strong> (mail server) &middot; SOA (zone parameters) &middot; PTR (reverse).</p>
+<p><strong>UDP 53 for queries; TCP for zone transfers</strong> and for responses over 512 bytes.</p>
+
+<h2>DHCP <span class="tag">5 marks</span></h2>
+
+<div class="formula">
+  <span class="name">DORA</span>
+  <strong>DISCOVER</strong> (broadcast, src 0.0.0.0) &rarr; <strong>OFFER</strong> (broadcast &mdash; client has no address yet) &rarr; <strong>REQUEST</strong> (broadcast &mdash; so unchosen servers release their offers) &rarr; <strong>ACK</strong>
+</div>
+
+<p><strong>Supplies four things:</strong> IP address, subnet mask, default gateway, DNS server.</p>
+<p><strong>Allocation:</strong> static (MAC-bound) &middot; automatic (permanent from pool) &middot; <strong>dynamic (leased)</strong>.</p>
+<p><strong>Timers:</strong> <strong>T1 = 50%</strong> unicast renewal to the original server &middot; <strong>T2 = 87.5%</strong> broadcast rebinding to any server &middot; 100% = abandon and restart DORA.</p>
+<p><strong>Relay agent:</strong> routers do not forward broadcasts, so the router converts DISCOVER into a unicast to the configured server. This is what lets one server serve a whole campus.</p>
+<p><strong>RARP &rarr; BOOTP &rarr; DHCP:</strong> RARP gives only an address and cannot cross a router; BOOTP crosses routers but needs every client pre-registered; DHCP does both and allocates dynamically.</p>
+
+<h2>FTP, TELNET, SSH</h2>
+
+<div class="formula">
+  <span class="name">FTP uses TWO connections</span>
+  <strong>Control &mdash; port 21</strong>, open for the whole session, commands and replies only<br>
+  <strong>Data &mdash; port 20</strong>, opened and closed <strong>per file</strong>, data only
+</div>
+
+<p><strong>Why two:</strong> commands must be deliverable <em>during</em> a transfer (so ABORT works), and data needs its type and structure negotiated separately.</p>
+<p><strong>Active</strong> = server connects back (PORT) &mdash; firewalls block it. <strong>Passive</strong> = client connects out (PASV) &mdash; the modern default.</p>
+<p><strong>Attributes:</strong> file type (ASCII / EBCDIC / image) &middot; structure (file / record / page) &middot; mode (stream / block / compressed).</p>
+<p><strong>TFTP:</strong> port 69, UDP, no authentication, one connection, its own stop-and-wait.</p>
+<p><strong>NVT:</strong> a universal intermediate character form, so each system needs only its own translator plus the standard &mdash; <strong>n translators rather than n&sup2;</strong>. Data chars have the top bit 0; control chars top bit 1, preceded by IAC (255).</p>
+<p><strong>TELNET modes:</strong> default (line on Enter) &middot; <strong>character</strong> (very inefficient &mdash; this is what Nagle exists for) &middot; line mode.</p>
+<p><strong>SSH (22) vs TELNET (23):</strong> everything encrypted, server authenticated, integrity checked, plus port forwarding and SFTP/SCP.</p>
+
+<h2>WWW and HTTP <span class="tag">two questions</span></h2>
+
+<p><strong>URL:</strong> protocol :// host : port / path. <strong>Documents:</strong> static (stored) &middot; <strong>dynamic (runs on the SERVER</strong> &mdash; PHP, CGI) &middot; <strong>active (runs on the CLIENT</strong> &mdash; JavaScript).</p>
+
+<div class="formula">
+  <span class="name">HTTP messages</span>
+  <strong>Request:</strong> request line (method, URL, version) | headers | blank line | optional body<br>
+  <strong>Response:</strong> status line (version, code, phrase) | headers | blank line | body<br>
+  The only structural difference is the first line.
+</div>
+
+<p><strong>Methods:</strong> GET, POST, <strong>HEAD</strong> (headers only), PUT, DELETE, TRACE, OPTIONS, CONNECT.</p>
+<p><strong>Status classes:</strong> 1xx informational &middot; <strong>2xx success</strong> (200 OK) &middot; 3xx redirection (301, <strong>304 Not Modified</strong>) &middot; <strong>4xx client error</strong> (404) &middot; <strong>5xx server error</strong> (500).</p>
+
+<div class="formula">
+  <span class="name">Persistent vs non-persistent</span>
+  <strong>Non-persistent (1.0):</strong> one connection per object &rarr; <strong>2 RTT per object</strong><br>
+  <strong>Persistent (1.1 default):</strong> one connection for many &rarr; <strong>1 RTT setup + 1 RTT per object</strong>
+</div>
+
+<p><strong>Sample:</strong> base file + 10 images, RTT 100 ms. Non-persistent = 11&times;2&times;100 = <strong>2200 ms</strong>. Persistent = 12&times;100 = <strong>1200 ms</strong>.</p>
+<p><strong>HTTP is stateless</strong> &mdash; which is exactly why <strong>cookies</strong> exist: Set-Cookie in the response, Cookie in every later request.</p>
+<p><strong>Proxy caching</strong> checks freshness with a <strong>conditional GET</strong> (If-Modified-Since); an unchanged document returns <strong>304 with no body</strong>.</p>
+
+<h2>Electronic mail</h2>
+
+<div class="formula">
+  <span class="name">The path, and push vs pull</span>
+  UA <strong>&mdash;SMTP&rarr;</strong> sender's server <strong>&mdash;SMTP&rarr;</strong> receiver's server <strong>&larr;POP3/IMAP4&mdash;</strong> receiver's UA<br>
+  <strong>SMTP pushes (twice). The last hop must PULL</strong>, because the recipient's machine may be off or firewalled.
+</div>
+
+<p><strong>Components:</strong> UA (user agent) &middot; MTA (transfer, SMTP) &middot; MAA (access, POP3/IMAP4).</p>
+<p><strong>SMTP phases:</strong> connection (220, HELO, 250) &rarr; transfer (MAIL FROM, <strong>one RCPT TO per recipient</strong>, DATA, message, <strong>a line with only a dot</strong>) &rarr; QUIT (221).</p>
+<p><strong>MIME</strong> is <em>not</em> a replacement for SMTP &mdash; it converts non-ASCII to ASCII and back, because SMTP carries 7-bit ASCII only. Headers: MIME-Version, <strong>Content-Type</strong>, <strong>Content-Transfer-Encoding</strong> (base64 for mostly-binary, quoted-printable for mostly-ASCII), Content-Id, Content-Description.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>POP3 (110)</th><th>IMAP4 (143)</th></tr></thead>
+<tbody>
+<tr><td>Mail stored</td><td><strong>Downloaded, usually deleted</strong></td><td><strong>Kept on the server</strong></td></tr>
+<tr><td>Multiple devices</td><td>Poor</td><td><strong>Excellent</strong></td></tr>
+<tr><td>Partial download / search / folders</td><td>No</td><td><strong>Yes</strong></td></tr>
+<tr><td>Server storage</td><td>Little</td><td>Substantial</td></tr>
+<tr><td>Offline</td><td><strong>Good</strong></td><td>Needs a connection</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Webmail's last hop uses HTTP</strong>, not POP3 or IMAP4. SMTP still does the first two hops. Sending mail across domains needs the destination's <strong>MX record</strong> from DNS.</p>
+
+<h2>Security fundamentals</h2>
+
+<div class="formula">
+  <span class="name">CIA and the attacks against each</span>
+  <strong>Confidentiality</strong> &larr; snooping, traffic analysis &nbsp;(<em>passive</em> &mdash; hard to detect, so <strong>prevent</strong>)<br>
+  <strong>Integrity</strong> &larr; modification, masquerading, replaying, repudiation &nbsp;(<em>active</em>)<br>
+  <strong>Availability</strong> &larr; denial of service
+</div>
+
+<p><strong>Passive</strong> = observe without altering, hard to detect, countered by encryption. <strong>Active</strong> = alter or disrupt, detectable but hard to prevent.</p>
+<p><strong>Replay</strong> works because the captured message is <em>genuine</em> &mdash; countered by timestamps or nonces, not by stronger encryption. <strong>Repudiation</strong> is unusual: the attacker is a legitimate party; countered by digital signatures.</p>
+<p><strong>Kerckhoffs's principle:</strong> security rests on the secrecy of the <strong>key</strong>, never of the algorithm.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Symmetric</th><th>Asymmetric</th></tr></thead>
+<tbody>
+<tr><td>Keys</td><td>One shared</td><td>Public + private pair</td></tr>
+<tr><td>Speed</td><td><strong>Fast</strong></td><td><strong>~1000&times; slower</strong></td></tr>
+<tr><td>Key distribution</td><td><strong>Difficult</strong></td><td>Easy &mdash; publish the public key</td></tr>
+<tr><td>Keys for n users</td><td class="num">n(n&minus;1)/2</td><td class="num"><strong>2n</strong></td></tr>
+<tr><td>Non-repudiation</td><td>No</td><td><strong>Yes</strong></td></tr>
+<tr><td>Algorithms</td><td>DES, 3DES, AES</td><td>RSA, Diffie-Hellman, ECC</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The public-key rule, and the hybrid answer</span>
+  <p><strong>Encrypt with the key of the person who should be the ONLY one able to read it.</strong> Secret for Bob &rarr; Bob's <em>public</em> key. Proving you wrote it &rarr; your <em>private</em> key.<br>
+  <strong>Real systems use both:</strong> asymmetric once to exchange a symmetric session key, then symmetric for the bulk data. That is exactly what SSL does.</p>
+</div>
+
+<h2>RSA <span class="tag">the one numerical</span></h2>
+
+<div class="formula">
+  <span class="name">The procedure</span>
+  n = p&times;q &nbsp;&middot;&nbsp; &phi;(n) = (p&minus;1)(q&minus;1) &nbsp;&middot;&nbsp; choose e with gcd(e, &phi;) = 1 &nbsp;&middot;&nbsp; find d with e&middot;d &equiv; 1 (mod &phi;)<br>
+  Public <strong>(e, n)</strong> &nbsp;&middot;&nbsp; Private <strong>(d, n)</strong><br>
+  <strong>C = P<sup>e</sup> mod n</strong> &nbsp;&middot;&nbsp; <strong>P = C<sup>d</sup> mod n</strong>
+</div>
+
+<p><strong>Worked reference:</strong> p = 7, q = 11 &rarr; n = <strong>77</strong>, &phi; = <strong>60</strong>. e = 13 &rarr; d = <strong>37</strong> (13&times;37 = 481 = 8&times;60 + 1).<br>
+Encrypt P = 5: 5&sup2;=25, 5&#8308;=9, 5&#8312;=4; 13 = 8+4+1 &rarr; 4&times;9&times;5 = 180 mod 77 = <strong>C = 26</strong>.<br>
+Decrypt: 26&sup2;=60, 26&#8308;=58, 26&#8312;=53, 26&sup1;&#8310;=37, 26&sup3;&sup2;=60; 37 = 32+4+1 &rarr; 60&times;58&times;26 mod 77 = <strong>5</strong> &#10003;</p>
+<p><strong>Method:</strong> square-and-multiply, <strong>reducing mod n at every step</strong>. Write the exponent as a sum of powers of two. <strong>Always decrypt to verify.</strong></p>
+<p><strong>Security:</strong> finding d needs &phi;(n), which needs p and q &mdash; i.e. <strong>factoring n</strong>.</p>
+<p><strong>Digital signature:</strong> hash the message &rarr; encrypt the <strong>digest</strong> with the <strong>sender's private key</strong>. Verify by hashing and decrypting with the public key, then comparing. Gives <strong>authentication, integrity, non-repudiation &mdash; but NOT confidentiality</strong>. Sign the digest because asymmetric encryption is slow and the digest is small.</p>
+<p><strong>Hash properties:</strong> fixed-length output, one-way, collision resistant, avalanche effect.</p>
+
+<h2>SSL, IPsec, firewalls, IDS</h2>
+
+<div class="formula">
+  <span class="name">Security by layer &mdash; the organising idea</span>
+  Application &rarr; PGP &nbsp;|&nbsp; <strong>Transport &rarr; SSL/TLS</strong> &nbsp;|&nbsp; <strong>Network &rarr; IPsec</strong>
+</div>
+
+<p><strong>SSL protocols:</strong> <strong>Handshake</strong> (negotiate, authenticate, establish keys) &middot; <strong>Record</strong> (fragment, compress, MAC, encrypt) &middot; Change Cipher Spec &middot; Alert.<br>
+<strong>Handshake phases:</strong> 1 capabilities (ClientHello/ServerHello) &rarr; 2 server certificate &rarr; 3 client sends the <strong>pre-master secret encrypted with the server's public key</strong> &rarr; 4 both derive the master secret, ChangeCipherSpec, Finished.<br>
+<strong>HTTPS = HTTP over SSL/TLS, port 443.</strong></p>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>AH</th><th>ESP</th></tr></thead>
+<tbody>
+<tr><td>Authentication + integrity</td><td>Yes</td><td>Yes</td></tr>
+<tr><td><strong>Confidentiality</strong></td><td><strong>NO</strong></td><td><strong>YES</strong></td></tr>
+<tr><td>Protects the IP header</td><td>Yes</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>IPsec modes:</strong> <strong>transport</strong> = payload only, no new header, host to host. <strong>Tunnel</strong> = whole datagram, new outer header, router to router, hides the original addresses &mdash; <strong>this is what VPNs use</strong>.<br>
+<strong>Security Association</strong> = a one-way logical connection (so two are needed), identified by <strong>SPI + destination IP + protocol</strong>.</p>
+<p><strong>SSL vs IPsec:</strong> transport vs network layer; only applications that call it vs <strong>all traffic transparently</strong>; application changes needed vs none; HTTPS vs VPNs.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Packet filter</th><th>Proxy / application gateway</th></tr></thead>
+<tbody>
+<tr><td>Layer</td><td><strong>3 and 4</strong></td><td><strong>7</strong></td></tr>
+<tr><td>Decides on</td><td>IP addresses, ports, protocol</td><td><strong>Message content</strong></td></tr>
+<tr><td>Speed</td><td>Fast</td><td>Slow</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>A packet filter reads the envelope; a proxy reads the letter.</strong> A <strong>stateful</strong> firewall tracks connection state, so it can tell a reply from an unsolicited approach.</p>
+<p><strong>Firewall = locked door. IDS = burglar alarm (detects and alerts only). IPS = alarm that also bolts the door.</strong></p>
+<p><strong>IDS by placement:</strong> <strong>NIDS</strong> (network point, many hosts, blind to encrypted traffic) vs <strong>HIDS</strong> (one host, far more detail).<br>
+<strong>IDS by method:</strong> <strong>signature-based</strong> (known patterns; few false positives, misses new attacks) vs <strong>anomaly-based</strong> (baseline deviation; catches new attacks, many false positives).<br>
+<strong>Intruders:</strong> masquerader (outsider using an account) &middot; misfeasor (legitimate user exceeding privileges) &middot; clandestine user (has supervisory control, suppressing the audit trail).</p>
+
+<hr class="rule">
+
+<h2>Final scan &mdash; ten minutes before you go in</h2>
+
+<ol>
+<li>Ports: FTP 20/21, SSH 22, TELNET 23, SMTP 25, DNS 53, DHCP 67/68, HTTP 80, POP3 110, IMAP 143, HTTPS 443.</li>
+<li>DNS: host→local is <strong>recursive</strong>, local→hierarchy is <strong>iterative</strong>. Zone = domain minus delegations.</li>
+<li>DORA, all broadcast. REQUEST is broadcast so unchosen servers release their offers. Relay agent crosses routers.</li>
+<li>FTP has <strong>two</strong> connections: control 21 (whole session), data 20 (per file). Passive mode is the modern default.</li>
+<li>HTTP is stateless → cookies. Persistent = 1 RTT setup + 1 per object; non-persistent = 2 per object.</li>
+<li>Mail: SMTP <strong>pushes</strong> twice, POP3/IMAP <strong>pulls</strong> once. MIME converts non-ASCII to ASCII; it does not replace SMTP.</li>
+<li>POP3 downloads and deletes; IMAP keeps mail on the server and syncs.</li>
+<li>Encrypt with the key of whoever should be the only reader. Sign with your own private key, on the <em>digest</em>.</li>
+<li>RSA: n = pq, φ = (p−1)(q−1), e·d ≡ 1 mod φ. C = Pᵉ mod n. Square-and-multiply, reduce every step, verify.</li>
+<li><strong>AH has no confidentiality; ESP does.</strong> Tunnel mode = VPN. SSL is transport layer, IPsec is network layer.</li>
+</ol>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="numericals-method-handbook.html">How to solve numericals</a>
+  <a href="../lessons/unit-5/0035-application-layer-and-client-server.html">Start Unit V</a>
+  <a href="unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="unit2-cheat-sheet.html">Unit II sheet</a>
+  <a href="unit3-cheat-sheet.html">Unit III sheet</a>
+  <a href="unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>

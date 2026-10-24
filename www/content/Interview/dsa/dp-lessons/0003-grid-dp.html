@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 03 — Grid DP</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 03 of 12 · the DAG you fill row by row</div>
+<h1>Grid DP (2D paths)</h1>
+<p class="subtitle">A robot that only moves right/down is a DAG in disguise — and index order is its topological sort. No BFS, no queue: just two nested loops.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 3 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+In a grid where moves go right/down, <strong><code>dp[r][c]</code> depends on a constant set of
+already-filled neighbors</strong> — usually top (<code>dp[r-1][c]</code>) and left (<code>dp[r][c-1]</code>).
+Grid DP is graph DP on a DAG whose edges point right and down, so <strong>row-major iteration IS a
+topological order</strong>: by the time you reach a cell, everything it needs is done. And since each row
+only reads the row above, one rolling 1D array usually replaces the whole table.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Unique paths", "min/max path sum", a robot moving <strong>right/down only</strong>, "largest
+  square/rectangle in a matrix", triangle of numbers. The tell: a 2D structure where legal moves never
+  go backwards — that's the DAG. (If moves go in all 4 directions, it's a graph problem — BFS/Dijkstra,
+  not grid DP.)
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<p>The framework, instantiated for Unique Paths (LC 62) — count right/down paths from top-left to bottom-right of an m×n grid:</p>
+<table>
+  <thead><tr><th>Step</th><th>For Unique Paths</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1 · State</strong></td><td><code>dp[r][c]</code> = number of paths from <code>(0,0)</code> to <code>(r,c)</code></td></tr>
+    <tr><td><strong>2 · Recurrence</strong></td><td><code>dp[r][c] = dp[r-1][c] + dp[r][c-1]</code> — you arrived from above or from the left</td></tr>
+    <tr><td><strong>3 · Base cases</strong></td><td>First row and first column = 1 (a single straight path)</td></tr>
+    <tr><td><strong>4 · Order</strong></td><td>Row-major: <code>r</code> then <code>c</code>, both ascending — a topological order of the DAG</td></tr>
+    <tr><td><strong>5 · Answer</strong></td><td><code>dp[m-1][n-1]</code> — for path problems; "best square/subarray anywhere" answers are a max over all cells</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">The direction of the fill = the direction of the dependencies</span>
+  Ask "which cells does <code>dp[r][c]</code> read?" and iterate so those are computed first. Top+left →
+  fill top-left → bottom-right. Dungeon Game's state reads <em>below and right</em> → fill backwards.
+  Getting this backwards is the #1 grid-DP bug.
+</div>
+
+<h2>3 · Core template — Unique Paths (62)</h2>
+<pre><code><span class="cmt">// Bottom-up 2D — see the whole table.</span>
+int uniquePaths(int m, int n) {
+    int[][] dp = new int[m][n];                  <span class="cmt">// dp[r][c] = paths from (0,0) to (r,c)</span>
+    for (int r = 0; r &lt; m; r++)
+        for (int c = 0; c &lt; n; c++)
+            dp[r][c] = (r == 0 || c == 0) ? 1    <span class="cmt">// edges: only one straight-line way</span>
+                     : dp[r - 1][c] + dp[r][c - 1];
+    return dp[m - 1][n - 1];
+}</code></pre>
+<pre><code><span class="cmt">// Rolling 1D — each row only reads the row above, so keep one row.</span>
+int uniquePaths(int m, int n) {
+    int[] dp = new int[n];
+    Arrays.fill(dp, 1);                          <span class="cmt">// row 0</span>
+    for (int r = 1; r &lt; m; r++)
+        for (int c = 1; c &lt; n; c++)
+            dp[c] += dp[c - 1];                  <span class="cmt">// dp[c] (not yet overwritten) = top; dp[c-1] (fresh) = left</span>
+    return dp[n - 1];
+}</code></pre>
+<p><strong>Time</strong> O(m·n) · <strong>Space</strong> O(n) rolled (O(m·n) with the table). The
+left-to-right update order is what makes <code>dp[c-1]</code> "this row" and <code>dp[c]</code> "last
+row" — hold that thought until knapsack (Lesson 4), where flipping this order is the whole subject.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 62 · Unique Paths</strong> (Medium) — likely already solved — re-solve from a blank file using this lesson's framework, and write the 1D rolling version directly.</li>
+  <li><strong>LC 576 · Out of Boundary Paths</strong> (Medium) — counting again, but moves go 4 directions under a step budget: the DAG "row" becomes the moves-remaining dimension, and counts need the modulus.</li>
+  <li><strong>LC 2328 · Number of Increasing Paths in a Grid</strong> (Hard) — counting paths where the DAG comes from increasing values, not right/down — index order is no longer the topological order, so memoized DFS returns.</li>
+</ul>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Unique Paths</td><td>62</td><td>The template above</td></tr>
+    <tr><td>Unique Paths II</td><td>63</td><td>Obstacle cells contribute <strong>0 paths</strong> — zero them out, including on the edges</td></tr>
+    <tr><td>Minimum Path Sum</td><td>64</td><td>Sum of counts → <code>min</code> of costs + cell value</td></tr>
+    <tr><td>Triangle</td><td>120</td><td>Rows widen; fill <strong>bottom-up from the last row</strong> so the answer condenses at the apex</td></tr>
+    <tr><td>Maximal Square</td><td>221</td><td><code>dp</code> = largest square <em>ending at</em> this cell = <code>min(top, left, diag) + 1</code>; answer = max over all cells</td></tr>
+    <tr><td>Dungeon Game</td><td>174</td><td>State is about the <strong>future</strong> → MUST fill backwards from the princess</td></tr>
+    <tr><td>Cherry Pickup II</td><td>1463</td><td>Two robots move down in lockstep → state <code>(row, c1, c2)</code> — states multiply, the framework doesn't change</td></tr>
+    <tr><td>Longest Common Subsequence</td><td>1143</td><td>Preview: the "grid" axes are <em>two strings</em> — same top/left/diagonal reads (Lesson 5)</td></tr>
+  </tbody>
+</table>
+
+<h3>Unique Paths II (63) — obstacles</h3>
+<p>One rule change: an obstacle cell carries <strong>0 paths</strong> — including obstacles on the first
+row/column, which block everything beyond them (so the "edges are all 1" shortcut from LC 62 is now a bug).
+Same state, same top+left recurrence; just zero the cell before adding. Time O(m·n), space O(n) rolled.</p>
+<pre><code>int uniquePathsWithObstacles(int[][] g) {
+    int m = g.length, n = g[0].length;
+    int[] dp = new int[n];
+    dp[0] = 1 - g[0][0];                         <span class="cmt">// blocked start → 0 paths everywhere</span>
+    for (int r = 0; r &lt; m; r++)
+        for (int c = 0; c &lt; n; c++) {
+            if (g[r][c] == 1) dp[c] = 0;         <span class="cmt">// obstacle kills every path through it — even on edges</span>
+            else if (c &gt; 0) dp[c] += dp[c - 1];  <span class="cmt">// top (old dp[c]) + left (new dp[c-1])</span>
+        }
+    return dp[n - 1];
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 63 · Unique Paths II</strong> (Medium) — the template above; test it on an obstacle in the first row and watch the edge shortcut die.</li>
+  <li><strong>LC 2435 · Paths in Matrix Whose Sum Is Divisible by K</strong> (Hard) — obstacle becomes a property: add a sum-mod-k dimension to the state, keep the same top+left reads.</li>
+  <li><strong>LC 980 · Unique Paths III</strong> (Hard) — the trap sequel: "visit every empty cell" makes the state a visited <em>set</em>, so with ≤ 20 cells it's backtracking, not grid DP — know when the pattern breaks.</li>
+</ul>
+
+<h3>Minimum Path Sum (64)</h3>
+<p>Swap "sum of counts" for "min of costs": <code>dp[r][c]</code> = cheapest total to reach
+<code>(r,c)</code> = <code>grid[r][c] + min(top, left)</code>. Base cases are forced marches along the
+first row and column. Same fill order, same rolling row, Time O(m·n), space O(n).</p>
+<pre><code>int minPathSum(int[][] grid) {
+    int m = grid.length, n = grid[0].length;
+    int[] dp = new int[n];
+    dp[0] = grid[0][0];
+    for (int c = 1; c &lt; n; c++) dp[c] = dp[c - 1] + grid[0][c];   <span class="cmt">// row 0: forced march right</span>
+    for (int r = 1; r &lt; m; r++) {
+        dp[0] += grid[r][0];                     <span class="cmt">// left edge: can only come from above</span>
+        for (int c = 1; c &lt; n; c++)
+            dp[c] = grid[r][c] + Math.min(dp[c], dp[c - 1]);      <span class="cmt">// cheaper of top vs left</span>
+    }
+    return dp[n - 1];
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 64 · Minimum Path Sum</strong> (Medium) — the template above; solve it 1D rolling first try, narrating which element is top and which is left.</li>
+  <li><strong>LC 2304 · Minimum Path Cost in a Grid</strong> (Medium) — you may drop to <em>any</em> column of the next row, so "top + left" becomes "min over the whole previous row plus a move cost".</li>
+  <li><strong>LC 1594 · Maximum Non Negative Product in a Matrix</strong> (Medium) — negatives flip signs mid-path: carry max AND min per cell — the LC 152 product trick, transplanted into a grid.</li>
+</ul>
+
+<h3>Triangle (120) — bottom-up from the last row</h3>
+<p>Rows widen by one each level, so filled top-down the state fans out and the answer ends up as a
+min-scan of the last row. Fill <strong>bottom-up</strong> instead: each cell takes its value plus the
+cheaper of its two children below, and the answer condenses to a single number at the apex. A virtual
+all-zero row below the base erases every edge case. Time O(n²), space O(n).</p>
+<pre><code>int minimumTotal(List&lt;List&lt;Integer&gt;&gt; tri) {
+    int n = tri.size();
+    int[] dp = new int[n + 1];                   <span class="cmt">// virtual all-zero row below the base</span>
+    for (int r = n - 1; r &gt;= 0; r--)
+        for (int c = 0; c &lt;= r; c++)
+            dp[c] = tri.get(r).get(c) + Math.min(dp[c], dp[c + 1]);  <span class="cmt">// two children below</span>
+    return dp[0];                                <span class="cmt">// apex holds the answer — no scan of the last row needed</span>
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 120 · Triangle</strong> (Medium) — the template above; notice how the virtual zero row means zero boundary branches.</li>
+  <li><strong>LC 931 · Minimum Falling Path Sum</strong> (Medium) — square instead of triangle, three parents instead of two; you'll meet it again in Lesson 8 wearing a state-machine hat.</li>
+  <li><strong>LC 799 · Champagne Tower</strong> (Medium) — a triangle filled <em>forwards</em>: push overflow down instead of pulling minima up — same shape, opposite flow.</li>
+</ul>
+
+<h3>Maximal Square (221) — min of three neighbors + 1</h3>
+<p>A different question — no path at all. <code>dp[r][c]</code> = side of the largest all-ones square
+whose <em>bottom-right corner</em> sits here: a square can only extend as far as the weakest of its top,
+left, and diagonal neighbors allows, hence <code>min of three + 1</code>. The answer is a max over
+<em>all</em> cells, not the bottom-right corner. Time O(m·n), space O(m·n) (rolls to O(n) with one saved
+diagonal).</p>
+<pre><code>int maximalSquare(char[][] mat) {
+    int m = mat.length, n = mat[0].length, best = 0;
+    int[][] dp = new int[m + 1][n + 1];          <span class="cmt">// dp[r][c] = side of largest square whose bottom-right is (r-1,c-1)</span>
+    for (int r = 1; r &lt;= m; r++)                 <span class="cmt">// padded row/col 0 stay 0 → no bounds checks</span>
+        for (int c = 1; c &lt;= n; c++)
+            if (mat[r - 1][c - 1] == '1') {
+                dp[r][c] = 1 + Math.min(dp[r - 1][c - 1],          <span class="cmt">// a square is only as big as</span>
+                               Math.min(dp[r - 1][c], dp[r][c - 1]));  <span class="cmt">// its weakest neighbor allows</span>
+                best = Math.max(best, dp[r][c]);
+            }
+    return best * best;                          <span class="cmt">// they ask AREA — returning the side is the classic slip</span>
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 221 · Maximal Square</strong> (Medium) — the template above; return the <em>area</em>.</li>
+  <li><strong>LC 1277 · Count Square Submatrices with All Ones</strong> (Medium) — identical recurrence, one insight: <code>dp[r][c]</code> is also the <em>count</em> of squares ending there, so sum the table instead of maxing it.</li>
+  <li><strong>LC 85 · Maximal Rectangle</strong> (Hard) — rectangles break the min-of-three trick; treat each row as a histogram base (monotonic stack) — know where this template stops.</li>
+</ul>
+
+<h3>Dungeon Game (174) — why forward fails</h3>
+<p>Forward "best health so far" can't work: two paths reaching a cell might have (health 10, needed 2)
+vs (health 5, needed 1) — neither dominates, so no single forward number summarizes the past. But the
+<em>future</em> is summarizable: define <code>need[r][c]</code> = minimum HP required <em>on entering</em>
+<code>(r,c)</code> to reach the princess alive. That reads from below/right, so anchor at the princess
+and fill backwards.</p>
+<pre><code>int calculateMinimumHP(int[][] d) {
+    int m = d.length, n = d[0].length;
+    int[][] need = new int[m][n];
+    for (int r = m - 1; r &gt;= 0; r--)
+        for (int c = n - 1; c &gt;= 0; c--) {
+            int next = (r == m - 1 &amp;&amp; c == n - 1) ? 1              <span class="cmt">// leave the princess cell with ≥ 1 HP</span>
+                     : (r == m - 1) ? need[r][c + 1]
+                     : (c == n - 1) ? need[r + 1][c]
+                     : Math.min(need[r + 1][c], need[r][c + 1]);   <span class="cmt">// easier of the two onward paths</span>
+            need[r][c] = Math.max(1, next - d[r][c]);              <span class="cmt">// clamp: HP may never drop to 0, and surplus doesn't bank</span>
+        }
+    return need[0][0];
+}</code></pre>
+<p><strong>Time</strong> O(m·n) · <strong>Space</strong> O(m·n) (rolls to O(n) — <code>need</code> only
+reads the row below).</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 174 · Dungeon Game</strong> (Hard) — the template above; drop the <code>Math.max(1, …)</code> clamp once, collect the wrong answer, never forget it again.</li>
+  <li><strong>LC 1301 · Number of Paths with Max Score</strong> (Hard) — the same backward sweep from the corner, now carrying a (best score, ways) pair per cell — optimizing and counting in one pass.</li>
+  <li><strong>LC 2684 · Maximum Number of Moves in a Grid</strong> (Medium) — dependencies point left, so fill column by column: a gentler drill of "fill direction follows the reads".</li>
+</ul>
+
+<h3>Cherry Pickup II (1463) — states multiply (advanced)</h3>
+<p>Two robots descend one row per step, so the row is a shared clock and the state must carry
+<strong>both columns</strong>: <code>(row, c1, c2)</code>. The recurrence maxes over the 3 × 3
+combinations of column moves from the row above; base case is the two top corners; the answer is the
+best value over all column pairs in the last row. The framework didn't change — the state just grew a
+dimension. Time O(m·n²·9), space O(n²) rolled.</p>
+<pre><code><span class="cmt">// Two robots descend together → state (row, c1, c2). Same framework, bigger table.</span>
+int cherryPickup(int[][] grid) {
+    int m = grid.length, n = grid[0].length;
+    int[][] dp = new int[n][n];                  <span class="cmt">// dp[c1][c2] = best cherries so far, robots at c1 and c2</span>
+    for (int[] row : dp) Arrays.fill(row, -1);   <span class="cmt">// -1 = unreachable pairing</span>
+    dp[0][n - 1] = grid[0][0] + grid[0][n - 1];  <span class="cmt">// base: corners of row 0</span>
+    for (int r = 1; r &lt; m; r++) {
+        int[][] nd = new int[n][n];
+        for (int[] row : nd) Arrays.fill(row, -1);
+        for (int c1 = 0; c1 &lt; n; c1++)
+            for (int c2 = 0; c2 &lt; n; c2++) {
+                if (dp[c1][c2] &lt; 0) continue;
+                for (int d1 = -1; d1 &lt;= 1; d1++)                   <span class="cmt">// 3 × 3 = 9 move combos</span>
+                    for (int d2 = -1; d2 &lt;= 1; d2++) {
+                        int a = c1 + d1, b = c2 + d2;
+                        if (a &lt; 0 || a &gt;= n || b &lt; 0 || b &gt;= n) continue;
+                        int gain = grid[r][a] + (a == b ? 0 : grid[r][b]);  <span class="cmt">// shared cell counts once</span>
+                        nd[a][b] = Math.max(nd[a][b], dp[c1][c2] + gain);
+                    }
+            }
+        dp = nd;
+    }
+    int best = 0;
+    for (int[] row : dp) for (int v : row) best = Math.max(best, v);
+    return best;                                 <span class="cmt">// O(m · n² · 9) — the framework scaled, not changed</span>
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Two classic Cherry Pickup II bugs</span>
+  Counting the shared cell twice when <code>c1 == c2</code> (the <code>a == b ? 0 : …</code> guard), and
+  letting unreachable pairings default to <code>0</code> — a 0 reads as "reachable with zero cherries"
+  and corrupts every max downstream. Initialize to −1 and <code>continue</code> past negatives.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1463 · Cherry Pickup II</strong> (Hard) — the template above; verify both traps from the callout before submitting.</li>
+  <li><strong>LC 741 · Cherry Pickup</strong> (Hard) — one robot going there and back = two robots walking forward in lockstep: state <code>(t, r1, r2)</code> — the same "states multiply" move, discovered instead of given.</li>
+</ul>
+
+<h3>Longest Common Subsequence (1143) — preview: a grid whose axes are strings</h3>
+<p>The bridge to Lesson 5. State: <code>dp[i][j]</code> = LCS length of the first <code>i</code> chars of
+<code>a</code> and the first <code>j</code> chars of <code>b</code>. If the two current characters match,
+extend the diagonal: <code>dp[i-1][j-1] + 1</code>; otherwise skip one character from either string:
+<code>max(top, left)</code>. Base case: row 0 and column 0 are 0 (an empty prefix shares nothing). Same
+three neighbor reads as Maximal Square, same row-major fill.</p>
+<pre><code>int longestCommonSubsequence(String a, String b) {
+    int m = a.length(), n = b.length();
+    int[][] dp = new int[m + 1][n + 1];          <span class="cmt">// dp[i][j] = LCS of a[0..i) and b[0..j); padded row/col 0 = empty prefix = 0</span>
+    for (int i = 1; i &lt;= m; i++)
+        for (int j = 1; j &lt;= n; j++)
+            dp[i][j] = (a.charAt(i - 1) == b.charAt(j - 1))
+                     ? dp[i - 1][j - 1] + 1                        <span class="cmt">// match: extend the diagonal</span>
+                     : Math.max(dp[i - 1][j], dp[i][j - 1]);       <span class="cmt">// mismatch: drop a char from one string</span>
+    return dp[m][n];
+}</code></pre>
+<p><strong>Time</strong> O(m·n) · <strong>Space</strong> O(m·n), rolls to O(n) — the same rolling-row
+argument as Unique Paths.</p>
+
+<div class="callout trap">
+  <span class="label">THE two-string DP bug: the off-by-one</span>
+  The table is <code>(m+1) × (n+1)</code> but the strings are 0-indexed, so cell <code>(i, j)</code>
+  compares <code>a.charAt(i - 1)</code> with <code>b.charAt(j - 1)</code>. Mixing "index into dp" with
+  "index into string" is the single most common wrong-answer in the whole LCS family — Lesson 5 will
+  drill it.
+</div>
+
+<div class="callout tip">
+  <span class="label">Bridge to Lesson 5 — LCS is a grid</span>
+  Same three neighbor reads as Maximal Square, same row-major fill, only the axes changed from grid
+  coordinates to <em>two strings</em>. If grid DP feels solid, two-string DP is a re-labeling exercise —
+  and one template there covers a dozen problems.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1143 · Longest Common Subsequence</strong> (Medium) — taste it now with the grid mindset; Lesson 5 rebuilds it as the core of a whole family.</li>
+  <li><strong>LC 718 · Maximum Length of Repeated Subarray</strong> (Medium) — same two-axis grid, but a mismatch resets to 0 instead of taking max: substring vs subsequence in one edit.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>Minimum Path Sum on <code>grid = [[1,3,1],[1,5,1],[4,2,1]]</code>. Fill
+<code>dp[r][c] = grid[r][c] + min(top, left)</code> row by row:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 470 240" role="img" aria-label="Left: the 3 by 3 input grid with the cheapest path 1,3,1,1,1 highlighted. Right: the dp table filled to 1,4,5 / 2,7,6 / 6,8,7">
+  <text class="wt" x="127" y="30">grid (cheapest path)</text>
+  <text class="wt" x="357" y="30">dp = min cost to reach</text>
+  <polyline class="edge hl" points="67,77 187,77 187,197"/>
+  <rect class="cell" x="40"  y="50"  width="54" height="54"/><text class="lbl" x="67"  y="77">1</text>
+  <rect class="cell" x="100" y="50"  width="54" height="54"/><text class="lbl" x="127" y="77">3</text>
+  <rect class="cell" x="160" y="50"  width="54" height="54"/><text class="lbl" x="187" y="77">1</text>
+  <rect class="cell" x="40"  y="110" width="54" height="54"/><text class="lbl" x="67"  y="137">1</text>
+  <rect class="cell" x="100" y="110" width="54" height="54"/><text class="lbl" x="127" y="137">5</text>
+  <rect class="cell" x="160" y="110" width="54" height="54"/><text class="lbl" x="187" y="137">1</text>
+  <rect class="cell" x="40"  y="170" width="54" height="54"/><text class="lbl" x="67"  y="197">4</text>
+  <rect class="cell" x="100" y="170" width="54" height="54"/><text class="lbl" x="127" y="197">2</text>
+  <rect class="cell" x="160" y="170" width="54" height="54"/><text class="lbl" x="187" y="197">1</text>
+  <rect class="cell done" x="270" y="50"  width="54" height="54"/><text class="lbl" x="297" y="77">1</text>
+  <rect class="cell done" x="330" y="50"  width="54" height="54"/><text class="lbl" x="357" y="77">4</text>
+  <rect class="cell done" x="390" y="50"  width="54" height="54"/><text class="lbl" x="417" y="77">5</text>
+  <rect class="cell done" x="270" y="110" width="54" height="54"/><text class="lbl" x="297" y="137">2</text>
+  <rect class="cell done" x="330" y="110" width="54" height="54"/><text class="lbl" x="357" y="137">7</text>
+  <rect class="cell done" x="390" y="110" width="54" height="54"/><text class="lbl" x="417" y="137">6</text>
+  <rect class="cell done" x="270" y="170" width="54" height="54"/><text class="lbl" x="297" y="197">6</text>
+  <rect class="cell done" x="330" y="170" width="54" height="54"/><text class="lbl" x="357" y="197">8</text>
+  <rect class="cell cur"  x="390" y="170" width="54" height="54"/><text class="lbl inv" x="417" y="197">7</text>
+</svg>
+<figcaption>dp[2][2] = 7 via the highlighted path 1→3→1→1→1 (right, right, down, down).</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">row 0 (forced right): dp = [1, 1+3=<span class="ptr">4</span>, 4+1=<span class="ptr">5</span>]</span>
+<span class="step">row 1, c=0 (forced down): 1 + 1 = <span class="ptr">2</span></span>
+<span class="step now">row 1, c=1: 5 + min(top 4, left 2) = <span class="ptr">7</span></span>
+<span class="step now">row 1, c=2: 1 + min(top 5, left 7) = <span class="ptr">6</span> — the top path wins here</span>
+<span class="step">row 2: 2+4=<span class="ptr">6</span>; 2 + min(7, 6) = <span class="ptr">8</span>; 1 + min(6, 8) = <span class="ptr">7</span></span>
+<span class="step">return dp[2][2] = <span class="ptr">7</span> (path 1→3→1→1→1)</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Obstacle on the start or goal cell (63):</strong> answer is 0 — and obstacles on the first row/column block everything <em>beyond</em> them, which the "edges are all 1" shortcut silently gets wrong.</li>
+  <li><strong>1×1 grid / single row / single column:</strong> the recurrence never fires; make sure base-case code alone produces the right answer.</li>
+  <li><strong>Rolling-row update order:</strong> left→right keeps old <code>dp[c]</code> = top and new <code>dp[c-1]</code> = left. Reversing the inner loop breaks it here — yet is exactly what 0/1 knapsack will require (Lesson 4).</li>
+  <li><strong>Dungeon Game clamps at 1:</strong> <code>Math.max(1, …)</code> — a huge potion can't bank health below the 1-HP floor. Forgetting the clamp is the classic wrong-answer.</li>
+  <li><strong>Maximal Square returns area,</strong> not side: <code>best * best</code>. And the answer is a max over <em>all</em> cells, not the corner.</li>
+  <li><strong>Path counts overflow:</strong> sums of counts grow combinatorially — use <code>long</code> or the required modulus when constraints allow big grids.</li>
+  <li><strong>Padded tables (221):</strong> size <code>[m+1][n+1]</code> and shift reads to <code>mat[r-1][c-1]</code> — cleaner than four boundary branches, but keep the off-by-one straight.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why can grid DP fill <code>dp</code> row by row, left to right, with no BFS/DFS or queue?</div>
+  <button class="opt">Because grids are always connected, so any traversal order visits every cell exactly once</button>
+  <button class="opt">Because every dependency points up or left — row-major order IS a topological order of the right/down DAG</button>
+  <button class="opt">Because <code>dp[r][c]</code> only ever needs <code>dp[r][c-1]</code>, making each row independent of the rows above</button>
+  <div class="fb" data-correct="Right — moves only go right/down, so dependencies only point up/left, and plain index order guarantees every ingredient is ready before it's read. That's also why 4-direction movement breaks grid DP." data-wrong="The key is the DAG: legal moves go right/down only, so dp[r][c] depends on cells ABOVE and LEFT — both already computed in row-major order. Index order is a free topological sort."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Dungeon Game (LC 174) must be filled <strong>backwards</strong> from the princess because:</div>
+  <button class="opt">The knight moves only up and left in this problem, which reverses the dependency direction</button>
+  <button class="opt">Backward filling avoids the integer overflow that forward prefix sums would accumulate</button>
+  <button class="opt">The state is the minimum health NEEDED for the remaining path — a fact about the future that forward "best health so far" can't summarize</button>
+  <div class="fb" data-correct="Exactly — (health 10, needed 2) vs (health 5, needed 1): neither forward summary dominates, so no single forward number works. 'Min HP needed from here on' depends only on cells below/right, so anchor at the princess and sweep backwards." data-wrong="The knight still moves right/down. The issue is the STATE: what you need at a cell depends on the path AHEAD, not behind — so define need[r][c] = min HP to survive from here, which reads below/right and forces a backward fill."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In the rolling 1-D Unique Paths update <code>dp[c] += dp[c - 1]</code>, at the moment of the add:</div>
+  <button class="opt"><code>dp[c]</code> still holds the previous row's value (top) and <code>dp[c-1]</code> already holds this row's value (left)</button>
+  <button class="opt"><code>dp[c]</code> already holds this row's value (left) and <code>dp[c-1]</code> holds the previous row's value (top)</button>
+  <button class="opt">Both still hold the previous row's values — which is why the loop must actually run right-to-left</button>
+  <div class="fb" data-correct="Yes — sweeping left→right, dp[c-1] was just overwritten (current row = left neighbor) while dp[c] hasn't been touched yet (previous row = top neighbor). One line, two rows. Knapsack flips this order on purpose — next lesson." data-wrong="Sweep direction decides what's fresh: going left→right, dp[c-1] is already updated (this row's LEFT) and dp[c] is still stale (last row's TOP). So dp[c] += dp[c-1] adds exactly top + left."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://www.youtube.com/watch?v=IlEsdxuD4lY">NeetCode — Unique Paths</a>, then <a href="https://www.youtube.com/playlist?list=PLgUwDviBIf0qUlt5H_kiKYaNSqJ81PMMY">Striver DP Series Lec 8–13</a> (DP on grids, includes Triangle and the fixed-start/variable-end distinction).</li>
+  <li><strong>Practice ladder (easiest → hardest):</strong>
+    LC 62 Unique Paths <em>(Google-reported)</em> → LC 64 Minimum Path Sum <em>(Google-reported)</em> →
+    LC 63 Unique Paths II <em>(Google-reported)</em> → LC 120 Triangle → LC 221 Maximal Square
+    <em>(Google-reported)</em> → LC 174 Dungeon Game → LC 1463 Cherry Pickup II.</li>
+  <li><strong>Drill:</strong> solve 62 and 64 with the rolling 1D array directly, no 2D warm-up — narrate which
+    element is "top" and which is "left" as you type. That narration is the Lesson 4 entrance exam.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0004-knapsack.html">DP Lesson 04 — Knapsack</a>, where the inner loop's direction becomes the whole story.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the Dungeon Game "neither path dominates" example expanded, a dry run of Maximal Square on a small
+  matrix, or to see why obstacles break the all-ones edge shortcut? Ask in the chat. When you can fill a
+  Min Path Sum table by hand and explain the rolling-row trick, say <strong>"next"</strong> and we pack knapsacks.
+</div>
+
+<div class="nav">
+  <span><a href="0002-1d-dp.html">← 1D DP on sequences</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0004-knapsack.html">Knapsack →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

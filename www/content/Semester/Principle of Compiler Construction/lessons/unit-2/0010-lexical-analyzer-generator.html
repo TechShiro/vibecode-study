@@ -1,0 +1,370 @@
+<title>Lex — the Lexical Analyser Generator</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit II &middot; Lesson 10 of 10</p>
+<h1>Lex &mdash; the Lexical Analyser Generator</h1>
+<p class="deck">The three-part structure of a Lex program, a complete worked specification, the variables and functions you must name, the two conflict-resolution rules with traces, and how Lex builds its automaton internally.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain the structure of a Lex program&rdquo; is the certain question</strong> &mdash; three sections separated by <code>%%</code>, and you should <strong>write a small complete specification</strong> rather than describe one. <strong>&ldquo;How does Lex resolve conflicts?&rdquo;</strong> has exactly two rules, in order: <strong>longest match first, then earliest rule listed</strong> &mdash; and the <code>if</code> versus <code>ifx</code> example proves you understand both. <strong>&ldquo;How does Lex work internally?&rdquo;</strong> ties this lesson back to Lessons 8 and 9, which is the answer examiners reward. Learn <strong>yytext, yyleng, yylex(), yywrap()</strong> by name.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Lex Tool Architecture &amp; Theory</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=PdYBb44Zxew" target="_blank">LEX tool in compiler | Lexical analyzer generator</a>
+    <span class="v-meta">LS Academy for Technical Education &middot; 11:00</span>
+    <div class="v-why">Comprehensive syllabus lecture covering the Lex compiler pipeline, yylex(), yytext, yyleng, yywrap(), and internal DFA simulation.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Lex Specification &amp; Conflict Rules</span>
+      <span class="best-tag">Practical Implementation</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=082oGUHypZU" target="_blank">Lexical Analysis using LEX tool | Implementation</a>
+    <span class="v-meta">Education 4u &middot; 10:44</span>
+    <div class="v-why">Step-by-step walkthrough of the three Lex sections, writing token actions, and demonstrating the longest-match and first-rule conflict heuristics.</div>
+  </div>
+</div>
+
+<h2>What Lex is</h2>
+
+<div class="formula">
+  <span class="name">Definition and Primary Role</span>
+  <strong>Lex</strong> (or GNU <strong>Flex</strong>) is a <strong>lexical analyser generator</strong>: it accepts a user-written specification consisting of <strong>regular expressions paired with action fragments</strong> in C, and automatically produces the <strong>complete C source code (<code>lex.yy.c</code>) for a deterministic finite automaton scanner</strong>.
+</div>
+
+<!-- FLOWCHART: LEX GENERATION PIPELINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">System Flowchart: The Lex Compilation and Execution Pipeline</span>
+  
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Lex Specification File</strong> &middot; <code>lex.l</code>
+      <span class="sub">Regular expressions + C actions</span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Input to Lex Compiler</span>
+    
+    <div class="flow-box">
+      <strong>Lex / Flex Tool</strong>
+      <span class="sub">Constructs NFA &rarr; DFA &rarr; Minimal DFA table</span>
+    </div>
+
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Generates C source code</span>
+
+    <div class="flow-box warn">
+      <strong>C Source File</strong> &middot; <code>lex.yy.c</code>
+      <span class="sub">Contains <code>yylex()</code> subroutine and transition matrix</span>
+    </div>
+
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Compiled by Host C Compiler (gcc)</span>
+
+    <div class="flow-box">
+      <strong>Host C Compiler</strong> &middot; <code>gcc lex.yy.c -ll</code>
+      <span class="sub">Links with standard Lex library</span>
+    </div>
+
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Emits machine executable</span>
+
+    <div class="flow-box ok">
+      <strong>Executable Scanner</strong> &middot; <code>a.out</code>
+      <span class="sub">Reads raw characters &rarr; Emits token stream</span>
+    </div>
+  </div>
+</div>
+
+<h2>The structure of a Lex program</h2>
+
+<div class="formula">
+  <span class="name">Three sections, separated by %%</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.86rem; text-align:left; line-height:1.7">
+  <strong>declarations</strong><br>
+  <strong>%%</strong><br>
+  <strong>translation rules</strong><br>
+  <strong>%%</strong><br>
+  <strong>auxiliary functions</strong>
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.5rem"><strong>The first <code>%%</code> is compulsory; the second and the third section are optional.</strong> A minimal legal Lex file is just <code>%%</code> followed by nothing.</span>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Section</th><th>Contains</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Declarations</strong></td><td><strong>Regular definitions</strong> (named patterns), <strong>manifest constants</strong>, and C declarations enclosed in <code>%{ &hellip; %}</code></td><td>Anything between <code>%{</code> and <code>%}</code> is <strong>copied verbatim</strong> into <code>lex.yy.c</code> &mdash; this is where <code>#include</code> lines and global variables go</td></tr>
+<tr><td><strong>2. Translation rules</strong></td><td>Lines of the form &nbsp; <strong>Pattern &nbsp;&nbsp; { Action }</strong></td><td>The pattern is a regular expression; the action is <strong>C code</strong> executed when the pattern matches. <strong>This is the heart of the file</strong></td></tr>
+<tr><td><strong>3. Auxiliary functions</strong></td><td>Ordinary <strong>C functions</strong> used by the actions, and often <code>main()</code></td><td>Copied verbatim to the end of <code>lex.yy.c</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>A complete worked specification</h2>
+
+<div class="solve">
+  <span class="lbl">A Lex program recognising the tokens of a small language.</span>
+  <div class="formula">
+  <div style="font-family:ui-monospace,monospace; font-size:.79rem; text-align:left; line-height:1.55">
+  <strong>%{</strong><br>
+  &nbsp;&nbsp;<em>/* definitions of the manifest constants LT, LE, EQ, NE, GT, GE,</em><br>
+  &nbsp;&nbsp;<em>&nbsp;&nbsp; IF, THEN, ELSE, ID, NUMBER, RELOP */</em><br>
+  &nbsp;&nbsp;#include "tokens.h"<br>
+  <strong>%}</strong><br><br>
+  <em>/* ---------- regular definitions ---------- */</em><br>
+  <strong>delim</strong>&nbsp;&nbsp;&nbsp;&nbsp;[ \t\n]<br>
+  <strong>ws</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{delim}+<br>
+  <strong>letter</strong>&nbsp;&nbsp;&nbsp;[A-Za-z]<br>
+  <strong>digit</strong>&nbsp;&nbsp;&nbsp;&nbsp;[0-9]<br>
+  <strong>id</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{letter}({letter}|{digit})*<br>
+  <strong>number</strong>&nbsp;&nbsp;&nbsp;{digit}+(\.{digit}+)?(E[+-]?{digit}+)?<br><br>
+  <strong>%%</strong><br><br>
+  {ws}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>{ /* no action, no token — just skip it */ }</strong><br>
+  if&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ return(IF); }<br>
+  then&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ return(THEN); }<br>
+  else&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ return(ELSE); }<br>
+  {id}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ <strong>yylval = (int) installID();</strong> return(ID); }<br>
+  {number}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ yylval = (int) installNum(); return(NUMBER); }<br>
+  "&lt;"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ yylval = LT; return(RELOP); }<br>
+  "&lt;="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ yylval = LE; return(RELOP); }<br>
+  "="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ yylval = EQ; return(RELOP); }<br>
+  "&lt;&gt;"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ yylval = NE; return(RELOP); }<br>
+  "&gt;"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ yylval = GT; return(RELOP); }<br>
+  "&gt;="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ yylval = GE; return(RELOP); }<br><br>
+  <strong>%%</strong><br><br>
+  int <strong>installID</strong>() {<br>
+  &nbsp;&nbsp;<em>/* look yytext (length yyleng) up in the symbol table;</em><br>
+  &nbsp;&nbsp;<em>&nbsp;&nbsp; insert it if absent; return a pointer to its entry */</em><br>
+  }<br><br>
+  int <strong>installNum</strong>() {<br>
+  &nbsp;&nbsp;<em>/* similar, but for a table of numeric constants */</em><br>
+  }
+  </div>
+  </div>
+
+  <p><strong>Four things to point out when you write this out:</strong></p>
+  <ul>
+    <li><strong>The <code>{ws}</code> rule returns nothing.</strong> Its action is empty, so the scanner simply loops and looks for the next token &mdash; which is exactly how whitespace is stripped.</li>
+    <li><strong>Keywords are listed BEFORE <code>{id}</code>.</strong> That ordering is what makes <code>if</code> a keyword rather than an identifier, by the second conflict rule below.</li>
+    <li><strong>All six relational operators return the same token, RELOP</strong>, distinguished by the attribute placed in <code>yylval</code> &mdash; exactly the design from Lesson 5.</li>
+    <li><strong>Curly braces around a name mean &ldquo;the regular definition&rdquo;</strong> &mdash; <code>{id}</code> refers to the definition above; braces around code mean &ldquo;the action&rdquo;. The same symbol, two meanings.</li>
+  </ul>
+</div>
+
+<h2>The variables and functions to name</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Name</th><th>Kind</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>yytext</strong></td><td><code>char *</code></td><td><strong>The lexeme just matched</strong> &mdash; a pointer to the actual text in the input buffer</td></tr>
+<tr><td><strong>yyleng</strong></td><td><code>int</code></td><td><strong>The length of that lexeme</strong></td></tr>
+<tr><td><strong>yylval</strong></td><td>Global</td><td><strong>The attribute value passed to the parser</strong> alongside the token</td></tr>
+<tr><td><strong>yylex()</strong></td><td>Function</td><td><strong>The generated scanner itself.</strong> Each call returns the next token; the parser calls it repeatedly</td></tr>
+<tr><td><strong>yywrap()</strong></td><td>Function</td><td>Called at <strong>end of input</strong>. Returning <strong>1</strong> means &ldquo;stop&rdquo;; returning <strong>0</strong> means &ldquo;another file follows, carry on&rdquo;</td></tr>
+<tr><td><strong>yyin</strong>, <strong>yyout</strong></td><td><code>FILE *</code></td><td>Input and output streams; default to <code>stdin</code> and <code>stdout</code></td></tr>
+<tr><td><strong>ECHO</strong></td><td>Macro</td><td>Writes <code>yytext</code> to <code>yyout</code> &mdash; the <strong>default action</strong> for any input not matched by a rule</td></tr>
+<tr><td><strong>yymore()</strong>, <strong>yyless(n)</strong></td><td>Functions</td><td>Append the next match to the current one; or <strong>push back all but the first n characters</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Conflict resolution &mdash; the two rules</h2>
+
+<div class="box win">
+  <span class="lbl">The two rules, in this order</span>
+  <p><strong>RULE 1 &mdash; LONGEST MATCH.</strong> Always prefer <strong>a longer prefix of the input to a shorter one</strong>.</p>
+  <p><strong>RULE 2 &mdash; FIRST RULE LISTED.</strong> If the longest possible prefix matches <strong>two or more patterns equally</strong>, prefer the pattern <strong>listed FIRST in the Lex program</strong>.</p>
+  <p><strong>Rule 1 is applied first. Rule 2 only breaks a tie that rule 1 could not.</strong> Getting that order right is the whole question.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. For the specification above, which rule fires on each of these inputs?</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Input</th><th>Patterns that match, and how far</th><th>Rule applied</th><th>Result</th></tr></thead>
+  <tbody>
+  <tr><td><code><strong>if</strong></code></td><td><code>if</code> matches 2 characters; <code>{id}</code> also matches 2</td><td><strong>Tie on length &rarr; Rule 2</strong></td><td><strong>IF</strong> &mdash; because the <code>if</code> rule is listed before <code>{id}</code></td></tr>
+  <tr><td><code><strong>ifx</strong></code></td><td><code>if</code> matches 2; <code>{id}</code> matches <strong>3</strong></td><td><strong>Rule 1 &mdash; longest match</strong></td><td><strong>ID</strong>, with lexeme <code>ifx</code></td></tr>
+  <tr><td><code><strong>&lt;=</strong></code></td><td><code>"&lt;"</code> matches 1; <code>"&lt;="</code> matches <strong>2</strong></td><td><strong>Rule 1</strong></td><td><strong>RELOP</strong> with <code>yylval = LE</code></td></tr>
+  <tr><td><code><strong>&lt;&nbsp;</strong></code> (less-than then a space)</td><td>Only <code>"&lt;"</code> matches</td><td>No conflict</td><td><strong>RELOP</strong> with <code>yylval = LT</code></td></tr>
+  <tr><td><code><strong>thenx</strong></code></td><td><code>then</code> matches 4; <code>{id}</code> matches <strong>5</strong></td><td><strong>Rule 1</strong></td><td><strong>ID</strong>, lexeme <code>thenx</code></td></tr>
+  <tr><td><code><strong>3.14</strong></code></td><td><code>{number}</code> matches 4; a shorter <code>{number}</code> match of just <code>3</code> also exists</td><td><strong>Rule 1</strong></td><td><strong>NUMBER</strong>, lexeme <code>3.14</code></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>The pair to quote in the exam is <code>if</code> versus <code>ifx</code></strong> &mdash; the same two patterns, resolved by different rules, and it proves you know both.</p>
+  <p><em>The practical consequence:</em> <strong>keyword rules must be listed before the identifier rule.</strong> Reverse them and every keyword would be scanned as an identifier, because <code>{id}</code> would win the tie.</p>
+</div>
+
+<h2>How Lex works internally</h2>
+
+<div class="formula">
+  <span class="name">The construction &mdash; this ties Lessons 8, 9 and 10 together</span>
+  <strong>1.</strong> Lex builds an <strong>NFA for each pattern</strong> p<sub>i</sub> in the translation rules, by <strong>Thompson's construction</strong>.<br>
+  <strong>2.</strong> It combines them into <strong>one NFA</strong>: a <strong>new start state s<sub>0</sub></strong> with an <strong>&epsilon;-transition to the start state of every individual NFA</strong>. Each accepting state is <strong>labelled with the pattern it belongs to</strong>.<br>
+  <strong>3.</strong> It converts that combined NFA to a <strong>DFA by the subset construction</strong>, or equivalently builds the DFA <strong>directly</strong> by the followpos method &mdash; which is what real Lex implementations do.<br>
+  <strong>4.</strong> A DFA state may contain <strong>several accepting NFA states</strong>. In that case the state is labelled with the <strong>pattern listed FIRST</strong> in the Lex program &mdash; <strong>this is exactly how Rule 2 is implemented</strong>.<br>
+  <strong>5.</strong> To implement <strong>Rule 1</strong>, the simulator does not stop at the first accepting state. It <strong>keeps running, remembering the LAST accepting state it passed and the input position there</strong>. When no further transition is possible, it <strong>retracts the input pointer to that remembered position</strong> and executes that pattern's action.
+</div>
+
+<div class="box">
+  <span class="lbl">The one-sentence version</span>
+  <p><strong>&ldquo;Lex merges the pattern automata into a single DFA; the longest-match rule is implemented by remembering the last accepting state passed and retracting to it, and the first-rule-listed rule by labelling each DFA state with the earliest pattern among the accepting NFA states it contains.&rdquo;</strong></p>
+</div>
+
+<h3>Lookahead</h3>
+
+<p>Lex provides a <strong>lookahead operator <code>/</code></strong>: the pattern <strong><code>r1 / r2</code></strong> matches <strong>r1</strong>, but only when it is <strong>followed by r2</strong> &mdash; and <strong>r2 is not part of the lexeme</strong>. The classic use is Fortran's <code>DO</code> statement, where <code>DO 5 I = 1,25</code> is a loop but <code>DO5I = 1.25</code> is an assignment; the two can be told apart only by looking ahead to the comma.</p>
+
+<h2>Lex versus a hand-written scanner</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Lex-generated</strong></th><th><strong>Hand-written</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Development time</strong></td><td><strong>Very short</strong> &mdash; a page of specification</td><td>Long</td></tr>
+<tr><td><strong>Correctness</strong></td><td><strong>High</strong> &mdash; the automaton is generated mechanically</td><td>Error-prone, especially for lookahead and longest match</td></tr>
+<tr><td><strong>Maintainability</strong></td><td><strong>Easy</strong> &mdash; change a regular expression, regenerate</td><td>Every change touches hand-written code</td></tr>
+<tr><td><strong>Speed</strong></td><td>Good, but a general table-driven DFA</td><td><strong>Can be faster</strong> &mdash; hand-tuned for the specific language</td></tr>
+<tr><td><strong>Table size</strong></td><td>Can be large</td><td>Small</td></tr>
+<tr><td><strong>Used by</strong></td><td>Most teaching and prototype compilers</td><td><strong>GCC and Clang</strong>, where scanner speed matters enormously</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The three sections of a Lex program, in order, are:</p>
+  <div class="opts">
+    <button class="opt">Rules, declarations, main()</button>
+    <button class="opt">Header, body, footer</button>
+    <button class="opt">Patterns, actions, tokens</button>
+    <button class="opt" data-ok="1">Declarations, translation rules, auxiliary functions</button>
+  </div>
+  <p class="why">They are separated by <code>%%</code>. The first <code>%%</code> is compulsory; the second and the third section are optional, so <code>%%</code> alone is a legal Lex file.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Given rules for <code>if</code> and for <code>{id}</code> in that order, the input <code>ifx</code> produces:</p>
+  <div class="opts">
+    <button class="opt">IF followed by ID with lexeme &ldquo;x&rdquo;</button>
+    <button class="opt">IF, because the if rule is listed first</button>
+    <button class="opt">A lexical error</button>
+    <button class="opt" data-ok="1">ID with lexeme &ldquo;ifx&rdquo;, by the longest-match rule</button>
+  </div>
+  <p class="why">Longest match is applied first: {id} matches three characters against if's two. The first-rule-listed rule only breaks ties, which is what happens for the input <code>if</code> itself.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. <code>yytext</code> holds:</p>
+  <div class="opts">
+    <button class="opt">The next character to be read</button>
+    <button class="opt">The token name returned</button>
+    <button class="opt">The whole input file</button>
+    <button class="opt" data-ok="1">The lexeme just matched</button>
+  </div>
+  <p class="why">Its length is <code>yyleng</code>, and the attribute passed to the parser goes in <code>yylval</code>. The generated scanner function itself is <code>yylex()</code>.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Returning 1 from <code>yywrap()</code> means:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Stop — there is no further input</button>
+    <button class="opt">Echo the remaining input</button>
+    <button class="opt">Another file follows; carry on scanning</button>
+    <button class="opt">An error occurred</button>
+  </div>
+  <p class="why">Returning 0 is the &ldquo;another file follows&rdquo; case. It is called at end of input, which is why a minimal Flex program must either define it or link the Flex library.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Lex implements the first-rule-listed convention by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Labelling each DFA state with the earliest pattern among the accepting NFA states it contains</button>
+    <button class="opt">Asking the parser which token it expects</button>
+    <button class="opt">Running each pattern's automaton separately in order</button>
+    <button class="opt">Sorting the patterns by length</button>
+  </div>
+  <p class="why">A DFA state produced by the subset construction can contain several accepting NFA states, one per pattern that matches. Picking the earliest is exactly rule 2.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. To implement the longest-match rule, the DFA simulator:</p>
+  <div class="opts">
+    <button class="opt">Tries every pattern from the start each time</button>
+    <button class="opt">Stops at the first accepting state reached</button>
+    <button class="opt">Reads the whole file before deciding</button>
+    <button class="opt" data-ok="1">Keeps going past accepting states, remembering the last one, then retracts the input pointer to it</button>
+  </div>
+  <p class="why">Stopping at the first accepting state would return <code>if</code> for the input <code>ifx</code>. The retraction is the same mechanism as the asterisk convention in transition diagrams from Lesson 4.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. The combined NFA that Lex builds has:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A new start state with ε-transitions to the start state of every pattern's NFA</button>
+    <button class="opt">A separate start state for each pattern</button>
+    <button class="opt">No ε-transitions at all</button>
+    <button class="opt">One state per pattern</button>
+  </div>
+  <p class="why">Each accepting state stays labelled with the pattern it came from, which is what lets a DFA state record which patterns matched. The whole thing is then converted by the subset construction, or built directly by the followpos method.</p>
+</div>
+
+<div class="q">
+  <p class="stem">8. In a Lex specification, keyword rules must be listed before the identifier rule because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">They tie with {id} on length, and the tie is broken in favour of the earlier rule</button>
+    <button class="opt">Keywords are longer than identifiers</button>
+    <button class="opt">Lex sorts rules alphabetically</button>
+    <button class="opt">Identifiers are not regular expressions</button>
+  </div>
+  <p class="why">Reverse the order and every keyword would be scanned as an identifier. It is the practical consequence of rule 2, and the reason the ordering in a Lex file is not arbitrary.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>What is Lex, and what is the pipeline from specification to running scanner?</summary>
+    <p class="ans">A lexical analyser generator that takes regular expressions paired with actions and produces the C source of a scanner; its GNU version is Flex. The pipeline is lex.l → Lex compiler → lex.yy.c → C compiler → a.out, and then input stream → a.out → sequence of tokens.</p></details>
+  <details class="card"><summary>Give the three sections of a Lex program and what each holds.</summary>
+    <p class="ans">Declarations — regular definitions, manifest constants, and C code between %{ and %} copied verbatim. Translation rules — lines of Pattern { Action }, where the action is C code. Auxiliary functions — ordinary C functions used by the actions, often including main(). The sections are separated by %%, the first of which is compulsory.</p></details>
+  <details class="card"><summary>Name the Lex variables and functions.</summary>
+    <p class="ans">yytext is the lexeme just matched; yyleng its length; yylval the attribute passed to the parser; yylex() is the generated scanner, called repeatedly by the parser; yywrap() is called at end of input, returning 1 to stop and 0 to continue with another file; yyin and yyout are the streams; ECHO writes yytext to yyout and is the default action for unmatched input; yymore() and yyless(n) extend or push back a match.</p></details>
+  <details class="card"><summary>Give the two conflict-resolution rules, in order, with the proving example.</summary>
+    <p class="ans">First, longest match — always prefer a longer prefix of the input. Second, if two patterns match the same longest prefix, prefer the one listed first in the program. For input <code>if</code> both the keyword rule and {id} match two characters, so rule 2 gives IF; for <code>ifx</code>, {id} matches three characters against two, so rule 1 gives ID. Hence keyword rules must precede the identifier rule.</p></details>
+  <details class="card"><summary>Explain how Lex works internally.</summary>
+    <p class="ans">It builds an NFA per pattern by Thompson's construction, combines them under a new start state with ε-transitions to each, keeping every accepting state labelled with its pattern, and converts the result to a DFA by the subset construction — or builds the DFA directly by the followpos method. A DFA state containing several accepting NFA states is labelled with the earliest pattern, implementing rule 2. Rule 1 is implemented by continuing past accepting states, remembering the last one and the input position there, then retracting to it.</p></details>
+  <details class="card"><summary>What does the lookahead operator do?</summary>
+    <p class="ans">The pattern r1 / r2 matches r1 only when it is followed by r2, and r2 is not part of the lexeme. The classic use is Fortran's DO statement, where <code>DO 5 I = 1,25</code> is a loop and <code>DO5I = 1.25</code> an assignment, distinguishable only by looking ahead to the comma.</p></details>
+  <details class="card"><summary>Compare a Lex-generated scanner with a hand-written one.</summary>
+    <p class="ans">Lex wins on development time, correctness and maintainability, since the automaton is generated mechanically and a change means editing one regular expression. A hand-written scanner can be faster and smaller because it is tuned to one language — which is why GCC and Clang use hand-written scanners while most teaching and prototype compilers use Lex.</p></details>
+</div>
+
+<p class="ask">That completes Unit&nbsp;II. Both exam sheets are linked below &mdash; use them for the final pass before the paper.</p>
+
+<div class="nav">
+  <a href="0009-dfa-minimisation-and-direct-method.html">&larr; Minimisation and Direct Method</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-3/0011-cfg-and-syntax-specification.html">Next: Syntax Analysis &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

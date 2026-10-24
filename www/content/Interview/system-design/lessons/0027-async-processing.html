@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 27 - Asynchronous Processing | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 27 of 66 · Message Queues, Kafka, RabbitMQ, DLQs</div>
+  
+  <h1>Asynchronous Processing &amp; Message Queues</h1>
+  <p class="subtitle">Decoupling heavy background tasks to keep web responses lightning fast.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module G — Message Queues &amp; Async</span>
+  </div>
+
+  <div class="yt-embed">
+    <div class="yt-title">📺 Recommended Lecture</div>
+    <a href="https://www.youtube.com/watch?v=06iRM1Ghr1k" target="_blank">Apache Kafka Architecture — Gaurav Sen</a>
+    <span class="yt-desc">Deep-dive into Kafka's distributed commit log, partitions, and consumer groups.</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>When a user clicks "Place Order" on Amazon, the backend needs to charge the credit card, update warehouse inventory, send an email confirmation, generate an invoice PDF, and alert fraud detection. If done <strong>synchronously</strong>, the user must wait 10 seconds staring at a loading spinner, and if the email service is down, the entire order fails! <strong>Asynchronous Processing</strong> solves this: the web server records the order, dumps a message into a <strong>Message Queue</strong> in 5ms, and tells the user "Order placed!". Independent background workers process the queue at their own pace.</p>
+
+  <div class="arch-flow">
+    <div class="box">Order API</div>
+    <div class="arrow-right"></div>
+    <div class="box queue">Message Queue (Kafka / RabbitMQ)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Email Worker</div>
+    <div class="box">Invoice Worker</div>
+    <div class="box">Analytics Worker</div>
+  </div>
+
+  <h2>2 · Kafka vs RabbitMQ: The Architectural Difference</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Aspect</th>
+        <th>RabbitMQ (Smart Broker, Dumb Consumer)</th>
+        <th>Apache Kafka (Dumb Broker, Smart Consumer)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Storage Model</strong></td>
+        <td>Messages are stored in memory/disk queues and <strong>deleted immediately once acknowledged</strong> by a consumer.</td>
+        <td>An append-only <strong>Distributed Commit Log</strong> written to disk. Messages are retained for days/months even after being read.</td>
+      </tr>
+      <tr>
+        <td><strong>Replayability</strong></td>
+        <td>Cannot replay past messages. Once read and acknowledged, they are gone.</td>
+        <td>Consumers can rewind their offset to timestamp 0 and re-read the entire historical stream at any time.</td>
+      </tr>
+      <tr>
+        <td><strong>Routing</strong></td>
+        <td>Complex routing keys, exchanges (direct, topic, fanout, headers).</td>
+        <td>Simple topic partitions. Routing is handled by message key hashing.</td>
+      </tr>
+      <tr>
+        <td><strong>Throughput</strong></td>
+        <td>Tens of thousands of messages/sec.</td>
+        <td>Millions of messages/sec (via OS PageCache and Zero-Copy I/O).</td>
+      </tr>
+      <tr>
+        <td><strong>Best For</strong></td>
+        <td>Transactional job queues, background worker tasks, complex routing rules.</td>
+        <td>High-throughput event streaming, clickstream tracking, audit logs, data pipelines.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Dead Letter Queues (DLQ) &amp; Poison Pills</h2>
+  <p>What happens if a corrupted message (e.g. malformed JSON with a missing ID) enters the queue? A worker picks it up, crashes with an unhandled exception, re-picks it up, and crashes in an infinite loop! This is a <strong>Poison Pill</strong>.</p>
+  <p><strong>Solution:</strong> Configure a retry counter (e.g., max 3 retries with exponential backoff). If processing fails 3 times, route the bad message to a <strong>Dead Letter Queue (DLQ)</strong> so the main pipeline continues running while engineers inspect the dead queue later.</p>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Now let's examine the design pattern powering async messaging: The Publisher-Subscriber (Pub/Sub) Model.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0026-rate-limiting.html">← Previous: Rate Limiting</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0028-pub-sub-model.html">Next: Publisher-Subscriber Model →</a>
+  </div>
+</body>
+</html>

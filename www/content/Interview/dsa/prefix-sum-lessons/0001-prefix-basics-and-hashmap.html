@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prefix Sum Lesson 1 — Basics &amp; the HashMap Family</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Prefix Sum Track · Lesson 1 of 2 · range sums &amp; counting subarrays</div>
+<h1>Prefix Sums + the HashMap Family</h1>
+<p class="subtitle">Pay O(n) once up front, and every "sum of a[i..j]" becomes a single subtraction — then add a HashMap and count subarrays-with-a-property in one pass.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "subarray sum equals k" and its disguises (equal 0s/1s, divisible by k) are OA staples at Amazon, Meta, and Google — and the naive O(n²) loop times out on purpose.
+  This is Lesson 1 of the 2-lesson prefix-sum track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+You already know the naive way to sum <code>a[i..j]</code>: loop from <code>i</code> to <code>j</code>. One query costs O(n); answering many queries — or checking every subarray — costs O(n²). The fix: precompute a <strong>running total</strong> array <code>P</code> where <code>P[k]</code> = sum of the first <code>k</code> elements (<code>P[0] = 0</code>, <code>P[k+1] = P[k] + a[k]</code>). Then any range sum is a subtraction:
+</p>
+<pre><code>sum(i..j) = P[j+1] - P[i]   <span class="cmt">// "total up to j" minus "total before i"</span></code></pre>
+<p>
+Think of a car's odometer: distance driven between two towns = reading at the second town minus reading at the first. You never re-drive the road. Every subarray sum is a <em>difference of two prefix values</em> — that single sentence powers this whole track.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Range sum" with <strong>many queries on an immutable array</strong>; or any question about <strong>subarrays</strong> —
+  "count subarrays with sum k", "longest subarray with equal 0s and 1s", "sum divisible by k". The moment a subarray property
+  can be rewritten as <code>P[j] − P[i] satisfies X</code>, you fix <code>j</code> and ask a HashMap "how many earlier
+  <code>i</code> work?" — one pass, O(n).
+</div>
+
+<h2>2 · Core template</h2>
+
+<h3>Core A — the prefix array (Range Sum Query, LC 303)</h3>
+<pre><code>class NumArray {
+    private final int[] P;                 <span class="cmt">// P[k] = a[0] + ... + a[k-1]; P[0] = 0</span>
+    public NumArray(int[] a) {
+        P = new int[a.length + 1];         <span class="cmt">// length n+1 — the extra slot is the empty prefix</span>
+        for (int k = 0; k &lt; a.length; k++)
+            P[k + 1] = P[k] + a[k];        <span class="cmt">// each prefix extends the previous by one element</span>
+    }
+    public int sumRange(int i, int j) {    <span class="cmt">// inclusive [i, j]</span>
+        return P[j + 1] - P[i];            <span class="cmt">// odometer subtraction — O(1) per query</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n) build, O(1) per query. <strong>Space</strong> O(n). Use <code>long</code> for <code>P</code> when sums can overflow <code>int</code>.</p>
+
+<h3>Core B — prefix + HashMap of counts (Subarray Sum Equals K, LC 560)</h3>
+<p>
+Count subarrays summing to <code>k</code>. Naive: try all O(n²) pairs. Rewrite with prefixes: subarray <code>(i..j]</code> sums to <code>k</code> ⇔ <code>P[j] − P[i] = k</code> ⇔ <code>P[i] = P[j] − k</code>. So sweep left to right maintaining the running prefix; at each position ask: <em>how many earlier prefixes equal <code>prefix − k</code>?</em> A HashMap from prefix-value → count answers in O(1).
+</p>
+<pre><code>int subarraySum(int[] a, int k) {
+    Map&lt;Integer, Integer&gt; count = new HashMap&lt;&gt;();
+    count.put(0, 1);                       <span class="cmt">// THE crucial line — the empty prefix P[0]=0 (see below)</span>
+    int prefix = 0, ans = 0;
+    for (int x : a) {
+        prefix += x;                       <span class="cmt">// prefix = P[j] after including x</span>
+        ans += count.getOrDefault(prefix - k, 0); <span class="cmt">// each earlier i with P[i]=prefix-k gives one subarray</span>
+        count.merge(prefix, 1, Integer::sum);     <span class="cmt">// record AFTER counting (a subarray needs length ≥ 1)</span>
+    }
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(n). <strong>Space</strong> O(n). Works with negatives — which is exactly why sliding window <em>can't</em> solve 560.</p>
+
+<div class="callout trap">
+  <span class="label">Why <code>count.put(0, 1)</code> — the classic bug</span>
+  The map stores prefixes you've <em>already passed</em>. Before reading any element you have already "seen" one prefix:
+  <code>P[0] = 0</code>, the empty prefix. Without it, any subarray that <strong>starts at index 0</strong> is silently missed:
+  for <code>a = [3], k = 3</code>, at <code>j = 0</code> you look up <code>prefix − k = 0</code> — the answer must come from
+  the pre-seeded 0. Forgetting this line makes you fail exactly the test cases where the whole array (or any front-anchored
+  slice) is an answer. Index-variant of the same idea: seed <code>map.put(0, -1)</code> ("prefix 0 occurs at index −1").
+</div>
+
+<div class="trace">
+<span class="step">a = [1, 2, 1, 2, 1], k = 3 &nbsp; map = {0:1}, prefix = 0, ans = 0</span>
+<span class="step now">x=1 → prefix=1; need 1−3=−2 → 0 hits; map {0:1, 1:1}</span>
+<span class="step now">x=2 → prefix=3; need 0 → <span class="ptr">1 hit</span> (empty prefix! subarray [1,2]); ans=1; map {…, 3:1}</span>
+<span class="step now">x=1 → prefix=4; need 1 → <span class="ptr">1 hit</span> ([2,1]); ans=2; map {…, 4:1}</span>
+<span class="step now">x=2 → prefix=6; need 3 → <span class="ptr">1 hit</span> ([1,2] middle); ans=3; map {…, 6:1}</span>
+<span class="step now">x=1 → prefix=7; need 4 → <span class="ptr">1 hit</span> ([2,1] tail); ans=4</span>
+<span class="step">answer 4 — and the first hit only existed because of put(0,1)</span>
+</div>
+
+<h2>3 · All the cases</h2>
+<p>The whole family is one template with two dials: <em>what you store</em> (count vs first index) and <em>what key you use</em> (raw prefix vs transformed prefix).</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Range sum, many queries</td><td>LC 303</td><td>Plain prefix array; <code>P[j+1] − P[i]</code>. No map needed.</td></tr>
+    <tr><td>Count subarrays, sum = k</td><td>LC 560</td><td>Map prefix → <strong>count</strong>; seed <code>{0:1}</code>; look up <code>prefix − k</code>.</td></tr>
+    <tr><td>Longest subarray, equal 0s/1s</td><td>LC 525</td><td>Treat 0 as −1; map prefix → <strong>first index</strong>; seed <code>{0:−1}</code>; look up same prefix.</td></tr>
+    <tr><td>Count subarrays, sum % k == 0</td><td>LC 974</td><td>Key is <code>prefix mod k</code>, normalized non-negative; look up the <em>same</em> remainder.</td></tr>
+    <tr><td>Exists subarray len ≥ 2, sum % k == 0</td><td>LC 523</td><td>Map remainder → first index; seed <code>{0:−1}</code>; require index gap &gt; 1.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Contiguous Array — longest with equal 0s and 1s (LC 525)</h3>
+<p>
+Trick 1: replace every 0 with −1; now "equal 0s and 1s" becomes "sum = 0", i.e. <code>P[j] = P[i]</code> — the <em>same prefix value seen twice</em> brackets a balanced subarray. Trick 2: you want the <em>longest</em>, so store each prefix's <strong>first</strong> index (never overwrite) and take <code>j − firstIndex</code>.
+</p>
+<pre><code>int findMaxLength(int[] a) {
+    Map&lt;Integer, Integer&gt; first = new HashMap&lt;&gt;();
+    first.put(0, -1);                      <span class="cmt">// empty prefix "occurs" just before index 0</span>
+    int prefix = 0, best = 0;
+    for (int j = 0; j &lt; a.length; j++) {
+        prefix += (a[j] == 1) ? 1 : -1;    <span class="cmt">// 0 counts as −1 → balance = 0 means equal</span>
+        if (first.containsKey(prefix))
+            best = Math.max(best, j - first.get(prefix)); <span class="cmt">// same value seen before → balanced span</span>
+        else
+            first.put(prefix, j);          <span class="cmt">// keep the EARLIEST index — longest span later</span>
+    }
+    return best;
+}</code></pre>
+
+<h3>Case: Subarray Sums Divisible by K (LC 974) — the negative-mod trap</h3>
+<p>
+<code>P[j] − P[i] ≡ 0 (mod k)</code> ⇔ <code>P[j]</code> and <code>P[i]</code> have the <strong>same remainder</strong>. Count pairs of equal remainders on the fly. But Java's <code>%</code> keeps the sign of the dividend: <code>-1 % 5 == -1</code>, not 4. Two mathematically-equal remainders then land in different map buckets and you undercount. Always normalize.
+</p>
+<pre><code>int subarraysDivByK(int[] a, int k) {
+    Map&lt;Integer, Integer&gt; count = new HashMap&lt;&gt;();
+    count.put(0, 1);                       <span class="cmt">// empty prefix has remainder 0</span>
+    int prefix = 0, ans = 0;
+    for (int x : a) {
+        prefix += x;
+        int r = ((prefix % k) + k) % k;    <span class="cmt">// TRAP: -1 % 5 == -1 in Java → normalize to [0, k)</span>
+        ans += count.getOrDefault(r, 0);   <span class="cmt">// pair with every earlier equal remainder</span>
+        count.merge(r, 1, Integer::sum);
+    }
+    return ans;
+}</code></pre>
+
+<h3>Case: Continuous Subarray Sum — length ≥ 2, multiple of k (LC 523)</h3>
+<p>
+Same remainder idea, but the answer is a <strong>boolean</strong> and the subarray needs <strong>length ≥ 2</strong>. So store the remainder's first <em>index</em> and check the gap. (A multiple of k includes 0, so a run of zeros of length ≥ 2 qualifies — the index logic handles it automatically.)
+</p>
+<pre><code>boolean checkSubarraySum(int[] a, int k) {
+    Map&lt;Integer, Integer&gt; first = new HashMap&lt;&gt;();
+    first.put(0, -1);                      <span class="cmt">// remainder 0 at "index -1" → whole-front subarrays count</span>
+    int prefix = 0;
+    for (int j = 0; j &lt; a.length; j++) {
+        prefix += a[j];
+        int r = prefix % k;                <span class="cmt">// a[i] ≥ 0 here, so no negative-mod fix needed</span>
+        Integer i = first.get(r);
+        if (i == null) first.put(r, j);    <span class="cmt">// first occurrence only — maximizes future gaps</span>
+        else if (j - i &gt;= 2) return true;  <span class="cmt">// gap ≥ 2 ⇔ subarray length ≥ 2</span>
+    }
+    return false;
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">The two-dial summary</span>
+  <strong>Counting</strong> subarrays → map value is a <em>count</em>, seed <code>{0:1}</code>, add lookups into <code>ans</code>.
+  <strong>Longest / exists</strong> → map value is a <em>first index</em>, seed <code>{0:-1}</code>, never overwrite, compare
+  <code>j − firstIndex</code>. Picking the wrong dial (or the wrong seed) is 90% of wrong answers in this family.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Forgetting the empty-prefix seed</strong> (<code>{0:1}</code> for counts, <code>{0:-1}</code> for indices) — misses every subarray starting at index 0. The #1 bug.</li>
+  <li><strong>Update order:</strong> look up <code>prefix − k</code> <em>before</em> inserting the current prefix, or with <code>k = 0</code> you'd match a subarray with itself (length 0).</li>
+  <li><strong>Negative numbers:</strong> prefix sums handle them fine (that's their edge over sliding window), but Java <code>%</code> then goes negative — normalize with <code>((x % k) + k) % k</code>.</li>
+  <li><strong>Overflow:</strong> n up to 10⁵ with values up to 10⁹ → prefix sums exceed <code>int</code>. Use <code>long</code>.</li>
+  <li><strong>Count vs first-index confusion:</strong> overwriting indices in LC 525/523 shortens your spans; counting in a longest-problem is meaningless.</li>
+  <li><strong>Off-by-one:</strong> with the n+1-length convention, <code>sum(i..j) = P[j+1] − P[i]</code>. Write it in a comment before coding.</li>
+  <li><strong>LC 523 specifically:</strong> length ≥ 2 means the index gap must be ≥ 2, not ≥ 1.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In LC 560, you delete the line <code>count.put(0, 1)</code>. Which inputs now give a wrong answer?</div>
+  <button class="opt">Inputs containing negative numbers, because the map keys go negative</button>
+  <button class="opt">Inputs where some subarray starting at index 0 sums to k, because P[0]=0 was never recorded</button>
+  <button class="opt">None — the loop inserts prefix 0 automatically on the first iteration</button>
+  <div class="fb" data-correct="A subarray a[0..j] sums to k exactly when P[j+1] − P[0] = k, i.e. you look up prefix − k = 0. The only source of that 0 is the seed — remove it and every front-anchored answer vanishes." data-wrong="Negative keys are fine in a HashMap, and the loop only inserts prefixes AFTER including at least one element — the empty prefix P[0]=0 exists only if you seed it. What breaks is subarrays that start at index 0."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 974 with k = 5, your running prefix is −1. What key must you use in the remainder map?</div>
+  <button class="opt">−1, because Java's % already returns the canonical remainder</button>
+  <button class="opt">1, the absolute value of the remainder</button>
+  <button class="opt">4, from ((−1 % 5) + 5) % 5 — remainders must be normalized to [0, k)</button>
+  <div class="fb" data-correct="−1 ≡ 4 (mod 5). Java's % keeps the dividend's sign, so −1 % 5 is −1; without the +k normalization, −1 and 4 land in different buckets and equal-remainder pairs are missed." data-wrong="Java's % is a remainder, not a true mod: −1 % 5 == −1. And |−1| = 1 is a different residue class entirely. Normalize with ((x % k) + k) % k so −1 becomes 4."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">For "longest subarray with sum 0" (the LC 525 shape), why store each prefix's first index instead of a count?</div>
+  <button class="opt">Length is j − i, so you want the earliest i with the same prefix value — counts can't recover positions</button>
+  <button class="opt">Counts overflow int when the array is long</button>
+  <button class="opt">First indices make the map smaller, improving the Big-O</button>
+  <div class="fb" data-correct="Right: 'how long' needs positions. Keep the earliest index per prefix value (never overwrite) so each later match yields the widest possible span." data-wrong="Both dials are O(n) space and counts don't overflow realistically. The real reason: a count says how many matches exist but not WHERE — length questions need the earliest index."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/subarray-sum-equals-k">NeetCode — Subarray Sum Equals K</a>. The cleanest walkthrough of the prefix + HashMap sweep and the <code>put(0,1)</code> seed.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 303 (build the array) → LC 560 (the core, from memory) → LC 525 (index dial + the 0→−1 trick) → LC 974 (mod key + negative fix) → LC 523 (index dial + gap ≥ 2) → stretch: LC 325 (Maximum Size Subarray Sum Equals k — 560's longest-variant). Re-derive the seed line each time instead of pasting it.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry-run of LC 525 on a sample, unsure when to count vs store indices, or fuzzy on why sliding window fails with
+  negatives? Ask in the chat. When you can write LC 560 from a blank file and explain <code>put(0,1)</code> in one sentence,
+  say <strong>"next"</strong> for Lesson 2: 2D prefix sums, difference arrays, and prefix products.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-2d-difference-and-products.html">2D, Difference &amp; Products →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

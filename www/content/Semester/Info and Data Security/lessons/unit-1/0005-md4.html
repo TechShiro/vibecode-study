@@ -1,0 +1,315 @@
+<title>MD4</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit I &middot; Lesson 5 of 7</p>
+<h1>MD4 &mdash; Message Digest 4</h1>
+<p class="deck">The 128-bit digest, the 512-bit block, the four-word buffer, three rounds of sixteen steps, and the three boolean functions. The ancestor of MD5, SHA-1 and RIPEMD, and the reason all of them look alike.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Asked as <strong>&ldquo;Explain the MD4 algorithm&rdquo;</strong> or, very often, <strong>&ldquo;Explain MD5 / the MD family&rdquo;</strong> &mdash; the two are close enough that one answer with a comparison table covers both. Marks sit in the <strong>parameter table</strong> (128 / 512 / 3 rounds / 48 steps), the <strong>padding rule</strong>, the <strong>three round functions</strong> and the <strong>diagram of one step</strong>. Do not try to memorise the shift amounts or the message-word order; no examiner asks for them.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; MD4 &amp; MD5 Architecture &amp; Rounds</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=7ZKwKVn4utw" target="_blank">MD5 &amp; MD4 Algorithm &mdash; Working, Padding and Operations</a>
+    <span class="v-meta">Trouble-Free &middot; 10:12</span>
+    <div class="v-why">Step-by-step examination breakdown of 512-bit message padding, 64-bit length suffix, 4 chaining variables (A, B, C, D), and round logic functions.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Merkle-Damg&aring;rd Iterated Construction</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=G_qtQgRmiWk" target="_blank">MD5 Message Digest Working &amp; Compression Pipeline</a>
+    <span class="v-meta">Easy Engineering Classes &middot; 21:14</span>
+    <div class="v-why">Rigorous explanation of the Merkle-Damgård iterative compression function $f(H_{i-1}, M_i)$ and why collisions in $f$ propagate to full hash collisions.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: MERKLE-DAMGARD PIPELINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Merkle-Damg&aring;rd Iterated Compression Architecture</span>
+  <div class="flow-col">
+    <div class="flow-box">
+      <strong>Arbitrary Length Message $M$</strong>
+      <span class="sub">Append '1' bit, pad zeros until length $\equiv 448 \pmod{512}$, append 64-bit original length</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Partitioned into $L$ Consecutive 512-bit Blocks ($Y_0, Y_1, \dots, Y_{L-1}$)</span>
+    
+    <div class="flow-row" style="gap:1rem;">
+      <div class="flow-box highlight" style="min-width:9rem;">
+        <strong>Block $Y_0$ + $IV$</strong>
+        <span class="sub">Compression $f$ &rarr; $H_1$</span>
+      </div>
+      <span class="flow-arrow-right">&rarr;</span>
+      <div class="flow-box highlight" style="min-width:9rem;">
+        <strong>Block $Y_1$ + $H_1$</strong>
+        <span class="sub">Compression $f$ &rarr; $H_2$</span>
+      </div>
+      <span class="flow-arrow-right">&rarr;</span>
+      <div class="flow-box highlight" style="min-width:9rem;">
+        <strong>Block $Y_{L-1}$ + $H_{L-2}$</strong>
+        <span class="sub">Compression $f$ &rarr; $H_L$</span>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box ok" style="min-width:20rem;">
+      <strong>Final Fixed-Length Output Digest</strong>
+      <span class="sub">128-bit hash value $H_L = (A || B || C || D)$</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Where it sits</h2>
+
+<p><strong>MD4 was designed by Ronald Rivest at MIT in 1990</strong> (RFC 1320). It was built to be fast on 32-bit machines and simple enough to code without lookup tables. Its importance today is <strong>historical and structural</strong>: MD5, SHA-0, SHA-1, SHA-256 and RIPEMD are all direct descendants, so learning MD4 is learning the shape of the entire family.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Year</th><th>Digest</th><th>Relation to MD4</th></tr></thead>
+<tbody>
+<tr><td>MD2</td><td class="num">1989</td><td class="num">128 bits</td><td>Earlier, byte-oriented, for 8-bit machines</td></tr>
+<tr><td><strong>MD4</strong></td><td class="num">1990</td><td class="num">128 bits</td><td><strong>The original 32-bit design</strong></td></tr>
+<tr><td>MD5</td><td class="num">1991</td><td class="num">128 bits</td><td>MD4 <strong>strengthened</strong>: a fourth round, a unique constant per step</td></tr>
+<tr><td>SHA-1</td><td class="num">1995</td><td class="num">160 bits</td><td>MD4 structure widened to five words and 80 steps</td></tr>
+<tr><td>RIPEMD-160</td><td class="num">1996</td><td class="num">160 bits</td><td>Two parallel MD4-like lines, combined at the end</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Parameters</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Parameter</th><th>MD4</th></tr></thead>
+<tbody>
+<tr><td>Message digest</td><td class="num"><strong>128 bits</strong> (four 32-bit words)</td></tr>
+<tr><td>Block size</td><td class="num"><strong>512 bits</strong> (sixteen 32-bit words)</td></tr>
+<tr><td>Word size</td><td class="num">32 bits</td></tr>
+<tr><td>Rounds</td><td class="num"><strong>3</strong></td></tr>
+<tr><td>Steps per round</td><td class="num">16 &mdash; so <strong>48 steps</strong> in total</td></tr>
+<tr><td>Maximum message length</td><td class="num">2<sup>64</sup> &minus; 1 bits</td></tr>
+<tr><td>Byte order</td><td><strong>Little-endian</strong></td></tr>
+<tr><td>Structure</td><td><strong>Merkle&ndash;Damg&aring;rd</strong> iterated hash (Lesson 2)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Step 1 &mdash; Append padding bits</h2>
+
+<div class="formula">
+  <span class="name">The padding rule</span>
+  Pad the message so that its length is <strong>congruent to 448 modulo 512</strong>,<br>
+  i.e. <strong>64 bits short of a whole block</strong>.<br>
+  The padding is a single <strong>1</strong> bit followed by as many <strong>0</strong> bits as needed.<br>
+  <strong>Padding is always applied</strong> &mdash; between <strong>1 and 512</strong> bits, never zero.
+</div>
+
+<p>The last clause matters: if the message is <em>already</em> 448 mod 512, a whole extra 512 bits of padding is added. Never answer &ldquo;no padding needed&rdquo;.</p>
+
+<h2>Step 2 &mdash; Append length</h2>
+
+<p>A <strong>64-bit</strong> field holding the length of the <em>original</em> message in bits (modulo 2<sup>64</sup>) is appended, filling the block out. The padded message is now an exact multiple of 512 bits. This length field is the <strong>MD-strengthening</strong> of Lesson 2.</p>
+
+<h2>Step 3 &mdash; Initialise the buffer</h2>
+
+<p>A <strong>128-bit buffer of four 32-bit registers A, B, C, D</strong> holds the chaining value. It starts at a fixed IV, written in little-endian order:</p>
+
+<div class="formula">
+  <span class="name">The initial values</span>
+  <strong>A = 67 45 23 01</strong> &nbsp;&nbsp; <strong>B = EF CD AB 89</strong><br>
+  <strong>C = 98 BA DC FE</strong> &nbsp;&nbsp; <strong>D = 10 32 54 76</strong><br>
+  <span style="font-size:.85em">(the first two are ascending nibbles, the second two their complements &mdash; that is the memory hook)</span>
+</div>
+
+<h2>Step 4 &mdash; Process the message in 512-bit blocks</h2>
+
+<p>Each block passes through the <strong>compression function H<sub>MD4</sub></strong>: three rounds of sixteen steps, all four registers updated once per step, with the block&rsquo;s sixteen words used once per round in a different order each time.</p>
+
+<h3>The three round functions</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Round</th><th>Function</th><th>Definition</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><strong>F(X, Y, Z)</strong></td><td>(X &and; Y) &or; (&not;X &and; Z)</td><td><strong>Selection</strong> &mdash; if X then Y else Z, bit by bit</td></tr>
+<tr><td class="num">2</td><td><strong>G(X, Y, Z)</strong></td><td>(X &and; Y) &or; (X &and; Z) &or; (Y &and; Z)</td><td><strong>Majority</strong> &mdash; the bit held by at least two of the three</td></tr>
+<tr><td class="num">3</td><td><strong>H(X, Y, Z)</strong></td><td>X &oplus; Y &oplus; Z</td><td><strong>Parity</strong> &mdash; XOR of the three</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The additive constants</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Round</th><th>Constant added</th><th>Where it comes from</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td class="num"><strong>0</strong> (none)</td><td>&mdash;</td></tr>
+<tr><td class="num">2</td><td class="num"><strong>5A827999</strong></td><td>2<sup>30</sup> &times; &radic;2</td></tr>
+<tr><td class="num">3</td><td class="num"><strong>6ED9EBA1</strong></td><td>2<sup>30</sup> &times; &radic;3</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>These are <strong>nothing-up-my-sleeve numbers</strong> &mdash; taken from the square roots of small integers so that nobody can suspect the designer of hiding a trapdoor in them. That phrase is worth writing; it is a standard one-mark point.</p>
+
+<h3>The operation of a single step</h3>
+
+<div class="formula">
+  <span class="name">One step of round 1 (rounds 2 and 3 replace F with G or H and add the constant)</span>
+  <strong>a &larr; (a + F(b, c, d) + X[k]) &lt;&lt;&lt; s</strong><br><br>
+  where <strong>X[k]</strong> is one of the sixteen message words of this block,<br>
+  <strong>&lt;&lt;&lt; s</strong> is a circular left shift by s bits, and<br>
+  addition is <strong>modulo 2<sup>32</sup></strong>. The registers then rotate: (a,b,c,d) &rarr; (d,a,b,c).
+</div>
+
+<p>Two features to name in an answer: <strong>addition modulo 2<sup>32</sup> is the only non-linear arithmetic</strong>, and <strong>the circular shift is what spreads a change across word boundaries</strong> &mdash; together they give the avalanche effect.</p>
+
+<h3>Step 5 &mdash; Output</h3>
+
+<p>After the three rounds, the four output words are <strong>added modulo 2<sup>32</sup> to the buffer values that entered the block</strong> (the feed-forward that makes the compression function one-way). The buffer then chains into the next block. After the last block, <strong>A &#8214; B &#8214; C &#8214; D, in little-endian order, is the 128-bit digest.</strong></p>
+
+<h2>MD4 versus MD5 &mdash; the comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>MD4</th><th>MD5</th></tr></thead>
+<tbody>
+<tr><td><strong>Year / RFC</strong></td><td>1990, RFC 1320</td><td>1991, RFC 1321</td></tr>
+<tr><td><strong>Digest</strong></td><td class="num">128 bits</td><td class="num">128 bits</td></tr>
+<tr><td><strong>Block</strong></td><td class="num">512 bits</td><td class="num">512 bits</td></tr>
+<tr><td><strong>Rounds</strong></td><td class="num"><strong>3</strong> (48 steps)</td><td class="num"><strong>4</strong> (64 steps)</td></tr>
+<tr><td><strong>Round functions</strong></td><td>F, G, H</td><td>F, G, H and <strong>I(X,Y,Z) = Y &oplus; (X &or; &not;Z)</strong></td></tr>
+<tr><td><strong>Additive constants</strong></td><td><strong>One per round</strong> (0, 5A827999, 6ED9EBA1)</td><td><strong>A unique constant T[i] per step</strong> &mdash; 64 of them, from |sin i|</td></tr>
+<tr><td><strong>Step structure</strong></td><td>No extra addition of b</td><td>The result is <strong>added to b</strong> after rotation &mdash; extra diffusion</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Faster</strong> (fewer steps)</td><td>About 30% slower</td></tr>
+<tr><td><strong>Security</strong></td><td><strong>Completely broken</strong> &mdash; collisions in under a second</td><td>Broken for collisions (Wang, 2004), still preimage-resistant in practice</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-sentence summary examiners reward</span>
+  <p><strong>MD5 is MD4 with a fourth round, a distinct additive constant at every step, and an extra addition per step &mdash; all three changes bought diffusion at the cost of speed.</strong></p>
+</div>
+
+<h2>Security of MD4</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Year</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td class="num">1991</td><td>Den Boer and Bosselaers break MD4 <strong>reduced to two rounds</strong></td></tr>
+<tr><td class="num">1995&ndash;96</td><td><strong>Dobbertin finds full collisions</strong> in MD4 in minutes on a PC</td></tr>
+<tr><td class="num">2004&ndash;05</td><td>Wang&rsquo;s techniques reduce MD4 collisions to <strong>a handful of hash operations by hand</strong>, and break MD5 as well</td></tr>
+<tr><td>Now</td><td><strong>MD4 must never be used for security.</strong> It survives only inside legacy protocols such as NTLM password hashes and the rsync checksum</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The underlying cause is the one from Lesson 3: <strong>a 128-bit digest gives only 64 bits of collision resistance</strong>, and MD4&rsquo;s three rounds provide too little diffusion even to reach that bound.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. MD4 pads a message so that its length is congruent to:</p>
+  <div class="opts">
+    <button class="opt">512 modulo 512, so that the message fills whole blocks exactly</button>
+    <button class="opt">896 modulo 1024, leaving 128 bits for the message-length field</button>
+    <button class="opt" data-ok="1">448 modulo 512, leaving 64 bits for the message-length field</button>
+    <button class="opt">256 modulo 512, leaving room for the initialisation vector</button>
+  </div>
+  <p class="why">448 + 64 = 512. The 896/1024 answer is SHA-512, which is the trap in this question.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. If a message is already 448 bits long, MD4 adds:</p>
+  <div class="opts">
+    <button class="opt">Exactly 64 bits of padding, to complete the current block</button>
+    <button class="opt" data-ok="1">A full 512 bits of padding, since padding is always applied</button>
+    <button class="opt">No padding at all, because it already satisfies the congruence</button>
+    <button class="opt">One single bit of padding, to mark the end of the message</button>
+  </div>
+  <p class="why">Padding is between 1 and 512 bits and is never skipped. A message already at 448 mod 512 gets an entire extra block of padding.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The round-2 function G(X, Y, Z) = (X∧Y) ∨ (X∧Z) ∨ (Y∧Z) implements:</p>
+  <div class="opts">
+    <button class="opt">A parity — the exclusive-OR of the three input words</button>
+    <button class="opt" data-ok="1">A majority vote — the bit held by at least two of the three inputs</button>
+    <button class="opt">A selection — if X then Y, otherwise Z, taken bit by bit</button>
+    <button class="opt">A rotation — a circular left shift by a fixed number of bits</button>
+  </div>
+  <p class="why">Selection is F, parity is H. Majority is G, and the same function reappears in SHA-512 as Maj(a,b,c).</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. MD5 differs from MD4 principally in that it:</p>
+  <div class="opts">
+    <button class="opt">Replaces the Merkle–Damgård structure with the Miyaguchi–Preneel scheme</button>
+    <button class="opt">Processes 1024-bit blocks instead of 512-bit blocks</button>
+    <button class="opt" data-ok="1">Adds a fourth round and uses a different additive constant at every one of its 64 steps</button>
+    <button class="opt">Produces a 160-bit digest instead of a 128-bit one</button>
+  </div>
+  <p class="why">Both produce 128 bits from 512-bit blocks. The differences are the extra round, the 64 per-step constants derived from |sin i|, and the extra addition of b per step.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The constants 5A827999 and 6ED9EBA1 are used because they:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Come from √2 and √3, so they are visibly not chosen to hide a trapdoor</button>
+    <button class="opt">Encode the message length for use in the final feed-forward addition</button>
+    <button class="opt">Were selected experimentally as the fastest constants on 32-bit hardware</button>
+    <button class="opt">Are the only 32-bit values that make the round functions invertible</button>
+  </div>
+  <p class="why">These are nothing-up-my-sleeve numbers: 2³⁰√2 and 2³⁰√3. SHA-512 uses the same idea with cube roots of the first eighty primes.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the parameters of MD4.</summary>
+    <p class="ans">128-bit digest, 512-bit blocks, 32-bit words, four registers A B C D, three rounds of sixteen steps giving 48 steps, little-endian byte order, maximum message length 2⁶⁴ − 1 bits, Merkle–Damgård structure.</p></details>
+  <details class="card"><summary>State the five steps of MD4.</summary>
+    <p class="ans">Append padding bits so the length is 448 mod 512; append the 64-bit original length; initialise the four-register buffer to the fixed IV; process the message in 512-bit blocks through three rounds of sixteen steps; add the block output to the incoming buffer values and, after the last block, output A‖B‖C‖D as the 128-bit digest.</p></details>
+  <details class="card"><summary>State the MD4 padding rule precisely.</summary>
+    <p class="ans">A single 1 bit followed by enough 0 bits to bring the length to 448 modulo 512. Padding is always present, between 1 and 512 bits, so a message already at 448 mod 512 receives a whole extra 512-bit block of padding. A 64-bit length field then completes the block.</p></details>
+  <details class="card"><summary>Name the three round functions with their definitions.</summary>
+    <p class="ans">F(X,Y,Z) = (X∧Y) ∨ (¬X∧Z), a selection; G(X,Y,Z) = (X∧Y) ∨ (X∧Z) ∨ (Y∧Z), a majority; H(X,Y,Z) = X ⊕ Y ⊕ Z, a parity. Rounds 1, 2 and 3 use them in that order, with additive constants 0, 5A827999 and 6ED9EBA1.</p></details>
+  <details class="card"><summary>Write the form of a single MD4 step.</summary>
+    <p class="ans">a ← (a + F(b,c,d) + X[k] + K) <<< s, where X[k] is a message word of the current block, K the round constant, <<< a circular left shift and addition is modulo 2³². The registers then rotate so that a different one is updated at the next step.</p></details>
+  <details class="card"><summary>Give six differences between MD4 and MD5.</summary>
+    <p class="ans">Three rounds and 48 steps versus four rounds and 64 steps; three round functions versus four, MD5 adding I(X,Y,Z) = Y ⊕ (X ∨ ¬Z); one constant per round versus a unique constant per step taken from |sin i|; MD5 adds the rotated result to b for extra diffusion; MD4 is faster, MD5 more diffusive; both are broken for collisions, MD4 far more thoroughly.</p></details>
+  <details class="card"><summary>Summarise the security history of MD4.</summary>
+    <p class="ans">Two of its three rounds were broken in 1991; Dobbertin found full collisions in 1995–96; by 2005 Wang&rsquo;s methods reduced collision finding to a trivial cost. Its 128-bit digest gives only 64 bits of collision resistance in any case, so MD4 must never be used for security and survives only in legacy uses such as NTLM and rsync.</p></details>
+</div>
+
+<p class="ask">Next: SHA-512 &mdash; the same skeleton widened to 64-bit words, 1024-bit blocks and 80 rounds, and the one place in this unit where a numerical is set.</p>
+
+<div class="nav">
+  <a href="0004-message-authentication-mac-hmac-cmac.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0006-sha-512.html">Next: SHA-512 &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

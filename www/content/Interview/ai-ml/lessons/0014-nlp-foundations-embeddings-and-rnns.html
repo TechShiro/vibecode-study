@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 14 – NLP Foundations, Embeddings & RNNs</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module E · Lesson 14 of 17 · Natural Language Processing</div>
+  <h1>NLP Foundations, Dense Embeddings & Sequential RNNs</h1>
+  <p class="subtitle">Subword tokenization, continuous vector semantics (Word2Vec), and recurrent sequence modeling with LSTMs.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module E – NLP & Large Language Models</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Computers do not read words; they process numbers. The oldest approach (One-Hot Encoding: <code>"cat" = [1, 0, 0, ...], "dog" = [0, 1, 0, ...]</code>) failed catastrophically: the dot product between every pair of words was zero, meaning the computer had no notion that a cat is closer to a dog than to a submarine. <strong>Dense Semantic Embeddings</strong> map words into continuous geometric vector spaces where semantic similarity corresponds to geometric distance: <code>Vector("King") - Vector("Man") + Vector("Woman") &asymp; Vector("Queen")</code>.</p>
+
+  <h2>2 · Subword Tokenization: Byte-Pair Encoding (BPE)</h2>
+  <p>Modern LLMs (GPT-4, Llama) do not tokenize by whole words (which creates infinite vocabulary sizes and breaks on typos). They use <strong>Byte-Pair Encoding (BPE)</strong>:</p>
+  <ol>
+    <li>Start with all individual characters/bytes as base vocabulary.</li>
+    <li>Iteratively count the most frequently co-occurring adjacent pairs of tokens in the corpus.</li>
+    <li>Merge that pair into a single new token. Repeat until reaching target vocabulary size (e.g. 32,000 to 128,000 tokens).</li>
+    <li><em>Result:</em> Common words (<code>"the"</code>) are single tokens, while rare or misspelled words (<code>"unconstitutionally"</code>) decompose into subwords (<code>["un", "constitut", "ion", "ally"]</code>). Zero out-of-vocabulary errors!</li>
+  </ol>
+
+  <h2>3 · Recurrent Neural Networks (RNN) & The Hidden State</h2>
+  <p>Text is sequential: the meaning of word <em>t</em> depends on preceding words. A Recurrent Neural Network processes tokens sequentially, passing an internal memory vector called the <strong>Hidden State (h<sub>t</sub>)</strong> forward across time steps:</p>
+  <p><code>h<sub>t</sub> = tanh(W<sub>hh</sub> h<sub>t-1</sub> + W<sub>xh</sub> x<sub>t</sub> + b)</code></p>
+
+  <div class="callout danger">
+    <h4>The Vanishing Gradient Bottleneck of Vanilla RNNs</h4>
+    <p>Backpropagating errors through 100 time steps requires repeatedly multiplying by weight matrix <code>W<sub>hh</sub></code>. If eigenvalues of <code>W</code> are &lt; 1, gradients decay exponentially to 0 (cannot remember context from 20 words ago). If &gt; 1, gradients explode.</p>
+  </div>
+
+  <h2>4 · LSTMs & GRUs: The Gated Highway</h2>
+  <p>Hochreiter & Schmidhuber (1997) solved vanishing gradients in sequences via the <strong>Long Short-Term Memory (LSTM)</strong> network. An LSTM introduces a separate constant error carousel called the <strong>Cell State (C<sub>t</sub>)</strong> regulated by three neural gates:</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">f<sub>t</sub></div>
+      <h3>Forget Gate</h3>
+      <p><code>f<sub>t</sub> = &sigma;(W<sub>f</sub>·[h<sub>t-1</sub>, x<sub>t</sub>] + b<sub>f</sub>)</code><br>Decides what percentage of old information to discard from the cell state (0 = completely forget, 1 = preserve).</p>
+    </div>
+    <div class="card">
+      <div class="card-num">i<sub>t</sub></div>
+      <h3>Input Gate</h3>
+      <p><code>i<sub>t</sub> = &sigma;(W<sub>i</sub>·[h<sub>t-1</sub>, x<sub>t</sub>] + b<sub>i</sub>)</code><br>Decides which new values to write into the cell state.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">o<sub>t</sub></div>
+      <h3>Output Gate</h3>
+      <p><code>o<sub>t</sub> = &sigma;(W<sub>o</sub>·[h<sub>t-1</sub>, x<sub>t</sub>] + b<sub>o</sub>)</code><br>Filters the cell state through <code>tanh</code> to emit the new hidden state <code>h<sub>t</sub></code>.</p>
+    </div>
+  </div>
+
+  <h2>5 · PyTorch Sequential LSTM Implementation</h2>
+  <pre><code>import torch
+import torch.nn as nn
+
+class SentimentLSTM(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden_dim, output_dim, n_layers=2):
+        super(SentimentLSTM, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        self.lstm = nn.LSTM(embed_dim, hidden_dim, num_layers=n_layers, 
+                            batch_first=True, dropout=0.2, bidirectional=True)
+        # Bidirectional outputs 2 * hidden_dim
+        self.fc = nn.Linear(hidden_dim * 2, output_dim)
+
+    def forward(self, text_tokens):
+        # text_tokens shape: (batch_size, seq_len)
+        embedded = self.embedding(text_tokens)
+        
+        # out: (batch, seq_len, 2*hidden_dim), (hidden, cell)
+        lstm_out, (hidden, cell) = self.lstm(embedded)
+        
+        # Concatenate forward and backward final hidden states
+        final_hidden = torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim=1)
+        return self.fc(final_hidden)</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0013-transfer-learning-and-vision-transformers.html">← Lesson 13: Vision Transformers</a>
+    <a href="0015-the-transformer-architecture-and-self-attention.html">Lesson 15: The Transformer Architecture →</a>
+  </nav>
+</body>
+</html>

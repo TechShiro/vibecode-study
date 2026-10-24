@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 17 – MLOps, Hardware & Production Serving</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module F · Lesson 17 of 17 · Production Deployment</div>
+  <h1>MLOps, Hardware Acceleration & Production Serving</h1>
+  <p class="subtitle">WandB experiment tracking, Optuna Bayesian tuning, CUDA Mixed Precision, ONNX runtime, and FastAPI microservices.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module F – Tools, MLOps & Production</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>A machine learning model sitting in a Jupyter Notebook provides zero business value. <strong>MLOps (Machine Learning Operations)</strong> is the discipline of deploying, monitoring, and maintaining ML models reliably in production. It bridges the gap between data science experimentation and software engineering: automating training pipelines, managing hardware acceleration (CUDA/Tensor Cores), tracking hyperparameter experiments, and packaging models into low-latency REST/gRPC microservices.</p>
+
+  <h2>2 · The Production AI/ML Tool Ecosystem</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Phase</th><th>Standard Industry Tools</th><th>What It Does</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Experiment Tracking</strong></td>
+        <td>Weights & Biases (WandB), MLflow</td>
+        <td>Logs hyperparameter runs, loss curves, model checkpoints, and dataset artifacts for 100% reproducibility.</td>
+      </tr>
+      <tr>
+        <td><strong>Hyperparameter Optimization</strong></td>
+        <td>Optuna, Ray Tune</td>
+        <td>Bayesian Optimization via Tree-structured Parzen Estimator (TPE) and pruning unpromising trials early.</td>
+      </tr>
+      <tr>
+        <td><strong>Hardware Acceleration</strong></td>
+        <td>PyTorch AMP (Automatic Mixed Precision: FP16/BF16)</td>
+        <td>Leverages GPU Tensor Cores to speed up matrix multiplication by 3x and cut VRAM usage in half without accuracy loss.</td>
+      </tr>
+      <tr>
+        <td><strong>Export & Compilation</strong></td>
+        <td>ONNX, TensorRT, TorchScript</td>
+        <td>Fuses graph operators and removes Python runtime dependencies for ultra-low latency execution.</td>
+      </tr>
+      <tr>
+        <td><strong>Model Serving</strong></td>
+        <td>FastAPI, Triton Inference Server, vLLM, Ollama</td>
+        <td>Production HTTP/gRPC APIs with dynamic batching, streaming token responses, and health metrics.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Automatic Mixed Precision (AMP) in PyTorch</h2>
+  <pre><code>import torch
+from torch.cuda.amp import autocast, GradScaler
+
+scaler = GradScaler()  # Prevents underflow of small FP16 gradients
+
+for inputs, targets in dataloader:
+    optimizer.zero_grad()
+    
+    # Cast forward pass to mixed precision (FP16 / BF16)
+    with autocast(dtype=torch.float16):
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+        
+    # Scale loss and backpropagate
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()</code></pre>
+
+  <h2>4 · Production Model Serving with FastAPI</h2>
+  <pre><code>from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import torch
+import numpy as np
+
+app = FastAPI(title="ML Production Inference Engine", version="1.0")
+
+# Load model into RAM/GPU during app startup
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = MyTrainedModel().to(device)
+model.load_state_dict(torch.load("model_weights.pt", map_location=device))
+model.eval()
+
+class PredictionRequest(BaseModel):
+    features: list[float]
+
+class PredictionResponse(BaseModel):
+    class_id: int
+    confidence: float
+
+@app.post("/predict", response_model=PredictionResponse)
+@torch.no_grad()
+def predict(request: PredictionRequest):
+    try:
+        tensor_in = torch.tensor([request.features], dtype=torch.float32).to(device)
+        logits = model(tensor_in)
+        probs = torch.softmax(logits, dim=-1)
+        conf, pred_class = torch.max(probs, dim=-1)
+        
+        return PredictionResponse(
+            class_id=pred_class.item(),
+            confidence=float(conf.item())
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "gpu_available": torch.cuda.is_available()}</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0016-llm-fine-tuning-lora-rag-and-inference.html">← Lesson 16: LLM Fine-Tuning & RAG</a>
+    <a href="../INDEX.md">Return to Course Index →</a>
+  </nav>
+</body>
+</html>

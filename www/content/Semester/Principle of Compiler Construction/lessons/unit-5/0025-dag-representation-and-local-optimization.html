@@ -1,0 +1,244 @@
+<title>DAG Representation and Local Optimization</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit V &middot; Lesson 25 of 27</p>
+<h1>DAG Representation and Local Optimization</h1>
+<p class="deck">Directed Acyclic Graph (DAG) construction for basic blocks, value numbering, detecting local common subexpressions, dead code elimination, and algebraic identities.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Construct the DAG for the given basic block and write the optimized three-address code&rdquo;</strong> is one of the most frequently asked problems in compiler design. Show the step-by-step node creation, attach variable names to nodes, demonstrate subexpression sharing, and write out the resulting streamlined code.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; DAG Construction Mechanics</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=THpeYyp0gwY" target="_blank">Intermediate-Code Generation | DAG | Compiler Design</a>
+    <span class="v-meta">Monalisa CS / IT Lectures &middot; 14:10</span>
+    <div class="v-why">Step-by-step visual demonstration of DAG node construction rules, leaf creation for variables and constants, interior operator nodes, and attaching identifiers.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Local Optimization &amp; Code Generation via DAG</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Lec-30: DAG Representation of Basic Block with Solved Examples</a>
+    <span class="v-meta">Gate Smashers &middot; 13:20</span>
+    <div class="v-why">Complete exam walkthrough showing value numbering, common subexpression detection, dead temporary pruning, and emitting the minimal 3-address instruction sequence.</div>
+  </div>
+</div>
+
+<h2>What is a DAG for a basic block?</h2>
+<p>A <strong>Directed Acyclic Graph (DAG)</strong> is a directed graph without cycles that represents the structure of expressions within a single basic block:</p>
+<ul>
+  <li><strong>Leaves:</strong> Labeled with variable identifiers (representing initial values on entry to the block) or constants.</li>
+  <li><strong>Interior nodes:</strong> Labeled with an operator symbol (e.g., <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>).</li>
+  <li><strong>Node labels / Variable attachments:</strong> Nodes have an attached list of variable identifiers indicating that those variables currently hold the value computed by that node.</li>
+</ul>
+
+<h2>Why use a DAG?</h2>
+<ol>
+  <li><strong>Automatic Common Subexpression Detection:</strong> Before creating an interior node <code>(op, left, right)</code>, check if such a node already exists. If yes, reuse it instead of creating a redundant node.</li>
+  <li><strong>Dead Code Elimination:</strong> Interior nodes with no outgoing edges (no parents) whose attached variables are not live upon block exit can be safely pruned.</li>
+  <li><strong>Algebraic Simplification:</strong> Identities like $x \times 1 = x$, $x + 0 = x$, and $x \times 0 = 0$ can be evaluated directly during construction.</li>
+</ol>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; DAG construction &amp; code generation</span>
+  <p>Given the following sequence of three-address statements in a basic block:</p>
+  <pre class="mono">(1) t1 = 4 * i
+(2) t2 = a[t1]
+(3) t3 = 4 * i
+(4) t4 = b[t3]
+(5) t5 = t2 * t4
+(6) t6 = prod + t5
+(7) prod = t6
+(8) t7 = i + 1
+(9) i = t7</pre>
+
+  <p><strong>Trace of DAG construction:</strong></p>
+  <ol>
+    <li>Statement <code>(1) t1 = 4 * i</code>: Leaf <code>4</code> and leaf <code>i₀</code> created. Interior node <code>Node1: (*, 4, i₀)</code> created. Label <code>t1</code> attached to Node1.</li>
+    <li>Statement <code>(2) t2 = a[t1]</code>: Leaf <code>a</code> created. Interior node <code>Node2: (=[], a, Node1)</code> created. Label <code>t2</code> attached to Node2.</li>
+    <li>Statement <code>(3) t3 = 4 * i</code>: Operands are constant <code>4</code> and <code>i₀</code>. An identical node <code>(*, 4, i₀)</code> already exists (Node1)! We do <em>not</em> create a new node. We simply attach label <code>t3</code> to <strong>Node1</strong>.</li>
+    <li>Statement <code>(4) t4 = b[t3]</code>: Leaf <code>b</code> created. Interior node <code>Node3: (=[], b, Node1)</code> created. Label <code>t4</code> attached to Node3.</li>
+    <li>Statement <code>(5) t5 = t2 * t4</code>: Interior node <code>Node4: (*, Node2, Node3)</code> created. Label <code>t5</code> attached.</li>
+    <li>Statement <code>(6) t6 = prod + t5</code>: Leaf <code>prod₀</code> created. Interior node <code>Node5: (+, prod₀, Node4)</code> created. Label <code>t6</code> attached.</li>
+    <li>Statement <code>(7) prod = t6</code>: Label <code>prod</code> attached to <strong>Node5</strong> (updating the current definition of <code>prod</code>).</li>
+    <li>Statement <code>(8) t7 = i + 1</code>: Constant leaf <code>1</code> created. Interior node <code>Node6: (+, i₀, 1)</code> created. Label <code>t7</code> attached.</li>
+    <li>Statement <code>(9) i = t7</code>: Label <code>i</code> attached to <strong>Node6</strong>.</li>
+  </ol>
+
+  <p><strong>Visual DAG structure:</strong></p>
+  
+  <div class="diagram-wrap">
+    <span class="diagram-title">Visual Directed Acyclic Graph (DAG) with Common Subexpression Sharing</span>
+    <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:1.5rem;">
+      <!-- Main Computation Tree -->
+      <div style="border:1.5px solid var(--accent); border-radius:8px; padding:1.2rem; background:var(--panel); min-width:18rem;">
+        <div style="text-align:center; font-weight:700; color:var(--accent); margin-bottom:0.8rem; font-size:0.88rem; text-transform:uppercase;">Subtree 1: prod Update</div>
+        <div class="flow-col">
+          <div class="flow-box highlight" style="min-width:14rem;">
+            <strong>Node 5 &middot; Operator [+]</strong>
+            <span class="sub">Attached Variables: <code>prod</code>, <code>t6</code></span>
+          </div>
+          <div class="flow-arrow-down"></div>
+          
+          <div class="flow-row" style="gap:1rem;">
+            <div class="flow-box" style="min-width:6rem; max-width:8rem; padding:0.4rem 0.6rem;">
+              <strong>Leaf: prod₀</strong>
+            </div>
+            <span class="flow-arrow-right">&larr;+&rarr;</span>
+            <div class="flow-box highlight" style="min-width:10rem; max-width:12rem; padding:0.4rem 0.6rem;">
+              <strong>Node 4 &middot; [*]</strong>
+              <span class="sub">Variable: <code>t5</code></span>
+            </div>
+          </div>
+          
+          <div class="flow-arrow-down"></div>
+          
+          <div class="flow-row" style="gap:1rem;">
+            <div class="flow-box" style="min-width:7rem; max-width:9rem; padding:0.4rem 0.6rem;">
+              <strong>Node 2 &middot; [=[]]</strong>
+              <span class="sub"><code>a[t1]</code> &middot; <code>t2</code></span>
+            </div>
+            <span class="flow-arrow-right">&times;</span>
+            <div class="flow-box" style="min-width:7rem; max-width:9rem; padding:0.4rem 0.6rem;">
+              <strong>Node 3 &middot; [=[]]</strong>
+              <span class="sub"><code>b[t3]</code> &middot; <code>t4</code></span>
+            </div>
+          </div>
+          
+          <div class="flow-arrow-down"></div>
+          
+          <!-- Shared Node -->
+          <div class="flow-box ok" style="min-width:16rem; border:2px solid var(--ok);">
+            <strong>★ SHARED Node 1 &middot; Operator [*]</strong>
+            <span class="sub">Attached: <code>t1</code> AND <code>t3</code> &middot; Operands: <code>4</code> and <code>i₀</code></span>
+          </div>
+          
+          <div class="flow-arrow-down"></div>
+          <div class="flow-row" style="gap:1.5rem; margin-top:0.2rem;">
+            <div class="flow-box" style="min-width:5rem; max-width:7rem; padding:0.3rem 0.5rem;">Leaf: <strong>4</strong></div>
+            <div class="flow-box" style="min-width:5rem; max-width:7rem; padding:0.3rem 0.5rem;">Leaf: <strong>i₀</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Induction Variable Increment Tree -->
+      <div style="border:1.5px solid var(--rule); border-radius:8px; padding:1.2rem; background:var(--panel); min-width:14rem; align-self:flex-start;">
+        <div style="text-align:center; font-weight:700; color:var(--ink-soft); margin-bottom:0.8rem; font-size:0.88rem; text-transform:uppercase;">Subtree 2: i Increment</div>
+        <div class="flow-col">
+          <div class="flow-box highlight" style="min-width:12rem;">
+            <strong>Node 6 &middot; Operator [+]</strong>
+            <span class="sub">Attached Variables: <code>i</code>, <code>t7</code></span>
+          </div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-row" style="gap:1rem;">
+            <div class="flow-box" style="min-width:5rem; max-width:6rem; padding:0.4rem 0.6rem;">
+              <strong>Leaf: i₀</strong>
+            </div>
+            <div class="flow-box" style="min-width:5rem; max-width:6rem; padding:0.4rem 0.6rem;">
+              <strong>Leaf: 1</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p><strong>Optimized Three-Address Code emitted from DAG:</strong></p>
+  <pre class="mono">t1 = 4 * i
+t2 = a[t1]
+t4 = b[t1]       /* Notice: t3 computation eliminated */
+t5 = t2 * t4
+prod = prod + t5
+i = i + 1</pre>
+  <p>Result: Reduced from 9 instructions to 6 instructions.</p>
+</div>
+
+<h2>Algebraic identities handled in DAGs</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Identity Pattern</th><th>Simplification Rule</th><th>Benefit</th></tr></thead>
+<tbody>
+<tr><td><code>x + 0</code> or <code>0 + x</code></td><td>Returns node for <code>x</code></td><td>Eliminates redundant addition</td></tr>
+<tr><td><code>x * 1</code> or <code>1 * x</code></td><td>Returns node for <code>x</code></td><td>Eliminates multiplication</td></tr>
+<tr><td><code>x * 0</code> or <code>0 * x</code></td><td>Returns constant node <code>0</code></td><td>Replaces operation with constant zero</td></tr>
+<tr><td><code>x - 0</code></td><td>Returns node for <code>x</code></td><td>Eliminates subtraction</td></tr>
+<tr><td><code>x / 1</code></td><td>Returns node for <code>x</code></td><td>Eliminates expensive division</td></tr>
+<tr><td><code>x ** 2</code></td><td>Converts to <code>x * x</code></td><td>Avoids power library routine</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Handling array accesses in a DAG</h2>
+<p>Array assignments require care because an element write can alias subsequent reads:</p>
+<ul>
+  <li><code>x = a[i]</code> creates an array read node <code>(=[], a, i)</code>.</li>
+  <li><code>a[j] = y</code> creates an array assignment operator node <code>([]=, a, j, y)</code>. Because <code>j</code> could equal <code>i</code>, this node invalidates previously cached elements of array <code>a</code>.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In a basic block DAG, leaves represent:</p>
+  <div class="opts">
+    <button class="opt">The final values of dead variables</button>
+    <button class="opt">Branch and jump targets</button>
+    <button class="opt" data-ok="1">Constants or initial values of variables entering the block</button>
+    <button class="opt">Arithmetic operators like + and *</button>
+  </div>
+  <p class="why">Leaves hold values available before the block executes; interior nodes compute new values using operators.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. How does a DAG construction algorithm detect local common subexpressions?</p>
+  <div class="opts">
+    <button class="opt">By inspecting the string names of variables</button>
+    <button class="opt">By running a backtracking parser</button>
+    <button class="opt">By compiling the code to assembly first</button>
+    <button class="opt" data-ok="1">By checking if an interior node with the same operator and operand pointers already exists</button>
+  </div>
+  <p class="why">Value numbering ensures that if (op, left, right) matches an existing node, that existing node is reused.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A node in a DAG can be safely eliminated as dead code if:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">It has no parents (no ancestors) and none of its attached variables are live at block exit</button>
+    <button class="opt">It has more than two children</button>
+    <button class="opt">It represents an addition operation</button>
+    <button class="opt">Its operands are constants</button>
+  </div>
+  <p class="why">If nobody reads the computed value inside the block and no attached variable is live afterwards, the node has zero utility.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>What are the components of a basic block DAG?</summary>
+    <p class="ans">Leaves: constants or initial values of variables entering the block. Interior nodes: operators. Variable labels: attached to nodes currently holding that variable's value.</p></details>
+  <details class="card"><summary>What optimizations are performed directly on a DAG?</summary>
+    <p class="ans">1. Local common subexpression elimination. 2. Dead code elimination. 3. Algebraic simplification and constant folding.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0024-basic-blocks-and-flow-graphs.html">&larr; Previous: Basic Blocks and Flow Graphs</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0026-data-flow-analysis-and-loop-optimization.html">Next: Data-Flow Analysis and Loop Optimization &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

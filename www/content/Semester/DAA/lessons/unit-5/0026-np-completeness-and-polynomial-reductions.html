@@ -1,0 +1,222 @@
+<title>NP-Completeness and Polynomial Reductions</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit V &middot; Lesson 26 of 28</p>
+<h1>NP-Completeness and Polynomial Reductions</h1>
+<p class="deck">Formal definitions of NP-Hard and NP-Complete, Euler/Venn complexity diagrams, polynomial-time reductions ($L_1 \le_P L_2$), transitivity, the 2-step NP-completeness proof recipe, and the Cook&ndash;Levin Theorem.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Define NP-Hard and NP-Complete&rdquo;</strong> and <strong>&ldquo;State the Cook-Levin Theorem and explain the steps to prove a problem is NP-Complete&rdquo;</strong> are 10-mark examination essentials. Always draw the P vs NP Venn diagrams (both under $P \ne NP$ and $P = NP$).</p>
+</div>
+
+<h2>Definitions: NP-Hard vs NP-Complete</h2>
+
+<div class="formula">
+  <span class="name">1. NP-Hard</span>
+  A problem $X$ is <strong>NP-Hard</strong> if every problem $Y \in \text{NP}$ is polynomial-time reducible to $X$:
+  $$\forall Y \in \text{NP}, \quad Y \le_P X$$
+  <em>Note:</em> An NP-Hard problem does <strong>not</strong> need to belong to class NP. It does not even need to be a decision problem (e.g., the Halting Problem is NP-Hard and undecidable).
+</div>
+
+<div class="formula">
+  <span class="name">2. NP-Complete (NPC)</span>
+  A problem $X$ is <strong>NP-Complete</strong> if and only if it satisfies both conditions:
+  <ol>
+    <li>$X \in \mathbf{NP}$ (its proposed solutions can be verified in polynomial time).</li>
+    <li>$X$ is $\mathbf{NP}\text{\bf-Hard}$ ($\forall Y \in \text{NP}, Y \le_P X$).</li>
+  </ol>
+  NP-Complete problems are the <strong>hardest problems in class NP</strong>. If any single NP-Complete problem can be solved in polynomial time, then <em>every</em> problem in NP can be solved in polynomial time ($P = NP$).
+</div>
+
+<h2>Complexity Class Relationships (Venn Diagrams)</h2>
+<div class="solve">
+  <span class="lbl">Venn Diagrams: P != NP vs P == NP</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Conjectured Scenario: $P \ne NP$</th><th>Theoretical Scenario: $P = NP$</th></tr></thead>
+  <tbody>
+  <tr>
+  <td><pre class="mono">    ┌──────────────────────────────────┐
+    │             NP-HARD              │
+    │  ┌────────────────────────────┐  │
+    │  │             NP             │  │
+    │  │  ┌──────────┐  ┌────────┐  │  │
+    │  │  │    P     │  │  NPC   │  │  │
+    │  │  │ (Sort,   │  │ (SAT,  │  │  │
+    │  │  │  MST)    │  │  TSP)  │  │  │
+    │  │  └──────────┘  └────────┘  │  │
+    │  └────────────────────────────┘  │
+    └──────────────────────────────────┘
+  (P and NPC are completely disjoint)</pre></td>
+  <td><pre class="mono">    ┌──────────────────────────────────┐
+    │             NP-HARD              │
+    │  ┌────────────────────────────┐  │
+    │  │                            │  │
+    │  │         P = NP = NPC       │  │
+    │  │   (Every non-trivial       │  │
+    │  │    problem in NP is NPC)   │  │
+    │  │                            │  │
+    │  └────────────────────────────┘  │
+    └──────────────────────────────────┘
+  (All three collapse into one class)</pre></td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<h2>Polynomial-Time Reductions ($L_1 \le_P L_2$)</h2>
+<p>A reduction is an algorithm that converts instances of one problem into instances of another problem. It allows us to solve the first problem using a subroutine that solves the second.</p>
+
+<div class="formula">
+  <span class="name">Formal Definition of $\le_P$ (Karp Reduction)</span>
+  A language $L_1$ is <strong>polynomial-time reducible</strong> to language $L_2$ (written $L_1 \le_P L_2$) if there exists a function $f: \Sigma^* \to \Sigma^*$ such that:
+  <ol>
+    <li>$f(x)$ is computable by a deterministic algorithm in <strong>polynomial time</strong>.</li>
+    <li>For all inputs $x$: $$x \in L_1 \iff f(x) \in L_2$$
+    (i.e., $x$ is a YES-instance of $L_1$ if and only if $f(x)$ is a YES-instance of $L_2$).</li>
+  </ol>
+</div>
+
+<div class="solve">
+  <span class="lbl">Direction of Hardness &mdash; Avoid the Common Trap!</span>
+  <p>Think of $L_1 \le_P L_2$ as: <strong>&ldquo;$L_1$ is no harder than $L_2$&rdquo;</strong> (or $L_2$ is at least as hard as $L_1$).</p>
+  <ul>
+    <li><strong>If $L_1 \le_P L_2$ and $L_2 \in P$:</strong> Then $L_1 \in P$ (solvability flows backward).</li>
+    <li><strong>If $L_1 \le_P L_2$ and $L_1 \notin P$:</strong> Then $L_2 \notin P$ (hardness flows forward).</li>
+    <li><strong>Transitivity:</strong> If $A \le_P B$ and $B \le_P C$, then $A \le_P C$.</li>
+  </ul>
+</div>
+
+<h2>The 2-Step Recipe to Prove Problem $X$ is NP-Complete</h2>
+<p>To prove a new problem $X$ is NP-Complete, you do <strong>not</strong> need to reduce all infinitely many NP problems to $X$. Thanks to transitivity, you follow this exact template:</p>
+
+<div class="box win">
+  <span class="lbl">The Standard Proof Recipe</span>
+  <ol>
+    <li><strong>Step 1: Prove $X \in \text{NP}$</strong>
+      <ul>
+        <li>Describe a certificate (candidate solution) $S$.</li>
+        <li>Show that $S$ has polynomial size ($|S| = O(n^k)$).</li>
+        <li>Present a deterministic algorithm that verifies whether $S$ is valid in polynomial time.</li>
+      </ul>
+    </li>
+    <li><strong>Step 2: Choose a known NP-Complete problem $Y$</strong> (e.g. 3-SAT, Clique, Vertex Cover).</li>
+    <li><strong>Step 3: Construct a reduction mapping $f$ from $Y$ to $X$</strong> ($Y \le_P X$)
+      <ul>
+        <li>Show how any arbitrary instance $y$ of $Y$ is transformed into an instance $x = f(y)$ of $X$ in polynomial time.</li>
+      </ul>
+    </li>
+    <li><strong>Step 4: Prove correctness in both directions (if and only if)</strong>
+      <ul>
+        <li><em>Forward (&rArr;):</em> If $y$ is a YES-instance of $Y$, prove that $f(y)$ must be a YES-instance of $X$.</li>
+        <li><em>Backward (&lArr;):</em> If $f(y)$ is a YES-instance of $X$, prove that $y$ must be a YES-instance of $Y$.</li>
+      </ul>
+    </li>
+  </ol>
+</div>
+
+<h2>The Cook&ndash;Levin Theorem (1971)</h2>
+<p>Before any reduction can work, there had to be a <strong>first</strong> NP-Complete problem established without reducing from another problem.</p>
+
+<div class="formula">
+  <span class="name">Cook&ndash;Levin Theorem Statement</span>
+  $$\mathbf{SAT} \text{ (Boolean Satisfiability)} \text{ is } \mathbf{NP}\text{\bf-Complete.}$$
+</div>
+
+<p><strong>How Stephen Cook proved it:</strong></p>
+<ul>
+  <li>Any problem $Y \in \text{NP}$ is decided by some non-deterministic Turing Machine $M$ in polynomial time $p(n)$.</li>
+  <li>Cook constructed a giant boolean formula $\Phi$ whose variables encode the state, tape symbols, and head position of $M$ across all $p(n)$ execution steps.</li>
+  <li>He proved that $\Phi$ is satisfiable if and only if $M$ reaches an accepting state on input $w$.</li>
+  <li>Because $\Phi$ has size $O(p(n)^2)$ and is constructed in polynomial time, <strong>every problem in NP reduces to SAT</strong>. This anchored the foundation of NP-Completeness.</li>
+</ul>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Polynomial-Time Reduction A &le;<sub>P</sub> B & Cook-Levin Framework</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Reduction Pipeline: Instance x of A &rarr; f(x) of B in O(n<sup>k</sup>) time</strong>
+      <span class="sub">Condition: x is a YES instance of A &iff; f(x) is a YES instance of B</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>To Prove Problem B is NP-Complete:</strong>
+      <span class="sub">1. Show B &isin; NP (polynomial verification)<br>2. Pick known NP-Complete problem A<br>3. Show A &le;<sub>P</sub> B (reduces to B)</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">NP-Completeness Proofs</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">NP-Completeness & Polynomial Time Reduction with Cook-Levin</div>
+    <div class="v-desc">Essential exam methodology for constructing reduction gadgets, proving Boolean Satisfiability (SAT), and Cook's theorem.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=o_vyfo3Hw0Y" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. To prove that a new problem X is NP-Complete by reduction from known problem Y, what is the required direction?</p>
+  <div class="opts">
+    <button class="opt">Reduce X to the known problem Y (X ≤_P Y)</button>
+    <button class="opt">Reduce X to an empty graph</button>
+    <button class="opt">Reduce both X and Y to Merge Sort</button>
+    <button class="opt" data-ok="1">Reduce the known NP-Complete problem Y to X (Y ≤_P X)</button>
+  </div>
+  <p class="why">We must show X is at least as hard as known problem Y, which means reducing Y to X (Y ≤_P X).</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. What makes the Cook-Levin Theorem historically unique?</p>
+  <div class="opts">
+    <button class="opt">It solved the Halting Problem</button>
+    <button class="opt" data-ok="1">It proved SAT is NP-Complete directly from first principles without reducing from an existing problem</button>
+    <button class="opt">It proved that P = NP definitively</button>
+    <button class="opt">It designed an O(n) algorithm for the Traveling Salesman Problem</button>
+  </div>
+  <p class="why">Cook proved SAT is NP-Complete by encoding non-deterministic Turing Machine executions directly into boolean formulas.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. If problem A ≤_P B, and an O(n³) deterministic algorithm is found for problem B, what does this imply for A?</p>
+  <div class="opts">
+    <button class="opt">A must take exponential time</button>
+    <button class="opt" data-ok="1">A is also solvable in polynomial time (A ∈ P)</button>
+    <button class="opt">No conclusion can be made</button>
+    <button class="opt">A is undecidable</button>
+  </div>
+  <p class="why">Polynomial reduction ensures that if the target problem B is in P, the source problem A is also in P.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Define NP-Hard vs NP-Complete.</summary>
+    <p class="ans">NP-Hard: All problems in NP reduce to it in polynomial time (need not be in NP). NP-Complete: NP-Hard AND belongs to class NP.</p></details>
+  <details class="card"><summary>What are the two conditions of a polynomial reduction L1 ≤_P L2?</summary>
+    <p class="ans">1. Mapping f is computable in deterministic polynomial time. 2. x ∈ L1 ⟺ f(x) ∈ L2 (YES maps to YES, NO maps to NO).</p></details>
+  <details class="card"><summary>What is the Cook-Levin theorem?</summary>
+    <p class="ans">Boolean Satisfiability (SAT) is NP-Complete. It proved from first principles that any NP machine computation can be encoded into a polynomial-sized boolean formula.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0025-p-np-classes-and-nondeterminism.html">&larr; Previous: P, NP &amp; Non-Determinism</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0027-classic-np-complete-problems-reductions.html">Next: Classic NP-Complete Reductions &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,298 @@
+<title>DNS</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 36 of 42</p>
+<h1>DNS &mdash; Domain Name System</h1>
+<p class="deck">The namespace, zones and servers, the two resolution methods, caching, and the resource record types. The recursive-versus-iterative diagram is the single most-drawn figure in Unit&nbsp;V.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Explain DNS with the resolution process"</strong> is a 10-mark near-certainty. Structure it as: what DNS is &rarr; the namespace diagram (an inverted tree) &rarr; the server hierarchy &rarr; <strong>recursive and iterative resolution, drawn as two separate diagrams</strong> &rarr; caching. The two diagrams are where the marks are; the difference between them is the sub-question that separates answers.</p>
+</div>
+
+<h2>What DNS is and why it exists</h2>
+
+<p>People use <strong>names</strong>; the network uses <strong>IP addresses</strong>. DNS is the distributed directory that <strong>maps a domain name to an IP address</strong>.</p>
+
+<div class="box win">
+  <span class="lbl">Why not one central file? &mdash; the "why distributed" answer</span>
+  <p>The original Internet did use one file, <code>hosts.txt</code>, copied to every machine. That fails on four counts, and naming all four is the full-mark answer:</p>
+  <ol style="margin:.3rem 0 0 1.1rem">
+    <li><strong>A single point of failure</strong> &mdash; if that server dies, the entire Internet stops resolving names.</li>
+    <li><strong>Traffic volume</strong> &mdash; one machine could not answer every query on the Internet.</li>
+    <li><strong>Distance</strong> &mdash; a single server is far away from most of the world, so lookups are slow.</li>
+    <li><strong>Maintenance</strong> &mdash; the file would have to be updated constantly and redistributed everywhere.</li>
+  </ol>
+  <p>DNS solves all four by being <strong>hierarchical and distributed</strong>: no server holds everything, and each organisation maintains its own part.</p>
+</div>
+
+<h2>The domain namespace</h2>
+
+<p>The namespace is an <strong>inverted tree</strong> with the root at the top. It has a maximum of <strong>128 levels</strong>, from level 0 (root) downward.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Label</strong></td><td>Each node has a label of up to <strong>63 characters</strong>. The root's label is <strong>null</strong> (empty).</td></tr>
+<tr><td><strong>Domain name</strong></td><td>The sequence of labels from a node up to the root, separated by dots. Maximum <strong>255 characters</strong>.</td></tr>
+<tr><td><strong>FQDN</strong></td><td><strong>Fully Qualified Domain Name</strong> &mdash; ends with a null label, i.e. a trailing dot: <code>www.example.com.</code></td></tr>
+<tr><td><strong>PQDN</strong></td><td><strong>Partially Qualified Domain Name</strong> &mdash; does not reach the root; a suffix is added by the resolver.</td></tr>
+<tr><td><strong>Domain</strong></td><td>A <strong>subtree</strong> of the namespace &mdash; a node and everything below it.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three kinds of top-level domain</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Examples</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Generic (gTLD)</strong></td><td><code>com</code>, <code>org</code>, <code>net</code>, <code>edu</code>, <code>gov</code>, <code>mil</code>, <code>int</code></td><td>Registers hosts by their <strong>generic behaviour</strong> or organisation type</td></tr>
+<tr><td><strong>Country (ccTLD)</strong></td><td><code>in</code>, <code>uk</code>, <code>us</code>, <code>jp</code></td><td>Two-character country abbreviations; often subdivided, e.g. <code>ac.in</code>, <code>co.in</code></td></tr>
+<tr><td><strong>Inverse domain</strong></td><td><code>in-addr.arpa</code></td><td>Maps an <strong>address back to a name</strong> &mdash; the <strong>reverse lookup</strong>. Used by servers checking whether a client is who it claims to be.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Zones and servers</h2>
+
+<div class="formula">
+  <span class="name">Domain vs zone &mdash; the distinction that is tested</span>
+  A <strong>domain</strong> is a subtree of the namespace.<br>
+  A <strong>zone</strong> is <strong>what a server is actually responsible for</strong>.<br>
+  If a server has not delegated any part of its domain, <strong>zone = domain</strong>. If it has delegated subdomains to other servers, the <strong>zone is the domain minus the delegated parts</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Server type</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><strong>Root server</strong></td><td>Its zone is the <strong>whole tree</strong>. It usually does not store information itself; it <strong>delegates</strong> to TLD servers. There are 13 logical root server addresses worldwide.</td></tr>
+<tr><td><strong>Primary server</strong></td><td>Stores a file about its zone, and <strong>creates, maintains and updates</strong> it. The authoritative source.</td></tr>
+<tr><td><strong>Secondary server</strong></td><td><strong>Transfers the complete zone file from a primary</strong> and serves it, but <strong>cannot update it</strong>. It exists for redundancy and load sharing. The transfer is called a <strong>zone transfer</strong> &mdash; and this is the one DNS operation that uses <strong>TCP</strong> rather than UDP, because the file may be large and must arrive complete.</td></tr>
+<tr><td><strong>Local / resolver server</strong></td><td>The server a host is configured to ask. It performs the resolution on the host's behalf and caches the answers.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Resolution: recursive and iterative</h2>
+
+<p>The <em class="term">resolver</em> is the client-side component that asks the questions. There are two ways for the query to proceed, and the distinction is the exam's favourite.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Recursive resolution</th><th>Iterative resolution</th></tr></thead>
+<tbody>
+<tr><td><strong>Who does the work</strong></td><td>The <strong>server</strong> the client asked</td><td>The <strong>client (resolver)</strong> itself</td></tr>
+<tr><td><strong>The reply is</strong></td><td>The <strong>final answer</strong>, or an error</td><td>Either the answer or a <strong>referral</strong> &mdash; "I do not know, ask this server"</td></tr>
+<tr><td><strong>Number of queries the client sends</strong></td><td><strong>One</strong></td><td><strong>Several</strong> &mdash; one per level of the hierarchy</td></tr>
+<tr><td><strong>Load</strong></td><td>Falls on the <strong>server</strong></td><td>Falls on the <strong>client</strong></td></tr>
+<tr><td><strong>Used between</strong></td><td>A host and its <strong>local DNS server</strong></td><td>The local DNS server and the <strong>root, TLD and authoritative servers</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked walkthrough &mdash; resolving www.example.com</span>
+  <p>The two methods are almost always used <strong>together</strong> in one lookup. Trace it:</p>
+
+  <p><strong>Step 1 &mdash; recursive.</strong> The host sends <em>one</em> query to its <strong>local DNS server</strong>: "what is the address of <code>www.example.com</code>?" It then waits. It will receive either the answer or an error, and nothing in between. <strong>This part is recursive.</strong></p>
+
+  <p><strong>Steps 2 to 7 &mdash; iterative.</strong> The local server now does the work itself:</p>
+  <ol style="margin:.3rem 0 .3rem 1.1rem">
+    <li>Local server &rarr; <strong>root server</strong>: "www.example.com?"<br>
+      Root replies: <em>"I do not know, but here is the <strong>.com TLD server</strong>."</em></li>
+    <li>Local server &rarr; <strong>.com TLD server</strong>: "www.example.com?"<br>
+      TLD replies: <em>"I do not know, but here is the <strong>authoritative server for example.com</strong>."</em></li>
+    <li>Local server &rarr; <strong>authoritative server for example.com</strong>: "www.example.com?"<br>
+      It replies with the <strong>actual IP address</strong>.</li>
+  </ol>
+
+  <p><strong>Step 8.</strong> The local server <strong>caches</strong> the answer and returns it to the host.</p>
+
+  <p><em>The sentence that ties it together, and is worth a mark:</em> <strong>the host-to-local-server half is recursive; the local-server-to-hierarchy half is iterative.</strong> That is why a diagram of a real lookup shows one arrow out and back at the top, and a fan of arrows below it.</p>
+
+  <p><em>Why the split makes sense:</em> the host is a simple device and should not have to walk a hierarchy, so it delegates. The root and TLD servers answer an enormous volume of queries and cannot afford to chase referrals on anyone's behalf, so they refer instead.</p>
+</div>
+
+<h2>Caching</h2>
+
+<p>When a server receives an answer for a name outside its own zone, it <strong>stores it in cache</strong> before passing it on. The next request for that name is answered immediately.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Benefit</strong></td><td>Drastically reduces search time and traffic, especially for the root and TLD servers.</td></tr>
+<tr><td><strong>The risk</strong></td><td>A cached mapping can become <strong>out of date</strong> if the real address changes.</td></tr>
+<tr><td><strong>Fix 1 &mdash; TTL</strong></td><td>The authoritative server attaches a <strong>time to live</strong> to every record, saying how long it may be cached. When the TTL expires the entry is discarded.</td></tr>
+<tr><td><strong>Fix 2 &mdash; marking</strong></td><td>A cached reply is marked <strong>unauthoritative</strong> so the asker knows it did not come from the authoritative source, and can ask again if it needs certainty.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Resource records and messages</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Record</th><th>Maps</th></tr></thead>
+<tbody>
+<tr><td><strong>A</strong></td><td>Name &rarr; <strong>IPv4 address</strong> (32 bits)</td></tr>
+<tr><td><strong>AAAA</strong></td><td>Name &rarr; <strong>IPv6 address</strong> (128 bits)</td></tr>
+<tr><td><strong>NS</strong></td><td>Domain &rarr; the <strong>authoritative name server</strong> for it</td></tr>
+<tr><td><strong>CNAME</strong></td><td>An <strong>alias</strong> &rarr; the canonical (real) name</td></tr>
+<tr><td><strong>MX</strong></td><td>Domain &rarr; its <strong>mail exchange server</strong>, with a preference value</td></tr>
+<tr><td><strong>SOA</strong></td><td><strong>Start of Authority</strong> &mdash; the zone's parameters: primary server, admin contact, serial number, refresh and TTL values</td></tr>
+<tr><td><strong>PTR</strong></td><td>Address &rarr; name &mdash; the <strong>reverse lookup</strong>, used in the <code>in-addr.arpa</code> domain</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>DNS messages</strong> come in two kinds, <strong>query</strong> and <strong>response</strong>, and both use the same format: a <strong>header</strong> plus four sections &mdash; <strong>question, answer, authoritative, and additional</strong>. A query carries only the header and question sections; a response fills in the rest.</p>
+
+<div class="box exam">
+  <span class="lbl">Three one-mark facts</span>
+  <p><strong>DNS uses UDP port 53 for queries</strong>, because a query and reply are one small packet each and a handshake would cost more than the exchange.<br>
+  <strong>It uses TCP for zone transfers</strong>, because the whole zone file must arrive complete and it may be large.<br>
+  <strong>It also falls back to TCP when a response exceeds 512 bytes</strong> &mdash; the traditional UDP message limit.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Domain Name System (DNS) Hierarchical Resolution Architecture</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>1. Client Query &bull; Resolving 'www.example.com'</strong>
+      <span class="sub">Client checks browser cache &rarr; OS hosts file &rarr; queries Local Recursive DNS Resolver</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Iterative Queries from Local Resolver</div>
+    <div class="flow-row">
+      <div class="flow-box"><strong>2. Root DNS Server (.)</strong><span class="sub">Returns referral to '.com' TLD Name Server</span></div>
+      <div class="flow-arrow-right">&rarr;</div>
+      <div class="flow-box"><strong>3. TLD Server (.com)</strong><span class="sub">Returns referral to 'example.com' Authoritative Server</span></div>
+      <div class="flow-arrow-right">&rarr;</div>
+      <div class="flow-box ok"><strong>4. Authoritative Server</strong><span class="sub">Returns Resource Record (A Record &rarr; IP Address)</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">DNS Architecture</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-81 & Lec-82: Domain Name System (DNS) Architecture & Resolution</div>
+    <div class="v-desc">Crystal clear illustration of recursive versus iterative queries, DNS server hierarchy (Root, TLD, Authoritative), and caching records.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=vhfRArT11jc" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In recursive resolution, the client receives:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The final answer or an error &mdash; nothing in between</button>
+    <button class="opt">One partial answer per level of the hierarchy</button>
+    <button class="opt">A referral naming the next server to ask</button>
+    <button class="opt">The complete zone file for the target domain</button>
+  </div>
+  <p class="why">Recursive means the server carries the burden and returns a definitive result. Referrals are the iterative pattern, used between the local server and the root, TLD and authoritative servers.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A zone differs from a domain in that a zone is:</p>
+  <div class="opts">
+    <button class="opt">The set of all top-level domains under one root server</button>
+    <button class="opt">Always identical to the domain, since every server holds its whole subtree</button>
+    <button class="opt" data-ok="1">What a server is actually responsible for, excluding delegated subdomains</button>
+    <button class="opt">A single node of the namespace rather than a subtree</button>
+  </div>
+  <p class="why">A domain is a subtree of the namespace; a zone is the part of it a given server actually serves. If nothing has been delegated the two coincide, but once subdomains are handed to other servers the zone is the domain minus those parts.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. DNS uses TCP rather than UDP for:</p>
+  <div class="opts">
+    <button class="opt">Any query that returns a CNAME record</button>
+    <button class="opt">Reverse lookups in the in-addr.arpa domain</button>
+    <button class="opt" data-ok="1">Zone transfers between primary and secondary servers</button>
+    <button class="opt">All queries from a host to its local DNS server</button>
+  </div>
+  <p class="why">A zone file must arrive complete and may be large, so it needs TCP's reliability. Ordinary queries use UDP port 53 because a handshake would cost more than the two-packet exchange — though TCP is also used when a response exceeds 512 bytes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A cached DNS entry is discarded when:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Its time-to-live value, set by the authoritative server, expires</button>
+    <button class="opt">The local server restarts its zone transfer schedule</button>
+    <button class="opt">A secondary server updates the primary's zone file</button>
+    <button class="opt">The client sends a second query for the same name</button>
+  </div>
+  <p class="why">TTL is attached by the authoritative server to bound how stale a cached answer can become. Cached replies are also marked unauthoritative, so the asker knows it did not come from the source and can re-ask if it needs certainty.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Which record type maps a domain to its mail server?</p>
+  <div class="opts">
+    <button class="opt">NS</button>
+    <button class="opt">CNAME</button>
+    <button class="opt">PTR</button>
+    <button class="opt" data-ok="1">MX</button>
+  </div>
+  <p class="why">MX is the mail exchange record, carrying a preference value so several servers can be ranked. NS names the authoritative name server, CNAME defines an alias, and PTR does reverse lookups from address to name.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A single central hosts file was abandoned mainly because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">It was a single point of failure and could not carry the query volume</button>
+    <button class="opt">Domain names had grown longer than 255 characters</button>
+    <button class="opt">It could not store IPv6 addresses alongside IPv4</button>
+    <button class="opt">File formats differed between operating systems</button>
+  </div>
+  <p class="why">Four reasons: single point of failure, unmanageable traffic volume, distance from most of the world, and constant maintenance and redistribution. A hierarchical distributed system fixes all four at once.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>What is DNS, and why is it distributed rather than centralised?</summary>
+    <p class="ans">A distributed directory mapping domain names to IP addresses. A single central file fails on four counts: single point of failure, query volume beyond one machine, distance from most of the world, and constant maintenance and redistribution. A hierarchical distributed design fixes all four.</p></details>
+  <details class="card"><summary>Define label, domain name, FQDN and PQDN.</summary>
+    <p class="ans">Label — the name of a node, up to 63 characters; the root's label is null. Domain name — the sequence of labels from a node to the root, dot-separated, up to 255 characters. FQDN — ends at the root, with a trailing dot. PQDN — does not reach the root; the resolver adds a suffix.</p></details>
+  <details class="card"><summary>Name the three kinds of top-level domain.</summary>
+    <p class="ans">Generic (com, org, net, edu, gov, mil, int); country codes (in, uk, us, jp, often subdivided as ac.in or co.in); and inverse (in-addr.arpa) for reverse address-to-name lookups.</p></details>
+  <details class="card"><summary>Distinguish domain from zone, and name the server types.</summary>
+    <p class="ans">A domain is a subtree of the namespace; a zone is what a server is actually responsible for — the domain minus any delegated subdomains. Servers: root (zone is the whole tree, delegates to TLDs), primary (creates and maintains the zone file), secondary (receives it by zone transfer, cannot update it), and local/resolver (queried by hosts, and caches).</p></details>
+  <details class="card"><summary>Compare recursive and iterative resolution.</summary>
+    <p class="ans">Recursive — the queried server does the work and returns the final answer or an error; the client sends one query; the load falls on the server; used between a host and its local DNS server. Iterative — the server returns a referral naming the next server to ask; the client sends several queries, one per level; the load falls on the client; used between the local server and the root, TLD and authoritative servers.</p></details>
+  <details class="card"><summary>Walk through resolving www.example.com.</summary>
+    <p class="ans">The host sends one recursive query to its local server. The local server then queries iteratively: the root refers it to the .com TLD server, which refers it to the authoritative server for example.com, which returns the address. The local server caches the answer and returns it to the host.</p></details>
+  <details class="card"><summary>Why is caching used, what is the risk, and how is it managed?</summary>
+    <p class="ans">Caching cuts search time and traffic, especially at the root and TLD servers. The risk is stale mappings. Managed by a time-to-live attached by the authoritative server, after which the entry is discarded, and by marking cached replies unauthoritative.</p></details>
+  <details class="card"><summary>Name seven DNS record types.</summary>
+    <p class="ans">A (IPv4), AAAA (IPv6), NS (authoritative name server), CNAME (alias to canonical name), MX (mail exchange, with preference), SOA (start of authority — zone parameters), PTR (reverse lookup).</p></details>
+</div>
+
+<p class="ask">Next: DHCP, which is how a host gets the address DNS will later resolve names into.</p>
+
+<div class="nav">
+  <a href="0035-application-layer-and-client-server.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0037-dhcp.html">Next: DHCP &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

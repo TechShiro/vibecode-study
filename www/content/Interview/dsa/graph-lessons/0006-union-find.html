@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 06 — Union-Find (DSU)</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 06 of 09 · near-O(1) connectivity</div>
+<h1>Union-Find (Disjoint Set Union)</h1>
+<p class="subtitle">One <code>parent[]</code> array answers "are these two in the same group?" and "merge their groups" in near-constant time — the right tool the moment edges arrive <em>one at a time</em>.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> graphs are ~25% of Google intern questions. Recognize a dynamic-connectivity problem in &lt; 60s and code a path-compressed, union-by-size DSU in Java from memory.
+  This is Lesson 6 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A <strong>Disjoint Set Union</strong> tracks a partition of <code>n</code> elements into groups.
+Each element points at a <em>parent</em>; follow parents up to the <strong>root</strong>, which <em>names</em> the group.
+<code>find(x)</code> returns x's root; <code>union(a, b)</code> hangs one root under the other.
+Two optimizations make it fly: <strong>path compression</strong> (flatten the tree while you <code>find</code>) and
+<strong>union by rank/size</strong> (always attach the smaller tree under the larger). Together they drive each operation to
+near-<strong>O(α(n)) ≈ O(1)</strong> <em>amortized</em>.
+</p>
+<p>
+Why a whole graph lesson for it? DFS/BFS (Lessons 02–03) count components beautifully — <em>once the graph is fully built</em>.
+DSU shines when connectivity is <strong>dynamic / online</strong>: edges stream in and you must answer "connected?" after each one,
+or you need to detect the <em>first</em> edge that closes a cycle. That's a different superpower from traversal.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Connected / groups / provinces / components", <strong>dynamic (online) connectivity</strong> (edges added one at a time),
+  detecting a cycle in an <strong>undirected</strong> graph, "accounts merge / equations", or building a
+  <strong>Kruskal MST</strong> (Lesson 08). If the question is "do these edges fuse everything into one blob, and when?" — DSU fires.
+</div>
+
+<div class="callout tip">
+  <span class="label">DSU vs DFS/BFS — pick fast</span>
+  Static graph, "count the islands once" → DFS/BFS is fine (and gives you the actual paths).
+  Edges streaming in, "are u and v connected <em>now</em>?", or "which edge first creates a cycle?" → DSU, because re-running DFS after every edge is O(V+E) <em>per query</em>.
+</div>
+
+<h2>2 · Core template</h2>
+<p>Memorize this class. We use <strong>union by size</strong> here (init all <code>1</code>): it keeps trees flat <em>and</em> hands you each component's element count for free via <code>size[find(x)]</code>.</p>
+<pre><code>class DSU {
+    int[] parent, size;
+    int count;                       <span class="cmt">// number of disjoint sets (components)</span>
+
+    DSU(int n) {
+        parent = new int[n];
+        size   = new int[n];
+        count  = n;
+        for (int i = 0; i &lt; n; i++) { parent[i] = i; size[i] = 1; }  <span class="cmt">// each its own root</span>
+    }
+
+    int find(int x) {                <span class="cmt">// iterative, with path compression</span>
+        while (parent[x] != x) {
+            parent[x] = parent[parent[x]];  <span class="cmt">// path halving: point x at its grandparent</span>
+            x = parent[x];
+        }
+        return x;
+    }
+
+    boolean union(int a, int b) {    <span class="cmt">// union by size; false if already same set</span>
+        int ra = find(a), rb = find(b);
+        if (ra == rb) return false;  <span class="cmt">// already joined → this edge would close a CYCLE</span>
+        if (size[ra] &lt; size[rb]) { int t = ra; ra = rb; rb = t; }  <span class="cmt">// ra is the bigger tree</span>
+        parent[rb] = ra;             <span class="cmt">// smaller hangs under bigger</span>
+        size[ra] += size[rb];
+        count--;                     <span class="cmt">// two sets became one</span>
+        return true;
+    }
+}</code></pre>
+<p>
+<strong>Time</strong> O(α(n)) <em>amortized</em> per <code>find</code>/<code>union</code> — α is the inverse Ackermann
+function, &le; 4 for any <code>n</code> in this universe, so effectively <strong>O(1)</strong>. Building is O(n);
+processing <code>m</code> operations is O(n + m·α(n)) ≈ O(n + m). <strong>Space</strong> O(n) for the two arrays.
+</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: <code>n = 5</code>, operations <code>union(0,1)</code>, <code>union(2,3)</code>, <code>union(1,2)</code>.
+Watch the <code>parent[]</code> array evolve, then read off the resulting DSU forest:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 320 200" role="img" aria-label="DSU forest after the unions: one tree rooted at 0 holding 0,1,2,3 and a singleton 4">
+  <defs><marker id="ahDsu" markerWidth="8" markerHeight="8" refX="24" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" class="arrow"/></marker></defs>
+  <line class="edge" x1="80"  y1="120" x2="80"  y2="55"  marker-end="url(#ahDsu)"/>
+  <line class="edge" x1="175" y1="120" x2="95"  y2="62"  marker-end="url(#ahDsu)"/>
+  <line class="edge" x1="175" y1="170" x2="175" y2="138" marker-end="url(#ahDsu)"/>
+  <circle class="node cur" cx="80"  cy="45"  r="18"/><text class="lbl" x="80"  y="45">0</text>
+  <circle class="node"     cx="80"  cy="130" r="18"/><text class="lbl" x="80"  y="130">1</text>
+  <circle class="node"     cx="175" cy="130" r="18"/><text class="lbl" x="175" y="130">2</text>
+  <circle class="node"     cx="175" cy="180" r="18"/><text class="lbl" x="175" y="180">3</text>
+  <circle class="node cur" cx="280" cy="45"  r="18"/><text class="lbl" x="280" y="45">4</text>
+</svg>
+<figcaption>Parent pointers run child→root. Roots 0 and 4 are highlighted. Final components = 2: {0,1,2,3} and {4}.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">start: parent=[0,1,2,3,4] — every element its own root</span>
+<span class="step now">union(0,1): find(0)=0, find(1)=1; hang 1 under 0 → parent=[0,<span class="ptr">0</span>,2,3,4]</span>
+<span class="step now">union(2,3): find(2)=2, find(3)=3; hang 3 under 2 → parent=[0,0,2,<span class="ptr">2</span>,4]</span>
+<span class="step now">union(1,2): find(1)=0, find(2)=2; hang 2's root under 0 → parent=[0,0,<span class="ptr">0</span>,2,4]</span>
+<span class="step">find(3): 3→2→0, PATH COMPRESSION points 3 straight at 0 → parent=[0,0,0,<span class="ptr">0</span>,4]</span>
+<span class="step">roots: find(0)=find(1)=find(2)=find(3)=0, find(4)=4 → components = <span class="ptr">2</span>: {0,1,2,3}, {4}</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Recursive find (path compression, fully flat)</span>
+  If you prefer recursion, <code>find</code> becomes a two-liner that flattens completely (every node points straight at the root):
+  <pre><code>int find(int x) {
+    if (parent[x] != x) parent[x] = find(parent[x]); <span class="cmt">// compress on the way back up</span>
+    return parent[x];
+}</code></pre>
+  Same α(n) bound. Prefer the <em>iterative</em> version for very deep chains (10⁶ nodes) to avoid a recursion-stack overflow — the recursion mirrors a degenerate tree's depth.
+</div>
+
+<div class="callout trap">
+  <span class="label">The #1 bug</span>
+  Comparing or merging the raw elements instead of their <strong>roots</strong>. Always
+  <code>union(a,b)</code> through <code>find(a)</code>/<code>find(b)</code>, and to test "connected" use
+  <code>find(a) == find(b)</code> — never <code>parent[a] == parent[b]</code> (a deep tree breaks that instantly).
+</div>
+
+<h2>3 · All the cases (this is why the pattern matters)</h2>
+<p>
+Every problem below is the <em>same</em> DSU class. Only two things change: how you map objects to integer indices, and what you read off at the end.
+</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Count provinces (matrix)</td><td>LC 547</td><td>Union every connected pair from the matrix; answer is <code>count</code>.</td></tr>
+    <tr><td>Components (edge list)</td><td>LC 323</td><td>Union each edge; answer is <code>count</code>.</td></tr>
+    <tr><td>Undirected cycle edge</td><td>LC 684 <span class="cmt">★Google</span></td><td>The <em>first</em> edge whose <code>union</code> returns <code>false</code> is redundant.</td></tr>
+    <tr><td>Valid tree</td><td>LC 261</td><td>Tree ⇔ exactly <code>n-1</code> edges AND no <code>union</code> ever fails (connected + acyclic).</td></tr>
+    <tr><td>Accounts merge</td><td>LC 721 <span class="cmt">★Google</span></td><td>Map emails→ids, union emails sharing an account, group by root.</td></tr>
+    <tr><td>Equality equations</td><td>LC 990 <span class="cmt">★Google</span></td><td>Union all <code>==</code>, then verify no <code>!=</code> joins one set.</td></tr>
+    <tr><td>Islands II (online)</td><td>LC 305</td><td>Add land cells one by one; union with land neighbors; record <code>count</code> after each.</td></tr>
+    <tr><td>Kruskal MST</td><td>Lesson 08</td><td>Sort edges by weight; add an edge iff <code>union</code> succeeds.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: number of provinces — adjacency matrix (LC 547)</h3>
+<pre><code>int findCircleNum(int[][] isConnected) {
+    int n = isConnected.length;
+    DSU dsu = new DSU(n);
+    for (int i = 0; i &lt; n; i++)
+        for (int j = i + 1; j &lt; n; j++)        <span class="cmt">// upper triangle: matrix is symmetric</span>
+            if (isConnected[i][j] == 1) dsu.union(i, j);
+    return dsu.count;                           <span class="cmt">// disjoint sets = provinces</span>
+}</code></pre>
+
+<h3>Case: number of connected components — edge list (LC 323)</h3>
+<pre><code>int countComponents(int n, int[][] edges) {
+    DSU dsu = new DSU(n);
+    for (int[] e : edges) dsu.union(e[0], e[1]); <span class="cmt">// one pass over the edges</span>
+    return dsu.count;                            <span class="cmt">// no adjacency list, no visited array, no DFS</span>
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Contrast with Lesson 01</span>
+  The DFS version built an adjacency list, a <code>visited[]</code> array, and looped launches. DSU does the same job in four lines — and unlike DFS it answers connectivity <em>incrementally</em> as each edge arrives.
+</div>
+
+<h3>Case: redundant connection — the first cycle edge (LC 684) <span class="cmt">★Google favorite</span></h3>
+<pre><code>int[] findRedundantConnection(int[][] edges) {
+    DSU dsu = new DSU(edges.length + 1);        <span class="cmt">// nodes labelled 1..n → size n+1, ignore index 0</span>
+    for (int[] e : edges)
+        if (!dsu.union(e[0], e[1])) return e;    <span class="cmt">// both ends already joined → this edge closes the cycle</span>
+    return new int[0];
+}</code></pre>
+<div class="callout">
+  <span class="label">Why DSU is the natural fit</span>
+  The graph starts as a tree plus one extra edge. Process edges in order; the <em>first</em> <code>union</code> that returns
+  <code>false</code> is the one that, when removed, leaves a tree. DFS could find a cycle too, but DSU answers it in a single
+  streaming pass — exactly the dynamic-connectivity sweet spot.
+</div>
+
+<h3>Case: graph valid tree (LC 261)</h3>
+<pre><code>boolean validTree(int n, int[][] edges) {
+    if (edges.length != n - 1) return false;     <span class="cmt">// a tree on n nodes has EXACTLY n-1 edges</span>
+    DSU dsu = new DSU(n);
+    for (int[] e : edges)
+        if (!dsu.union(e[0], e[1])) return false; <span class="cmt">// a repeated union ⇒ a cycle ⇒ not a tree</span>
+    return true;                                  <span class="cmt">// n-1 edges + acyclic ⇒ connected ⇒ tree</span>
+}</code></pre>
+<p>
+<strong>Why the edge count alone closes it:</strong> with exactly <code>n-1</code> edges, "no cycle" mathematically <em>forces</em>
+"connected" (and vice-versa). So once you've checked <code>n-1</code> edges and no <code>union</code> failed, you're done — no
+separate <code>count == 1</code> check needed. (You <em>could</em> instead skip the edge-count check and assert <code>dsu.count == 1</code> at the end; either works, not both.)
+</p>
+
+<h3>Case: accounts merge — strings need an index map (LC 721) <span class="cmt">★Google favorite</span></h3>
+<pre><code>List&lt;List&lt;String&gt;&gt; accountsMerge(List&lt;List&lt;String&gt;&gt; accounts) {
+    Map&lt;String, Integer&gt; id = new HashMap&lt;&gt;();    <span class="cmt">// email → dsu index</span>
+    Map&lt;String, String&gt; owner = new HashMap&lt;&gt;();  <span class="cmt">// email → person name</span>
+    int n = 0;
+    for (List&lt;String&gt; acc : accounts)
+        for (int i = 1; i &lt; acc.size(); i++) {    <span class="cmt">// acc.get(0) is the name; emails follow</span>
+            String email = acc.get(i);
+            if (!id.containsKey(email)) id.put(email, n++);
+            owner.put(email, acc.get(0));
+        }
+    DSU dsu = new DSU(n);
+    for (List&lt;String&gt; acc : accounts)
+        for (int i = 2; i &lt; acc.size(); i++)      <span class="cmt">// union every email to the first email in its account</span>
+            dsu.union(id.get(acc.get(1)), id.get(acc.get(i)));
+
+    Map&lt;Integer, TreeSet&lt;String&gt;&gt; groups = new HashMap&lt;&gt;();
+    for (String email : id.keySet())              <span class="cmt">// bucket emails by their root</span>
+        groups.computeIfAbsent(dsu.find(id.get(email)), k -&gt; new TreeSet&lt;&gt;()).add(email);
+
+    List&lt;List&lt;String&gt;&gt; res = new ArrayList&lt;&gt;();
+    for (TreeSet&lt;String&gt; emails : groups.values()) {
+        List&lt;String&gt; row = new ArrayList&lt;&gt;(emails);   <span class="cmt">// TreeSet ⇒ already sorted</span>
+        row.add(0, owner.get(emails.first()));    <span class="cmt">// prepend the owner's name</span>
+        res.add(row);
+    }
+    return res;
+}</code></pre>
+<div class="callout">
+  <span class="label">The reusable trick — DSU only speaks integers</span>
+  When elements are strings, emails, or grid coordinates, build a <code>Map&lt;Thing,Integer&gt;</code> first, union on the ids,
+  then group the originals by <code>find(id)</code>. This <em>map-to-index</em> move recurs in nearly every real-world DSU problem
+  (and is exactly why interviewers love LC 721 — it tests whether you can bridge messy input to a clean integer DSU).
+</div>
+
+<h3>Case: satisfiability of equality equations (LC 990) <span class="cmt">★Google favorite</span></h3>
+<p>Two passes: union everything the <code>==</code> equations force together, <em>then</em> check that no <code>!=</code> equation contradicts a merge.</p>
+<pre><code>boolean equationsPossible(String[] equations) {
+    DSU dsu = new DSU(26);                        <span class="cmt">// variables are single lowercase letters a..z</span>
+    for (String eq : equations)
+        if (eq.charAt(1) == '=')                  <span class="cmt">// pattern is "a==b" → chars 0 and 3</span>
+            dsu.union(eq.charAt(0) - 'a', eq.charAt(3) - 'a');
+    for (String eq : equations)
+        if (eq.charAt(1) == '!'                    <span class="cmt">// "a!=b" but they're already in one set → impossible</span>
+            && dsu.find(eq.charAt(0) - 'a') == dsu.find(eq.charAt(3) - 'a'))
+            return false;
+    return true;
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Order matters: union first, check second</span>
+  All <code>==</code> constraints must be applied <em>before</em> any <code>!=</code> is tested — otherwise a later equality could
+  retroactively contradict an inequality you already passed. "Merge all the musts, then verify the must-nots" is a general DSU shape.
+</div>
+
+<h3>Case: number of islands II — online connectivity (LC 305, sketch)</h3>
+<p>
+The canonical <em>dynamic</em> problem: land appears one cell at a time, and after each addition you report the island count.
+Map each cell <code>(r,c)</code> to id <code>r*cols + c</code>, treat a new land cell as a fresh component (<code>count++</code>),
+then union it with any already-land 4-neighbour.
+</p>
+<pre><code>List&lt;Integer&gt; numIslands2(int m, int n, int[][] positions) {
+    DSU dsu = new DSU(m * n);
+    boolean[] land = new boolean[m * n];
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    int islands = 0;
+    List&lt;Integer&gt; res = new ArrayList&lt;&gt;();
+    for (int[] p : positions) {
+        int id = p[0] * n + p[1];
+        if (land[id]) { res.add(islands); continue; }  <span class="cmt">// repeated add → no change</span>
+        land[id] = true; islands++;                    <span class="cmt">// new cell starts as its own island</span>
+        for (int[] d : dirs) {
+            int nr = p[0] + d[0], nc = p[1] + d[1];
+            if (nr &lt; 0 || nr &gt;= m || nc &lt; 0 || nc &gt;= n) continue;
+            int nid = nr * n + nc;
+            if (land[nid] &amp;&amp; dsu.union(id, nid)) islands--; <span class="cmt">// merged two islands into one</span>
+        }
+        res.add(islands);
+    }
+    return res;
+}</code></pre>
+<p>
+Re-running BFS/DFS after every insertion would be O(k·V); DSU answers each insertion in amortized O(α(n)). This is the one
+case where DSU is not just convenient but strictly the right complexity — and it's why "online / streaming connectivity" is the
+loudest DSU signal. <strong>Kruskal's MST (Lesson 08)</strong> leans on the very same <code>union</code>-returns-true test to add only cycle-free edges.
+</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Forgetting path compression</strong> → a degenerate chain makes <code>find</code> O(n) and the whole solution O(n·m); you'll TLE on big inputs. Keep the <code>parent[x] = parent[parent[x]]</code> line. ✓</li>
+  <li><strong>Skipping union by size/rank</strong> → trees grow tall and <code>find</code> degrades; union by size keeps them flat. Use <em>both</em> optimizations together for the α(n) bound.</li>
+  <li><strong>The "already connected" check IS cycle detection</strong> → <code>union</code> returning <code>false</code> (i.e. <code>find(a)==find(b)</code> before merging) means this edge closes a cycle. Don't decrement <code>count</code> in that case. ✓</li>
+  <li><strong>1-indexed vs 0-indexed sizing</strong> → LC 684/261-style problems label nodes <code>1..n</code>; size arrays at <code>n+1</code> and ignore index 0, or you'll throw <code>ArrayIndexOutOfBounds</code>. ✓</li>
+  <li><strong>Comparing <code>parent[a]==parent[b]</code> instead of roots</strong> → correct only on a flat tree; once trees get deep it silently lies. Always compare <code>find(a)==find(b)</code>.</li>
+  <li><strong>Self-loop / duplicate edge</strong> → harmlessly handled by the early <code>return false</code> (already same root). ✓</li>
+  <li><strong>DSU is union-only</strong> → no efficient <code>split</code>/delete. If edges get <em>removed</em>, process events in reverse time (deletions become additions) or reach for a different structure.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What is the amortized time per operation for DSU with <em>both</em> path compression and union by size/rank?</div>
+  <button class="opt">O(log n), because the trees stay perfectly balanced</button>
+  <button class="opt">O(1) strictly, in the worst case, with no caveats</button>
+  <button class="opt">O(α(n)) amortized — inverse Ackermann, effectively constant (≤ 4)</button>
+  <div class="fb" data-correct="α(n) ≤ 4 for any practical n, so it is effectively constant — but the bound is amortized, not strict worst case, and it needs BOTH optimizations." data-wrong="With BOTH optimizations the bound is O(α(n)) amortized. O(log n) is what you get with only one of the two."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In <code>findRedundantConnection</code> (LC 684), which edge closes the cycle?</div>
+  <button class="opt">The first edge whose <code>union</code> returns <code>false</code> — both endpoints already share a root</button>
+  <button class="opt">Always the last edge in the input array</button>
+  <button class="opt">The edge connecting the two largest node labels</button>
+  <div class="fb" data-correct="If both endpoints already have the same root, adding the edge would close a cycle, so union returns false — and the first such edge is the answer." data-wrong="Position and labels are irrelevant; it's whichever edge first unions two nodes that are already in the same set."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Edges will be <em>removed</em> over time and you must report connectivity after each removal. Why is plain DSU a poor fit?</div>
+  <button class="opt">DSU can't store more than n elements at once</button>
+  <button class="opt">DSU supports union but has no efficient split, so it can't undo a merge — process removals in reverse instead</button>
+  <button class="opt">DSU only works on weighted graphs</button>
+  <div class="fb" data-correct="DSU is merge-only; there's no cheap split. Reverse time (treat deletions as additions) or use a different structure." data-wrong="The blocker is that DSU cannot split a set efficiently — it is fundamentally union-only, so reverse the timeline."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/count-connected-components">NeetCode — Union-Find (Number of Connected Components)</a>. The clearest walkthrough of the parent array, path compression, and union by rank in Java. Backup: <a href="https://cp-algorithms.com/data_structures/disjoint_set_union.html">CP-Algorithms — DSU</a> for the α(n) proof.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 323 → LC 547 → LC 684 → LC 261 → LC 990 → LC 721 → LC 305. Write the DSU class <em>once</em> from a blank file, then reuse it for all seven. The three starred ones (684, 721, 990) are reported Google favorites — drill them hardest.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run <code>find</code> on a degenerate chain, show union-by-size vs union-by-rank side by side, or wire DSU into
+  Kruskal end-to-end? Ask in the chat. When you can write the DSU class from memory and solve LC 684 and LC 721 cold,
+  say <strong>"next"</strong> and we move to Lesson 07: Weighted Shortest Paths (Dijkstra), then Lesson 08 where DSU powers Kruskal's MST.
+</div>
+
+<div class="nav">
+  <span><a href="0005-topological-sort.html">← Topological Sort</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0007-weighted-shortest-paths.html">Weighted Shortest Paths →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

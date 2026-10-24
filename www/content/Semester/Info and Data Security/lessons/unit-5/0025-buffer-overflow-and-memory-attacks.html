@@ -1,0 +1,226 @@
+<title>Buffer Overflow and Memory Attacks</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit V &middot; Lesson 25 of 28</p>
+<h1>Buffer Overflow and Memory Attacks</h1>
+<p class="deck">Memory layout of a running process, stack frame mechanics, smashing the stack, return address hijacking, shellcode injection, NOP sleds, and modern hardware/compiler defenses (Canaries, ASLR, DEP/NX).</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain buffer overflow with stack diagram, shellcode injection, and countermeasures&rdquo;</strong> is a guaranteed 10-mark question. Draw the stack layout clearly, showing the direction of buffer growth (low to high memory) toward the saved frame pointer and saved return address.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Buffer Overflow &amp; Smashing the Stack</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=1S0aBV-Waeo" target="_blank">Buffer Overflow &amp; Smashing the Stack | Computerphile</a>
+    <span class="v-meta">Computerphile &middot; 11:20</span>
+    <div class="v-why">The gold standard explanation in computer science: visualizes the x86 stack frame, local buffers, saved frame pointer, return address, and arbitrary code execution.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Modern Exploit Mitigations (Canaries, ASLR, DEP)</span>
+      <span class="best-tag">Top Exam Theory</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Memory Defenses: Stack Canaries, ASLR &amp; Non-Executable Stacks</a>
+    <span class="v-meta">Gate Smashers &middot; Operating Systems Series</span>
+    <div class="v-why">Comprehensive coverage of modern security defenses: Compiler canaries (`__stack_chk_fail`), Address Space Layout Randomization (ASLR), and hardware Data Execution Prevention (DEP / NX bit).</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: BUFFER OVERFLOW STACK SMASHING -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: x86 Stack Layout and Control-Flow Hijack</span>
+  <div class="flow-col">
+    <!-- Unmodified Stack -->
+    <div style="border:1.5px solid var(--rule); border-radius:6px; padding:0.8rem; background:var(--panel); width:100%; max-width:28rem;">
+      <div style="text-align:center; font-weight:700; color:var(--ink-soft); font-size:0.85rem; margin-bottom:0.4rem; text-transform:uppercase;">Normal Stack Frame (Grows Downwards &darr;)</div>
+      <div class="flow-col" style="gap:0.3rem;">
+        <div class="flow-box highlight" style="min-width:22rem; padding:0.35rem 0.6rem;">Function Parameters (Pushed by caller)</div>
+        <div class="flow-box ok" style="min-width:22rem; padding:0.35rem 0.6rem;"><strong>Saved Return Address (EIP / RIP)</strong></div>
+        <div class="flow-box" style="min-width:22rem; padding:0.35rem 0.6rem;">Saved Base Pointer (EBP / RBP)</div>
+        <div class="flow-box warn" style="min-width:22rem; padding:0.35rem 0.6rem;">Local Buffer <code>char buffer[64]</code></div>
+      </div>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Exploitation: Unchecked <code>strcpy(buffer, user_input)</code></span>
+    
+    <!-- Smashed Stack -->
+    <div style="border:2px solid var(--warn); border-radius:6px; padding:0.8rem; background:var(--panel); width:100%; max-width:28rem;">
+      <div style="text-align:center; font-weight:700; color:var(--warn); font-size:0.85rem; margin-bottom:0.4rem; text-transform:uppercase;">Smashed Stack Frame (Overflow &uarr;)</div>
+      <div class="flow-col" style="gap:0.3rem;">
+        <div class="flow-box warn" style="min-width:22rem; padding:0.35rem 0.6rem; border-color:var(--warn);">
+          <strong>OVERWRITTEN Return Address &rarr; Points to Shellcode!</strong>
+        </div>
+        <div class="flow-box warn" style="min-width:22rem; padding:0.35rem 0.6rem;">Overwritten Saved EBP (Junk: 0x41414141)</div>
+        <div class="flow-box highlight" style="min-width:22rem; padding:0.35rem 0.6rem;">NOP Sled (<code>\x90\x90...</code>) + Injected Shellcode payload</div>
+      </div>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box ok" style="min-width:24rem;">
+      <strong>Execution Flow Hijacked on Function <code>ret</code> Instruction</strong>
+      <span class="sub">CPU pops malicious pointer into Instruction Pointer (EIP) &rarr; Spawns root shell!</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>Process Memory Layout</h2>
+<p>When an operating system executes a program, it allocates a contiguous virtual address space partitioned into distinct segments:</p>
+
+<div class="solve">
+  <span class="lbl">Virtual Memory Architecture</span>
+  <pre class="mono">High Memory (0xFFFFFFFF in 32-bit)
+┌────────────────────────────────────────┐
+│ Kernel Space (mapped for syscalls)     │
+├────────────────────────────────────────┤
+│ Stack (grows DOWNWARD &darr;)                │ &lt;-- Local variables, return addresses
+│   &darr;                                    │
+│                                        │
+│   &uarr;                                    │
+│ Heap (grows UPWARD &uarr;)                  │ &lt;-- Dynamic memory (malloc, new)
+├────────────────────────────────────────┤
+│ BSS Segment                            │ &lt;-- Uninitialized global/static data
+├────────────────────────────────────────┤
+│ Data Segment                           │ &lt;-- Initialized global/static data
+├────────────────────────────────────────┤
+│ Text Segment (Code, read-only)         │ &lt;-- Compiled machine instructions
+└────────────────────────────────────────┘
+Low Memory (0x00000000)</pre>
+</div>
+
+<h2>The Anatomy of a Stack Frame</h2>
+<p>Each function call pushes an <strong>activation frame</strong> onto the stack. In x86 architecture, the stack grows downwards towards lower addresses, but buffers inside arrays fill <strong>upwards</strong> towards higher addresses.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Stack Entry</th><th>Direction</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Function Arguments</strong></td><td>Higher Memory</td><td>Parameters pushed by the caller in reverse order (right-to-left)</td></tr>
+<tr><td><strong>Saved Return Address (EIP/RIP)</strong></td><td>&uarr;</td><td>Instruction pointer where execution resumes after function returns</td></tr>
+<tr><td><strong>Saved Frame Pointer (EBP/RBP)</strong></td><td>&uarr;</td><td>Base pointer of the caller's stack frame</td></tr>
+<tr><td><strong>Local Buffers &amp; Variables</strong></td><td>Lower Memory</td><td>Memory allocated for function's local variables (e.g. <code>char buf[64];</code>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>How a Stack Buffer Overflow Works (&ldquo;Smashing the Stack&rdquo;)</h2>
+<p>In languages like C and C++, there is no built-in runtime bounds-checking on arrays or pointers. Unsafe functions like <code>strcpy()</code>, <code>strcat()</code>, <code>gets()</code>, and <code>scanf("%s")</code> copy characters into memory until encountering a null terminator (<code>\0</code>), regardless of buffer size.</p>
+
+<div class="solve">
+  <span class="lbl">Worked vulnerability example</span>
+  <pre class="mono">void vulnerable_function(char *user_input) {
+    char buffer[64];
+    strcpy(buffer, user_input);  /* UNSAFE: No bounds check! */
+}</pre>
+  <p>If <code>user_input</code> contains 100 bytes:</p>
+  <pre class="mono">Memory Layout:
+[ buffer (64 bytes) ] &rarr; fills toward &rarr; [ Saved EBP (4 bytes) ] &rarr; [ Saved RET (4 bytes) ]
+
+Attack Payload (100 bytes):
+[ NOP Sled (0x90...) ] [ Shellcode (execve /bin/sh) ] [ Overwrite EBP ] [ Target Address ]
+   (low address)  ──────────────────────────────────────────────&gt;   (overwrites RET)</pre>
+
+  <p><strong>The Execution Hijack:</strong></p>
+  <ol>
+    <li>The input fills the 64-byte <code>buffer</code>, spills past the boundary, and overwrites the saved EBP register.</li>
+    <li>It then overwrites the <strong>Saved Return Address</strong> with an address pointing back into the buffer.</li>
+    <li>When <code>vulnerable_function</code> finishes and executes the <code>ret</code> instruction, the CPU pops the attacker's forged address into the Instruction Pointer (EIP).</li>
+    <li>Control jumps straight to the attacker's <strong>shellcode</strong> with the privileges of the running process (often <code>root</code> / SYSTEM).</li>
+  </ol>
+</div>
+
+<h2>Exploit Components: Shellcode and NOP Sled</h2>
+<ul>
+  <li><strong>Shellcode:</strong> A small machine-code payload written in assembly that executes system calls (e.g., spawning a Unix shell <code>/bin/sh</code> or binding a remote network socket). It must avoid null bytes (<code>\x00</code>) to prevent terminating <code>strcpy()</code> prematurely.</li>
+  <li><strong>NOP Sled (0x90):</strong> A sequence of &ldquo;No Operation&rdquo; instructions placed immediately before the shellcode. The attacker does not need an exact return address; pointing anywhere inside the NOP sled causes the CPU to &ldquo;slide&rdquo; down until executing the shellcode.</li>
+</ul>
+
+<h2>Other Memory Vulnerabilities</h2>
+<ul>
+  <li><strong>Format String Attacks:</strong> Occurs when user input is passed directly as the format argument (e.g., <code>printf(user_input)</code>). Attackers use <code>%x</code> to leak stack secrets or <code>%n</code> to write arbitrary values to memory.</li>
+  <li><strong>Integer Overflow:</strong> When an integer arithmetic wrap-around causes a small buffer to be allocated (e.g. <code>malloc(len + 1)</code> wrapping to 0), followed by a massive copy that overflows the heap.</li>
+  <li><strong>Heap Overflow:</strong> Overflows heap-allocated memory, corrupting chunk headers (forward/backward pointers in <code>malloc</code> metadata) to overwrite function pointers.</li>
+</ul>
+
+<h2>Modern Defensive Countermeasures</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Defense Mechanism</th><th>Level</th><th>How it works</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Stack Canaries (StackGuard)</strong></td><td>Compiler</td><td>Places a random 32/64-bit secret integer (canary) between local buffers and the saved return address. Before returning, the function verifies the canary value. If altered by an overflow, the program halts immediately (<code>SIGABRT</code>) without jumping to the return address.</td></tr>
+<tr><td><strong>2. ASLR (Address Space Layout Randomization)</strong></td><td>Operating System / Kernel</td><td>Randomizes the memory offsets of the stack, heap, and shared libraries each time the program runs. The attacker cannot predict the exact address of their shellcode or library functions.</td></tr>
+<tr><td><strong>3. DEP / NX Bit (Data Execution Prevention / W^X)</strong></td><td>CPU Hardware / OS</td><td>Marks memory pages as either <em>Writable</em> or <em>Executable</em>, never both ($W \oplus X$). Memory pages in the stack and heap are non-executable; jumping to shellcode on the stack triggers a hardware CPU fault.</td></tr>
+<tr><td><strong>4. Safe Functions &amp; Modern Languages</strong></td><td>Developer / Application</td><td>Replacing unsafe C routines with bounded alternatives (<code>strncpy</code>, <code>snprintf</code>, <code>fgets</code>), or using memory-safe programming languages (Rust, Go, Java, Python).</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In a classic stack smashing attack, what critical value on the stack is overwritten to redirect control flow?</p>
+  <div class="opts">
+    <button class="opt">The text segment base address</button>
+    <button class="opt">The heap free list pointer</button>
+    <button class="opt">The global variable table</button>
+    <button class="opt" data-ok="1">The saved return address (EIP / RIP)</button>
+  </div>
+  <p class="why">Overwriting the saved return address causes the CPU to jump to the attacker's chosen payload upon function return.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. What is the purpose of a NOP sled (sequence of 0x90 bytes)?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">To provide a wide landing zone so the exploit succeeds without knowing the exact shellcode address</button>
+    <button class="opt">To increase process CPU priority</button>
+    <button class="opt">To bypass firewall packet inspection</button>
+    <button class="opt">To encrypt the shellcode against antivirus detection</button>
+  </div>
+  <p class="why">Jumping anywhere within the NOP sled slides the instruction pointer straight into the payload.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. How does Data Execution Prevention (DEP / NX bit) protect against buffer overflow exploits?</p>
+  <div class="opts">
+    <button class="opt">By converting all C code to Python</button>
+    <button class="opt" data-ok="1">By marking stack and heap memory pages as non-executable (W^X)</button>
+    <button class="opt">By wiping system RAM on shutdown</button>
+    <button class="opt">By encrypting stack variables with AES</button>
+  </div>
+  <p class="why">With DEP/NX, the CPU refuses to execute code residing in stack or heap pages, causing an immediate segmentation fault.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>List the memory segments of a running process from low to high address.</summary>
+    <p class="ans">Text (code) &rarr; Data (initialized globals) &rarr; BSS (uninitialized) &rarr; Heap (grows up) &rarr; Stack (grows down) &rarr; Kernel space.</p></details>
+  <details class="card"><summary>How do stack canaries prevent control-flow hijacking?</summary>
+    <p class="ans">A canary is placed between local variables and the saved return address. A linear buffer overflow must overwrite the canary to reach the return address; the function checks the canary before returning and aborts if corrupted.</p></details>
+  <details class="card"><summary>Name the three hardware/OS/compiler mitigations against buffer overflows.</summary>
+    <p class="ans">1. Stack Canaries (compiler). 2. ASLR (randomizes stack/heap/library memory addresses). 3. DEP/NX bit (prevents execution of data pages).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0024-system-security-and-threat-models.html">&larr; Previous: System Security &amp; Threat Models</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0026-malicious-software-viruses-worms-trojans.html">Next: Malicious Software &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

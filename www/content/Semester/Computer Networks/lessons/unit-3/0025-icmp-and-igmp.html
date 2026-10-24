@@ -1,0 +1,277 @@
+<title>ICMP and IGMP</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 25 of 27</p>
+<h1>ICMP and IGMP</h1>
+<p class="deck">The two companion protocols of IP. ICMP reports errors and answers queries &mdash; it is what <code>ping</code> and <code>traceroute</code> are built from. IGMP manages multicast group membership. Both are descriptive, both are reliably asked, and both are short.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Usually two 5-mark questions, or one 10-mark "explain ICMP and IGMP". For ICMP, structure the answer as <strong>error-reporting messages</strong> and <strong>query messages</strong> in two lists, then explain <strong>ping and traceroute</strong> &mdash; the applications are what make the answer concrete and they are frequently a sub-question in their own right. For IGMP, the <strong>three message types</strong> and the <strong>join/leave process</strong> carry the marks. Do not confuse the two: <strong>ICMP reports problems, IGMP manages groups.</strong></p>
+</div>
+
+<h2>ICMP &mdash; Internet Control Message Protocol</h2>
+
+<h3>Why it exists</h3>
+
+<p>IP is an <strong>unreliable, connectionless, best-effort</strong> protocol. It has <strong>no error-reporting and no error-correcting mechanism</strong> of its own, and no mechanism for host or management queries. ICMP was designed to <strong>compensate for those two deficiencies</strong>. Say this sentence first in any ICMP answer; it frames everything that follows.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Layer</strong></td><td>A <strong>network layer</strong> protocol</td></tr>
+<tr><td><strong>Encapsulation</strong></td><td>ICMP messages are <strong>encapsulated inside IP datagrams</strong>, with <strong>protocol number 1</strong>. So ICMP uses IP even though it is not a user protocol.</td></tr>
+<tr><td><strong>Message format</strong></td><td>An 8-byte header &mdash; <strong>Type (1 byte), Code (1 byte), Checksum (2 bytes)</strong>, then 4 bytes specific to the message type &mdash; followed by the data section.</td></tr>
+<tr><td><strong>Data section</strong></td><td>For an error message it carries the <strong>IP header of the original datagram plus its first 8 bytes of data</strong>. Those 8 bytes contain the port numbers and sequence number, which is exactly what the source needs to identify which process the failed datagram belonged to.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Error-reporting messages</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Message</th><th>Type</th><th>Sent when</th></tr></thead>
+<tbody>
+<tr><td><strong>Destination Unreachable</strong></td><td class="num">3</td><td>A router or the destination host cannot deliver the datagram. The <strong>code</strong> says why: network unreachable, host unreachable, protocol unreachable, port unreachable, fragmentation needed but DF set.</td></tr>
+<tr><td><strong>Source Quench</strong></td><td class="num">4</td><td>A router's buffer is overflowing &mdash; a primitive <strong>flow and congestion control</strong> request asking the source to slow down. <strong>Now deprecated</strong>, because it added congestion rather than relieving it.</td></tr>
+<tr><td><strong>Time Exceeded</strong></td><td class="num">11</td><td>Either the <strong>TTL reached zero</strong> (the datagram is discarded and this is reported), or the destination did not receive all fragments within its reassembly time limit.</td></tr>
+<tr><td><strong>Parameter Problem</strong></td><td class="num">12</td><td>Ambiguity or a missing value in a <strong>header field</strong> &mdash; the message includes a pointer to the offending byte.</td></tr>
+<tr><td><strong>Redirection</strong></td><td class="num">5</td><td>A host sent a datagram to the wrong router; the router forwards it anyway and tells the host to <strong>update its routing table</strong> with the better next hop.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The four rules on when ICMP is NOT sent &mdash; a classic 4-mark question</span>
+  <p>No ICMP error message is generated for:</p>
+  <ol style="margin:.3rem 0 0 1.1rem">
+    <li>A datagram carrying an <strong>ICMP error message</strong> &mdash; otherwise errors could cascade endlessly.</li>
+    <li>A <strong>fragmented datagram that is not the first fragment</strong> &mdash; only fragment zero triggers a report.</li>
+    <li>A datagram having a <strong>multicast address</strong>.</li>
+    <li>A datagram having a <strong>special address</strong> such as 127.0.0.0 (loopback) or 0.0.0.0.</li>
+  </ol>
+</div>
+
+<h3>Query messages</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Message pair</th><th>Types</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Echo Request / Echo Reply</strong></td><td class="num">8 / 0</td><td>Determine whether two systems can communicate. <strong>This is what <code>ping</code> uses.</strong></td></tr>
+<tr><td><strong>Timestamp Request / Reply</strong></td><td class="num">13 / 14</td><td>Determine the <strong>round-trip time</strong> between two machines, and synchronise clocks.</td></tr>
+<tr><td><strong>Router Solicitation / Advertisement</strong></td><td class="num">10 / 9</td><td>A host discovers the routers on its network and learns whether they are alive.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The two tools built on ICMP</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Tool</th><th>Uses</th><th>How it works</th></tr></thead>
+<tbody>
+<tr><td><strong><code>ping</code></strong></td><td>Echo request and echo reply</td><td>Sends echo requests and measures which return and how long they take. It reports <strong>reachability, round-trip time and packet loss</strong>.</td></tr>
+<tr><td><strong><code>traceroute</code></strong> (<code>tracert</code>)</td><td>Time exceeded, and destination unreachable</td><td><strong>Sends datagrams with deliberately small TTLs.</strong> TTL = 1 expires at the first router, which returns a time-exceeded message revealing its address; TTL = 2 reveals the second router; and so on. The <strong>destination</strong> is identified when a <em>port unreachable</em> or echo reply comes back instead. So the whole path is discovered, one hop at a time.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The traceroute mechanism is worth writing out fully &mdash; it is a favourite question because it shows whether TTL and ICMP are both properly understood.</p>
+
+<h2>IGMP &mdash; Internet Group Management Protocol</h2>
+
+<h3>What it does</h3>
+
+<p><strong>IGMP is not a multicast routing protocol.</strong> It is a protocol that <strong>manages group membership</strong>: it lets a host tell its local router which multicast groups it wants to receive, and lets the router keep that list current. The multicast routing protocols (DVMRP, MOSPF, PIM &mdash; next lesson) then use that information to build delivery trees.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Layer</strong></td><td>Network layer</td></tr>
+<tr><td><strong>Encapsulation</strong></td><td>In IP datagrams, with <strong>protocol number 2</strong></td></tr>
+<tr><td><strong>Addresses used</strong></td><td><strong>Class D</strong> multicast addresses, 224.0.0.0 to 239.255.255.255</td></tr>
+<tr><td><strong>Between</strong></td><td>A <strong>host and its local multicast router</strong> &mdash; IGMP messages never travel beyond the local network</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three message types</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Message</th><th>Sent by</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Membership Query</strong></td><td>The <strong>router</strong></td><td>Periodically asks which groups still have members on this network. A <strong>general query</strong> asks about all groups; a <strong>special query</strong> asks about one specific group.</td></tr>
+<tr><td><strong>Membership Report</strong></td><td>A <strong>host</strong></td><td>Announces that the host wishes to <strong>join</strong> a group, or answers a query confirming continued membership.</td></tr>
+<tr><td><strong>Leave Report</strong></td><td>A <strong>host</strong></td><td>Announces that the host is <strong>leaving</strong> a group. The router then sends a special query for that group to check whether anyone else is still a member.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Joining and leaving</h3>
+
+<div class="formula">
+  <span class="name">Joining</span>
+  A host sends a <strong>membership report</strong> naming the group. The report is sent <strong>twice</strong>, in case the first is lost. If the host is the first member on that network, the router starts forwarding that group's traffic here.
+</div>
+
+<div class="formula">
+  <span class="name">Leaving</span>
+  A host sends a <strong>leave report</strong>. The router responds with a <strong>special query</strong> for that group. If <strong>no membership report</strong> arrives before the timer expires, the router concludes there are <strong>no members left</strong> and stops forwarding that group's traffic onto this network.
+</div>
+
+<div class="box exam">
+  <span class="lbl">Two mechanisms that make IGMP efficient &mdash; both worth a mark</span>
+  <p><strong>Delayed response:</strong> when a host receives a query, it does not reply immediately. It sets a <strong>random delay timer</strong> for each group. This prevents every host answering at once and flooding the network.</p>
+  <p><strong>Report suppression:</strong> a host that hears <em>another</em> host's report for a group it also belongs to <strong>cancels its own report</strong>. The router only needs to know that <em>at least one</em> member exists, not how many &mdash; so one report per group per network is sufficient.</p>
+</div>
+
+<h2>ICMP vs IGMP</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>ICMP</th><th>IGMP</th></tr></thead>
+<tbody>
+<tr><td><strong>Full form</strong></td><td>Internet <strong>Control Message</strong> Protocol</td><td>Internet <strong>Group Management</strong> Protocol</td></tr>
+<tr><td><strong>Purpose</strong></td><td><strong>Error reporting and queries</strong> &mdash; compensates for IP's lack of error reporting</td><td><strong>Multicast group membership management</strong></td></tr>
+<tr><td><strong>Protocol number</strong></td><td class="num"><strong>1</strong></td><td class="num"><strong>2</strong></td></tr>
+<tr><td><strong>Addresses involved</strong></td><td>Unicast, normally</td><td><strong>Class D multicast</strong> (224.0.0.0&ndash;239.255.255.255)</td></tr>
+<tr><td><strong>Scope</strong></td><td>End to end, across the internet</td><td><strong>Local network only</strong> &mdash; host to its own router</td></tr>
+<tr><td><strong>Message types</strong></td><td>Error-reporting and query messages</td><td>Membership query, membership report, leave report</td></tr>
+<tr><td><strong>Tools built on it</strong></td><td><code>ping</code>, <code>traceroute</code></td><td>Used by multicast routing protocols such as DVMRP and PIM</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">ICMP Error Reporting & Network Diagnostics Engine</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>Ping (Echo Test)</strong><span class="sub">Type 8: Echo Request &rarr;<br>&larr; Type 0: Echo Reply<br>Measures round-trip latency & packet loss</span></div>
+    <div class="flow-box warn"><strong>Traceroute (TTL Expiry)</strong><span class="sub">Sends packets with TTL=1, 2, 3...<br>Router drops packet when TTL reaches 0 and replies with Type 11 (Time Exceeded)</span></div>
+    <div class="flow-box ok"><strong>Destination Unreachable</strong><span class="sub">Type 3 message emitted when host, network, or port is unreachable or DF bit prevents fragmentation</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">ICMP Diagnostics</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Internet Control Message Protocol (ICMP) Working & Messages</div>
+    <div class="v-desc">Quick, exam-focused review of ICMP encapsulation inside IP, query messages, error reporting restrictions, and traceroute packet traces.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=tAKx2RCgqow" target="_blank" rel="noopener">Watch on YouTube &rarr; (5 Minutes Engineering)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. ICMP exists because IP has no:</p>
+  <div class="opts">
+    <button class="opt">Way to address hosts across different networks</button>
+    <button class="opt">Method of fragmenting oversized datagrams</button>
+    <button class="opt" data-ok="1">Error-reporting or host-query mechanism of its own</button>
+    <button class="opt">Header checksum to detect corrupted headers</button>
+  </div>
+  <p class="why">IP is unreliable, connectionless and best-effort, with no error reporting and no query mechanism. ICMP compensates for exactly those two gaps. IP does have logical addressing, fragmentation and a header checksum.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. An ICMP error message carries, in its data section:</p>
+  <div class="opts">
+    <button class="opt">The complete original datagram, header and all data</button>
+    <button class="opt">Nothing &mdash; the type and code fields carry everything</button>
+    <button class="opt">Only the source and destination addresses involved</button>
+    <button class="opt" data-ok="1">The original IP header plus the first 8 bytes of its data</button>
+  </div>
+  <p class="why">Those 8 bytes hold the port numbers and sequence number, which is what the source needs to identify which process the failed datagram belonged to. Carrying the whole datagram would waste bandwidth reporting a failure.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Traceroute discovers the path by:</p>
+  <div class="opts">
+    <button class="opt">Broadcasting an echo request that every router along the path answers</button>
+    <button class="opt" data-ok="1">Sending datagrams with increasing TTL values and collecting time-exceeded replies</button>
+    <button class="opt">Asking each router in turn to forward its complete routing table</button>
+    <button class="opt">Reading the record-route option from the returning datagram header</button>
+  </div>
+  <p class="why">TTL = 1 expires at the first router, which reports back and reveals itself; TTL = 2 reveals the second, and so on. The destination is recognised when a port-unreachable or echo reply arrives instead of a time-exceeded message.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. For which of these IS an ICMP error message generated?</p>
+  <div class="opts">
+    <button class="opt">A datagram carrying another ICMP error message</button>
+    <button class="opt">A datagram addressed to a multicast group address</button>
+    <button class="opt" data-ok="1">The first fragment of a fragmented datagram that cannot be delivered</button>
+    <button class="opt">A datagram addressed to the loopback address 127.0.0.1</button>
+  </div>
+  <p class="why">The rule suppresses reports for non-first fragments, but fragment zero does trigger one. The other three are exactly the cases suppressed — errors about errors would cascade, and multicast or special addresses would generate storms of replies.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. IGMP is used to:</p>
+  <div class="opts">
+    <button class="opt">Translate a multicast group address into a set of unicast addresses</button>
+    <button class="opt">Compute the multicast delivery tree across the whole internet</button>
+    <button class="opt" data-ok="1">Tell a local router which multicast groups a host wishes to receive</button>
+    <button class="opt">Report errors that occur while forwarding multicast datagrams</button>
+  </div>
+  <p class="why">IGMP manages group membership on the local network only. Building the delivery tree across the internet is the job of the multicast routing protocols — DVMRP, MOSPF and PIM — which consume IGMP's membership information.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Report suppression in IGMP means that:</p>
+  <div class="opts">
+    <button class="opt">Leave reports are never sent, to reduce network traffic</button>
+    <button class="opt">Reports are sent only once rather than twice for reliability</button>
+    <button class="opt">The router suppresses reports from hosts that joined recently</button>
+    <button class="opt" data-ok="1">A host cancels its report if it hears another host report the same group</button>
+  </div>
+  <p class="why">The router only needs to know that at least one member exists, not how many — so one report per group per network suffices. Combined with the random delay timer, this keeps a query from producing a flood of simultaneous replies.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Why does ICMP exist, and how is it carried?</summary>
+    <p class="ans">IP is unreliable, connectionless and best-effort, with no error-reporting mechanism and no host or management query mechanism; ICMP compensates for both. ICMP messages are encapsulated inside IP datagrams with protocol number 1.</p></details>
+  <details class="card"><summary>Name the five ICMP error-reporting messages.</summary>
+    <p class="ans">Destination unreachable (type 3), source quench (4, deprecated), redirection (5), time exceeded (11), parameter problem (12).</p></details>
+  <details class="card"><summary>Name the ICMP query message pairs and their uses.</summary>
+    <p class="ans">Echo request/reply (types 8/0) — used by ping to test reachability. Timestamp request/reply (13/14) — round-trip time and clock synchronisation. Router solicitation/advertisement (10/9) — discovering routers on the network.</p></details>
+  <details class="card"><summary>State the four cases in which no ICMP error message is generated.</summary>
+    <p class="ans">For a datagram carrying an ICMP error message; for a fragment other than the first; for a datagram with a multicast address; and for a datagram with a special address such as 127.0.0.0 or 0.0.0.0.</p></details>
+  <details class="card"><summary>Explain how traceroute works.</summary>
+    <p class="ans">It sends datagrams with deliberately small TTL values. TTL = 1 expires at the first router, which returns a time-exceeded message revealing its address; TTL = 2 reveals the second router, and so on. The destination is identified when a port-unreachable or echo reply returns instead, so the whole path is mapped one hop at a time.</p></details>
+  <details class="card"><summary>What is IGMP, and what is it not?</summary>
+    <p class="ans">It manages multicast group membership between a host and its local router, using Class D addresses and protocol number 2. It is not a multicast routing protocol — DVMRP, MOSPF and PIM build the delivery trees using the membership information IGMP collects.</p></details>
+  <details class="card"><summary>Name the three IGMP messages and who sends each.</summary>
+    <p class="ans">Membership query — sent by the router, either general (all groups) or special (one group). Membership report — sent by a host to join a group or confirm membership. Leave report — sent by a host leaving a group, after which the router sends a special query to check whether anyone remains.</p></details>
+  <details class="card"><summary>Explain delayed response and report suppression.</summary>
+    <p class="ans">Delayed response: a host receiving a query sets a random delay timer per group rather than replying at once, preventing a flood of simultaneous replies. Report suppression: a host that hears another host's report for a group it also belongs to cancels its own, since the router only needs to know at least one member exists.</p></details>
+</div>
+
+<p class="ask">Multicast routing itself &mdash; DVMRP, MOSPF and PIM &mdash; comes next, alongside unicast routing. IGMP feeds directly into it.</p>
+
+<div class="nav">
+  <a href="0024-nat-arp-and-rarp.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0026-unicast-and-multicast-routing.html">Next: Unicast and Multicast Routing &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

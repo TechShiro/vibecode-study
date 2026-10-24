@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 16 — Next.js: Data, Server Actions &amp; APIs</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 16 of 24 · SSR/SSG/ISR, actions, route handlers</div>
+<h1>Next.js: Data, Server Actions &amp; APIs</h1>
+<p class="subtitle">Four rendering strategies, forms that mutate the database without an API layer, and endpoints when you do need one — this is where Next becomes genuinely full-stack.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 16 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The four rendering strategies</h2>
+<p>
+"When is the HTML for this page produced?" — every rendering strategy is just a different answer to that
+single question. Nail these four definitions; they are asked in nearly every frontend interview.
+</p>
+<ul>
+  <li><strong>CSR — Client-Side Rendering.</strong> HTML is produced <em>in the browser</em>, by JavaScript, after the bundle loads. Your Vite SPA from Module B. Fast to navigate once loaded; bad SEO, slow first paint.</li>
+  <li><strong>SSR — Server-Side Rendering (dynamic).</strong> HTML is produced <em>on the server, per request</em>. Always fresh, can be personalized (cookies, user session) — but every visit pays a server round-trip.</li>
+  <li><strong>SSG — Static Site Generation.</strong> HTML is produced <em>once, at build time</em> (<code>npm run build</code>) and served from a CDN. Fastest possible delivery; content is frozen until the next deploy.</li>
+  <li><strong>ISR — Incremental Static Regeneration.</strong> SSG with an expiry: the static page is re-generated in the background after a <code>revalidate</code> window (or on demand). Static speed, near-fresh data, no rebuilds.</li>
+</ul>
+
+<table>
+  <thead><tr><th>Strategy</th><th>HTML built</th><th>Freshness</th><th>Speed</th><th>Use for</th></tr></thead>
+  <tbody>
+    <tr><td>CSR</td><td>In the browser</td><td>Live (after load)</td><td>Slow first paint</td><td>Dashboards behind login, highly interactive tools</td></tr>
+    <tr><td>SSR</td><td>Per request</td><td>Always fresh</td><td>Server work every visit</td><td>Personalized/real-time pages: feeds, carts, search results</td></tr>
+    <tr><td>SSG</td><td>At build time</td><td>Frozen until redeploy</td><td>Fastest (CDN)</td><td>Docs, blogs, marketing pages</td></tr>
+    <tr><td>ISR</td><td>Build time + timed rebuilds</td><td>Stale up to N seconds</td><td>CDN-fast</td><td>Product pages, news lists — mostly-static, occasionally changing</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  SSR is a JSP/Thymeleaf page rendered per request. SSG is like pre-generating all pages into static HTML at
+  build time and putting them behind a CDN. ISR is that plus a cache TTL — think of a cached Spring response
+  with <code>maxAge</code>, regenerated lazily after expiry.
+</div>
+
+<h2>2 · How Next chooses — static by default, dynamic on demand</h2>
+<p>
+In the App Router you don't pick a strategy from a menu — <strong>Next infers it per route</strong>.
+The rule: a route is <strong>static (SSG) by default</strong>. It becomes <strong>dynamic (SSR)</strong> the
+moment it uses something that can only be known at request time:
+</p>
+<ul>
+  <li><code>cookies()</code> or <code>headers()</code> from <code>next/headers</code> — reading the request means you need a request.</li>
+  <li>Reading <code>searchParams</code> in a page (<code>?q=chess</code> varies per request).</li>
+  <li>A <code>fetch</code> with <code>cache: 'no-store'</code> — you demanded fresh data every time.</li>
+  <li>Forcing it: <code>export const dynamic = 'force-dynamic'</code> at the top of the file.</li>
+</ul>
+<p>
+Add <code>revalidate</code> to a static route and you have ISR. Run <code>npm run build</code> and Next prints
+a symbol per route — ○ static, ƒ dynamic — so you can <em>see</em> what it inferred.
+</p>
+
+<pre><code><span class="cmt">// this page just became DYNAMIC — cookies() needs a live request</span>
+import { cookies } from 'next/headers';
+
+export default async function Cart() {
+  const cartId = (await cookies()).get('cartId')?.value;
+  const items = await getCart(cartId);
+  return &lt;CartView items={items} /&gt;;
+}
+
+<span class="cmt">// this page is ISR — static, regenerated at most every 60 seconds</span>
+export const revalidate = 60;
+
+export default async function News() {
+  const stories = await getStories();
+  return &lt;StoryList stories={stories} /&gt;;
+}</code></pre>
+
+<h2>3 · Fetching data in Server Components</h2>
+<p>
+Lesson 15's superpower, now in full: server components can be <code>async</code> and just…
+<code>await</code>. No <code>useEffect</code>, no loading-state boilerplate, no exposing your API keys.
+And Next <em>extends</em> the standard <code>fetch</code> with caching controls:
+</p>
+
+<pre><code>export default async function Repos() {
+  <span class="cmt">// 1) cached indefinitely — this data becomes part of the static page</span>
+  const a = await fetch('https://api.github.com/users/krish/repos',
+                        { cache: 'force-cache' });
+
+  <span class="cmt">// 2) never cached — fresh every request (and makes the route dynamic)</span>
+  const b = await fetch('https://api.example.com/live-scores',
+                        { cache: 'no-store' });
+
+  <span class="cmt">// 3) ISR per-request-source: cache, but refetch after 3600s</span>
+  const c = await fetch('https://api.example.com/prices',
+                        { next: { revalidate: 3600 } });
+
+  <span class="cmt">// 4) tagged — so a mutation can surgically invalidate it later</span>
+  const d = await fetch('https://api.example.com/posts',
+                        { next: { tags: ['posts'] } });   <span class="cmt">// revalidateTag('posts')</span>
+
+  const repos = await a.json();
+  return &lt;ul&gt;{repos.map(r =&gt; &lt;li key={r.id}&gt;{r.name}&lt;/li&gt;)}&lt;/ul&gt;;
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha — version drift</span>
+  In Next 13/14, <code>fetch</code> in server components was cached (<code>force-cache</code>) by default;
+  <strong>Next 15 flipped the default to uncached</strong> — you now opt <em>in</em> to caching. Interviewers may
+  hold either mental model, so say the safe version: "static routes cache by default, and per-fetch you control
+  it with <code>cache</code> / <code>next.revalidate</code>; the fetch default changed in Next 15."
+</div>
+
+<p>
+<strong>Request memoization:</strong> within a single render pass, identical <code>fetch(url)</code> calls are
+automatically deduplicated. So your layout, page, and a nested component can each call
+<code>getUser()</code> without three network hits — one request, shared result. That's why Next has no
+"pass data down from a special loader function" requirement: fetch where you need it.
+</p>
+
+<h2>4 · Route Handlers — when you actually need an API</h2>
+<p>
+Server components cover <em>your own pages</em>. But sometimes the caller isn't your page: a mobile app,
+a webhook from Stripe, a third-party consuming JSON. For that, a <code>route.js</code> file turns a folder
+into an HTTP endpoint:
+</p>
+
+<pre><code><span class="cmt">// app/api/posts/route.js  →  /api/posts</span>
+import { NextResponse } from 'next/server';
+
+export async function GET(request) {
+  const q = request.nextUrl.searchParams.get('q');   <span class="cmt">// request is a NextRequest</span>
+  const posts = await db.searchPosts(q);
+  return NextResponse.json(posts);                   <span class="cmt">// JSON + status 200</span>
+}
+
+export async function POST(request) {
+  const body = await request.json();
+  if (!body.title) {
+    return NextResponse.json({ error: 'title required' }, { status: 400 });
+  }
+  const post = await db.createPost(body);
+  return NextResponse.json(post, { status: 201 });
+}</code></pre>
+
+<p>
+Export one function per HTTP method (<code>GET</code>, <code>POST</code>, <code>PUT</code>,
+<code>DELETE</code>…). <code>NextRequest</code> extends the web-standard <code>Request</code> (you met
+<code>fetch</code>'s Request/Response in Lesson 7) with helpers like <code>nextUrl</code> and cookies;
+<code>NextResponse</code> adds <code>json()</code>, <code>redirect()</code>, and cookie setting.
+A folder can have <code>page.js</code> <em>or</em> <code>route.js</code>, never both — one URL, one meaning.
+</p>
+
+<h2>5 · Server Actions — mutations without writing an API</h2>
+<p>
+Reads are solved. Now writes: the classic flow is "build a POST endpoint, fetch it from a form handler,
+manage loading and errors by hand". Server Actions collapse that. A function marked
+<code>'use server'</code> can be passed <em>directly</em> to a form — Next generates the endpoint, the wiring,
+and the plumbing:
+</p>
+
+<pre><code><span class="cmt">// app/actions.js</span>
+'use server';                              <span class="cmt">// every export here is a Server Action</span>
+import { revalidatePath } from 'next/cache';
+
+export async function createPost(formData) {
+  const title = formData.get('title');     <span class="cmt">// standard FormData API</span>
+  await db.insertPost({ title });          <span class="cmt">// runs ON THE SERVER — DB, secrets, fine</span>
+  revalidatePath('/posts');                <span class="cmt">// purge cached /posts so it shows the new row</span>
+}
+
+<span class="cmt">// app/posts/new/page.js — a SERVER component with a working form</span>
+import { createPost } from '../../actions';
+
+export default function NewPost() {
+  return (
+    &lt;form action={createPost}&gt;            <span class="cmt">{/* the function IS the endpoint */}</span>
+      &lt;input name="title" /&gt;
+      &lt;button type="submit"&gt;Create&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<p>Three details worth saying out loud in an interview:</p>
+<ul>
+  <li><strong>Progressive enhancement.</strong> Because it's a real <code>&lt;form action&gt;</code>, submission works <em>even before JS loads</em> (or with JS disabled) — the browser posts, the server acts. JS just upgrades the experience.</li>
+  <li><strong>Pending and result state</strong> come from hooks (in client components): <code>useFormStatus()</code> gives <code>{ pending }</code> for a "Saving…" button; <code>useActionState(action, initial)</code> tracks the action's returned state, e.g. validation errors.</li>
+  <li><strong>Cache revalidation.</strong> After a mutation, call <code>revalidatePath('/posts')</code> or <code>revalidateTag('posts')</code> so cached pages/fetches refresh — mutation and cache invalidation live side by side.</li>
+</ul>
+
+<table>
+  <thead><tr><th></th><th>Server Action</th><th>Route Handler</th></tr></thead>
+  <tbody>
+    <tr><td>Called by</td><td>Your own React UI (forms, buttons)</td><td>Anything speaking HTTP: mobile apps, webhooks, other services</td></tr>
+    <tr><td>You write</td><td>Just a function — no URL, no fetch call</td><td>Endpoint + method handling + client fetch code</td></tr>
+    <tr><td>Type of work</td><td>Mutations (writes) from your app</td><td>Public JSON APIs, webhooks, non-GET-page responses (files, redirects)</td></tr>
+    <tr><td>Works without client JS</td><td>Yes (form posts natively)</td><td>N/A — it's an API, not UI</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "For my own app's mutations I use Server Actions — a <code>'use server'</code> function passed straight to a
+  form, with <code>revalidatePath</code> after the write. I add Route Handlers only when an external client
+  needs an HTTP API: webhooks, a mobile app, or third-party consumers."
+</div>
+
+<h2>6 · middleware.js — the gatekeeper</h2>
+<p>
+One file at the project root, running <strong>before</strong> matched requests reach any route — ideal for
+auth redirects, locale detection, and header rewrites. It runs on every matched request, so keep it tiny.
+</p>
+
+<pre><code><span class="cmt">// middleware.js (project root, next to app/)</span>
+import { NextResponse } from 'next/server';
+
+export function middleware(request) {
+  const token = request.cookies.get('session')?.value;
+  if (!token) {
+    <span class="cmt">// not logged in → bounce to /login before the page even renders</span>
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  return NextResponse.next();              <span class="cmt">// let the request through</span>
+}
+
+export const config = {
+  matcher: ['/dashboard/:path*', '/settings/:path*'],  <span class="cmt">// only guard these</span>
+};</code></pre>
+
+<h2>7 · Environment variables — the one prefix rule</h2>
+<pre><code><span class="cmt"># .env.local  (gitignored)</span>
+DATABASE_URL=postgres://user:secret@host/db     <span class="cmt"># server-only. NEVER reaches the browser</span>
+NEXT_PUBLIC_ANALYTICS_ID=UA-1234                <span class="cmt"># inlined into the client bundle = PUBLIC</span></code></pre>
+<p>
+The rule: <code>process.env.X</code> works anywhere on the server; only variables prefixed
+<strong><code>NEXT_PUBLIC_</code></strong> are baked into client-side code. This is a hard compile-time line —
+misnaming <code>DATABASE_URL</code> to <code>NEXT_PUBLIC_DATABASE_URL</code> would ship your DB password to
+every visitor. The prefix is a promise: "I know this becomes public."
+</p>
+
+<h2>8 · Streaming — loading.js is Suspense</h2>
+<p>
+Lesson 14 gave you <code>&lt;Suspense&gt;</code>; Next wires it into routing. A <code>loading.js</code> file
+automatically wraps its sibling <code>page.js</code> in a Suspense boundary: the server <strong>streams</strong>
+the layout and fallback immediately, then streams the page's HTML when its data resolves. For finer grain,
+place your own boundaries so slow sections don't block fast ones:
+</p>
+
+<pre><code>import { Suspense } from 'react';
+
+export default function Dashboard() {
+  return (
+    &lt;&gt;
+      &lt;Header /&gt;                              <span class="cmt">{/* renders instantly */}</span>
+      &lt;Suspense fallback={&lt;Skeleton /&gt;}&gt;
+        &lt;SlowSalesChart /&gt;                    <span class="cmt">{/* async server component — streams in later */}</span>
+      &lt;/Suspense&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+<p>
+This is SSR without the classic SSR weakness ("slowest query blocks the whole page"): the shell arrives fast,
+slow parts pop in — one HTTP response, progressively written.
+</p>
+
+<h2>9 · Deployment in three sentences</h2>
+<ul>
+  <li><strong>Vercel</strong> (Next's maker): <code>git push</code> → automatic build and deploy, static routes to a CDN, dynamic routes/actions to serverless functions, preview URLs per pull request. The zero-config path.</li>
+  <li><strong>Self-host:</strong> <code>next build</code> then <code>next start</code> gives a plain Node server — run it on any VPS/EC2 behind nginx, or use <code>output: 'standalone'</code> in the config for a minimal Docker-friendly bundle.</li>
+  <li><strong>Know for interviews:</strong> a Next app is <em>not</em> just static files — dynamic rendering, actions, and route handlers need a Node runtime (or a platform that emulates one).</li>
+</ul>
+
+<h2>10 · The Pages Router — one honest section</h2>
+<p>
+Before Next 13, every Next app used the <code>pages/</code> directory, and most companies still run such code.
+No server components there: every component is client-side, and the server side lives in special exported
+functions. You need <strong>name recognition</strong>, not mastery:
+</p>
+
+<pre><code><span class="cmt">// pages/posts/[id].js — Pages Router style (older codebases)</span>
+export async function getServerSideProps({ params }) {   <span class="cmt">// SSR: runs per request</span>
+  const post = await getPost(params.id);
+  return { props: { post } };                            <span class="cmt">// handed to the component</span>
+}
+
+export async function getStaticProps() { ... }           <span class="cmt">// SSG: runs at build time</span>
+export async function getStaticPaths() { ... }           <span class="cmt">// which [id]s to pre-build</span>
+
+export default function Post({ post }) {                 <span class="cmt">// always a client-style component</span>
+  return &lt;h1&gt;{post.title}&lt;/h1&gt;;
+}</code></pre>
+
+<table>
+  <thead><tr><th>Pages Router</th><th>App Router equivalent</th></tr></thead>
+  <tbody>
+    <tr><td><code>pages/about.js</code></td><td><code>app/about/page.js</code></td></tr>
+    <tr><td><code>getServerSideProps</code></td><td>Async server component + <code>no-store</code>/dynamic APIs</td></tr>
+    <tr><td><code>getStaticProps</code> (+ <code>revalidate</code>)</td><td>Static rendering by default (+ <code>export const revalidate</code>)</td></tr>
+    <tr><td><code>getStaticPaths</code></td><td><code>generateStaticParams</code></td></tr>
+    <tr><td><code>pages/api/hello.js</code> (API route)</td><td><code>app/api/hello/route.js</code> (route handler)</td></tr>
+    <tr><td><code>pages/_app.js</code> / <code>_document.js</code></td><td><code>app/layout.js</code> (root layout)</td></tr>
+    <tr><td><code>next/router</code> hooks</td><td><code>next/navigation</code> hooks</td></tr>
+  </tbody>
+</table>
+
+<h2>11 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "Explain CSR vs SSR vs SSG vs ISR."</strong><br>
+  Where/when HTML is produced: in the browser after JS loads (CSR); on the server per request (SSR); once at
+  build time (SSG); at build time with timed background regeneration (ISR). Choose by freshness and
+  personalization needs — static wherever possible, dynamic where necessary.</li>
+  <li><strong>Q. "How does Next decide if a route is static or dynamic?"</strong><br>
+  Static by default. Using request-time information — <code>cookies()</code>, <code>headers()</code>,
+  <code>searchParams</code>, a <code>no-store</code> fetch — or <code>dynamic = 'force-dynamic'</code> flips it
+  to per-request rendering. <code>revalidate</code> turns static into ISR.</li>
+  <li><strong>Q. "Server Actions vs API routes — when each?"</strong><br>
+  Server Actions for my own UI's mutations: a <code>'use server'</code> function bound to a form, with built-in
+  wiring, pending state via <code>useFormStatus</code>, and <code>revalidatePath</code> after writing. Route
+  handlers when an external HTTP client exists: webhooks, mobile apps, public APIs.</li>
+  <li><strong>Q. "How do you fetch data in the App Router?"</strong><br>
+  <code>await fetch()</code> (or query the DB directly) inside async server components. Caching is per-fetch:
+  <code>force-cache</code>, <code>no-store</code>, or <code>next: { revalidate, tags }</code>; identical
+  fetches in one render are memoized, so components fetch independently without duplicate requests.</li>
+  <li><strong>Q. "What is middleware in Next?"</strong><br>
+  A root-level function running before matched requests — redirects, auth checks, header tweaks — scoped by a
+  <code>matcher</code>, returning <code>NextResponse.next()</code> or a redirect/rewrite.</li>
+  <li><strong>Q. "You see <code>getServerSideProps</code> in a codebase — what is it?"</strong><br>
+  Pages Router SSR: a per-request server function whose returned props feed the page component. In the App
+  Router the same need is met by an async server component using request-time APIs.</li>
+</ul>
+
+<h2>12 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A product page should be CDN-fast but reflect price changes within about a minute. Best fit?</div>
+  <button class="opt">SSR — render on every request so the price is always perfectly fresh</button>
+  <button class="opt">ISR — static page with <code>revalidate: 60</code>, regenerated in the background</button>
+  <button class="opt">CSR — fetch the price in <code>useEffect</code> after the page loads</button>
+  <div class="fb" data-correct="Mostly-static content + tolerable staleness window = ISR's sweet spot: CDN speed for every visitor, regeneration at most once per 60s. SSR would pay a server render per request for data that barely changes." data-wrong="'Fast like static, fresh within N seconds' is the textbook ISR trigger phrase. SSR gives per-request freshness you don't need at per-request cost; CSR gives up SEO and first-paint."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A previously-static route starts reading <code>cookies()</code>. What changes?</div>
+  <button class="opt">Nothing — cookies are read on the client, so rendering is unaffected</button>
+  <button class="opt">Build error — static routes cannot access cookies at all</button>
+  <button class="opt">The route becomes dynamic — cookies exist only at request time, so Next now renders it per request</button>
+  <div class="fb" data-correct="Request-time APIs (cookies(), headers(), searchParams, no-store fetches) are exactly what flips Next's default static rendering into dynamic SSR. Build output would now mark the route ƒ instead of ○." data-wrong="No error and not client-side: cookies() is a SERVER API, and using it tells Next 'I need a live request' — the route silently switches from static to dynamic rendering."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Stripe needs a URL to POST payment webhooks to your Next app. What do you build?</div>
+  <button class="opt">A route handler — <code>app/api/webhooks/stripe/route.js</code> exporting <code>POST</code></button>
+  <button class="opt">A Server Action — <code>'use server'</code> functions are callable from anywhere</button>
+  <button class="opt">A server component page that Stripe navigates to</button>
+  <div class="fb" data-correct="External HTTP callers need a real endpoint: that's route handlers. Server Actions are wired to YOUR React UI via generated internal plumbing — Stripe has no way (and should have no way) to invoke them." data-wrong="Server Actions are for your own app's forms/buttons; they aren't public URLs. External services speaking plain HTTP — webhooks, mobile apps — are precisely what route handlers exist for."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Which env variable is safe to reference in a client component?</div>
+  <button class="opt"><code>process.env.DATABASE_URL</code> — env vars are hidden from the browser automatically</button>
+  <button class="opt"><code>process.env.NEXT_PUBLIC_MAPS_KEY</code> — the prefix opts it into the client bundle</button>
+  <button class="opt">Any of them, as long as the file doesn't say <code>'use client'</code></button>
+  <div class="fb" data-correct="Only NEXT_PUBLIC_-prefixed variables are inlined into client code — the prefix is your explicit declaration that the value may be public. Everything else is server-only and reads as undefined in the browser." data-wrong="Non-prefixed variables never reach client code (they're undefined there), which protects secrets. NEXT_PUBLIC_ is the deliberate opt-in for values you accept becoming visible to every visitor."></div>
+</div>
+
+<h2>13 · Do this next</h2>
+<ul>
+  <li>In your <code>next-playground</code>, build a guestbook: an in-memory array in <code>lib/db.js</code>, a server-component page listing entries, and a form wired to a Server Action that pushes an entry and calls <code>revalidatePath('/')</code>. Then disable JavaScript in dev-tools and submit again — watch progressive enhancement work.</li>
+  <li>Add <code>app/api/entries/route.js</code> with <code>GET</code> (list as JSON) and <code>POST</code> (add, return 201; 400 if no text). Test with <code>curl</code> or Postman — you've now built both mutation styles and can articulate when each fits.</li>
+  <li>Run <code>npm run build</code> and read the route table (○ vs ƒ). Add <code>cookies()</code> to one static page, rebuild, and watch its symbol flip.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Hazy on why a fetch option can change a whole route's rendering, or where <code>revalidatePath</code> fits, or
+  how Server Actions work without visible endpoints? Ask in chat — that's what I'm here for. When the four
+  strategies and the action-vs-handler split feel like yours, say <strong>"next"</strong> for
+  Lesson 17: Node.js Fundamentals — we leave the browser for good.
+</div>
+
+<div class="nav">
+  <span><a href="0015-nextjs-app-router-rendering.html">← App Router &amp; Rendering</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0017-node-fundamentals.html">Node.js Fundamentals →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

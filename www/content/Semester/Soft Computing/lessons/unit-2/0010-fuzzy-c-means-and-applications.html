@@ -1,0 +1,325 @@
+<title>Fuzzy C-Means and Applications</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit II &middot; Lesson 10 of 10</p>
+<h1>Fuzzy C-Means and Applications</h1>
+<p class="deck">Soft clustering &mdash; the objective function, the two update equations, one full iteration worked out, and the applications list that closes Unit&nbsp;II.</p>
+
+<div class="box exam">
+  <span class="lbl">Why this matters tomorrow</span>
+  <p>Two questions live here. <strong>(a)</strong> "Explain the FCM algorithm" — write the objective function, the two update equations and the five steps. <strong>(b)</strong> "Compare K-means and FCM" — a short table. The full numerical is long; examiners usually ask for <em>one iteration</em>, which is what is worked below.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Fuzzy C-Means (FCM) Clustering Numerical</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=X7co6-U4BJY" target="_blank">Fuzzy C-Means Clustering &middot; Solved Example</a>
+    <span class="v-meta">Mahesh Huddar &middot; 15:40</span>
+    <div class="v-why">Step-by-step numerical calculation of cluster centers $v_i$, fuzzy partition matrix $U$, and membership updates using fuzziness parameter $m=2$.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Engineering Applications &amp; Case Studies</span>
+      <span class="best-tag">Top Exam Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=uKzIpH2oOn8" target="_blank">Applications of Fuzzy Logic: Washing Machine, ABS &amp; Robotics</a>
+    <span class="v-meta">Er Sahil ka Gyan &middot; Lec-9 (9:35)</span>
+    <div class="v-why">High-scoring semester exam review walking through real industrial applications, sensor integration, and concrete engineering case studies.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: FUZZY C-MEANS ALGORITHM -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Algorithm: Fuzzy C-Means (FCM) Iteration Loop</span>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="min-width:18rem;">
+      <strong>Step 1 &middot; Initialization</strong>
+      <span class="sub">Choose clusters $c$, fuzziness $m > 1$, threshold $\epsilon$; initialize partition matrix $U^{(0)}$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Compute Centers</span>
+    
+    <div class="flow-box" style="min-width:20rem;">
+      <strong>Step 2 &middot; Calculate Cluster Centers ($v_i$)</strong>
+      <span class="sub">$v_i = \frac{\sum_{k=1}^n (u_{ik})^m x_k}{\sum_{k=1}^n (u_{ik})^m}$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Update Distances &amp; Memberships</span>
+    
+    <div class="flow-box" style="min-width:20rem;">
+      <strong>Step 3 &middot; Update Partition Matrix ($U^{(t+1)}$)</strong>
+      <span class="sub">$u_{ik} = \frac{1}{\sum_{j=1}^c \left(\frac{\|x_k - v_i\|}{\|x_k - v_j\|}\right)^{2/(m-1)}}$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Termination Condition</span>
+    
+    <div class="flow-box ok" style="min-width:18rem;">
+      <strong>Step 4 &middot; Check Convergence</strong>
+      <span class="sub">If $\|U^{(t+1)} - U^{(t)}\| < \epsilon$ STOP; else repeat from Step 2</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>Hard clustering vs soft clustering</h2>
+
+<p>In <strong>K-means</strong>, every data point is assigned to exactly one cluster. Membership is 0 or 1. A point sitting halfway between two clusters is forced to pick a side, and the information that it was ambiguous is destroyed.</p>
+
+<p><em class="term">Fuzzy C-Means</em> (Dunn 1973, generalised by <strong>Bezdek 1981</strong>) removes the forced choice. Every point belongs to <strong>every</strong> cluster, with a degree of membership, subject to one constraint:</p>
+
+<div class="formula">
+  <span class="name">The constraint that defines FCM</span>
+  &sum;<sub>j=1</sub><sup>c</sup> &mu;<sub>ij</sub> = 1 &nbsp;&nbsp; for every data point i, &nbsp;&nbsp; &mu;<sub>ij</sub> &isin; [0,1]
+</div>
+
+<p>A point's memberships across all clusters must sum to one. So a point can be 0.55 in cluster&nbsp;1 and 0.45 in cluster&nbsp;2 — and that hesitation is now recorded rather than discarded.</p>
+
+<h2>The objective function</h2>
+
+<div class="formula">
+  <span class="name">FCM objective function &mdash; to be minimised</span>
+  J<sub>m</sub> = &sum;<sub>i=1</sub><sup>n</sup> &sum;<sub>j=1</sub><sup>c</sup> ( &mu;<sub>ij</sub> )<sup>m</sup> &middot; ‖ x<sub>i</sub> &minus; c<sub>j</sub> ‖&sup2;
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Symbol</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>n</strong></td><td>Number of data points</td></tr>
+<tr><td><strong>c</strong></td><td>Number of clusters — chosen in advance, as in K-means</td></tr>
+<tr><td><strong>&mu;<sub>ij</sub></strong></td><td>Membership of point i in cluster j</td></tr>
+<tr><td><strong>c<sub>j</sub></strong></td><td>Centre (centroid) of cluster j</td></tr>
+<tr><td><strong>‖x<sub>i</sub> &minus; c<sub>j</sub>‖</strong></td><td>Distance from the point to the centre, normally Euclidean</td></tr>
+<tr><td><strong>m</strong></td><td>The <em>fuzzifier</em> or fuzziness index, m &gt; 1. Standard choice <strong>m = 2</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">What m controls — a favourite short question</span>
+  <p>The fuzzifier sets how soft the clustering is. As <strong>m &rarr; 1</strong>, memberships are driven toward 0 and 1 and FCM <em>degenerates into K-means</em>. As <strong>m increases</strong>, memberships flatten toward 1/c and the clusters become progressively blurrier. m = 2 is the conventional compromise.</p>
+</div>
+
+<h2>The two update equations</h2>
+
+<div class="formula">
+  <span class="name">1. Cluster centres</span>
+  c<sub>j</sub> = &sum;<sub>i=1</sub><sup>n</sup> ( &mu;<sub>ij</sub> )<sup>m</sup> x<sub>i</sub> &nbsp;/&nbsp; &sum;<sub>i=1</sub><sup>n</sup> ( &mu;<sub>ij</sub> )<sup>m</sup>
+</div>
+
+<div class="formula">
+  <span class="name">2. Memberships</span>
+  &mu;<sub>ij</sub> = 1 &nbsp;/&nbsp; &sum;<sub>k=1</sub><sup>c</sup> ( ‖x<sub>i</sub>&minus;c<sub>j</sub>‖ / ‖x<sub>i</sub>&minus;c<sub>k</sub>‖ )<sup>2/(m&minus;1)</sup>
+</div>
+
+<p>The centre equation is a <strong>weighted centroid</strong> — each point pulls on the centre in proportion to &mu;<sup>m</sup>. The membership equation is an <strong>inverse-distance rule</strong>: the nearer a point is to a centre relative to the others, the higher its membership there.</p>
+
+<h2>The algorithm</h2>
+
+<ol>
+<li><strong>Initialise.</strong> Fix c, m and a tolerance &epsilon;. Fill the membership matrix U randomly, ensuring each row sums to 1.</li>
+<li><strong>Compute cluster centres</strong> c<sub>j</sub> using equation 1.</li>
+<li><strong>Update memberships</strong> &mu;<sub>ij</sub> using equation 2.</li>
+<li><strong>Check convergence:</strong> if ‖U<sup>(k+1)</sup> &minus; U<sup>(k)</sup>‖ &lt; &epsilon;, stop.</li>
+<li><strong>Otherwise return to step 2.</strong></li>
+</ol>
+
+<div class="solve">
+  <span class="lbl">Worked example — one full iteration</span>
+  <p><strong>Given</strong> one-dimensional data x&#8321; = 2, x&#8322; = 4, x&#8323; = 7, with c = 2 clusters and m = 2. Initial membership matrix:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Point</th><th class="num">&mu;<sub>i1</sub></th><th class="num">&mu;<sub>i2</sub></th><th class="num">sum</th></tr></thead>
+  <tbody>
+  <tr><td>x&#8321; = 2</td><td class="num">0.8</td><td class="num">0.2</td><td class="num">1.0</td></tr>
+  <tr><td>x&#8322; = 4</td><td class="num">0.6</td><td class="num">0.4</td><td class="num">1.0</td></tr>
+  <tr><td>x&#8323; = 7</td><td class="num">0.1</td><td class="num">0.9</td><td class="num">1.0</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 2 — cluster centres.</strong> With m = 2, square each membership:</p>
+  <p>c&#8321; = (0.8&sup2;&times;2 + 0.6&sup2;&times;4 + 0.1&sup2;&times;7) / (0.8&sup2; + 0.6&sup2; + 0.1&sup2;)<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;= (0.64&times;2 + 0.36&times;4 + 0.01&times;7) / (0.64 + 0.36 + 0.01)<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;= (1.28 + 1.44 + 0.07) / 1.01 = 2.79 / 1.01 = <strong>2.762</strong></p>
+
+  <p>c&#8322; = (0.2&sup2;&times;2 + 0.4&sup2;&times;4 + 0.9&sup2;&times;7) / (0.04 + 0.16 + 0.81)<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;= (0.08 + 0.64 + 5.67) / 1.01 = 6.39 / 1.01 = <strong>6.327</strong></p>
+
+  <p><strong>Step 3 — update the membership of x&#8321; = 2.</strong> Distances:</p>
+  <p>d&#8321;&#8321; = |2 &minus; 2.762| = 0.762 &nbsp;&nbsp;&nbsp;&nbsp; d&#8321;&#8322; = |2 &minus; 6.327| = 4.327</p>
+  <p>With m = 2 the exponent 2/(m&minus;1) = 2, so</p>
+  <p>&mu;&#8321;&#8321; = 1 / [ (0.762/0.762)&sup2; + (0.762/4.327)&sup2; ] = 1 / [1 + 0.0310] = 1 / 1.0310 = <strong>0.970</strong></p>
+  <p>&mu;&#8321;&#8322; = 1 / [ (4.327/0.762)&sup2; + (4.327/4.327)&sup2; ] = 1 / [32.24 + 1] = 1 / 33.24 = <strong>0.030</strong></p>
+
+  <p><strong>Check:</strong> 0.970 + 0.030 = 1.000. &#10003; If your two memberships do not sum to 1, the arithmetic is wrong — this check costs five seconds and catches nearly every error in this question.</p>
+  <p><strong>Read the result:</strong> x&#8321; started at 0.8/0.2 and after one iteration is 0.97/0.03. It has moved decisively into cluster&nbsp;1, because c&#8321; = 2.762 sits very close to it. That sharpening across iterations is FCM converging.</p>
+</div>
+
+<h2>FCM vs K-means</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>K-Means (hard)</th><th>Fuzzy C-Means (soft)</th></tr></thead>
+<tbody>
+<tr><td>Membership</td><td>0 or 1 — one cluster only</td><td>Any value in [0,1], summing to 1 across clusters</td></tr>
+<tr><td>Cluster boundaries</td><td>Sharp, non-overlapping</td><td>Overlapping and gradual</td></tr>
+<tr><td>Centre computation</td><td>Plain mean of assigned points</td><td>Weighted mean, weights &mu;<sup>m</sup></td></tr>
+<tr><td>Handling ambiguous points</td><td>Forced to one side, information lost</td><td>Ambiguity preserved as near-equal memberships</td></tr>
+<tr><td>Speed</td><td>Faster</td><td>Slower — more arithmetic per iteration</td></tr>
+<tr><td>Sensitivity to noise / outliers</td><td>High</td><td>Lower, though outliers still get memberships summing to 1</td></tr>
+<tr><td>Extra parameter</td><td>Only c</td><td>c and the fuzzifier m</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Both share the same weaknesses: <strong>c must be fixed in advance</strong>, and the result depends on the random initialisation, so a poor start can converge to a local minimum.</p>
+
+<h2>Applications of fuzzy logic</h2>
+
+<p>The closing topic of Unit&nbsp;II. Structure the answer by domain, with a concrete product in each — a bare list of nouns scores poorly.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Domain</th><th>Concrete application</th></tr></thead>
+<tbody>
+<tr><td><strong>Consumer appliances</strong></td><td>Washing machine cycle selection from load and dirtiness; air conditioner compressor control; rice cookers; vacuum cleaners; camera autofocus and auto-exposure</td></tr>
+<tr><td><strong>Automotive</strong></td><td>Anti-lock braking, automatic transmission shift points, cruise control, engine idle control</td></tr>
+<tr><td><strong>Transportation</strong></td><td>The <strong>Sendai subway, Japan (1987)</strong> — fuzzy braking and acceleration smoother than a human driver; the standard citation for fuzzy control in production</td></tr>
+<tr><td><strong>Industrial process control</strong></td><td>Cement kiln control, chemical plant regulation, water treatment, elevator scheduling</td></tr>
+<tr><td><strong>Medicine</strong></td><td>Diagnostic decision support from vague symptom descriptions; <strong>FCM for MRI and CT image segmentation</strong>, where tissue boundaries are genuinely gradual</td></tr>
+<tr><td><strong>Image processing</strong></td><td>Edge detection, contrast enhancement, noise removal, segmentation</td></tr>
+<tr><td><strong>Pattern recognition</strong></td><td>Handwriting and character recognition, speech recognition, biometrics</td></tr>
+<tr><td><strong>Decision support</strong></td><td>Credit scoring, risk assessment, multi-criteria selection problems</td></tr>
+<tr><td><strong>Robotics</strong></td><td>Path planning, obstacle avoidance, gripper force control</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The example that ties Unit II together</span>
+  <p><strong>MRI brain image segmentation with FCM.</strong> The boundary between grey matter and white matter is not a line — it is a gradient several voxels wide. K-means must draw a false hard edge. FCM records a voxel as 0.6 grey / 0.4 white, which is both more honest and more useful clinically. This one example demonstrates fuzzy sets, membership functions and clustering at once, and it is a strong closing paragraph for any applications answer.</p>
+</div>
+
+
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In FCM, the memberships of a single data point must:</p>
+  <div class="opts">
+    <button class="opt">Each equal either zero or one, never between</button>
+    <button class="opt" data-ok="1">Sum to exactly one across all the clusters</button>
+    <button class="opt">Each individually exceed the value one half</button>
+    <button class="opt">Sum to exactly one across all the data points</button>
+  </div>
+  <p class="why">The constraint runs across <em>clusters</em> for a fixed point — a row of U sums to 1. Columns need not sum to anything in particular. The last option describes K-means.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. As the fuzzifier m approaches 1, fuzzy C-means:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Behaves increasingly like the K-means algorithm</button>
+    <button class="opt">Pushes every membership toward the value 1/c</button>
+    <button class="opt">Behaves increasingly like a random assignment</button>
+    <button class="opt">Fails to converge on any of the data points</button>
+  </div>
+  <p class="why">m &rarr; 1 forces memberships toward 0 and 1, which is hard clustering. Large m does the opposite — memberships flatten toward 1/c and every point becomes equally in every cluster.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In the cluster centre equation, each data point is weighted by:</p>
+  <div class="opts">
+    <button class="opt">Its distance raised to the power two</button>
+    <button class="opt">Its distance raised to the power m</button>
+    <button class="opt" data-ok="1">Its membership raised to the power m</button>
+    <button class="opt">Its membership raised to the power two</button>
+  </div>
+  <p class="why">c<sub>j</sub> = &sum;(&mu;<sub>ij</sub>)<sup>m</sup>x<sub>i</sub> / &sum;(&mu;<sub>ij</sub>)<sup>m</sup>. The power is m in general — it happens to equal 2 only because m = 2 is the usual choice, which is why the second option is such a tempting trap.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The main practical advantage of FCM over K-means for MRI segmentation is that it:</p>
+  <div class="opts">
+    <button class="opt">Requires no initialisation of the membership matrix</button>
+    <button class="opt" data-ok="1">Represents genuinely gradual tissue boundaries honestly</button>
+    <button class="opt">Determines the correct number of clusters automatically</button>
+    <button class="opt">Runs considerably faster on very large image volumes</button>
+  </div>
+  <p class="why">FCM is <em>slower</em>, still needs c fixed in advance, and still needs initialising. Its real advantage is fidelity — it does not invent a hard edge where the tissue transition is genuinely gradual.</p>
+</div>
+
+<div class="q">
+  <p class="stem">The standard value of the fuzzifier m in fuzzy C-means is:</p>
+  <div class="opts">
+    <button class="opt">0</button>
+    <button class="opt" data-ok="1">2</button>
+    <button class="opt">1</button>
+    <button class="opt">c, the number of clusters</button>
+  </div>
+  <p class="why">As m &rarr; 1 the memberships harden and FCM degenerates into K-means; as m grows large every membership blurs toward 1/c and the clusters lose meaning.</p>
+</div>
+
+<div class="q">
+  <p class="stem">In FCM, the memberships of a single data point must sum to:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">1, summed across all clusters</button>
+    <button class="opt">The number of clusters c</button>
+    <button class="opt">1, summed across all data points</button>
+    <button class="opt">The fuzzifier m</button>
+  </div>
+  <p class="why">&sum;<sub>j</sub>&mu;<sub>ij</sub> = 1 is the constraint on the objective function, and checking it is the fastest way to catch an arithmetic slip in a worked iteration.</p>
+</div>
+
+<div class="q">
+  <p class="stem">The essential difference between FCM and K-means is that FCM:</p>
+  <div class="opts">
+    <button class="opt">Always converges to the global optimum</button>
+    <button class="opt">Requires no initial cluster centres</button>
+    <button class="opt">Uses a different distance measure</button>
+    <button class="opt" data-ok="1">Assigns each point a graded membership in every cluster, not a single hard label</button>
+  </div>
+  <p class="why">Both alternate between updating centres and updating assignments, and both are sensitive to initialisation and find only a local optimum. Only the soft-versus-hard assignment differs.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Write the FCM objective function.</summary>
+    <p class="ans">J<sub>m</sub> = &sum;<sub>i=1</sub><sup>n</sup> &sum;<sub>j=1</sub><sup>c</sup> (&mu;<sub>ij</sub>)<sup>m</sup> ‖x<sub>i</sub> &minus; c<sub>j</sub>‖&sup2;, subject to &sum;<sub>j</sub> &mu;<sub>ij</sub> = 1.</p></details>
+  <details class="card"><summary>Write the two update equations.</summary>
+    <p class="ans">Centres: c<sub>j</sub> = &sum;(&mu;<sub>ij</sub>)<sup>m</sup>x<sub>i</sub> / &sum;(&mu;<sub>ij</sub>)<sup>m</sup>. Memberships: &mu;<sub>ij</sub> = 1 / &sum;<sub>k</sub>(d<sub>ij</sub>/d<sub>ik</sub>)<sup>2/(m&minus;1)</sup>.</p></details>
+  <details class="card"><summary>Give four differences between K-means and FCM.</summary>
+    <p class="ans">Membership 0/1 vs [0,1]; sharp vs overlapping boundaries; plain mean vs &mu;<sup>m</sup>-weighted mean; faster vs slower. Also: FCM needs the extra parameter m.</p></details>
+  <details class="card"><summary>Name six application domains of fuzzy logic.</summary>
+    <p class="ans">Consumer appliances, automotive, transportation (Sendai subway), industrial process control, medicine and image segmentation, pattern recognition. Also decision support and robotics.</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">That is Units I and II complete</span>
+  <p>Ten lessons done. Before you sleep, do one pass over the <a href="../../reference/unit2-cheat-sheet.html">cheat sheet</a> — every formula from both units on one printable page. Tomorrow morning, redo the two composition matrices and the centroid numerical from memory. Those two carry the most marks per minute of revision.</p>
+</div>
+
+<p class="ask">Anything still unclear, ask me tonight rather than tomorrow morning. I can generate extra practice numericals on any topic in either unit.</p>
+
+<div class="nav">
+  <a href="0009-fuzzy-inference-systems.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-3/0011-introduction-to-rough-set-theory.html">Next: Rough Sets &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

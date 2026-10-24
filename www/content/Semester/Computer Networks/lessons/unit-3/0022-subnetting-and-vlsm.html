@@ -1,0 +1,334 @@
+<title>Subnetting and VLSM</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 22 of 27</p>
+<h1>Subnetting and VLSM</h1>
+<p class="deck">The highest marks-per-hour topic in the whole subject. Four worked numericals covering every shape the question takes: subnet-count based, host-count based, and a full VLSM allocation. Do not read this lesson &mdash; work it.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Subnetting <strong>appears every year</strong> and is worth substantial marks. It is purely mechanical: there is nothing to understand once you have the procedure, only steps to execute without slipping. <strong>Always show the four lines</strong> &mdash; bits borrowed, new mask, block size, subnet table &mdash; because partial marks are awarded for each even if the arithmetic goes wrong later. And in a VLSM question, <strong>always allocate the largest requirement first</strong>; doing it in the order the question lists them is the single most common way to fail.</p>
+</div>
+
+<h2>What subnetting is</h2>
+
+<p><strong>Subnetting divides one large network into several smaller logical networks (subnets)</strong> by borrowing bits from the host portion and adding them to the network portion.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Reason</th><th>Explanation</th></tr></thead>
+<tbody>
+<tr><td><strong>Reduces wastage</strong></td><td>A department of 20 machines does not need a block of 254 addresses.</td></tr>
+<tr><td><strong>Reduces congestion</strong></td><td>Each subnet is a separate <strong>broadcast domain</strong>, so broadcast traffic stays local instead of flooding the whole network.</td></tr>
+<tr><td><strong>Improves security</strong></td><td>Traffic between subnets must pass a router, where it can be filtered.</td></tr>
+<tr><td><strong>Simplifies management</strong></td><td>Faults are isolated to one subnet; departments map onto subnets.</td></tr>
+<tr><td><strong>Smaller routing tables</strong></td><td>Outside the organisation, all subnets still appear as one block &mdash; the internal structure is invisible.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The three subnetting formulas</span>
+  <strong>Number of subnets</strong> = 2<sup>s</sup> &nbsp;&nbsp;(s = number of bits borrowed from the host part)<br>
+  <strong>Addresses per subnet</strong> = 2<sup>h</sup> &nbsp;&nbsp;(h = host bits remaining = 32 &minus; new prefix)<br>
+  <strong>Usable hosts per subnet</strong> = 2<sup>h</sup> &minus; 2<br>
+  <strong>New prefix</strong> = old prefix + s
+</div>
+
+<div class="box win">
+  <span class="lbl">The whole procedure, in five steps</span>
+  <ol style="margin:.3rem 0 0 1.1rem">
+    <li>Decide <strong>s</strong> &mdash; the number of bits to borrow. If given a subnet count, find the smallest s with 2<sup>s</sup> &ge; required subnets. If given a host count, find the smallest h with 2<sup>h</sup> &minus; 2 &ge; required hosts, then s = 32 &minus; old prefix &minus; h.</li>
+    <li>Compute the <strong>new prefix</strong> = old prefix + s, and write its <strong>mask</strong>.</li>
+    <li>Compute the <strong>block size</strong> = 2<sup>h</sup> = 256 &minus; (last byte of the mask).</li>
+    <li>List the subnets by <strong>counting up in steps of the block size</strong>.</li>
+    <li>For each subnet write the <strong>network address, first host, last host, broadcast address</strong>.</li>
+  </ol>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 1 &mdash; given the number of subnets</span>
+  <p><strong>Q.</strong> An organisation is given the block <code>192.168.1.0/24</code> and needs <strong>4 subnets</strong>. Design the subnets, giving the mask, and for each subnet the network address, host range and broadcast address.</p>
+
+  <p><strong>Step 1 &mdash; bits to borrow.</strong> Need 2<sup>s</sup> &ge; 4 &rarr; s = 2 (since 2<sup>2</sup> = 4).</p>
+  <p><strong>Step 2 &mdash; new prefix.</strong> 24 + 2 = <strong>/26</strong>, mask = <strong>255.255.255.192</strong></p>
+  <p><strong>Step 3 &mdash; block size.</strong> h = 32 &minus; 26 = 6, so 2<sup>6</sup> = <strong>64 addresses per subnet</strong>. (Check: 256 &minus; 192 = 64. &#10003;)</p>
+  <p><strong>Usable hosts per subnet</strong> = 64 &minus; 2 = <strong>62</strong></p>
+  <p><strong>Steps 4 and 5 &mdash; the subnet table.</strong> Count up in 64s: 0, 64, 128, 192.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Subnet</th><th>Network address</th><th>First host</th><th>Last host</th><th>Broadcast</th></tr></thead>
+  <tbody>
+  <tr><td><strong>1</strong></td><td>192.168.1.<strong>0</strong>/26</td><td>192.168.1.1</td><td>192.168.1.62</td><td>192.168.1.<strong>63</strong></td></tr>
+  <tr><td><strong>2</strong></td><td>192.168.1.<strong>64</strong>/26</td><td>192.168.1.65</td><td>192.168.1.126</td><td>192.168.1.<strong>127</strong></td></tr>
+  <tr><td><strong>3</strong></td><td>192.168.1.<strong>128</strong>/26</td><td>192.168.1.129</td><td>192.168.1.190</td><td>192.168.1.<strong>191</strong></td></tr>
+  <tr><td><strong>4</strong></td><td>192.168.1.<strong>192</strong>/26</td><td>192.168.1.193</td><td>192.168.1.254</td><td>192.168.1.<strong>255</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><em>Two sanity checks that catch nearly every error:</em></p>
+  <ul>
+    <li>Each subnet's <strong>broadcast address is one less than the next subnet's network address</strong>. 63 &rarr; 64, 127 &rarr; 128, 191 &rarr; 192. &#10003;</li>
+    <li>The <strong>last subnet's broadcast must be 255</strong> &mdash; the very end of the original block. &#10003;</li>
+  </ul>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 2 &mdash; when the subnet count is not a power of two</span>
+  <p><strong>Q.</strong> Subnet <code>200.1.2.0/24</code> into <strong>6 subnets</strong>.</p>
+
+  <p><strong>Bits to borrow:</strong> 2<sup>2</sup> = 4, which is not enough. 2<sup>3</sup> = 8 &ge; 6 &rarr; <strong>s = 3</strong>.</p>
+  <p><strong>New prefix:</strong> 24 + 3 = <strong>/27</strong>, mask <strong>255.255.255.224</strong></p>
+  <p><strong>Block size:</strong> 2<sup>5</sup> = <strong>32</strong> (256 &minus; 224 = 32 &#10003;), <strong>30 usable hosts</strong> each</p>
+  <p><strong>Subnets</strong> (count up in 32s): 0, 32, 64, 96, 128, 160, 192, 224</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Subnet</th><th>Network</th><th>Host range</th><th>Broadcast</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>200.1.2.0/27</td><td>.1 &ndash; .30</td><td>.31</td></tr>
+  <tr><td>2</td><td>200.1.2.32/27</td><td>.33 &ndash; .62</td><td>.63</td></tr>
+  <tr><td>3</td><td>200.1.2.64/27</td><td>.65 &ndash; .94</td><td>.95</td></tr>
+  <tr><td>4</td><td>200.1.2.96/27</td><td>.97 &ndash; .126</td><td>.127</td></tr>
+  <tr><td>5</td><td>200.1.2.128/27</td><td>.129 &ndash; .158</td><td>.159</td></tr>
+  <tr><td>6</td><td>200.1.2.160/27</td><td>.161 &ndash; .190</td><td>.191</td></tr>
+  <tr><td><em>spare</em></td><td>200.1.2.192/27</td><td>.193 &ndash; .222</td><td>.223</td></tr>
+  <tr><td><em>spare</em></td><td>200.1.2.224/27</td><td>.225 &ndash; .254</td><td>.255</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Comment to write:</strong> only 6 of the 8 subnets are needed, so <strong>2 subnets (64 addresses) remain unused</strong>. This waste is unavoidable with fixed-length subnetting because subnet counts must be powers of two &mdash; and it is exactly the problem VLSM solves.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 3 &mdash; given the number of hosts instead</span>
+  <p><strong>Q.</strong> An organisation has the Class B block <code>172.16.0.0/16</code> and needs subnets of at least <strong>1000 hosts</strong> each. Find the mask, the number of subnets obtained, and the hosts per subnet.</p>
+
+  <p><strong>Step 1 &mdash; host bits needed.</strong> Need 2<sup>h</sup> &minus; 2 &ge; 1000.<br>
+  h = 9 &rarr; 512 &minus; 2 = 510, not enough.<br>
+  h = 10 &rarr; 1024 &minus; 2 = <strong>1022 &ge; 1000</strong> &#10003; So <strong>h = 10</strong>.</p>
+
+  <p><strong>Step 2 &mdash; new prefix.</strong> 32 &minus; 10 = <strong>/22</strong>, mask = <strong>255.255.252.0</strong></p>
+  <p><strong>Step 3 &mdash; bits borrowed.</strong> s = 22 &minus; 16 = 6, so <strong>2<sup>6</sup> = 64 subnets</strong></p>
+  <p><strong>Addresses per subnet</strong> = 2<sup>10</sup> = 1024, of which <strong>1022 are usable</strong></p>
+
+  <p><strong>Block size in the third byte</strong> = 256 &minus; 252 = <strong>4</strong>. So the subnets are:<br>
+  172.16.<strong>0</strong>.0/22 &nbsp;(range 172.16.0.0 &ndash; 172.16.3.255)<br>
+  172.16.<strong>4</strong>.0/22 &nbsp;(172.16.4.0 &ndash; 172.16.7.255)<br>
+  172.16.<strong>8</strong>.0/22 &nbsp;(172.16.8.0 &ndash; 172.16.11.255)<br>
+  &hellip; up to 172.16.<strong>252</strong>.0/22</p>
+
+  <p><em>Sanity check:</em> 64 subnets &times; 1024 addresses = 65,536 = the whole /16 block. &#10003; This total-adds-up check works for every subnetting problem and is the fastest way to confirm your mask.</p>
+</div>
+
+<h2>VLSM &mdash; Variable Length Subnet Masking</h2>
+
+<p>Fixed-length subnetting gives every subnet the <strong>same size</strong>, which wastes addresses whenever the departments differ in size. <strong>VLSM allows subnets of different sizes within the same block</strong> by applying subnetting recursively &mdash; subnetting a subnet.</p>
+
+<div class="box exam">
+  <span class="lbl">The one rule that makes VLSM work</span>
+  <p><strong>Always allocate the largest requirement first, then the next largest, and so on down to the smallest.</strong> Working in descending order guarantees every block lands on a valid boundary (rule 3 of CIDR). Working in the order the question happens to list the departments will usually produce a block whose start address is not divisible by its size, and the whole answer fails.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 4 &mdash; a full VLSM design</span>
+  <p><strong>Q.</strong> An organisation has <code>192.168.10.0/24</code> and these requirements. Design the address plan.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Department</th><th>Hosts needed</th></tr></thead>
+  <tbody>
+  <tr><td>Department A</td><td class="num">100</td></tr>
+  <tr><td>Department B</td><td class="num">50</td></tr>
+  <tr><td>Department C</td><td class="num">25</td></tr>
+  <tr><td>Department D</td><td class="num">10</td></tr>
+  <tr><td>Router link 1</td><td class="num">2</td></tr>
+  <tr><td>Router link 2</td><td class="num">2</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 1 &mdash; sort into descending order of size.</strong> They already are: 100, 50, 25, 10, 2, 2.</p>
+
+  <p><strong>Step 2 &mdash; find the block size each needs</strong> (the smallest power of two with 2<sup>h</sup> &minus; 2 &ge; requirement):</p>
+  <p>100 hosts &rarr; 2<sup>7</sup> = 128 addresses (126 usable) &rarr; <strong>/25</strong><br>
+  50 hosts &rarr; 2<sup>6</sup> = 64 (62 usable) &rarr; <strong>/26</strong><br>
+  25 hosts &rarr; 2<sup>5</sup> = 32 (30 usable) &rarr; <strong>/27</strong><br>
+  10 hosts &rarr; 2<sup>4</sup> = 16 (14 usable) &rarr; <strong>/28</strong><br>
+  2 hosts &rarr; 2<sup>2</sup> = 4 (2 usable) &rarr; <strong>/30</strong></p>
+
+  <p><strong>Step 3 &mdash; allocate consecutively from 192.168.10.0, largest first:</strong></p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Allocation</th><th>Block</th><th>Range</th><th>Host range</th><th>Broadcast</th><th>Usable</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Dept A</strong> (100)</td><td>192.168.10.<strong>0</strong>/25</td><td>.0 &ndash; .127</td><td>.1 &ndash; .126</td><td>.127</td><td class="num">126</td></tr>
+  <tr><td><strong>Dept B</strong> (50)</td><td>192.168.10.<strong>128</strong>/26</td><td>.128 &ndash; .191</td><td>.129 &ndash; .190</td><td>.191</td><td class="num">62</td></tr>
+  <tr><td><strong>Dept C</strong> (25)</td><td>192.168.10.<strong>192</strong>/27</td><td>.192 &ndash; .223</td><td>.193 &ndash; .222</td><td>.223</td><td class="num">30</td></tr>
+  <tr><td><strong>Dept D</strong> (10)</td><td>192.168.10.<strong>224</strong>/28</td><td>.224 &ndash; .239</td><td>.225 &ndash; .238</td><td>.239</td><td class="num">14</td></tr>
+  <tr><td><strong>Link 1</strong> (2)</td><td>192.168.10.<strong>240</strong>/30</td><td>.240 &ndash; .243</td><td>.241 &ndash; .242</td><td>.243</td><td class="num">2</td></tr>
+  <tr><td><strong>Link 2</strong> (2)</td><td>192.168.10.<strong>244</strong>/30</td><td>.244 &ndash; .247</td><td>.245 &ndash; .246</td><td>.247</td><td class="num">2</td></tr>
+  <tr><td><em>Unallocated</em></td><td>192.168.10.<strong>248</strong>/29</td><td>.248 &ndash; .255</td><td colspan="2">Available for future growth</td><td class="num">6</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Verification &mdash; do this and say you have done it:</strong></p>
+  <p>128 + 64 + 32 + 16 + 4 + 4 + 8 = <strong>256</strong> &#10003; The allocations exactly fill the /24 block with nothing overlapping and 8 addresses spare.</p>
+  <p>Every block starts at an address divisible by its own size: 0&divide;128, 128&divide;64, 192&divide;32, 224&divide;16, 240&divide;4, 244&divide;4 &mdash; all exact. &#10003;</p>
+
+  <p><strong>The comparison worth writing at the end:</strong> with <em>fixed-length</em> subnetting, six subnets would need s = 3 (eight /27 subnets of 30 hosts each) &mdash; and Department A's 100 hosts <strong>would not fit at all</strong>. VLSM is not merely more efficient here; it is the only design that works.</p>
+</div>
+
+<h2>Subnetting vs supernetting vs VLSM</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Subnetting</th><th>Supernetting</th><th>VLSM</th></tr></thead>
+<tbody>
+<tr><td><strong>Does what</strong></td><td>Splits one network into smaller ones</td><td>Combines several networks into one larger one</td><td>Splits a network into subnets of <strong>differing sizes</strong></td></tr>
+<tr><td><strong>Prefix length</strong></td><td><strong>Increases</strong></td><td><strong>Decreases</strong></td><td>Increases, by different amounts per subnet</td></tr>
+<tr><td><strong>Bits move</strong></td><td>Host bits &rarr; network bits</td><td>Network bits &rarr; host bits</td><td>Host bits &rarr; network bits, recursively</td></tr>
+<tr><td><strong>Purpose</strong></td><td>Reduce waste, isolate broadcast domains</td><td>Shrink routing tables via aggregation</td><td><strong>Match each subnet to its actual size</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Hierarchical Subnetting & Variable-Length Subnet Masking (VLSM)</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:30rem;"><strong>Major Network Block (e.g., 192.168.1.0/24 &bull; 256 IPs)</strong><span class="sub">Sort sub-organizations in strictly descending order of host requirements!</span></div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-row">
+      <div class="flow-box"><strong>Dept A: 120 Hosts</strong><span class="sub">Needs /25 (128 IPs)<br>192.168.1.0/25</span></div>
+      <div class="flow-box ok"><strong>Dept B: 60 Hosts</strong><span class="sub">Needs /26 (64 IPs)<br>192.168.1.128/26</span></div>
+      <div class="flow-box warn"><strong>Dept C: 20 Hosts</strong><span class="sub">Needs /27 (32 IPs)<br>192.168.1.192/27</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 19 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Subnetting & VLSM</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-49 & Lec-50: Subnetting in Classful Addressing and VLSM</div>
+    <div class="v-desc">Step-by-step solved numericals for custom subnet masks, borrowing host bits, avoiding address waste, and calculating subnet broadcast addresses.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=rdb2ki4iGuo" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<div class="box win">
+  <span class="lbl">How to actually learn this</span>
+  <p><strong>Do twenty problems, not two.</strong> Subnetting is a motor skill, like long division &mdash; understanding the method does not make you fast or accurate at it under time pressure, and the exam tests speed and accuracy. r/ccna has endless free subnetting drills with answers. Twenty problems is roughly ninety minutes, and it is the best ninety minutes you can spend on this subject.</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. To create 8 subnets from a /24 block, how many bits must be borrowed, and what is the new mask?</p>
+  <div class="opts">
+    <button class="opt">4 bits, giving /28 and mask 255.255.255.240</button>
+    <button class="opt" data-ok="1">3 bits, giving /27 and mask 255.255.255.224</button>
+    <button class="opt">8 bits, giving /32 and mask 255.255.255.255</button>
+    <button class="opt">2 bits, giving /26 and mask 255.255.255.192</button>
+  </div>
+  <p class="why">2³ = 8, so s = 3 and the prefix goes from /24 to /27, mask 255.255.255.224, block size 32. Borrowing 2 bits gives only 4 subnets; borrowing 4 gives 16, more than needed.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the subnet 192.168.1.64/26, the broadcast address is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">192.168.1.127</button>
+    <button class="opt">192.168.1.126</button>
+    <button class="opt">192.168.1.255</button>
+    <button class="opt">192.168.1.128</button>
+  </div>
+  <p class="why">Block size 64, so the subnet spans .64 to .127 and the broadcast is the last address, .127. Note that .128 is the <em>next subnet's</em> network address and .126 is the last usable host — all three are one apart and easy to confuse.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A subnet must support 1000 hosts. The smallest suitable prefix is:</p>
+  <div class="opts">
+    <button class="opt">/23, giving 512 addresses and 510 usable</button>
+    <button class="opt" data-ok="1">/22, giving 1024 addresses and 1022 usable</button>
+    <button class="opt">/21, giving 2048 addresses and 2046 usable</button>
+    <button class="opt">/24, giving 256 addresses and 254 usable</button>
+  </div>
+  <p class="why">2¹⁰ − 2 = 1022 ≥ 1000, so 10 host bits and a /22 prefix. /23 gives only 510, which is short; /21 works but wastes over a thousand addresses, and "smallest suitable" rules it out.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In a VLSM design, allocations must be made:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Largest requirement first, working down to the smallest</button>
+    <button class="opt">In any order, since the blocks will always fit somehow</button>
+    <button class="opt">Smallest requirement first, working up to the largest</button>
+    <button class="opt">In the order the departments appear in the question</button>
+  </div>
+  <p class="why">Descending order guarantees every block starts at an address divisible by its own size. Any other order will usually place a large block at a boundary that cannot hold it, breaking CIDR's divisibility rule and invalidating the whole plan.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A point-to-point link between two routers is normally given which prefix?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">/30 &mdash; four addresses, exactly two usable</button>
+    <button class="opt">/32 &mdash; a single address for the whole link</button>
+    <button class="opt">/24 &mdash; the default, for consistency across the network</button>
+    <button class="opt">/29 &mdash; eight addresses, six of them usable</button>
+  </div>
+  <p class="why">Two ends need two addresses, and /30 is the smallest block that provides them after the network and broadcast addresses are removed. /29 would work but wastes four addresses on every link, which adds up quickly.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. In fixed-length subnetting of a /24 into 6 subnets, how many addresses are wasted on unused subnets?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">64 &mdash; two whole /27 subnets of 32 addresses each</button>
+    <button class="opt">0 &mdash; the subnets divide the block exactly</button>
+    <button class="opt">32 &mdash; one unused /27 subnet only</button>
+    <button class="opt">128 &mdash; half the block cannot be allocated</button>
+  </div>
+  <p class="why">Six subnets need 3 borrowed bits, which produces 8 subnets of 32 addresses. Two go unused: 64 addresses wasted. Subnet counts must be powers of two, so this waste is unavoidable with fixed-length subnetting — which is why VLSM exists.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define subnetting and give four reasons for it.</summary>
+    <p class="ans">Dividing one large network into smaller logical networks by borrowing bits from the host portion and adding them to the network portion. Reasons: reduces address wastage; each subnet is a separate broadcast domain so congestion falls; improves security since inter-subnet traffic passes a router; simplifies management and fault isolation; and the internal structure stays invisible outside, keeping external routing tables small.</p></details>
+  <details class="card"><summary>Write the three subnetting formulas.</summary>
+    <p class="ans">Number of subnets = 2^s where s is the bits borrowed. Addresses per subnet = 2^h where h = 32 − new prefix. Usable hosts = 2^h − 2. New prefix = old prefix + s.</p></details>
+  <details class="card"><summary>State the five-step subnetting procedure.</summary>
+    <p class="ans">1. Decide bits to borrow (from the subnet count: smallest s with 2^s ≥ subnets; from the host count: smallest h with 2^h − 2 ≥ hosts). 2. New prefix = old + s, and write the mask. 3. Block size = 2^h = 256 − last mask byte. 4. List subnets by counting up in block-size steps. 5. For each, write network address, first host, last host, broadcast.</p></details>
+  <details class="card"><summary>Name the two sanity checks for a subnet table.</summary>
+    <p class="ans">Each subnet's broadcast address is one less than the next subnet's network address; and the last subnet's broadcast must equal the last address of the original block. Also check that subnets × addresses per subnet equals the original block size.</p></details>
+  <details class="card"><summary>What is VLSM, and what is the one rule for applying it?</summary>
+    <p class="ans">Variable Length Subnet Masking — subnets of different sizes within one block, created by subnetting recursively. The rule: always allocate the largest requirement first and work down to the smallest, so every block starts at an address divisible by its own size.</p></details>
+  <details class="card"><summary>Distinguish subnetting, supernetting and VLSM.</summary>
+    <p class="ans">Subnetting splits one network into equal smaller ones — prefix increases, host bits become network bits. Supernetting combines several networks into one — prefix decreases, network bits become host bits, used for route aggregation. VLSM splits a network into subnets of differing sizes so each matches its actual requirement.</p></details>
+</div>
+
+<p class="ask">Say the word and I will write you a twenty-problem subnetting drill sheet with a separate answer key &mdash; that, not more reading, is what turns this topic into guaranteed marks.</p>
+
+<div class="nav">
+  <a href="0021-classless-addressing.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0023-ipv4-header-and-fragmentation.html">Next: IPv4 Header and Fragmentation &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

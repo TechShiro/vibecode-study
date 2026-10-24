@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sliding Window Lesson 01 — Fixed-Size Windows</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Sliding Window Track · Lesson 1 of 3 · fixed window of size k</div>
+<h1>Fixed-Size Windows</h1>
+<p class="subtitle">Stop re-summing k elements from scratch — reuse the previous window's work by adding one element on the right and removing one on the left.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "best subarray/substring of length k" is one of the most common OA warm-ups at big tech —
+  and the same add/remove idea scales up to the hardest window problems.
+  This is Lesson 1 of the 3-lesson sliding-window track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Say you need the <strong>maximum sum of any subarray of length k</strong>. The naive move — the one you'd write
+from your 100-LeetCode instincts — is a double loop: for each start index <code>i</code>, sum
+<code>nums[i..i+k-1]</code>. That's O(n·k), and for n = 10⁵, k = 10⁴ it's dead on arrival. But look at two
+adjacent windows: <code>[i..i+k-1]</code> and <code>[i+1..i+k]</code> share <strong>k−1 elements</strong>. Their
+sums differ by exactly one element entering and one leaving. So keep a running sum and update it in O(1):
+<code>sum += nums[r] − nums[r−k]</code>. Every element enters the window once and leaves once →
+<strong>O(n) total</strong>. That's the entire pattern: a window of constant width gliding across the array,
+maintained incrementally instead of recomputed.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The problem fixes the window length for you: "subarray/substring <strong>of size k</strong>",
+  "of length k", "any k consecutive elements", "every window of size k". If k is given as input, the window
+  never grows or shrinks — it only slides. (If instead the problem says "longest/shortest such that…",
+  the window size is unknown → that's Lesson 2.)
+</div>
+
+<h2>2 · Core template</h2>
+<p>
+Two phases: <strong>build</strong> the first window of k elements, then <strong>slide</strong> — for each new
+right element, evict the element k positions back and re-evaluate the answer. Worked example: Max Sum Subarray
+of size K (the classic warm-up; LC 643 is this plus a division).
+</p>
+<pre><code><span class="cmt">// Maximum sum of any contiguous subarray of length k.</span>
+int maxSumFixed(int[] nums, int k) {
+    long sum = 0;
+    for (int i = 0; i &lt; k; i++) sum += nums[i];   <span class="cmt">// phase 1: build first window [0..k-1]</span>
+    long best = sum;
+    for (int r = k; r &lt; nums.length; r++) {        <span class="cmt">// phase 2: slide right edge to r</span>
+        sum += nums[r];                            <span class="cmt">// add the entering element</span>
+        sum -= nums[r - k];                        <span class="cmt">// remove the leaving element (left edge)</span>
+        best = Math.max(best, sum);                <span class="cmt">// window is now [r-k+1 .. r]</span>
+    }
+    return (int) best;
+}</code></pre>
+<p><strong>Time</strong> O(n) — one pass, O(1) work per step. <strong>Space</strong> O(1) (or O(Σ) when the window state is a frequency table over an alphabet Σ).</p>
+
+<h3>Dry run — nums = [2, 1, 5, 1, 3, 2], k = 3</h3>
+<div class="trace">
+<span class="step">build: sum(2,1,5) = <span class="ptr">8</span> → best = 8, window [0..2]</span>
+<span class="step now">r=3: +1 −2 → sum = <span class="ptr">7</span>, window [1,5,1] → best stays 8</span>
+<span class="step now">r=4: +3 −1 → sum = <span class="ptr">9</span>, window [5,1,3] → best = 9</span>
+<span class="step now">r=5: +2 −5 → sum = <span class="ptr">6</span>, window [1,3,2] → best stays 9</span>
+<span class="step">answer 9 — computed with 1 add + 1 subtract per slide, never a re-sum</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">The window is state, not indices</span>
+  The indices are trivial — left edge is always <code>r − k + 1</code>. What you actually maintain is the
+  <strong>window's summary state</strong>: a running sum here, a frequency map for anagram problems, a deque
+  for max (Lesson 3). Everything in this track is "choose the right state + update it in O(1) per slide."
+</div>
+
+<h2>3 · All the cases</h2>
+<p>Same skeleton every time; only the window state and the "evaluate" step change.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Max sum of size k</td><td>classic warm-up</td><td>State = running sum; evaluate = max.</td></tr>
+    <tr><td>Max average of size k</td><td>LC 643</td><td>Track the max <em>sum</em>; divide by k once at the end.</td></tr>
+    <tr><td>Take k cards from either end</td><td>LC 1423</td><td>Invert: max ends-sum = total − min <em>middle</em> window of size n−k.</td></tr>
+    <tr><td>Does any window match a pattern?</td><td>LC 567</td><td>State = char-frequency array of size |s1|; evaluate = "counts equal?"</td></tr>
+    <tr><td>All windows matching a pattern</td><td>LC 438</td><td>Same as 567, but collect every matching start index.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Maximum Average Subarray I (LC 643)</h3>
+<p>
+A one-line twist on the core: the average of a fixed-length window is maximized exactly where the sum is —
+k is constant — so never divide inside the loop (and dodge floating-point drift while you're at it).
+</p>
+<pre><code>double findMaxAverage(int[] nums, int k) {
+    long sum = 0;
+    for (int i = 0; i &lt; k; i++) sum += nums[i];
+    long best = sum;
+    for (int r = k; r &lt; nums.length; r++) {
+        sum += nums[r] - nums[r - k];
+        best = Math.max(best, sum);
+    }
+    return (double) best / k;      <span class="cmt">// divide ONCE, at the very end</span>
+}</code></pre>
+
+<h3>Case: Maximum Points You Can Obtain from Cards (LC 1423) — the inverted window</h3>
+<p>
+Take exactly k cards, each from the <strong>front or back</strong> of the row, maximizing the total. The taken
+cards look like "some prefix + some suffix" — two disconnected pieces, which no single window covers. Flip the
+lens: whatever you take, what <em>remains</em> is one contiguous middle block of size <code>n − k</code>.
+Maximizing the ends = minimizing that middle window. Suddenly it's the core template with
+<code>min</code> instead of <code>max</code>.
+</p>
+<pre><code>int maxScore(int[] cardPoints, int k) {
+    int n = cardPoints.length;
+    long total = 0;
+    for (int x : cardPoints) total += x;
+    int w = n - k;                              <span class="cmt">// size of the UNTAKEN middle window</span>
+    if (w == 0) return (int) total;             <span class="cmt">// taking everything — no middle exists</span>
+    long sum = 0;
+    for (int i = 0; i &lt; w; i++) sum += cardPoints[i];
+    long minMid = sum;
+    for (int r = w; r &lt; n; r++) {
+        sum += cardPoints[r] - cardPoints[r - w];
+        minMid = Math.min(minMid, sum);         <span class="cmt">// cheapest middle to leave behind</span>
+    }
+    return (int) (total - minMid);              <span class="cmt">// ends = total − middle</span>
+}</code></pre>
+<div class="callout tip">
+  <span class="label">The inversion trick generalizes</span>
+  Whenever the chosen elements are "both ends" or "everything except a contiguous block," slide a window over the
+  <strong>complement</strong>. It converts a two-ended choice into one clean fixed window. Same move solves
+  LC 1658 (Minimum Operations to Reduce X to Zero: longest middle window summing to total−x).
+</div>
+
+<h3>Case: Permutation in String (LC 567) — frequency-count window</h3>
+<p>
+"Does s2 contain a permutation of s1?" A permutation of s1 is any window of length <code>|s1|</code> whose
+<strong>character counts</strong> equal s1's. So the window state is a 26-slot frequency array, updated by
+++ on entry and −− on exit. To evaluate in O(1) instead of comparing 26 slots each slide, keep
+<code>matches</code> = how many of the 26 letters currently agree, and adjust it only for the two letters
+that changed.
+</p>
+<pre><code>boolean checkInclusion(String s1, String s2) {
+    int k = s1.length();
+    if (k &gt; s2.length()) return false;
+    int[] need = new int[26], win = new int[26];
+    for (int i = 0; i &lt; k; i++) {               <span class="cmt">// build target counts + first window</span>
+        need[s1.charAt(i) - 'a']++;
+        win[s2.charAt(i) - 'a']++;
+    }
+    int matches = 0;
+    for (int c = 0; c &lt; 26; c++) if (win[c] == need[c]) matches++;
+    if (matches == 26) return true;
+    for (int r = k; r &lt; s2.length(); r++) {
+        int in = s2.charAt(r) - 'a';            <span class="cmt">// letter entering on the right</span>
+        if (win[in] == need[in]) matches--;     <span class="cmt">// it WAS in agreement; about to break it</span>
+        win[in]++;
+        if (win[in] == need[in]) matches++;
+        int out = s2.charAt(r - k) - 'a';       <span class="cmt">// letter leaving on the left</span>
+        if (win[out] == need[out]) matches--;
+        win[out]--;
+        if (win[out] == need[out]) matches++;
+        if (matches == 26) return true;         <span class="cmt">// all 26 letters agree ⇒ permutation found</span>
+    }
+    return false;
+}</code></pre>
+
+<h3>Case: Find All Anagrams in a String (LC 438)</h3>
+<p>
+Identical machinery to 567 — an anagram <em>is</em> a permutation — but instead of returning at the first hit,
+record every window start where all counts agree. One extra subtlety: the first window is itself a candidate,
+so check before you start sliding.
+</p>
+<pre><code>List&lt;Integer&gt; findAnagrams(String s, String p) {
+    List&lt;Integer&gt; res = new ArrayList&lt;&gt;();
+    int k = p.length();
+    if (k &gt; s.length()) return res;
+    int[] need = new int[26], win = new int[26];
+    for (int i = 0; i &lt; k; i++) {
+        need[p.charAt(i) - 'a']++;
+        win[s.charAt(i) - 'a']++;
+    }
+    int matches = 0;
+    for (int c = 0; c &lt; 26; c++) if (win[c] == need[c]) matches++;
+    if (matches == 26) res.add(0);              <span class="cmt">// don't forget window [0..k-1] itself</span>
+    for (int r = k; r &lt; s.length(); r++) {
+        int in = s.charAt(r) - 'a';
+        if (win[in] == need[in]) matches--;
+        win[in]++;
+        if (win[in] == need[in]) matches++;
+        int out = s.charAt(r - k) - 'a';
+        if (win[out] == need[out]) matches--;
+        win[out]--;
+        if (win[out] == need[out]) matches++;
+        if (matches == 26) res.add(r - k + 1);  <span class="cmt">// current window starts at r-k+1</span>
+    }
+    return res;
+}</code></pre>
+<div class="callout trap">
+  <span class="label">The matches-counter order matters</span>
+  Always do the dance in this order: <em>check-if-equal → decrement matches → mutate count → check-if-equal →
+  increment matches</em>. Mutating first loses the "was it in agreement before?" information, and your
+  <code>matches</code> drifts silently. (Simpler but slower alternative: <code>Arrays.equals(win, need)</code>
+  each slide — O(26n), still accepted, and a fine first version under interview pressure.)
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>k &gt; n.</strong> The first-window build loop walks off the array. Guard up front (567/438: return false/empty; 1423: <code>w == 0</code> means take everything).</li>
+  <li><strong>k == n.</strong> Exactly one window — the slide loop body never runs, so the answer must already be correct after the build phase. Set <code>best</code> before the loop, not inside it.</li>
+  <li><strong>Negative numbers.</strong> Fixed windows don't care (unlike some variable-window sum tricks in Lesson 2) — the add/remove arithmetic is sign-agnostic. But initialize <code>best</code> to the first window's sum, never to 0.</li>
+  <li><strong>Overflow.</strong> 10⁵ elements × values up to 10⁴ exceeds nothing, but 10⁵ × 10⁹ busts int. Accumulate window sums in <code>long</code> by reflex.</li>
+  <li><strong>The leaving index is <code>r − k</code>,</strong> not <code>r − k + 1</code> and not <code>l++</code> of some separately tracked variable you forgot to move. Derive it: window is <code>[r−k+1 .. r]</code>, so the element that just fell out is <code>r − k</code>.</li>
+  <li><strong>Report starts, not ends.</strong> LC 438 wants start indices: <code>r − k + 1</code>. Off-by-one here passes small tests and fails hidden ones.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why is the sliding version O(n) when the naive version is O(n·k)?</div>
+  <button class="opt">Because the window skips ahead k positions at a time, doing n/k iterations</button>
+  <button class="opt">Because each element enters the window once and leaves once, so total update work is O(1) per element</button>
+  <button class="opt">Because the running sum lets you binary-search for the best window in O(log n)</button>
+  <div class="fb" data-correct="Exactly — amortized accounting. The window slides one position per step, each step doing one add and one remove, so every element is touched a constant number of times." data-wrong="The window moves one step at a time, not k, and nothing is binary-searched. The saving is that adjacent windows share k−1 elements, so each slide costs O(1): one element in, one out."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In Max Points from Cards (LC 1423) you must take k cards from the two ends. Why does a sliding window apply at all, when the taken cards aren't contiguous?</div>
+  <button class="opt">You run two windows, one anchored at each end, and merge their best sums</button>
+  <button class="opt">You rotate the array so the two ends become adjacent, forming one window of size k</button>
+  <button class="opt">The untaken cards form one contiguous block of size n−k, so you minimize that complement window</button>
+  <div class="fb" data-correct="Right — the complement of 'prefix + suffix' is a single contiguous middle block. Minimizing its sum maximizes what you keep: answer = total − minMiddle." data-wrong="No merging or rotation needed. Whatever mix of front/back cards you take, what remains is one contiguous middle window of size n−k — slide over that and minimize."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In the LC 567/438 template, what does <code>matches == 26</code> mean, and why track it instead of comparing arrays?</div>
+  <button class="opt">All 26 letter counts agree between window and target, checkable in O(1) because each slide changes only two letters</button>
+  <button class="opt">The window has seen 26 distinct characters, which guarantees it contains the permutation</button>
+  <button class="opt">The window and target have the same length, which is a precondition for any anagram</button>
+  <div class="fb" data-correct="Yes — matches counts letters whose frequencies currently agree (including letters both sides have zero of). A slide touches only the entering and leaving letters, so matches updates in O(1) instead of a 26-slot compare." data-wrong="matches counts per-letter frequency agreements, not distinct characters or lengths. When all 26 agree, the window's multiset equals the target's — that's the anagram condition."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/permutation-string">NeetCode — Permutation in String</a> for the frequency-window walkthrough, and <a href="https://neetcode.io/courses/advanced-algorithms/1">NeetCode — Sliding Window (fixed)</a> for the core mechanics.</li>
+  <li><strong>Practice ladder (Java):</strong> Max Sum Subarray of size K (GfG / blind warm-up) → LC 643 (max average) → LC 1343 (count windows with average ≥ threshold — pure template rep) → LC 1423 (inverted window) → LC 567 (frequency window) → LC 438 (all matches). Code each from a blank file; if the matches-counter dance trips you, write the <code>Arrays.equals</code> version first, then optimize.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run the matches counter on a small string, unsure why 1423 can't be done with a direct window,
+  or fuzzy on why <code>r − k</code> is the leaving index? Ask in the chat. When you can write the build-then-slide
+  template from memory and explain the complement trick, say <strong>"next"</strong> and we move to
+  Lesson 2: Variable-Size Windows — where the window's width becomes the unknown.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-variable-size-windows.html">Variable-Size Windows →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

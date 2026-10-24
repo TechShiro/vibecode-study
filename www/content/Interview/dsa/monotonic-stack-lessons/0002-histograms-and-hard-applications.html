@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monotonic Stack Lesson 2 — Histograms &amp; Hard Applications</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Monotonic Stack Track · Lesson 2 of 2 · histogram, rain water, contribution counting</div>
+<h1>Histograms &amp; Hard Applications</h1>
+<p class="subtitle">Four famous "hard-feeling" problems — largest rectangle, trapping rain, subarray minimums, remove-k-digits — and every one is Lesson 1's template wearing a costume.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Largest Rectangle in Histogram is a canonical big-tech hard; Trapping Rain Water is arguably the single most-asked hard on LeetCode. Solving either cleanly in 20 minutes is a strong hire signal.
+  This is Lesson 2 of the 2-lesson monotonic-stack track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1 asked "where is my nearest greater/smaller neighbor?" This lesson asks the follow-up that makes problems hard:
+<strong>"how far can I extend before someone stops me?"</strong> A bar in a histogram extends left and right until a
+<em>shorter</em> bar blocks it; an element is the minimum of every subarray that doesn't contain a smaller element.
+Both boundaries are exactly <em>previous smaller</em> and <em>next smaller</em> — one increasing-stack pass computes them,
+and the pop moment is when an element learns <strong>both</strong> of its walls at once.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Largest rectangle / maximal area under bars", "water trapped between walls", "sum of minimums/maximums over all subarrays",
+  "remove digits/characters to make the smallest result". General tell: each element's contribution is decided by its
+  <strong>nearest smaller (or greater) element on each side</strong> — that phrase means one monotonic-stack pass, O(n).
+</div>
+
+<h2>2 · Core: Largest Rectangle in Histogram (LC 84) — fully worked</h2>
+<p>
+Naive: for each bar, walk left and right while bars stay ≥ it, area = height × width → O(n²). The stack version: sweep with an
+<strong>increasing</strong> stack of indices. While the incoming bar is <em>shorter</em> than the top, the top gets popped — and at
+that instant it knows everything: the incoming bar <code>i</code> is its first shorter bar on the <em>right</em>, and the element
+now exposed beneath it on the stack is its first shorter bar on the <em>left</em>. Its rectangle spans strictly between them.
+</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 340 170" role="img" aria-label="Histogram with bars 2,1,5,6,2,3; the best rectangle of height 5 and width 2 spans the bars of heights 5 and 6">
+  <rect class="cell" x="30"  y="110" width="40" height="40"/>
+  <rect class="cell" x="80"  y="130" width="40" height="20"/>
+  <rect class="cell done" x="130" y="50"  width="40" height="100"/>
+  <rect class="cell done" x="180" y="30"  width="40" height="120"/>
+  <rect class="cell" x="230" y="110" width="40" height="40"/>
+  <rect class="cell" x="280" y="90"  width="40" height="60"/>
+  <rect class="cell cur" x="130" y="50" width="90" height="100" style="fill-opacity:0.35"/>
+  <text class="wt" x="50"  y="162">2</text><text class="wt" x="100" y="162">1</text>
+  <text class="wt" x="150" y="162">5</text><text class="wt" x="200" y="162">6</text>
+  <text class="wt" x="250" y="162">2</text><text class="wt" x="300" y="162">3</text>
+</svg>
+<figcaption>heights = [2,1,5,6,2,3]. Bar 5 extends right through 6 and stops at 2; left it stops at 1. Width 2, height 5 → area 10, the maximum. Each bar's rectangle is pinned by its nearest-smaller on each side.</figcaption>
+</figure>
+
+<pre><code>int largestRectangleArea(int[] h) {
+    int n = h.length, best = 0;
+    Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();     <span class="cmt">// indices; heights increasing bottom→top</span>
+    for (int i = 0; i &lt;= n; i++) {              <span class="cmt">// i == n is a virtual 0-height SENTINEL bar…</span>
+        int cur = (i == n) ? 0 : h[i];          <span class="cmt">// …that flushes every bar left on the stack</span>
+        while (!st.isEmpty() &amp;&amp; cur &lt; h[st.peek()]) {
+            int mid = st.pop();                 <span class="cmt">// bar 'mid' now knows both walls:</span>
+            int height = h[mid];                <span class="cmt">//   right wall = i (first shorter on the right)</span>
+            int left = st.isEmpty() ? -1 : st.peek(); <span class="cmt">//   left wall = new top (first shorter on the left)</span>
+            int width = i - left - 1;           <span class="cmt">// strictly between the walls</span>
+            best = Math.max(best, height * width);
+        }
+        st.push(i);
+    }
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(n) — push/pop once each, sentinel included. <strong>Space</strong> O(n).</p>
+
+<div class="trace">
+<span class="step">h = [2, 1, 5, 6, 2, 3] &nbsp; (stack shown as heights)</span>
+<span class="step now">i=0 (2): push. st=[2]</span>
+<span class="step now">i=1 (1): 1&lt;2 → pop 2: left wall −1, width 1−(−1)−1=<span class="ptr">1</span>, area 2. push. st=[1]</span>
+<span class="step now">i=2 (5): push. st=[1,5] &nbsp; i=3 (6): push. st=[1,5,6]</span>
+<span class="step now">i=4 (2): pop 6: width 4−2−1=<span class="ptr">1</span>, area 6 · pop 5: width 4−1−1=<span class="ptr">2</span>, area <span class="ptr">10</span>. push. st=[1,2]</span>
+<span class="step now">i=5 (3): push. st=[1,2,3]</span>
+<span class="step now">i=6 (sentinel 0): pop 3 (w=1, a=3), pop 2 (w=4, a=8), pop 1 (w=6, a=6)</span>
+<span class="step">best = 10 ✓ — every bar was measured exactly once, at its pop</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">The sentinel and the width formula</span>
+  Appending a virtual height-0 bar means you never write a second "drain the stack" loop — bar n is shorter than everything, so it
+  flushes all survivors. And <code>width = i − st.peek() − 1</code> (with −1 for an empty stack) is worth memorizing: it says
+  "strictly between my two shorter walls". Deriving it live under pressure is where people burn 10 minutes.
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Max rectangle under bars</td><td>LC 84</td><td>The core above. Extension: LC 85 runs it per matrix row.</td></tr>
+    <tr><td>Water between walls</td><td>LC 42</td><td>Decreasing stack; on pop, water fills a horizontal layer: width × (min(walls) − floor).</td></tr>
+    <tr><td>Sum of all subarray minimums</td><td>LC 907</td><td>Contribution counting: each element × #subarrays where it's the min = left · right spans.</td></tr>
+    <tr><td>Lexicographically smallest after k removals</td><td>LC 402</td><td>Greedy increasing stack over digits: pop a bigger previous digit while removals remain.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Trapping Rain Water — stack variant (LC 42)</h3>
+<p>
+Sweep with a <strong>decreasing</strong> stack of indices (walls waiting for a taller right wall). When a taller bar arrives, pop the
+valley floor: the popped bar is the <em>bottom</em>, the new stack top is the <em>left wall</em>, the incoming bar the <em>right
+wall</em>. Water fills a horizontal slab: width between the walls × (shorter wall − floor). Note the shape difference from LC 84:
+histogram accumulates <em>vertically per bar at pop</em>; rain water accumulates <em>horizontal layers per pop</em>.
+</p>
+<pre><code>int trap(int[] h) {
+    Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();     <span class="cmt">// indices; heights decreasing bottom→top</span>
+    int water = 0;
+    for (int i = 0; i &lt; h.length; i++) {
+        while (!st.isEmpty() &amp;&amp; h[i] &gt; h[st.peek()]) {
+            int floor = st.pop();               <span class="cmt">// valley bottom between two taller walls</span>
+            if (st.isEmpty()) break;            <span class="cmt">// no left wall → this dip can't hold water</span>
+            int left = st.peek();
+            int width = i - left - 1;           <span class="cmt">// strictly between the walls</span>
+            int depth = Math.min(h[left], h[i]) - h[floor]; <span class="cmt">// water rises to the SHORTER wall</span>
+            water += width * depth;             <span class="cmt">// one horizontal slab of water</span>
+        }
+        st.push(i);
+    }
+    return water;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(n). (LC 42 also has a two-pointer O(1)-space solution — the Two Pointers track covers it; mention both in an interview.)</p>
+
+<h3>Case: Sum of Subarray Minimums (LC 907) — contribution counting</h3>
+<p>
+Naive: enumerate all O(n²) subarrays. Flip the ledger: instead of "what's each subarray's min", ask <strong>"in how many subarrays
+is element <code>i</code> THE min?"</strong> If the nearest smaller element is <code>left[i]</code> steps behind (strictly smaller)
+and <code>right[i]</code> steps ahead (smaller-or-equal), any subarray starting in those left slots and ending in those right slots
+has <code>a[i]</code> as its minimum: <code>left[i] · right[i]</code> subarrays, contributing <code>a[i] · left[i] · right[i]</code>.
+One pass computes both spans — an element's <em>pop moment</em> fixes its right span; the survivor beneath fixes its left span.
+</p>
+<pre><code>int sumSubarrayMins(int[] a) {
+    final int MOD = 1_000_000_007;
+    int n = a.length;
+    long ans = 0;
+    Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();     <span class="cmt">// indices; values increasing (non-strict) bottom→top</span>
+    for (int i = 0; i &lt;= n; i++) {
+        int cur = (i == n) ? Integer.MIN_VALUE : a[i];   <span class="cmt">// sentinel flushes everyone</span>
+        while (!st.isEmpty() &amp;&amp; cur &lt; a[st.peek()]) {    <span class="cmt">// strict &lt; here, ≥ stays — see trap below</span>
+            int mid = st.pop();
+            int left  = st.isEmpty() ? -1 : st.peek();   <span class="cmt">// nearest STRICTLY smaller on the left</span>
+            long L = mid - left;                <span class="cmt">// choices for the subarray's start</span>
+            long R = i - mid;                   <span class="cmt">// choices for the end (up to first ≤ on the right)</span>
+            ans = (ans + a[mid] % MOD * L % MOD * R) % MOD;
+        }
+        st.push(i);
+    }
+    return (int) ans;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(n). Contribution counting — "sum over all subarrays = sum over all elements of (value × times it's counted)" — is a technique worth naming out loud; LC 2104 (Sum of Subarray Ranges) is the same trick twice (max minus min).</p>
+
+<div class="callout trap">
+  <span class="label">The duplicate double-count trap (LC 907)</span>
+  With equal values like <code>[3, 3]</code>, if <em>both</em> sides use strict "smaller", the subarray <code>[3, 3]</code> is
+  credited to <em>both</em> threes. Fix: break the tie asymmetrically — strictly-smaller boundary on one side, smaller-<em>or-equal</em>
+  on the other (above: pop on <code>cur &lt; top</code>, so equal values stay and become left boundaries). Each subarray then credits
+  its min to exactly one occurrence.
+</div>
+
+<h3>Case: Remove K Digits (LC 402) — lexicographic-min stack</h3>
+<p>
+Make the smallest number by deleting k digits. Greedy insight: a number is smaller when its <em>leading</em> digits are smaller,
+so if a digit is bigger than the one after it, deleting it always helps. That's "pop the previous greater while budget remains" —
+an increasing stack over the digit string. Same greedy skeleton solves LC 316 / 1081 (Remove Duplicate Letters) and LC 321.
+</p>
+<pre><code>String removeKdigits(String num, int k) {
+    Deque&lt;Character&gt; st = new ArrayDeque&lt;&gt;();   <span class="cmt">// digits, non-decreasing bottom→top</span>
+    for (char c : num.toCharArray()) {
+        while (!st.isEmpty() &amp;&amp; k &gt; 0 &amp;&amp; st.peek() &gt; c) {
+            st.pop();                           <span class="cmt">// a bigger digit BEFORE a smaller one — delete it</span>
+            k--;
+        }
+        st.push(c);
+    }
+    while (k-- &gt; 0) st.pop();                   <span class="cmt">// digits already non-decreasing → trim the largest, at the END</span>
+    StringBuilder sb = new StringBuilder();
+    for (Iterator&lt;Character&gt; it = st.descendingIterator(); it.hasNext(); )
+        sb.append(it.next());                   <span class="cmt">// bottom→top order = left→right digits</span>
+    int i = 0;
+    while (i &lt; sb.length() - 1 &amp;&amp; sb.charAt(i) == '0') i++; <span class="cmt">// strip leading zeros, keep one digit</span>
+    String s = sb.substring(i);
+    return s.isEmpty() ? "0" : s;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(n). Three sub-traps in one problem: leftover k (input already increasing, e.g. "12345"), leading zeros ("10200", k=1 → "200"), and everything removed → return <code>"0"</code>.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Forgetting the sentinel / final drain</strong> (84, 907): an increasing input never pops, and you return 0. Loop to <code>i ≤ n</code> with a virtual smallest bar, or drain explicitly after the loop.</li>
+  <li><strong>Width off-by-one:</strong> <code>i − st.peek() − 1</code> after popping, and <code>left = −1</code> when the stack empties. Test on a single bar: <code>[5]</code> must give 5.</li>
+  <li><strong>Rain water needs a left wall:</strong> after popping, an empty stack means the water spills left — <code>break</code>, don't count.</li>
+  <li><strong>Duplicates in 907:</strong> strict on one side, non-strict on the other, or equal minima double-count. Also take <code>% MOD</code> inside the accumulation, in <code>long</code>.</li>
+  <li><strong>402's three exits:</strong> spend leftover k from the <em>end</em>; strip leading zeros; empty result is <code>"0"</code>.</li>
+  <li><strong>Deque direction when rebuilding strings:</strong> <code>ArrayDeque.push</code> adds to the head, so iterate with <code>descendingIterator()</code> to read bottom→top (or use <code>StringBuilder</code> as the stack and skip the issue).</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 84, bar <code>mid</code> is popped because incoming bar <code>i</code> is shorter. What is the width of <code>mid</code>'s maximal rectangle?</div>
+  <button class="opt"><code>i − mid</code>, the distance from the bar to its right wall</button>
+  <button class="opt"><code>i − st.peek()</code>, the distance between the two walls inclusive</button>
+  <button class="opt"><code>i − st.peek() − 1</code>, the count of bars strictly between the two shorter walls (−1 if the stack is empty)</button>
+  <div class="fb" data-correct="The rectangle at height h[mid] runs over every bar strictly between its first-shorter-left (new stack top) and first-shorter-right (i). Both walls are excluded — hence the −1." data-wrong="i − mid ignores how far the bar extends LEFT (bars ≥ it were popped earlier and are invisible now). The walls themselves are shorter, so they're excluded: i − st.peek() − 1, with left = −1 when nothing remains."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In LC 907 with <code>a = [3, 3]</code>, why must the two boundary comparisons differ (strict on one side, non-strict on the other)?</div>
+  <button class="opt">Otherwise the subarray [3,3] would credit its minimum to both equal elements, double-counting it</button>
+  <button class="opt">Otherwise the stack could grow beyond n elements and break the O(n) bound</button>
+  <button class="opt">Java's Deque cannot store duplicate values, so ties must be resolved before pushing</button>
+  <div class="fb" data-correct="Each subarray's min must be attributed to exactly one index. Asymmetric tie-breaking (say, strictly-smaller left boundary, smaller-or-equal right) gives every run of equal values a unique owner per subarray." data-wrong="The stack holds indices, so duplicates are fine and it never exceeds n. The issue is accounting: with symmetric strict boundaries, both 3s claim the subarray [3,3] and the sum comes out too high."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Running LC 402 on <code>num = "12345"</code>, <code>k = 2</code>: the loop never pops. What must happen next?</div>
+  <button class="opt">Return "12345" — no digit was bigger than its successor, so no removal can help</button>
+  <button class="opt">Remove the last 2 digits, returning "123" — in a non-decreasing number the largest digits are at the end</button>
+  <button class="opt">Remove the first 2 digits, returning "345" — removing leading digits shrinks the number fastest</button>
+  <div class="fb" data-correct="You MUST delete exactly k digits. Since the stack is non-decreasing, the biggest digits sit at the top/end — trimming there ('12345' → '123') gives the smallest result." data-wrong="k removals are mandatory, and removing leading digits removes the SMALLEST digits here, leaving '345' > '123'. Trim the tail: a non-decreasing sequence keeps its largest digits at the end."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/largest-rectangle-in-histogram">NeetCode — Largest Rectangle in Histogram</a>; then <a href="https://neetcode.io/problems/trapping-rain-water">NeetCode — Trapping Rain Water</a> to contrast the stack and two-pointer solutions.</li>
+  <li><strong>Practice ladder (Java):</strong> re-do LC 739 for warm-up → LC 84 (from memory, sentinel included) → LC 42 (stack variant) → LC 907 (say "contribution counting" out loud) → LC 402 (all three exit traps) → stretch: LC 85 (Maximal Rectangle = 84 per row), LC 2104 (Subarray Ranges = 907 twice), LC 316 (Remove Duplicate Letters).</li>
+</ul>
+
+<h2>7 · Monotonic Stack cheat sheet</h2>
+<p>The whole track on one card — print it.</p>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Next greater (map)</td><td>"Next greater element", distinct values</td><td>decreasing stack; pop on <code>x &gt; top</code> → <code>nge[pop] = x</code></td><td>O(n) / O(n)</td><td>496</td></tr>
+    <tr><td>Next greater, circular</td><td>Circular array</td><td>sweep <code>2n</code> with <code>i % n</code>; push only when <code>i &lt; n</code></td><td>O(n) / O(n)</td><td>503</td></tr>
+    <tr><td>Distance to next greater</td><td>"Days until warmer"</td><td>stack of indices; on pop <code>ans[j] = i − j</code></td><td>O(n) / O(n)</td><td>739</td></tr>
+    <tr><td>Streaming span</td><td>"Span of previous ≤", online</td><td>stack of (value, span); absorb spans while <code>top ≤ x</code></td><td>amortized O(1)/op</td><td>901</td></tr>
+    <tr><td>Previous smaller</td><td>"Nearest smaller to the left"</td><td>increasing stack; pop <code>≥ x</code>; answer = surviving top (peek, not pop)</td><td>O(n) / O(n)</td><td>—</td></tr>
+    <tr><td>Largest rectangle</td><td>Histogram / maximal area</td><td>increasing stack + 0-sentinel; on pop <code>h[mid] · (i − peek − 1)</code></td><td>O(n) / O(n)</td><td>84</td></tr>
+    <tr><td>Trapping rain water</td><td>Water between walls</td><td>decreasing stack; on pop slab = <code>width · (min(walls) − floor)</code></td><td>O(n) / O(n)</td><td>42</td></tr>
+    <tr><td>Sum of subarray minimums</td><td>"Sum of min over all subarrays"</td><td>contribution: <code>a[i] · L · R</code>, asymmetric ties, MOD in long</td><td>O(n) / O(n)</td><td>907</td></tr>
+    <tr><td>Lexicographic minimum</td><td>"Remove k to make smallest"</td><td>increasing stack; pop bigger prev while <code>k &gt; 0</code>; trim tail, strip zeros</td><td>O(n) / O(n)</td><td>402</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the LC 84 pop step re-traced on your own example, the 907 tie-breaking spelled out on <code>[2,3,3,2]</code>, or the
+  two-pointer LC 42 compared side-by-side? Ask in the chat. When the cheat sheet reads like old news,
+  say <strong>"next"</strong> to move on to the Intervals track.
+</div>
+
+<div class="nav">
+  <span><a href="0001-next-greater-family.html">← Next-Greater Family</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../intervals-lessons/0001-merge-and-insert.html">Intervals →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

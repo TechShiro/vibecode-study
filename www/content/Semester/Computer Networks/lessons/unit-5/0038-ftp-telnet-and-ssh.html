@@ -1,0 +1,278 @@
+<title>FTP, TELNET and SSH</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 38 of 42</p>
+<h1>FTP, TELNET and SSH</h1>
+<p class="deck">FTP's two connections and the active/passive distinction, TELNET's network virtual terminal, and why SSH replaced it. Two protocols named in the syllabus, and the third because no answer about TELNET is complete without it.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Explain FTP with a diagram"</strong> is a 5-mark question, and the diagram must show <strong>two connections, not one</strong> &mdash; that is the whole point of FTP and the single fact examiners check. For TELNET, the marks are in the <strong>Network Virtual Terminal</strong> concept and in <strong>why TELNET is insecure</strong>. Keep two lines for SSH as the answer to that.</p>
+</div>
+
+<h2>FTP &mdash; File Transfer Protocol</h2>
+
+<p>FTP transfers files between two hosts. Its distinguishing design decision, and the source of most exam questions about it:</p>
+
+<div class="formula">
+  <span class="name">FTP uses TWO TCP connections</span>
+  <strong>Control connection &mdash; port 21.</strong> Opened first, stays open for the <em>entire session</em>. Carries only <strong>commands and replies</strong>.<br>
+  <strong>Data connection &mdash; port 20.</strong> Opened and <strong>closed again for every single file transferred</strong>. Carries only the file data.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Control connection</th><th>Data connection</th></tr></thead>
+<tbody>
+<tr><td><strong>Port</strong></td><td>21</td><td>20</td></tr>
+<tr><td><strong>Lifetime</strong></td><td>The <strong>whole session</strong></td><td><strong>One file</strong>, then closed</td></tr>
+<tr><td><strong>Carries</strong></td><td>Commands and replies</td><td>File data only</td></tr>
+<tr><td><strong>Opened by</strong></td><td>The client</td><td>The <strong>server</strong> (active mode) or the <strong>client</strong> (passive mode)</td></tr>
+<tr><td><strong>Rules used</strong></td><td>Simple &mdash; NVT ASCII, one command per line</td><td>Complex &mdash; file type, data structure and transmission mode must be agreed first</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why separate the two? &mdash; the reasoning that earns the mark</span>
+  <p><strong>Because commands and data have completely different requirements.</strong> Commands are tiny, textual and must be deliverable <em>during</em> a transfer &mdash; a user needs to be able to send ABORT while a large file is still moving. Data is bulk, may be binary, and needs its type and structure negotiated. Trying to interleave both on one connection would mean escaping data that looked like commands, and would make aborting a transfer impossible. Two connections keep control responsive while data flows.</p>
+</div>
+
+<h3>Active vs passive mode</h3>
+
+<p>A reliable 3-mark sub-question, and the reason FTP is awkward with firewalls.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Active mode</th><th>Passive mode</th></tr></thead>
+<tbody>
+<tr><td><strong>Who opens the data connection</strong></td><td>The <strong>server</strong> connects <em>back</em> to the client</td><td>The <strong>client</strong> connects to the server</td></tr>
+<tr><td><strong>Command used</strong></td><td><code>PORT</code> &mdash; the client tells the server which port to call back on</td><td><code>PASV</code> &mdash; the client asks the server which port to connect to</td></tr>
+<tr><td><strong>Server's data port</strong></td><td>20</td><td>An ephemeral port the server nominates</td></tr>
+<tr><td><strong>Firewall problem</strong></td><td><strong>Breaks</strong> &mdash; the client's firewall sees an unsolicited inbound connection and blocks it</td><td><strong>Works</strong> &mdash; both connections are outbound from the client</td></tr>
+<tr><td><strong>Default today</strong></td><td>Rare</td><td><strong>The normal mode</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three attributes to negotiate</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attribute</th><th>Options</th></tr></thead>
+<tbody>
+<tr><td><strong>File type</strong></td><td><strong>ASCII</strong> (default, for text &mdash; converted to and from NVT ASCII), <strong>EBCDIC</strong>, or <strong>image/binary</strong> (a stream of bits, for programs and images)</td></tr>
+<tr><td><strong>Data structure</strong></td><td><strong>File</strong> (a continuous stream of bytes, the default), <strong>record</strong> (divided into records), or <strong>page</strong> (divided into numbered pages)</td></tr>
+<tr><td><strong>Transmission mode</strong></td><td><strong>Stream</strong> (default &mdash; delivered to TCP as a continuous stream), <strong>block</strong> (in blocks with a 3-byte header), or <strong>compressed</strong> (run-length encoding for long files)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Anonymous FTP, and FTP's security problem</h3>
+
+<p><strong>Anonymous FTP</strong> lets a user access public files without an account: log in as <code>anonymous</code> with an e-mail address as the password. Access is normally read-only and confined to a public directory.</p>
+
+<p><strong>FTP sends the username and password in plain text</strong> over the control connection, and the file data unencrypted. Anyone tapping the link sees both. The replacements are <strong>FTPS</strong> (FTP over TLS) and <strong>SFTP</strong> (file transfer over SSH &mdash; a different protocol entirely, despite the similar name).</p>
+
+<h3>TFTP, in one line</h3>
+
+<p><strong>TFTP</strong> (Trivial File Transfer Protocol, <strong>port 69, UDP</strong>) is a deliberately minimal alternative: <strong>no authentication, no directory listing, one connection, and it builds its own stop-and-wait reliability on top of UDP</strong>. Used for booting diskless workstations and loading router configurations &mdash; cases where the client is too simple to implement FTP.</p>
+
+<h2>TELNET &mdash; Terminal Network</h2>
+
+<p><strong>TELNET</strong> (port 23) is the standard TCP/IP protocol for <strong>remote login</strong>: it lets a user at one machine log in to a remote machine and run commands there as though sitting at its terminal.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Local login</strong></td><td>Keystrokes go to the local terminal driver, which passes them to the local operating system.</td></tr>
+<tr><td><strong>Remote login</strong></td><td>Keystrokes are accepted by the terminal driver but <strong>not interpreted locally</strong>. They are passed to the TELNET client, translated to NVT form, sent across the network, and delivered to a <strong>pseudoterminal driver</strong> on the remote machine, which makes the remote OS believe a local terminal is attached.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The Network Virtual Terminal &mdash; the key concept</h3>
+
+<div class="box win">
+  <span class="lbl">The problem NVT solves, and the answer to "what is NVT?"</span>
+  <p><strong>Every kind of computer has its own character set and its own control sequences.</strong> If TELNET had to know about all of them, every client would need code for every possible server. <strong>The NVT is a universal intermediate representation.</strong> The client translates from its local form into NVT form; the server translates from NVT form into its own. Each system needs to know only <em>its own</em> encoding and the NVT standard &mdash; so <strong>n systems need n translators rather than n&sup2;</strong>.</p>
+</div>
+
+<p>NVT uses two character sets: <strong>data characters</strong> (7-bit US ASCII in an 8-bit byte, with the top bit 0) and <strong>control characters</strong> (the same byte with the <strong>top bit set to 1</strong>). Control characters are preceded by the <strong>IAC (Interpret As Command)</strong> byte, value 255.</p>
+
+<h3>Options and negotiation</h3>
+
+<p>TELNET can be enriched with <strong>options</strong> &mdash; echo mode, terminal type, line width, binary transmission. Both ends negotiate which to use, with four commands worth naming: <strong>WILL</strong> ("I will do this"), <strong>WONT</strong>, <strong>DO</strong> ("please do this"), <strong>DONT</strong>. There is also <strong>sub-option negotiation</strong> for options that need a parameter, such as the terminal type.</p>
+
+<h3>Modes of operation</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Mode</th><th>Behaviour</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td><strong>Default mode</strong></td><td>The client echoes locally and sends a <strong>whole line</strong> when the user presses Enter.</td><td>Efficient, but no remote validation until the line is sent.</td></tr>
+<tr><td><strong>Character mode</strong></td><td><strong>Each character is sent separately</strong> and echoed by the remote server.</td><td><strong>Very inefficient</strong> &mdash; one character generates a segment out and an echo back. This is exactly the traffic pattern Nagle's algorithm exists to control.</td></tr>
+<tr><td><strong>Line mode</strong></td><td>Line editing is done locally; the completed line is sent. A compromise between the two.</td><td>The usual choice.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>SSH &mdash; Secure Shell</h2>
+
+<p><strong>TELNET sends everything, including the password, in plain text.</strong> Anyone able to observe the traffic can read the login credentials and every keystroke. That is why TELNET is effectively obsolete on public networks.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>TELNET</th><th>SSH</th></tr></thead>
+<tbody>
+<tr><td><strong>Port</strong></td><td>23</td><td><strong>22</strong></td></tr>
+<tr><td><strong>Encryption</strong></td><td><strong>None</strong> &mdash; plain text throughout</td><td><strong>All traffic encrypted</strong>, including the password</td></tr>
+<tr><td><strong>Authentication</strong></td><td>Password only, sent in the clear</td><td>Password or <strong>public-key</strong> authentication; the server is authenticated too</td></tr>
+<tr><td><strong>Integrity</strong></td><td>None</td><td>Message authentication codes detect tampering</td></tr>
+<tr><td><strong>Extra capabilities</strong></td><td>Remote login only</td><td><strong>Port forwarding / tunnelling</strong>, secure file transfer (<strong>SFTP</strong>, <strong>SCP</strong>), and running remote commands</td></tr>
+<tr><td><strong>Status</strong></td><td>Obsolete outside isolated networks</td><td><strong>The standard</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>SSH has three components worth naming: <strong>SSH-TRANS</strong> (the transport layer protocol, providing the encrypted channel and server authentication), <strong>SSH-AUTH</strong> (authenticating the client to the server), and <strong>SSH-CONN</strong> (multiplexing several logical channels &mdash; a login session, a file transfer, a forwarded port &mdash; over the one encrypted connection).</p>
+
+<div class="box exam">
+  <span class="lbl">The comparison examiners want in one line</span>
+  <p><strong>SSH is TELNET with encryption, server authentication and integrity checking &mdash; and it can tunnel other protocols through the same secure connection.</strong> If a question asks why TELNET is no longer used, that sentence is the answer.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">FTP Dual Connection Architecture & TELNET vs SSH Security</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>FTP Dual Connection</strong><span class="sub">Two separate TCP connections</span></div>
+      <div class="flow-box"><strong>Control Connection (Port 21):</strong> Stays open entire session for commands (USER, PASS, RETR)</div>
+      <div class="flow-box ok"><strong>Data Connection (Port 20):</strong> Dynamically opened & closed for each file transfer</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box warn"><strong>TELNET (Port 23)</strong><span class="sub">Unencrypted plaintext transmission; passwords visible to packet sniffers</span></div>
+      <div class="flow-arrow-down">&darr; Replaced by</div>
+      <div class="flow-box ok"><strong>SSH (Port 22)</strong><span class="sub">Cryptographically secure shell tunnel with asymmetric host verification & symmetric payload encryption</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">FTP, TELNET & SSH</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L73: File Transfer Protocol (FTP) Architecture & Modes</div>
+    <div class="v-desc">Thorough analysis of out-of-band control signaling, Active mode (PORT) vs Passive mode (PASV) NAT traversal, and secure remote logins.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=aIX-GHAB53Q" target="_blank" rel="noopener">Watch on YouTube &rarr; (KnowledgeGATE by Sanchit Sir)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. FTP's control connection:</p>
+  <div class="opts">
+    <button class="opt">Is opened by the server back towards the client</button>
+    <button class="opt" data-ok="1">Stays open for the whole session and carries only commands and replies</button>
+    <button class="opt">Opens and closes once for each file that is transferred</button>
+    <button class="opt">Carries both the commands and the file data together</button>
+  </div>
+  <p class="why">Control (port 21) persists for the session; the data connection (port 20) is opened and closed per file. Keeping them separate is what lets a user send ABORT while a large transfer is still running.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In active mode FTP, the data connection is opened by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The server, connecting back to the client &mdash; which firewalls often block</button>
+    <button class="opt">The client, using the PASV command to ask for a port</button>
+    <button class="opt">The control connection itself, upgraded in place</button>
+    <button class="opt">Either end, whichever has data ready to send first</button>
+  </div>
+  <p class="why">Active mode has the client issue PORT and the server call back — an unsolicited inbound connection that client firewalls reject. Passive mode has the client connect outbound both times, which is why it is now the default.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The Network Virtual Terminal exists so that:</p>
+  <div class="opts">
+    <button class="opt">Passwords can be transmitted without being read in transit</button>
+    <button class="opt">Several terminal sessions can share one TCP connection</button>
+    <button class="opt" data-ok="1">Each system needs to know only its own encoding and one universal standard</button>
+    <button class="opt">The remote server can echo characters back more quickly</button>
+  </div>
+  <p class="why">Without a universal intermediate form, every client would need a translator for every possible server — n² translators for n systems. NVT reduces that to n. TELNET does nothing at all about password secrecy, which is why SSH replaced it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. TELNET character mode is inefficient because:</p>
+  <div class="opts">
+    <button class="opt">The connection is torn down and rebuilt for each character</button>
+    <button class="opt" data-ok="1">Each keystroke produces a segment out and an echo back</button>
+    <button class="opt">Each line must be validated by the server before sending</button>
+    <button class="opt">Every character is encrypted separately before transmission</button>
+  </div>
+  <p class="why">One byte of data travelling in a 41-byte packet, twice over. This is precisely the traffic pattern Nagle's algorithm was designed to control — the two topics connect directly.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. TFTP differs from FTP in that TFTP:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Uses UDP, has no authentication, and uses a single connection</button>
+    <button class="opt">Uses two TCP connections but omits the control channel</button>
+    <button class="opt">Supports directory listing but not file transfer itself</button>
+    <button class="opt">Encrypts the file data while FTP sends it in plain text</button>
+  </div>
+  <p class="why">TFTP (port 69, UDP) is deliberately minimal — no authentication, no directory listing, one connection, and its own stop-and-wait reliability layered on UDP. It exists for clients too simple to implement FTP, such as booting diskless machines.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The principal reason SSH replaced TELNET is that SSH:</p>
+  <div class="opts">
+    <button class="opt">Uses a lower port number and so passes firewalls more easily</button>
+    <button class="opt">Sends whole lines rather than individual characters</button>
+    <button class="opt" data-ok="1">Encrypts all traffic including the password, and authenticates the server</button>
+    <button class="opt">Requires no login credentials from the user at all</button>
+  </div>
+  <p class="why">TELNET sends credentials and every keystroke in the clear. SSH encrypts everything, authenticates both parties, checks integrity, and can additionally tunnel other protocols through the same secure connection.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Describe FTP's two connections and why they are separate.</summary>
+    <p class="ans">Control on port 21, open for the whole session, carrying only commands and replies; data on port 20, opened and closed for each file, carrying only file data. They are separate because commands are tiny, textual and must be deliverable during a transfer (so ABORT works), while data is bulk, possibly binary, and needs its type and structure negotiated.</p></details>
+  <details class="card"><summary>Compare active and passive FTP.</summary>
+    <p class="ans">Active: the client sends PORT and the server opens the data connection back to the client from port 20 — client firewalls block this unsolicited inbound connection. Passive: the client sends PASV, the server nominates an ephemeral port, and the client connects to it — both connections are outbound, so it works through firewalls and is the modern default.</p></details>
+  <details class="card"><summary>Name the three attributes FTP negotiates.</summary>
+    <p class="ans">File type (ASCII, EBCDIC, image/binary); data structure (file, record, page); transmission mode (stream, block, compressed).</p></details>
+  <details class="card"><summary>What is anonymous FTP, and what is FTP's security weakness?</summary>
+    <p class="ans">Logging in as "anonymous" with an e-mail address as password to reach public files, normally read-only in a restricted directory. The weakness: FTP sends the username, password and data in plain text. Replaced by FTPS (FTP over TLS) and SFTP (file transfer over SSH).</p></details>
+  <details class="card"><summary>Explain the Network Virtual Terminal.</summary>
+    <p class="ans">A universal intermediate character representation. The client translates from its local form into NVT form and the server translates NVT into its own, so each system needs to know only its own encoding plus the standard — n translators rather than n². Data characters are 7-bit ASCII with the top bit 0; control characters have the top bit 1 and are preceded by IAC (255).</p></details>
+  <details class="card"><summary>Name TELNET's three modes of operation.</summary>
+    <p class="ans">Default mode — local echo, a whole line sent on Enter. Character mode — each character sent separately and echoed remotely, which is very inefficient. Line mode — editing done locally, completed line sent; the usual compromise.</p></details>
+  <details class="card"><summary>Give five differences between TELNET and SSH.</summary>
+    <p class="ans">Port 23 vs 22; no encryption vs everything encrypted; password in the clear vs password or public-key authentication with the server also authenticated; no integrity checking vs message authentication codes; remote login only vs port forwarding, SFTP/SCP and remote command execution. SSH's components are SSH-TRANS, SSH-AUTH and SSH-CONN.</p></details>
+</div>
+
+<p class="ask">Next: the web &mdash; HTTP, its message format, and persistent versus non-persistent connections.</p>
+
+<div class="nav">
+  <a href="0037-dhcp.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0039-www-and-http.html">Next: WWW and HTTP &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

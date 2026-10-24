@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 14 - CAP Theorem &amp; PACELC | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 14 of 66 · CAP, PACELC, Partition Tolerance</div>
+  
+  <h1>The CAP Theorem &amp; PACELC</h1>
+  <p class="subtitle">The inescapable trade-off every distributed engineer must make when networks fail.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module C — Consistency &amp; Isolation</span>
+  </div>
+
+  <div class="yt-embed">
+    <div class="yt-title">📺 Recommended Lecture</div>
+    <a href="https://www.youtube.com/watch?v=8UryASGBiR4" target="_blank">CAP Theorem Simplified — Gaurav Sen &amp; Anshuman Singh</a>
+    <span class="yt-desc">A visual, whiteboard-driven explanation of network partitions and trade-offs.</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>The <strong>CAP Theorem</strong> (proven by Eric Brewer and Seth Gilbert) states that a distributed data store can simultaneously provide at most two of the following three guarantees: <strong>Consistency (C)</strong>, <strong>Availability (A)</strong>, and <strong>Partition Tolerance (P)</strong>.</p>
+  
+  <p>However, in the real physical world, network cables can get cut, routers can crash, and packets get dropped. Therefore, <strong>Partition Tolerance (P) is mandatory</strong>. The real decision you make as a system designer is: <em>"When a network partition happens, do I choose Consistency (CP) or Availability (AP)?"</em></p>
+
+  <h2>2 · Defining the Three Letters</h2>
+  <ul>
+    <li><strong>Consistency (C):</strong> Every read receives the most recent write or an error. All nodes see identical data at the same moment.</li>
+    <li><strong>Availability (A):</strong> Every non-failing node returns a successful response for every request, without guaranteeing that it contains the most recent write.</li>
+    <li><strong>Partition Tolerance (P):</strong> The system continues to operate despite an arbitrary number of messages being dropped or delayed by the network between nodes.</li>
+  </ul>
+
+  <h2>3 · The Choice: CP vs AP</h2>
+  <div class="arch-flow">
+    <div class="box db">Node A (US East)</div>
+    <div class="box" style="border-color:red; color:red;">⚡ NETWORK CUT ⚡</div>
+    <div class="box db">Node B (US West)</div>
+  </div>
+
+  <p>Imagine a client writes data to Node A. Because the network link between Node A and Node B is severed, Node A cannot replicate the write to Node B.</p>
+  <p>Now another client asks Node B for that data. What should Node B do?</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Choice</th>
+        <th>Behavior</th>
+        <th>Examples</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>CP (Consistency + Partition Tolerance)</strong></td>
+        <td>Node B refuses to respond or returns an error because it knows it cannot guarantee fresh data. <em>Sacrifices availability to protect correctness.</em></td>
+        <td>Google Spanner, HBase, ZooKeeper, etcd, MongoDB (default config).</td>
+      </tr>
+      <tr>
+        <td><strong>AP (Availability + Partition Tolerance)</strong></td>
+        <td>Node B returns its local, potentially stale data immediately without failing. <em>Sacrifices consistency to stay online.</em></td>
+        <td>Apache Cassandra, Amazon DynamoDB, CouchDB, DNS.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Beyond CAP: The PACELC Theorem</h2>
+  <p>The CAP theorem only talks about what happens during rare network partitions. But 99.9% of the time, the network is working perfectly! What trade-offs do we make during normal operation? Computer scientist Daniel Abadi created the <strong>PACELC Theorem</strong> to answer this:</p>
+
+  <div class="callout tip">
+    <span class="label">PACELC Formula</span>
+    <p>If there is a <strong>P</strong>artition: choose between <strong>A</strong>vailability or <strong>C</strong>onsistency.</p>
+    <p><strong>E</strong>lse (normal operation): choose between <strong>L</strong>atency or <strong>C</strong>onsistency.</p>
+  </div>
+
+  <ul>
+    <li><strong>PC / EC (e.g., BigTable, Spanner):</strong> Under partition, pick consistency; normal operation, still pay latency cost to maintain strict consistency.</li>
+    <li><strong>PA / EL (e.g., DynamoDB, Cassandra):</strong> Under partition, stay available; normal operation, return data with ultra-low latency, accepting eventual consistency.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We now move to Module D: Caching. Learn how caching dramatically reduces database read load and latency.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0013-isolation-levels.html">← Previous: Isolation Levels</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0015-caching-fundamentals.html">Next: Caching Fundamentals →</a>
+  </div>
+</body>
+</html>

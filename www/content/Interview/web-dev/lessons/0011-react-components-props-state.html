@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 11 — React: Components, JSX, Props &amp; State</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 11 of 24 · components, JSX, props, state</div>
+<h1>React: Components, JSX, Props &amp; State</h1>
+<p class="subtitle">In lesson 9 you hand-synced the DOM with your data and it hurt — React's entire job is to make that pain disappear with one idea: UI = f(state).</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 11 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The problem React solves</h2>
+<p>
+Think back to your lesson-9 todo app. Your <em>data</em> was an array of todos. Your <em>UI</em> was a bunch of
+<code>&lt;li&gt;</code> elements. And your code's real job was keeping those two in sync by hand:
+</p>
+
+<pre><code><span class="cmt">// Lesson 9 style — IMPERATIVE: you describe every DOM surgery step</span>
+function addTodo(text) {
+  todos.push({ text, done: false });      <span class="cmt">// 1. update the data</span>
+  const li = document.createElement('li'); <span class="cmt">// 2. now update the DOM to match...</span>
+  li.textContent = text;
+  li.addEventListener('click', () =&gt; { /* toggle logic + classList surgery */ });
+  list.appendChild(li);                    <span class="cmt">// 3. ...and hope you didn't miss a spot</span>
+}
+function deleteTodo(i) {
+  todos.splice(i, 1);
+  list.children[i].remove();               <span class="cmt">// indexes must stay aligned FOREVER</span>
+  updateCounter();                         <span class="cmt">// oh right, the counter too</span>
+  toggleEmptyMessage();                    <span class="cmt">// oh right, the empty-state too</span>
+}</code></pre>
+
+<p>
+Every state change forces you to remember <em>every place in the DOM</em> that depends on it. With 3 features that's
+annoying; with 30 features it's a bug factory. The classes of bug are always the same: stale UI (data changed, screen
+didn't), double updates, and index drift between your array and the DOM children.
+</p>
+<p>
+React's fix is radical: <strong>stop mutating the DOM yourself</strong>. Instead, write a function that answers one
+question — "given the current state, what should the UI look like?" — and let React figure out the minimal DOM surgery.
+</p>
+
+<pre><code><span class="cmt">// React style — DECLARATIVE: describe the END RESULT, not the steps</span>
+function TodoList({ todos }) {
+  return (
+    &lt;ul&gt;
+      {todos.map(t =&gt; &lt;li key={t.id}&gt;{t.text}&lt;/li&gt;)}
+    &lt;/ul&gt;
+  );      <span class="cmt">// change `todos`, and React re-runs this and patches the DOM diff</span>
+}</code></pre>
+
+<table>
+  <thead><tr><th></th><th>Imperative (vanilla DOM)</th><th>Declarative (React)</th></tr></thead>
+  <tbody>
+    <tr><td>You write</td><td>Step-by-step DOM mutations</td><td>A description of the final UI for a given state</td></tr>
+    <tr><td>Sync burden</td><td>On you — every state change, every affected node</td><td>On React — it diffs and patches automatically</td></tr>
+    <tr><td>Source of truth</td><td>Split between data and DOM (they drift)</td><td>State only; the DOM is a projection of it</td></tr>
+    <tr><td>Analogy</td><td>Giving a taxi driver turn-by-turn directions</td><td>Giving the destination and letting GPS route it</td></tr>
+    <tr><td>Java parallel</td><td>Swing: <code>label.setText(...)</code> everywhere</td><td>Closer to a template engine re-rendered on change</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "React is a library for building UIs declaratively: you express the UI as a function of state
+  (<strong>UI = f(state)</strong>), and when state changes React re-renders that function and efficiently updates
+  only the parts of the real DOM that changed. This removes the manual DOM-synchronisation bugs of imperative code."
+</div>
+
+<h2>2 · What's an SPA?</h2>
+<p>
+Traditional websites do a full page load per URL: every click asks the server for a whole new HTML document.
+A <strong>Single-Page Application</strong> loads <em>one</em> HTML shell plus a JavaScript bundle, and from then on
+JavaScript swaps content in and out of the page — navigation, forms, everything — talking to servers only for
+<em>data</em> (JSON via <code>fetch</code>, lesson 7), not for new pages. Result: app-like snappiness (Gmail, Twitter),
+at the cost of a bigger initial JS download and some SEO work (which Next.js solves in Module C).
+React is the most popular way to build the UI layer of an SPA.
+</p>
+
+<h2>3 · Setup with Vite</h2>
+<p>You met Vite as a dev server + bundler in lesson 8. It's also the standard way to start a React project:</p>
+
+<pre><code>npm create vite@latest my-app    <span class="cmt"># pick: React, then JavaScript</span>
+cd my-app
+npm install                      <span class="cmt"># pulls react + react-dom (see package.json)</span>
+npm run dev                      <span class="cmt"># dev server at http://localhost:5173, hot reload</span></code></pre>
+
+<p>The anatomy that matters:</p>
+
+<pre><code>my-app/
+├─ index.html          <span class="cmt">// the ONE html page of your SPA; has &lt;div id="root"&gt;&lt;/div&gt;</span>
+├─ package.json        <span class="cmt">// deps: react, react-dom; scripts: dev/build/preview</span>
+├─ vite.config.js      <span class="cmt">// tells Vite to transform JSX via the React plugin</span>
+└─ src/
+   ├─ main.jsx         <span class="cmt">// entry point — mounts React into #root</span>
+   └─ App.jsx          <span class="cmt">// your top-level component</span></code></pre>
+
+<pre><code><span class="cmt">// src/main.jsx — the bridge between the real DOM and React-land</span>
+import { createRoot } from 'react-dom/client';
+import App from './App.jsx';
+
+createRoot(document.getElementById('root'))   <span class="cmt">// claim the #root div (lesson 9 API!)</span>
+  .render(&lt;App /&gt;);                           <span class="cmt">// hand React the top component; it owns everything inside</span></code></pre>
+
+<div class="callout">
+  <span class="label">Two packages, on purpose</span>
+  <code>react</code> is the core (components, hooks, the diffing model) and is platform-agnostic;
+  <code>react-dom</code> is the renderer that targets the browser DOM. React Native swaps in a different renderer
+  and keeps the same core — a nice separation-of-concerns point for interviews.
+</div>
+
+<h2>4 · JSX — HTML-looking function calls</h2>
+<p>
+JSX is <strong>not HTML</strong> and browsers can't run it. It's syntax sugar that Vite compiles into plain
+JavaScript function calls before the browser ever sees it:
+</p>
+
+<pre><code><span class="cmt">// What you write:</span>
+const el = &lt;h1 className="title"&gt;Hello&lt;/h1&gt;;
+
+<span class="cmt">// What it compiles to (conceptually — React.createElement in the classic transform):</span>
+const el = React.createElement('h1', { className: 'title' }, 'Hello');
+
+<span class="cmt">// Which just returns a plain JS object describing the UI (a "React element"):</span>
+{ type: 'h1', props: { className: 'title', children: 'Hello' } }</code></pre>
+
+<p>
+That object is cheap — no DOM involved. React collects these description objects and later decides what real DOM to
+build. This is why you can put JSX in variables, return it from functions, and pass it around: <em>it's just data</em>.
+</p>
+
+<p>The rules, and why each exists:</p>
+<ul>
+  <li><strong>One parent element per return.</strong> A function returns one value; <code>createElement</code> calls
+  produce one object. Two siblings = two objects = illegal return. Wrap in a <code>&lt;div&gt;</code>, or in a
+  <strong>fragment</strong> <code>&lt;&gt;...&lt;/&gt;</code> which groups children without adding a DOM node.</li>
+  <li><strong><code>className</code>, not <code>class</code>; <code>htmlFor</code>, not <code>for</code>.</strong>
+  JSX attributes become JS object keys, and <code>class</code>/<code>for</code> are reserved words in JS.
+  Attributes are camelCase in general: <code>onClick</code>, <code>tabIndex</code>, <code>readOnly</code>.</li>
+  <li><strong><code>{expression}</code> embeds any JS <em>expression</em>.</strong> Braces are an escape hatch back
+  into JS: <code>{user.name}</code>, <code>{2 + 2}</code>, <code>{items.length}</code>, <code>{cond ? a : b}</code>.
+  Not statements — no <code>if</code>, no <code>for</code> inside braces (they don't produce values).</li>
+  <li><strong>Every tag must close.</strong> <code>&lt;br /&gt;</code>, <code>&lt;img /&gt;</code>,
+  <code>&lt;input /&gt;</code> — XML rules, because the compiler needs unambiguous trees.</li>
+  <li><strong>Comments</strong> are JS comments inside braces: <code>{/* like this */}</code>.</li>
+</ul>
+
+<pre><code>function Profile() {
+  const user = { name: 'Krish', college: 'NSUT', year: 3 };
+  return (
+    &lt;&gt;  {<span class="cmt">/* fragment: two siblings, zero extra DOM nodes */</span>}
+      &lt;h2 className="name"&gt;{user.name}&lt;/h2&gt;
+      &lt;p&gt;{user.college} · year {user.year + 1} soon&lt;/p&gt;
+      &lt;img src={user.avatarUrl} alt="avatar" /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Java parallel</span>
+  A component returning JSX is like a <code>toString()</code> for UI: a pure description of "what I look like right
+  now", produced fresh on demand. Nobody hand-edits the string returned by <code>toString()</code> — and in React,
+  nobody hand-edits the DOM.
+</div>
+
+<h2>5 · Conditional rendering</h2>
+<p>Since JSX is expressions, conditionals use expression tools you already know from Module A:</p>
+
+<pre><code>function Inbox({ user, messages }) {
+  <span class="cmt">// 1) EARLY RETURN — cleanest for "whole component differs"</span>
+  if (!user) return &lt;p&gt;Please log in.&lt;/p&gt;;
+
+  return (
+    &lt;div&gt;
+      {<span class="cmt">/* 2) TERNARY — choose between two pieces of UI */</span>}
+      {messages.length &gt; 0 ? &lt;MessageList msgs={messages} /&gt; : &lt;p&gt;Inbox zero!&lt;/p&gt;}
+
+      {<span class="cmt">/* 3) &amp;&amp; — render-or-nothing (lesson 1: short-circuit) */</span>}
+      {user.isAdmin &amp;&amp; &lt;AdminPanel /&gt;}
+
+      {<span class="cmt">/* null / false / undefined render as NOTHING — that's why &amp;&amp; works */</span>}
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha: the rendered 0</span>
+  <code>{messages.length &amp;&amp; &lt;List /&gt;}</code> renders a literal <strong>0</strong> on screen when the array is
+  empty! From lesson 1: <code>&amp;&amp;</code> returns the first falsy <em>value</em>, and while <code>false</code>
+  renders as nothing, the number <code>0</code> renders as "0". Fix: make the left side a real boolean —
+  <code>{messages.length &gt; 0 &amp;&amp; ...}</code> — or use a ternary with <code>null</code>. A favourite React
+  interview trick question.
+</div>
+
+<h2>6 · Rendering lists — map and keys</h2>
+<p>
+No <code>for</code> loops in JSX; you transform data into elements with <code>.map()</code> (lesson 4), because
+map is an expression that produces an array of elements — and JSX happily renders arrays:
+</p>
+
+<pre><code>const todos = [
+  { id: 'a1', text: 'Revise closures', done: true  },
+  { id: 'b2', text: 'Build todo app',  done: false },
+];
+
+function TodoList() {
+  return (
+    &lt;ul&gt;
+      {todos.map(t =&gt; (
+        &lt;li key={t.id}&gt;{t.text}&lt;/li&gt;   <span class="cmt">// key: a stable identity for THIS item</span>
+      ))}
+    &lt;/ul&gt;
+  );
+}</code></pre>
+
+<p>
+<strong>Why keys?</strong> When the list changes, React must match old elements to new ones to update the DOM
+minimally and to know which component's state belongs to which item. Keys are the name tags it matches by.
+Without them React falls back to matching by position — fine for static lists, wrong the moment you insert,
+delete, or reorder.
+</p>
+
+<div class="callout trap">
+  <span class="label">Gotcha: index as key</span>
+  <code>todos.map((t, i) =&gt; &lt;li key={i}&gt;...)</code> — the index IS the position, so "match by key" degrades into
+  "match by position". Delete item 0 and every remaining item's key shifts by one: React thinks each item became its
+  neighbour, so any per-item state (an input's text, a checkbox) stays at the old <em>position</em> and now sits next
+  to the <em>wrong data</em>. Use a stable id from your data (<code>t.id</code>, a DB id, <code>crypto.randomUUID()</code>
+  assigned at creation). Index is acceptable only for lists that never reorder/insert/delete. (Lesson 14 demos the bug.)
+</div>
+
+<h2>7 · Components, props &amp; one-way data flow</h2>
+<p>
+A <strong>component</strong> is a function that takes an object of inputs (<strong>props</strong>) and returns JSX.
+Its name <em>must</em> start with a capital letter — that's how the compiler tells <code>&lt;App /&gt;</code>
+(call your function) apart from <code>&lt;div /&gt;</code> (build a DOM tag). Components compose exactly like
+functions calling functions:
+</p>
+
+<pre><code><span class="cmt">// A component is literally: props in, JSX out</span>
+function Badge({ label, color = 'gray' }) {   <span class="cmt">// destructuring + default (lessons 2, 4)</span>
+  return &lt;span className={'badge ' + color}&gt;{label}&lt;/span&gt;;
+}
+
+function Card({ title, children, onClose }) { <span class="cmt">// children + a function prop</span>
+  return (
+    &lt;div className="card"&gt;
+      &lt;h3&gt;{title} &lt;Badge label="new" color="green" /&gt;&lt;/h3&gt;
+      {children}                              <span class="cmt">// whatever the caller nested inside</span>
+      &lt;button onClick={onClose}&gt;×&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+
+<span class="cmt">// Usage — attributes become the props object; nested JSX becomes props.children</span>
+&lt;Card title="Hello" onClose={() =&gt; console.log('closed')}&gt;
+  &lt;p&gt;This paragraph arrives as props.children.&lt;/p&gt;
+&lt;/Card&gt;
+<span class="cmt">// ≈ Card({ title: 'Hello', onClose: fn, children: &lt;p&gt;...&lt;/p&gt; })</span></code></pre>
+
+<p>Three rules that keep React apps sane:</p>
+<ul>
+  <li><strong>Props are read-only.</strong> A component must never mutate its props — same input, same output,
+  like a pure function. If a child needs to change something, the parent passes down a <em>function</em> and the
+  child calls it (that's <code>onClose</code> above). Java parallel: props are <code>final</code> constructor
+  parameters; you don't reassign them, you ask the owner to change.</li>
+  <li><strong>Data flows one way: down.</strong> Parents pass props to children. There's no "child writes to
+  parent's variables". This makes bugs traceable — data has one owner and one direction.</li>
+  <li><strong><code>children</code> is just a prop</strong> — the JSX you nest between the tags. It's how you build
+  wrapper components (cards, layouts, modals) that don't care what goes inside them.</li>
+</ul>
+
+<h2>8 · State — memory that survives re-renders</h2>
+<p>
+Props come from outside; <strong>state</strong> is a component's <em>own</em> memory that can change over time.
+A local variable won't do — the component function re-runs on every render, resetting locals. You need a value that
+(a) survives re-runs and (b) tells React "re-render me" when it changes. That's <code>useState</code>:
+</p>
+
+<pre><code>import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);   <span class="cmt">// array destructuring (lesson 4)</span>
+  <span class="cmt">// count    → current value for THIS render</span>
+  <span class="cmt">// setCount → asks React to store a new value AND re-render</span>
+
+  return (
+    &lt;button onClick={() =&gt; setCount(count + 1)}&gt;
+      Clicked {count} times
+    &lt;/button&gt;
+  );
+}</code></pre>
+
+<p>Four things about state that trip everyone up:</p>
+
+<pre><code><span class="cmt">// (1) setState does NOT change `count` immediately — it schedules a re-render</span>
+function handleClick() {
+  setCount(count + 1);
+  console.log(count);        <span class="cmt">// still the OLD value! count is a const in this run</span>
+}
+
+<span class="cmt">// (2) updates are BATCHED — three calls, but count was 0 in all three expressions</span>
+setCount(count + 1);  <span class="cmt">// 0 + 1</span>
+setCount(count + 1);  <span class="cmt">// 0 + 1 again</span>
+setCount(count + 1);  <span class="cmt">// 0 + 1 again → final count: 1, one re-render</span>
+
+<span class="cmt">// (3) FUNCTIONAL UPDATE — "compute from the latest value", fixes (2)</span>
+setCount(c =&gt; c + 1);
+setCount(c =&gt; c + 1);
+setCount(c =&gt; c + 1);  <span class="cmt">// → 3. Use this whenever new state depends on old state.</span></code></pre>
+
+<p>
+(4) <strong>Objects and arrays in state must be replaced, never mutated.</strong> React decides whether to re-render
+by comparing old vs new state with <code>Object.is</code> — effectively a reference check (lesson 3!). Mutate the
+same object and the reference is unchanged, so React sees "same state, nothing to do":
+</p>
+
+<pre><code>const [user, setUser]   = useState({ name: 'Krish', year: 3 });
+const [todos, setTodos] = useState([]);
+
+user.year = 4; setUser(user);              <span class="cmt">// BUG: same reference → no re-render</span>
+
+setUser({ ...user, year: 4 });             <span class="cmt">// ✔ new object via spread (lesson 4)</span>
+
+<span class="cmt">// The array patterns you'll use daily (all NON-mutating — lesson 4 table):</span>
+setTodos([...todos, newTodo]);                              <span class="cmt">// add</span>
+setTodos(todos.filter(t =&gt; t.id !== id));                   <span class="cmt">// delete</span>
+setTodos(todos.map(t =&gt;                                     <span class="cmt">// update one</span>
+  t.id === id ? { ...t, done: !t.done } : t
+));
+<span class="cmt">// NEVER: todos.push(x), todos.splice(i,1), t.done = true  — mutations</span></code></pre>
+
+<table>
+  <thead><tr><th></th><th>Props</th><th>State</th></tr></thead>
+  <tbody>
+    <tr><td>Comes from</td><td>The parent component</td><td>Inside the component (<code>useState</code>)</td></tr>
+    <tr><td>Who can change it</td><td>Only the parent (child receives new props)</td><td>The component itself, via the setter</td></tr>
+    <tr><td>Mutable?</td><td>Read-only, always</td><td>Replaced immutably via setter, never mutated</td></tr>
+    <tr><td>Triggers re-render?</td><td>Yes, when parent passes new ones</td><td>Yes, when the setter stores a different value</td></tr>
+    <tr><td>Java parallel</td><td><code>final</code> constructor args</td><td>Private fields changed via a method that also repaints</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "State updates are asynchronous and batched: the setter schedules a re-render rather than reassigning the variable,
+  so reading state right after setting it gives the old value. When the next state depends on the previous one, pass a
+  function — <code>setCount(c =&gt; c + 1)</code> — and React feeds it the latest value."
+</div>
+
+<h2>9 · Events in React</h2>
+<p>
+Event handling looks like lesson 9 but with three differences: names are camelCase props
+(<code>onClick</code>, <code>onChange</code>, <code>onSubmit</code>); you pass a <em>function reference</em>, not a
+string; and the <code>e</code> you receive is a <strong>SyntheticEvent</strong> — React's cross-browser wrapper with
+the same interface (<code>e.target</code>, <code>e.preventDefault()</code>) as the native event
+(<code>e.nativeEvent</code> if you ever need the raw one). React actually attaches one real listener at the root and
+delegates — the pattern you hand-built in lesson 9, industrialised.
+</p>
+
+<pre><code>&lt;button onClick={handleClick}&gt;ok&lt;/button&gt;          <span class="cmt">// ✔ pass the function itself</span>
+&lt;button onClick={handleClick()}&gt;bad&lt;/button&gt;       <span class="cmt">// ✘ CALLS it during render!</span>
+&lt;button onClick={() =&gt; remove(t.id)}&gt;del&lt;/button&gt;  <span class="cmt">// ✔ need args? wrap in an arrow</span>
+
+&lt;form onSubmit={e =&gt; { e.preventDefault(); save(); }}&gt;  <span class="cmt">// stop the full-page reload</span></code></pre>
+
+<h2>10 · Build it: counter → todo app</h2>
+<p>Everything above, in one runnable component. Replace <code>App.jsx</code> in a fresh Vite project with this:</p>
+
+<pre><code>import { useState } from 'react';
+
+<span class="cmt">// Child component: pure — renders one todo, reports events UP via function props</span>
+function TodoItem({ todo, onToggle, onDelete }) {
+  return (
+    &lt;li style={{ textDecoration: todo.done ? 'line-through' : 'none' }}&gt;
+      &lt;input
+        type="checkbox"
+        checked={todo.done}
+        onChange={() =&gt; onToggle(todo.id)}   <span class="cmt">// child ASKS, parent changes</span>
+      /&gt;
+      {todo.text}
+      &lt;button onClick={() =&gt; onDelete(todo.id)}&gt;✕&lt;/button&gt;
+    &lt;/li&gt;
+  );
+}
+
+export default function App() {
+  const [todos, setTodos] = useState([]);   <span class="cmt">// the single source of truth</span>
+  const [text, setText]   = useState('');   <span class="cmt">// the input box's current value</span>
+
+  function addTodo(e) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setTodos(ts =&gt; [...ts, { id: crypto.randomUUID(), text, done: false }]);
+    setText('');                            <span class="cmt">// clear the box</span>
+  }
+  const toggle = id =&gt;
+    setTodos(ts =&gt; ts.map(t =&gt; t.id === id ? { ...t, done: !t.done } : t));
+  const remove = id =&gt;
+    setTodos(ts =&gt; ts.filter(t =&gt; t.id !== id));
+
+  const remaining = todos.filter(t =&gt; !t.done).length;  <span class="cmt">// DERIVED — not state!</span>
+
+  return (
+    &lt;main&gt;
+      &lt;h1&gt;Todos ({remaining} left)&lt;/h1&gt;
+      &lt;form onSubmit={addTodo}&gt;
+        &lt;input value={text} onChange={e =&gt; setText(e.target.value)} /&gt;
+        &lt;button&gt;Add&lt;/button&gt;
+      &lt;/form&gt;
+      {todos.length === 0
+        ? &lt;p&gt;Nothing yet — add one!&lt;/p&gt;
+        : &lt;ul&gt;
+            {todos.map(t =&gt; (
+              &lt;TodoItem key={t.id} todo={t} onToggle={toggle} onDelete={remove} /&gt;
+            ))}
+          &lt;/ul&gt;}
+    &lt;/main&gt;
+  );
+}</code></pre>
+
+<p>
+Compare with the lesson-9 version: there is <strong>zero DOM manipulation code</strong>. No
+<code>createElement</code>, no <code>appendChild</code>, no counter-updating, no empty-message toggling. Every
+feature is "update the array immutably" — the counter, empty message, strikethrough, and list all follow, because
+they're all computed from <code>todos</code> during render. That's UI = f(state), earned.
+</p>
+
+<div class="callout">
+  <span class="label">Note the derived value</span>
+  <code>remaining</code> is calculated during render, not stored with <code>useState</code>. If you can compute it
+  from existing state, don't make it state — duplicated state drifts out of sync. Lesson 13 turns this into a rule.
+</div>
+
+<h2>11 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What is React and why use it over vanilla JS?"</strong><br>
+  A declarative UI library: you describe UI as a function of state, and React syncs the real DOM efficiently on state
+  changes. It removes manual DOM-sync bugs, gives reusable components, and scales to large apps.</li>
+  <li><strong>"What is JSX? Is it HTML?"</strong><br>
+  No — it's syntax sugar compiled to function calls (<code>React.createElement</code>-style) that return plain JS
+  objects describing the UI. That's why it needs a build step, uses <code>className</code>, and embeds JS with braces.</li>
+  <li><strong>"Props vs state?"</strong><br>
+  Props are read-only inputs passed by the parent; state is the component's own mutable-over-time memory managed via
+  <code>useState</code>. Both changing triggers a re-render; only the component itself sets its state.</li>
+  <li><strong>"Why are keys needed in lists? Why is index a bad key?"</strong><br>
+  Keys give list items stable identity so React can match old and new items across renders and preserve their state
+  and DOM. Index equals position, so inserts/deletes/reorders shift keys and attach state to the wrong items.</li>
+  <li><strong>"Why does <code>console.log</code> after <code>setState</code> show the old value?"</strong><br>
+  The setter doesn't reassign the variable; it schedules a re-render. The current run keeps its snapshot of state.
+  Batching also merges multiple setter calls — use functional updates when new state depends on old.</li>
+  <li><strong>"Why must state be updated immutably?"</strong><br>
+  React compares old and new state with <code>Object.is</code> (a reference check for objects). Mutating in place
+  keeps the same reference, so React can't detect the change and skips the re-render.</li>
+</ul>
+
+<h2>12 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A component renders <code>{items.length &amp;&amp; &lt;List /&gt;}</code> and <code>items</code> is empty. What appears on screen?</div>
+  <button class="opt">Nothing — falsy values render as nothing in JSX</button>
+  <button class="opt">The text "false"</button>
+  <button class="opt">The character 0</button>
+  <div class="fb" data-correct="items.length is 0, and &amp;&amp; returns the first falsy VALUE. true/false/null/undefined render as nothing, but the number 0 renders as text. Fix: items.length > 0 &amp;&amp; ... or a ternary." data-wrong="Remember lesson 1: &amp;&amp; returns the first falsy value itself — here the number 0. Booleans and null render as nothing, but numbers render as text, so a literal 0 shows up."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Inside a click handler: <code>setCount(count + 1); setCount(count + 1);</code> with <code>count</code> currently 0. After the re-render, <code>count</code> is…</div>
+  <button class="opt">2 — each call adds one</button>
+  <button class="opt">1 — both calls computed 0 + 1 from this render's snapshot</button>
+  <button class="opt">0 — the second call cancels the first</button>
+  <div class="fb" data-correct="count is a const snapshot in this render, so both calls said 'store 1', and React batched them into one re-render. To get 2, use functional updates: setCount(c => c + 1) twice." data-wrong="count doesn't change mid-handler — it's this render's snapshot (0). Both calls evaluate 0 + 1. Functional updates, setCount(c => c + 1), each receive the latest value and would give 2."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does <code>todos.push(newTodo); setTodos(todos);</code> fail to update the screen?</div>
+  <button class="opt">Same array reference — Object.is says nothing changed, so React skips the re-render</button>
+  <button class="opt">push is asynchronous, so the item isn't in the array yet</button>
+  <button class="opt">setTodos only accepts a function, never a plain value</button>
+  <div class="fb" data-correct="Mutation keeps the same reference, and React's Object.is comparison sees old === new. Create a new array instead: setTodos([...todos, newTodo])." data-wrong="push is synchronous and setTodos accepts values fine. The problem is identity: mutating keeps the same array reference, so React's Object.is check concludes state didn't change."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why must component names start with a capital letter?</div>
+  <button class="opt">Pure convention — lowercase works but is discouraged by the linter</button>
+  <button class="opt">Because JavaScript classes must be capitalised</button>
+  <button class="opt">The JSX compiler uses the case to decide: lowercase → DOM tag string, capitalised → call your function</button>
+  <div class="fb" data-correct="&lt;div /&gt; compiles to createElement('div') — a string tag — while &lt;App /&gt; compiles to createElement(App), your function. Lowercase &lt;app /&gt; would be treated as an unknown HTML tag, not your component." data-wrong="It's not just style: the compiler branches on the first letter's case. &lt;app /&gt; becomes the string 'app' (an unknown DOM tag) instead of a reference to your App function."></div>
+</div>
+
+<h2>13 · Do this next</h2>
+<ul>
+  <li>Scaffold a Vite React app and build the todo app above <em>from memory</em>, then add two features: an
+  "All / Active / Done" filter (hint: it's derived state — filter during render, store only the chosen filter string)
+  and a "Clear completed" button (one <code>filter</code> call).</li>
+  <li>Break it on purpose: change <code>key={t.id}</code> to <code>key={i}</code>, add three todos, tick the first
+  checkbox, then delete the first todo. Watch which item appears checked. Explain what happened in one sentence.</li>
+  <li>Build a <code>&lt;Star rating={n} /&gt;</code> component that renders n filled stars out of 5 (props only, no
+  state), then a parent with a button that raises the rating — proving state lives in the parent, display in the child.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure why the setter doesn't change the variable immediately, or when something should be state vs derived, or
+  what exactly JSX compiles into? Ask in the chat — this lesson's mental model carries the whole module. When the
+  todo app runs and you can explain keys and immutability in your own words, say <strong>"next"</strong> to move to
+  Lesson 12: React Hooks Deep Dive.
+</div>
+
+<div class="nav">
+  <span><a href="0010-js-interview-patterns.html">← JS Interview Patterns</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0012-react-hooks-deep-dive.html">Hooks Deep Dive →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

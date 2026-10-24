@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 07 – Transactions & ACID Properties</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module C · Lesson 7 of 17 · Transaction Theory</div>
+  <h1>Transactions & ACID Properties</h1>
+  <p class="subtitle">The mathematical contract that guarantees reliable concurrent database modifications.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Transactions & Concurrency</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>A <strong>Transaction</strong> is a logical unit of database processing that includes one or more database access operations (read, write, insert, delete). Consider transferring $500 from Account A to Account B:</p>
+  <pre><code>BEGIN TRANSACTION;
+  READ(A);
+  A := A - 500;
+  WRITE(A);
+  -- If power dies or system crashes HERE, money vanished into thin air!
+  READ(B);
+  B := B + 500;
+  WRITE(B);
+COMMIT;</code></pre>
+  <p>Without transaction guarantees, computer crashes and network drops would cause financial ruin. The DBMS solves this via the <strong>ACID contract</strong>.</p>
+
+  <h2>2 · Transaction Lifecycle State Diagram</h2>
+  <div class="arch-flow">
+    <div class="box">Active</div>
+    <div class="arrow-right"></div>
+    <div class="box">Partially Committed</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Committed</div>
+  </div>
+  <div class="arch-flow" style="margin-top:10px;">
+    <div class="box" style="border-color:red">Failed</div>
+    <div class="arrow-right"></div>
+    <div class="box" style="border-color:red">Aborted (Rolled Back)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Terminated</div>
+  </div>
+
+  <h2>3 · The ACID Properties Mechanistically Explained</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">A</div>
+      <h3>Atomicity (All-or-Nothing)</h3>
+      <p>Either ALL operations of the transaction complete successfully, or NONE take effect. If failure strikes midway, the DBMS <strong>Recovery Manager</strong> rolls back all partial changes using <strong>Undo Logs</strong> to restore the pre-transaction state.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">C</div>
+      <h3>Consistency (State Invariant)</h3>
+      <p>The transaction transforms the database from one valid state satisfying all integrity constraints (primary keys, foreign keys, <code>CHECK (balance >= 0)</code>) to another valid state. The total sum of money (A + B) must remain invariant before and after transfer.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">I</div>
+      <h3>Isolation (Concurrency Abstraction)</h3>
+      <p>Intermediate states of a running transaction are invisible to concurrently executing transactions. Managed by the <strong>Concurrency Control Manager</strong> via Locks (2PL) or Multi-Version Concurrency Control (MVCC).</p>
+    </div>
+    <div class="card">
+      <div class="card-num">D</div>
+      <h3>Durability (Persistence Guarantee)</h3>
+      <p>Once a transaction commits, its updates persist permanently even if the server crashes, suffers kernel panic, or loses power one millisecond later. Guaranteed via <strong>Write-Ahead Logging (WAL)</strong> and synchronous disk flushing (<code>fsync</code>).</p>
+    </div>
+  </div>
+
+  <h2>4 · How DBMS Subsystems Guarantee ACID</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>ACID Property</th><th>Enforcing DBMS Subsystem</th><th>Underlying Technology</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Atomicity</strong></td><td>Recovery Manager</td><td>Undo Logging / Shadow Paging</td></tr>
+      <tr><td><strong>Consistency</strong></td><td>Query Parser + Application Logic</td><td>Schema Constraints, Triggers, Foreign Keys</td></tr>
+      <tr><td><strong>Isolation</strong></td><td>Concurrency Control Manager</td><td>Two-Phase Locking (2PL), MVCC, Timestamp Ordering</td></tr>
+      <tr><td><strong>Durability</strong></td><td>Log Manager & Buffer Manager</td><td>Write-Ahead Log (WAL), Redo Logs, Checkpointing</td></tr>
+    </tbody>
+  </table>
+
+  <nav class="bottom-nav">
+    <a href="0006-advanced-normalization-and-denormalization.html">← Lesson 06: Advanced Normalization</a>
+    <a href="0008-schedules-and-serializability.html">Lesson 08: Schedules & Serializability →</a>
+  </nav>
+</body>
+</html>

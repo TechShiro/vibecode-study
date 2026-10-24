@@ -1,0 +1,356 @@
+<title>Sorting in Linear Time</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 14 of 15</p>
+<h1>Sorting in Linear Time</h1>
+<p class="deck">Counting sort with the cumulative-count table worked cell by cell, radix sort pass by pass, bucket sort, why none of them contradicts the &Omega;(n log n) bound, and when each is actually usable.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Sort the following using counting sort / radix sort, showing all intermediate arrays&rdquo;</strong> is the question, and it is entirely mechanical. Two things earn the marks: <strong>show the count array before and after the cumulative step</strong>, and <strong>show every pass of radix sort as a separate line</strong>. The companion theory question is <strong>&ldquo;How do these algorithms beat the &Omega;(n log n) lower bound?&rdquo;</strong> &mdash; the answer is one sentence, given below, and it is worth learning exactly.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Non-Comparison Linear Time Sorting Engine</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>Counting Sort: O(n + k)</strong><span class="sub">Requires small integer keys [0...k] &bull; Count frequencies &rarr; Prefix sums &rarr; Stable placement</span></div>
+    <div class="flow-box ok"><strong>Radix Sort: O(d(n + k))</strong><span class="sub">Sorts by individual digits from Least Significant Digit (LSD) using Counting Sort as stable subroutine</span></div>
+    <div class="flow-box"><strong>Bucket Sort: O(n) average</strong><span class="sub">Assumes uniform distribution over [0, 1) &bull; Distributes into n buckets & sorts each with Insertion Sort</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Linear Time Sorting</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-3.10: Counting Sort, Radix Sort, Bucket Sort Algorithms</div>
+    <div class="v-desc">Step-by-step trace showing prefix sum position indices and why stability in counting sort is mandatory for radix sort correctness.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=mowMVn9wTnE" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<div class="box win">
+  <span class="lbl">The sentence that answers the theory question &mdash; learn it exactly</span>
+  <p><strong>These algorithms do not contradict the &Omega;(n log n) lower bound, because they are not comparison sorts.</strong> The bound applies only to algorithms that determine the order by <strong>comparing elements with each other</strong>. Counting, radix and bucket sort instead <strong>use the values themselves as array indices</strong>, which is extra information the comparison model forbids. <strong>The price is that they only work on restricted inputs</strong> &mdash; small integers, fixed-width keys, or a known distribution.</p>
+</div>
+
+<h2>1. Counting sort</h2>
+
+<div class="formula">
+  <span class="name">The assumption and the idea</span>
+  <strong>Assumption:</strong> each of the n input elements is an <strong>integer in the range 0 to k</strong>.<br><br>
+  <strong>Idea:</strong> for each element x, <strong>count how many elements are less than or equal to x</strong>. That count <em>is</em> x's position in the output.
+</div>
+
+<div class="formula">
+  <span class="name">The four steps</span>
+  <strong>1.</strong> Create a count array C[0 &hellip; k], all zeros.<br>
+  <strong>2.</strong> <strong>Count:</strong> for each element x of A, increment C[x]. Now C[i] = the number of elements equal to i.<br>
+  <strong>3.</strong> <strong>Accumulate:</strong> replace C[i] by C[i] + C[i&minus;1] for i = 1 to k. Now <strong>C[i] = the number of elements &le; i</strong>.<br>
+  <strong>4.</strong> <strong>Place:</strong> traverse A <strong>from RIGHT to LEFT</strong>. For each element x, put it at B[C[x] &minus; 1] and decrement C[x].
+</div>
+
+<div class="box">
+  <span class="lbl">Why right to left &mdash; this is the marked detail</span>
+  <p><strong>Traversing from right to left makes counting sort STABLE.</strong> Equal elements keep their original relative order, because the rightmost duplicate is placed at the highest available position. Left-to-right traversal would reverse them. <strong>Stability is essential</strong>, because radix sort depends on it.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Sort A = [4, 2, 2, 8, 3, 3, 1] by counting sort. Here n = 7 and k = 8.</span>
+
+  <p><strong>Step 2 &mdash; count.</strong> C[i] = the number of occurrences of i:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>i</th><th class="num">0</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th></tr></thead>
+  <tbody>
+  <tr><td><strong>C[i]</strong></td><td class="num">0</td><td class="num">1</td><td class="num">2</td><td class="num">2</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">1</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>Check:</em> the counts sum to 0+1+2+2+1+0+0+0+1 = <strong>7 = n</strong> &check;</p>
+
+  <p><strong>Step 3 &mdash; accumulate.</strong> C[i] now holds the number of elements &le; i:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>i</th><th class="num">0</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th></tr></thead>
+  <tbody>
+  <tr><td><strong>C[i]</strong></td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">5</td><td class="num">6</td><td class="num">6</td><td class="num">6</td><td class="num">6</td><td class="num"><strong>7</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>Check:</em> the last entry must equal n. C[8] = 7 &check;</p>
+
+  <p><strong>Step 4 &mdash; place, traversing A from right to left.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">A index</th><th class="num">Value x</th><th class="num">C[x]</th><th>Goes to B[C[x] &minus; 1]</th><th class="num">New C[x]</th></tr></thead>
+  <tbody>
+  <tr><td class="num">6</td><td class="num">1</td><td class="num">1</td><td>B[0] = 1</td><td class="num">0</td></tr>
+  <tr><td class="num">5</td><td class="num">3</td><td class="num">5</td><td>B[4] = 3</td><td class="num">4</td></tr>
+  <tr><td class="num">4</td><td class="num">3</td><td class="num">4</td><td>B[3] = 3</td><td class="num">3</td></tr>
+  <tr><td class="num">3</td><td class="num">8</td><td class="num">7</td><td>B[6] = 8</td><td class="num">6</td></tr>
+  <tr><td class="num">2</td><td class="num">2</td><td class="num">3</td><td>B[2] = 2</td><td class="num">2</td></tr>
+  <tr><td class="num">1</td><td class="num">2</td><td class="num">2</td><td>B[1] = 2</td><td class="num">1</td></tr>
+  <tr><td class="num">0</td><td class="num">4</td><td class="num">6</td><td>B[5] = 4</td><td class="num">5</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Output B = [1, 2, 2, 3, 3, 4, 8]</strong> &check; &mdash; sorted, and every position was filled exactly once.</p>
+</div>
+
+<div class="formula">
+  <span class="name">Analysis</span>
+  Counting the elements is &Theta;(n); building and accumulating C is &Theta;(k); placing is &Theta;(n).<br><br>
+  <strong>Time = &Theta;(n + k)</strong> &nbsp;&nbsp;&nbsp; <strong>Space = &Theta;(n + k)</strong> &nbsp;&nbsp;&nbsp; <strong>Stable: YES</strong> &nbsp;&nbsp;&nbsp; <strong>In place: NO</strong><br><br>
+  <strong>When k = O(n), this is &Theta;(n) &mdash; linear.</strong> But if k = n&sup2;, it is &Theta;(n&sup2;) and worse than merge sort. <strong>The whole method depends on the range being small.</strong>
+</div>
+
+<h2>2. Radix sort</h2>
+
+<div class="formula">
+  <span class="name">The idea</span>
+  Sort <strong>digit by digit</strong>, starting from the <strong>LEAST significant digit</strong> (LSD radix sort). Each pass uses a <strong>stable</strong> sort &mdash; almost always counting sort.<br><br>
+  <strong>The stability requirement is not optional.</strong> It is what preserves the ordering achieved by all the earlier, less significant passes.
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Sort A = [170, 45, 75, 90, 802, 24, 2, 66] by radix sort.</span>
+  <p>The largest number is 802, so <strong>d = 3 digits</strong>, and the radix is <strong>k = 10</strong>. Pad shorter numbers with leading zeros: 045, 075, 090, 024, 002.</p>
+
+  <p><strong>Pass 1 &mdash; sort by the UNITS digit.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Digit</th><th class="num">0</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th><th class="num">9</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Bucket</strong></td><td class="num">170, 90</td><td class="num">&mdash;</td><td class="num">802, 2</td><td class="num">&mdash;</td><td class="num">24</td><td class="num">45, 75</td><td class="num">66</td><td class="num">&mdash;</td><td class="num">&mdash;</td><td class="num">&mdash;</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="text-align:center"><strong>&rarr; [170, 90, 802, 2, 24, 45, 75, 66]</strong></p>
+
+  <p><strong>Pass 2 &mdash; sort by the TENS digit</strong> (170&rarr;7, 90&rarr;9, 802&rarr;0, 2&rarr;0, 24&rarr;2, 45&rarr;4, 75&rarr;7, 66&rarr;6):</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Digit</th><th class="num">0</th><th class="num">2</th><th class="num">4</th><th class="num">6</th><th class="num">7</th><th class="num">9</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Bucket</strong></td><td class="num">802, 2</td><td class="num">24</td><td class="num">45</td><td class="num">66</td><td class="num">170, 75</td><td class="num">90</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="text-align:center"><strong>&rarr; [802, 2, 24, 45, 66, 170, 75, 90]</strong></p>
+  <p><em>Notice 802 before 2 and 170 before 75</em> &mdash; both pairs kept the order they had after pass 1, which is exactly what <strong>stability</strong> means and why it matters.</p>
+
+  <p><strong>Pass 3 &mdash; sort by the HUNDREDS digit</strong> (802&rarr;8, 170&rarr;1, all the rest &rarr;0):</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Digit</th><th class="num">0</th><th class="num">1</th><th class="num">8</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Bucket</strong></td><td class="num">2, 24, 45, 66, 75, 90</td><td class="num">170</td><td class="num">802</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="text-align:center"><strong>&rarr; [2, 24, 45, 66, 75, 90, 170, 802]</strong> &check; <strong>Sorted.</strong></p>
+</div>
+
+<div class="formula">
+  <span class="name">Analysis</span>
+  <strong>d passes, each a counting sort costing &Theta;(n + k)</strong>, where d is the number of digits and k the radix.<br><br>
+  <strong>Time = &Theta;( d (n + k) )</strong> &nbsp;&nbsp;&nbsp; <strong>Space = &Theta;(n + k)</strong> &nbsp;&nbsp;&nbsp; <strong>Stable: YES</strong> &nbsp;&nbsp;&nbsp; <strong>In place: NO</strong><br><br>
+  <strong>When d is a constant and k = O(n), this is &Theta;(n).</strong>
+</div>
+
+<div class="box">
+  <span class="lbl">The subtlety examiners like</span>
+  <p><strong>&ldquo;Is radix sort really linear?&rdquo;</strong> To distinguish n numbers they must be at least log<sub>2</sub>n bits wide, so d &ge; log<sub>k</sub>n, and the time becomes &Theta;(n log<sub>k</sub>n) &mdash; <strong>not asymptotically better than comparison sorting</strong> in the general case. It is genuinely linear only when <strong>d is fixed and small</strong>, as it is for 32-bit integers, dates or fixed-width identifiers. Say this and you have answered the deeper question.</p>
+  <p><strong>Why LSD rather than MSD?</strong> Sorting from the most significant digit first would require sorting each bucket <em>independently</em>, which means recursion and bookkeeping. LSD needs no recursion at all &mdash; just d stable passes over the whole array.</p>
+</div>
+
+<h2>3. Bucket sort</h2>
+
+<div class="formula">
+  <span class="name">The assumption and the algorithm</span>
+  <strong>Assumption:</strong> the input is drawn from a <strong>uniform distribution</strong> over an interval, conventionally [0, 1).<br><br>
+  <strong>1.</strong> Create <strong>n empty buckets</strong>.<br>
+  <strong>2.</strong> <strong>Scatter:</strong> put element x into bucket <strong>&lfloor;n &middot; x&rfloor;</strong>.<br>
+  <strong>3.</strong> <strong>Sort each bucket</strong> individually &mdash; usually with insertion sort, since buckets are expected to be tiny.<br>
+  <strong>4.</strong> <strong>Gather:</strong> concatenate the buckets in order.
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Sort A = [0.78, 0.17, 0.39, 0.26, 0.72, 0.94, 0.21, 0.12, 0.23, 0.68] by bucket sort. n = 10, so bucket index = &lfloor;10x&rfloor;.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Bucket</th><th>Contents after scatter</th><th>After sorting the bucket</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td class="num">1</td><td>0.17, 0.12</td><td><strong>0.12, 0.17</strong></td></tr>
+  <tr><td class="num">2</td><td>0.26, 0.21, 0.23</td><td><strong>0.21, 0.23, 0.26</strong></td></tr>
+  <tr><td class="num">3</td><td>0.39</td><td><strong>0.39</strong></td></tr>
+  <tr><td class="num">4, 5</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td class="num">6</td><td>0.68</td><td><strong>0.68</strong></td></tr>
+  <tr><td class="num">7</td><td>0.78, 0.72</td><td><strong>0.72, 0.78</strong></td></tr>
+  <tr><td class="num">8</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td class="num">9</td><td>0.94</td><td><strong>0.94</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Gather: [0.12, 0.17, 0.21, 0.23, 0.26, 0.39, 0.68, 0.72, 0.78, 0.94]</strong> &check;</p>
+  <p><em>Sanity check:</em> 10 elements went in and 10 came out, and each bucket's contents lie strictly within its own interval, so concatenating in bucket order is guaranteed to be sorted.</p>
+</div>
+
+<div class="formula">
+  <span class="name">Analysis</span>
+  <strong>Average case &mdash; &Theta;(n).</strong> With a uniform distribution the expected number of elements per bucket is 1, so the expected cost of insertion-sorting a bucket is O(1), and the total is &Theta;(n) for scatter + &Theta;(n) for the sorts + &Theta;(n) for gather.<br><br>
+  <strong>Worst case &mdash; &Theta;(n&sup2;).</strong> If every element lands in the <strong>same bucket</strong>, that bucket must be insertion-sorted with n elements.<br><br>
+  <strong>Space = &Theta;(n) &nbsp;&nbsp; Stable: YES</strong> (if the per-bucket sort is stable) &nbsp;&nbsp; <strong>In place: NO</strong>
+</div>
+
+<div class="box win">
+  <span class="lbl">The crucial contrast to state</span>
+  <p><strong>Bucket sort's linear time is an ASSUMPTION about the input distribution, not a guarantee.</strong> Counting sort and radix sort are linear <em>whatever</em> the arrangement of the data, provided the range or digit count is small. That distinction is exactly what a &ldquo;compare the linear-time sorts&rdquo; question is after.</p>
+</div>
+
+<h2>The comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Counting sort</strong></th><th><strong>Radix sort</strong></th><th><strong>Bucket sort</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Assumption</strong></td><td>Integers in the range 0 to k</td><td>Fixed-width keys of d digits, radix k</td><td>Input <strong>uniformly distributed</strong> over an interval</td></tr>
+<tr><td><strong>Best / average</strong></td><td>&Theta;(n + k)</td><td>&Theta;(d(n + k))</td><td><strong>&Theta;(n)</strong></td></tr>
+<tr><td><strong>Worst case</strong></td><td>&Theta;(n + k)</td><td>&Theta;(d(n + k))</td><td><strong>&Theta;(n&sup2;)</strong></td></tr>
+<tr><td><strong>Space</strong></td><td>&Theta;(n + k)</td><td>&Theta;(n + k)</td><td>&Theta;(n)</td></tr>
+<tr><td><strong>Stable</strong></td><td><strong>Yes</strong> &mdash; place right to left</td><td><strong>Yes</strong> &mdash; and it must be</td><td>Yes, if the inner sort is</td></tr>
+<tr><td><strong>In place</strong></td><td>No</td><td>No</td><td>No</td></tr>
+<tr><td><strong>Uses comparisons?</strong></td><td><strong>No</strong></td><td>No</td><td>Yes, inside each bucket</td></tr>
+<tr><td><strong>Breaks down when</strong></td><td><strong>k is large</strong> &mdash; e.g. k = n&sup2; makes it &Theta;(n&sup2;)</td><td>d is large; or the keys are variable-width</td><td>The data is <strong>skewed</strong>, so one bucket takes everything</td></tr>
+<tr><td><strong>Typical use</strong></td><td>Exam marks, ages, small-alphabet character counts</td><td><strong>Fixed-width integers, dates, phone numbers, strings of equal length</strong></td><td>Floating-point data known to be uniform</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">A worked comparison, because &ldquo;which is better?&rdquo; gets asked</span>
+  <p><strong>Sorting n = 1000 numbers in the range 0 to 999999.</strong></p>
+  <p><strong>Counting sort:</strong> &Theta;(n + k) = 1000 + 1000000 &asymp; <strong>10<sup>6</sup> operations</strong> &mdash; and it needs a count array of a million entries. <strong>Terrible.</strong></p>
+  <p><strong>Radix sort</strong> with radix 10: d = 6, so &Theta;(6 &times; (1000 + 10)) &asymp; <strong>6060 operations</strong>. <strong>Excellent.</strong></p>
+  <p><strong>Merge sort:</strong> n log<sub>2</sub>n = 1000 &times; 10 = <strong>10 000 operations</strong>. Competitive, and with no assumptions at all.</p>
+  <p><strong>Conclusion:</strong> radix sort wins here, counting sort loses badly, and merge sort is a perfectly reasonable default. <strong>Counting sort is only worth using when k = O(n)</strong> &mdash; which is precisely why radix sort exists: it applies counting sort to <em>one digit at a time</em>, keeping k tiny.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Counting, radix and bucket sort beat Ω(n log n) because they:</p>
+  <div class="opts">
+    <button class="opt">Are only linear on average</button>
+    <button class="opt" data-ok="1">Are not comparison sorts — they use values as array indices</button>
+    <button class="opt">Use a faster comparison operation</button>
+    <button class="opt">Disprove the lower bound</button>
+  </div>
+  <p class="why">The bound applies only to algorithms that determine order by comparing elements with each other. The price of escaping it is that these algorithms only work on restricted inputs.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Counting sort traverses the input from right to left in order to be:</p>
+  <div class="opts">
+    <button class="opt">In place</button>
+    <button class="opt">Able to handle negative numbers</button>
+    <button class="opt">Faster</button>
+    <button class="opt" data-ok="1">Stable</button>
+  </div>
+  <p class="why">Equal elements keep their original relative order, because the rightmost duplicate gets the highest available position. Stability is essential, because radix sort depends on it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Counting sort on n = 1000 values in the range 0 to 999999 costs about:</p>
+  <div class="opts">
+    <button class="opt">1000 operations</button>
+    <button class="opt" data-ok="1">10⁶ operations — it is a poor choice here</button>
+    <button class="opt">6060 operations</button>
+    <button class="opt">10 000 operations</button>
+  </div>
+  <p class="why">Θ(n + k) with k = 10⁶ is dominated by k, and it needs a count array of a million entries. Radix sort with radix 10 costs about 6060, and merge sort about 10 000.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Radix sort processes digits starting from the:</p>
+  <div class="opts">
+    <button class="opt">Middle digit outward</button>
+    <button class="opt" data-ok="1">Least significant digit, using a stable sort at each pass</button>
+    <button class="opt">Digits in any order</button>
+    <button class="opt">Most significant digit, recursively</button>
+  </div>
+  <p class="why">LSD needs no recursion — just d stable passes over the whole array. Stability is what preserves the ordering achieved by earlier, less significant passes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Bucket sort's worst case is:</p>
+  <div class="opts">
+    <button class="opt">Θ(n), always</button>
+    <button class="opt">Θ(n + k)</button>
+    <button class="opt" data-ok="1">Θ(n²), when all elements land in one bucket</button>
+    <button class="opt">Θ(n log n)</button>
+  </div>
+  <p class="why">Its linear average time is an assumption about the input distribution, not a guarantee — unlike counting and radix sort, which are linear whatever the arrangement of the data.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. After radix sort's tens-digit pass on [170, 90, 802, 2, 24, 45, 75, 66], the array is:</p>
+  <div class="opts">
+    <button class="opt">[2, 24, 45, 66, 75, 90, 170, 802]</button>
+    <button class="opt">[90, 802, 2, 24, 45, 66, 75, 170]</button>
+    <button class="opt" data-ok="1">[802, 2, 24, 45, 66, 170, 75, 90]</button>
+    <button class="opt">[170, 90, 802, 2, 24, 45, 75, 66]</button>
+  </div>
+  <p class="why">Tens digits are 7, 9, 0, 0, 2, 4, 7, 6. Note that 802 stays before 2 and 170 before 75 — stability preserving the units-digit ordering. Option two is the final result, after the hundreds pass.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Radix sort is genuinely linear only when:</p>
+  <div class="opts">
+    <button class="opt">Always — it is linear by definition</button>
+    <button class="opt">The input is uniformly distributed</button>
+    <button class="opt" data-ok="1">The number of digits d is fixed and small</button>
+    <button class="opt">n is a power of two</button>
+  </div>
+  <p class="why">To distinguish n numbers they must be at least log₂n bits wide, so d ≥ log_k n and the time is Θ(n log_k n) in general. It is truly linear for 32-bit integers, dates and other fixed-width keys.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>How do these sorts escape the &Omega;(n log n) bound?</summary>
+    <p class="ans">They are not comparison sorts. The bound applies only to algorithms that determine order by comparing elements with each other; these use the values themselves as array indices, which the comparison model forbids. The price is that they only work on restricted inputs — small integers, fixed-width keys, or a known distribution.</p></details>
+  <details class="card"><summary>Give the four steps of counting sort and why the last one goes right to left.</summary>
+    <p class="ans">Create a count array C[0…k]; count occurrences so C[i] is the number of elements equal to i; accumulate so C[i] is the number of elements &le; i; then traverse the input from right to left placing each x at B[C[x] − 1] and decrementing C[x]. Right to left makes it stable, which radix sort depends on.</p></details>
+  <details class="card"><summary>Give counting sort's complexity and when it fails.</summary>
+    <p class="ans">Time and space &Theta;(n + k), stable, not in place. It is linear when k = O(n), but if k is large — say n&sup2; — it is worse than merge sort and needs an enormous count array. Sorting 1000 values in the range 0 to 999999 costs about a million operations.</p></details>
+  <details class="card"><summary>Describe radix sort, its complexity, and why stability is required.</summary>
+    <p class="ans">Sort digit by digit from the least significant, using a stable sort — usually counting sort — at each pass. Time &Theta;(d(n + k)), space &Theta;(n + k). Stability is what preserves the ordering achieved by earlier, less significant passes; without it each pass would destroy the last. LSD avoids the recursion that MSD would need.</p></details>
+  <details class="card"><summary>Is radix sort really linear?</summary>
+    <p class="ans">Only when d is fixed and small. To distinguish n numbers, keys must be at least log₂n bits wide, so d &ge; log_k n and the general cost is &Theta;(n log_k n) — no better asymptotically than comparison sorting. It is genuinely linear for 32-bit integers, dates and fixed-width identifiers.</p></details>
+  <details class="card"><summary>Describe bucket sort and state its key limitation.</summary>
+    <p class="ans">Assume a uniform distribution over an interval; create n buckets; scatter x into bucket &lfloor;nx&rfloor;; sort each bucket, usually with insertion sort; concatenate. Average &Theta;(n) because the expected bucket size is 1; worst case &Theta;(n&sup2;) when everything lands in one bucket. Its linear time is an assumption about the distribution, not a guarantee.</p></details>
+  <details class="card"><summary>Compare the three linear-time sorts.</summary>
+    <p class="ans">Counting: integers 0 to k, &Theta;(n + k) always, stable, breaks when k is large. Radix: fixed-width keys, &Theta;(d(n + k)) always, stable and must be, breaks when d is large or keys vary in width. Bucket: uniform distribution, &Theta;(n) average but &Theta;(n&sup2;) worst, stable if the inner sort is, breaks on skewed data. None is in place; counting and radix use no comparisons at all.</p></details>
+</div>
+
+<p class="ask">Next, and last for this unit: string matching &mdash; the naive algorithm, KMP with its failure function, and Boyer&ndash;Moore.</p>
+
+<div class="nav">
+  <a href="0013-comparison-based-sorting.html">&larr; Comparison-Based Sorting</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0015-string-matching.html">Next: String Matching &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

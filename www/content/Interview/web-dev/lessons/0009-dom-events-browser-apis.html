@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 09 — DOM, Events &amp; Browser APIs</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 9 of 24 · DOM, events, delegation, storage</div>
+<h1>DOM, Events &amp; Browser APIs</h1>
+<p class="subtitle">Your JavaScript finally touches the page — select, change and build elements, react to clicks and keys, and ship a real todo app by the end.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 9 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · What the DOM is — and your scaffold for this lesson</h2>
+<p>
+When the browser reads an HTML file, it doesn't keep it as text. It builds a <strong>tree of objects</strong>
+in memory — one node per tag, nested exactly as the tags nest. That live tree is the
+<strong>DOM</strong> (Document Object Model), and JS reaches it through one global object:
+<code>document</code>. Change the tree, and the browser instantly repaints the screen. The DOM is not
+JavaScript — it's a browser API that JS can call, which is why Node.js has no <code>document</code>.
+</p>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  If you've touched XML DOM parsers or Swing, it's the same idea: a tree of node objects with an API to
+  query and mutate it, plus listeners for user events. <code>document</code> is your root handle, like
+  Swing's <code>JFrame</code> — except the "components" were declared in HTML and the browser built them
+  for you.
+</div>
+
+<p>
+Per this track's rule you are <strong>not</strong> learning to author HTML/CSS. Here is the one fixed
+scaffold for the whole lesson — save it as <code>index.html</code>, put all JS in <code>app.js</code>, and
+never edit the HTML again:
+</p>
+
+<pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;
+  &lt;h1 id="title"&gt;My App&lt;/h1&gt;
+  &lt;form id="todo-form"&gt;
+    &lt;input id="todo-input" placeholder="What to do?" /&gt;
+    &lt;button type="submit"&gt;Add&lt;/button&gt;
+  &lt;/form&gt;
+  &lt;div&gt;
+    &lt;button class="filter" data-filter="all"&gt;All&lt;/button&gt;
+    &lt;button class="filter" data-filter="active"&gt;Active&lt;/button&gt;
+    &lt;button class="filter" data-filter="done"&gt;Done&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;ul id="todo-list"&gt;&lt;/ul&gt;
+  &lt;p id="status"&gt;&lt;/p&gt;
+  &lt;script src="app.js"&gt;&lt;/script&gt;   <span class="cmt">&lt;!-- at the END of body: elements exist by now --&gt;</span>
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h2>2 · Selecting elements</h2>
+<p>
+The modern API is two methods that accept <strong>CSS selectors</strong> — <code>#id</code>,
+<code>.class</code>, <code>tag</code>, and combinations:
+</p>
+
+<pre><code>const title = document.querySelector("#title");        <span class="cmt">// FIRST match, or null</span>
+const firstFilter = document.querySelector(".filter"); <span class="cmt">// first element with class</span>
+const filters = document.querySelectorAll(".filter");  <span class="cmt">// ALL matches → a NodeList</span>
+
+<span class="cmt">// Older family — still fine, you'll see them in code everywhere:</span>
+document.getElementById("title");          <span class="cmt">// by id, no '#' — fastest, very common</span>
+document.getElementsByClassName("filter"); <span class="cmt">// LIVE collection (updates as DOM changes)</span>
+
+<span class="cmt">// NodeList is array-LIKE: it has forEach, but not map/filter.</span>
+filters.forEach(btn =&gt; console.log(btn.dataset.filter));   <span class="cmt">// ok</span>
+const arr = [...filters];                  <span class="cmt">// spread → real array when you need map()</span>
+arr.map(b =&gt; b.textContent);</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha</span>
+  <code>querySelector</code> returns <code>null</code> when nothing matches — and the resulting
+  <code>Cannot read properties of null</code> is the most common DOM error in existence. Usual causes:
+  a typo in the selector, or the script ran <em>before</em> the element existed (script tag in
+  <code>&lt;head&gt;</code> without <code>defer</code>). Fix: script at end of body, or listen for
+  <code>DOMContentLoaded</code> (section 5).
+</div>
+
+<h2>3 · Reading and changing elements</h2>
+
+<pre><code>const title = document.querySelector("#title");
+
+<span class="cmt">// TEXT — textContent treats everything as plain text. Safe.</span>
+title.textContent = "Todo App";
+title.textContent = "&lt;b&gt;hi&lt;/b&gt;";     <span class="cmt">// literally shows "&lt;b&gt;hi&lt;/b&gt;" — not bold</span>
+
+<span class="cmt">// HTML — innerHTML PARSES the string as markup. Powerful and dangerous.</span>
+title.innerHTML = "&lt;em&gt;Todo&lt;/em&gt; App"; <span class="cmt">// renders real italic element</span>
+
+<span class="cmt">// FORM VALUES — inputs use .value, not textContent</span>
+const input = document.querySelector("#todo-input");
+console.log(input.value);            <span class="cmt">// whatever the user typed, always a STRING</span>
+input.value = "";                    <span class="cmt">// clear the box</span>
+
+<span class="cmt">// CLASSES — classList, never string-mash className</span>
+title.classList.add("highlight");
+title.classList.remove("highlight");
+title.classList.toggle("dark");      <span class="cmt">// on↔off; returns true if now present</span>
+title.classList.contains("dark");    <span class="cmt">// boolean check</span>
+
+<span class="cmt">// INLINE STYLE — CSS property names become camelCase</span>
+title.style.color = "tomato";
+title.style.backgroundColor = "black";   <span class="cmt">// background-color → backgroundColor</span>
+<span class="cmt">// prefer classList + a CSS class over style for anything reusable</span>
+
+<span class="cmt">// ATTRIBUTES and data-*</span>
+input.setAttribute("maxlength", "50");
+input.getAttribute("placeholder");       <span class="cmt">// "What to do?"</span>
+const btn = document.querySelector(".filter");
+console.log(btn.dataset.filter);         <span class="cmt">// "all" — data-filter → dataset.filter</span>
+btn.dataset.count = "3";                 <span class="cmt">// writes attribute data-count="3"</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha — innerHTML and XSS</span>
+  Never feed <em>user-supplied text</em> into <code>innerHTML</code>. If a user types
+  <code>&lt;img src=x onerror="stealCookies()"&gt;</code> as their "todo" and you innerHTML it, their code
+  <em>runs in your page</em> — that's <strong>XSS (cross-site scripting)</strong>, a top real-world
+  vulnerability and a standard interview question. Rule: user data → <code>textContent</code> (renders
+  inert text); <code>innerHTML</code> only for markup <em>you</em> wrote.
+</div>
+
+<h2>4 · Creating, inserting, removing</h2>
+
+<pre><code><span class="cmt">// build a &lt;li&gt;&lt;span&gt;Buy milk&lt;/span&gt;&lt;button&gt;✕&lt;/button&gt;&lt;/li&gt; from scratch</span>
+const li = document.createElement("li");       <span class="cmt">// exists in memory, NOT on page yet</span>
+li.dataset.id = "42";
+
+const span = document.createElement("span");
+span.textContent = "Buy milk";                 <span class="cmt">// safe even if text came from a user</span>
+
+const del = document.createElement("button");
+del.textContent = "✕";
+del.className = "delete";
+
+li.append(span, del);                          <span class="cmt">// append accepts multiple nodes/strings</span>
+document.querySelector("#todo-list").append(li);  <span class="cmt">// NOW it's on the page</span>
+
+<span class="cmt">// other insert points:</span>
+<span class="cmt">// parent.prepend(node)      — as first child</span>
+<span class="cmt">// node.before(x) / after(x) — as sibling</span>
+
+li.remove();                                   <span class="cmt">// gone from the page</span>
+document.querySelector("#todo-list").replaceChildren();  <span class="cmt">// nuke all children</span></code></pre>
+
+<p>
+This create → configure → append dance is exactly what React automates: you'll describe <em>what</em> the
+list should look like, and React performs these calls for you. Doing it by hand first is what makes React
+make sense.
+</p>
+
+<h2>5 · Events — reacting to the user</h2>
+<p>
+Every node is an event emitter. You register a callback with <code>addEventListener(type, handler)</code>
+— same idea as Swing's <code>addActionListener</code>, and your first daily-life use of Lesson 6's
+macrotask queue: the browser detects the click, queues your handler, the event loop runs it.
+</p>
+
+<pre><code>const btn = document.querySelector(".filter");
+
+function onClick(event) {
+  console.log(event.type);            <span class="cmt">// "click"</span>
+  console.log(event.target);          <span class="cmt">// the element actually clicked (could be a child!)</span>
+  console.log(event.currentTarget);   <span class="cmt">// the element the LISTENER is attached to</span>
+}
+btn.addEventListener("click", onClick);
+btn.removeEventListener("click", onClick);  <span class="cmt">// must be the SAME function reference —</span>
+<span class="cmt">// removeEventListener("click", () =&gt; {...}) removes NOTHING (new function ≠ old one).</span>
+<span class="cmt">// Closures lesson paying rent: anonymous arrows can't be unregistered.</span>
+
+<span class="cmt">// The events you'll use constantly:</span>
+input.addEventListener("input",  e =&gt; console.log("every keystroke:", e.target.value));
+input.addEventListener("keydown", e =&gt; { if (e.key === "Enter") console.log("enter!"); });
+form.addEventListener("submit", e =&gt; { <span class="cmt">/* section 7 */</span> });
+document.addEventListener("DOMContentLoaded", () =&gt; {
+  <span class="cmt">// fires when the HTML is fully parsed — safe to query anything.</span>
+  <span class="cmt">// Needed if your script loads in &lt;head&gt;; unnecessary with script-at-end-of-body.</span>
+});</code></pre>
+
+<h2>6 · Bubbling, capturing &amp; event delegation</h2>
+<p>
+Click a <code>&lt;span&gt;</code> inside a <code>&lt;li&gt;</code> inside a <code>&lt;ul&gt;</code> — who
+gets the event? <em>Everyone</em>, in order. The event travels down from <code>document</code> to the
+target (<strong>capturing</strong> phase — rarely used), then back up to <code>document</code>
+(<strong>bubbling</strong> phase — where listeners fire by default). So a listener on the
+<code>&lt;ul&gt;</code> hears clicks on every <code>&lt;li&gt;</code> inside it, present or future.
+</p>
+
+<pre><code>list.addEventListener("click", e =&gt; {
+  <span class="cmt">// e.target        = the deepest element clicked (span? button? li?)</span>
+  <span class="cmt">// e.currentTarget = list (where this listener lives)</span>
+  e.stopPropagation();     <span class="cmt">// stop the journey here — ancestors won't hear it (rarely needed)</span>
+});
+<span class="cmt">// third arg { capture: true } would fire on the way DOWN instead — niche.</span></code></pre>
+
+<p>
+Bubbling enables the single most important DOM pattern: <strong>event delegation</strong>. Problem: a todo
+list where items are added and removed constantly. Attaching a listener to every item is wasteful, and
+items created <em>later</em> have no listener at all. Solution: <strong>one listener on the stable
+parent</strong>, using <code>e.target</code> to work out what was actually clicked:
+</p>
+
+<pre><code>const list = document.querySelector("#todo-list");
+
+list.addEventListener("click", (e) =&gt; {
+  const deleteBtn = e.target.closest("button.delete");  <span class="cmt">// climbs from target upward,</span>
+  if (deleteBtn) {                                      <span class="cmt">// null if click wasn't on/inside one</span>
+    deleteBtn.closest("li").remove();
+    return;
+  }
+  const item = e.target.closest("li");
+  if (item) item.classList.toggle("done");              <span class="cmt">// any other click on a li → toggle</span>
+});
+<span class="cmt">// ONE listener. Works for items that don't exist yet. This is delegation.</span></code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Event delegation: attach one listener to a common ancestor and use the bubbled event's
+  <code>target</code> to identify the actual element. It saves memory and — crucially — automatically
+  covers elements added to the container later. Frameworks like React delegate under the hood."
+</div>
+
+<h2>7 · Forms — preventDefault and validation</h2>
+<p>
+A form's default submit behaviour is a full page reload (a leftover from the pre-JS web) — which destroys
+your app state. Step one of every JS-handled form: <code>e.preventDefault()</code>.
+</p>
+
+<pre><code>const form  = document.querySelector("#todo-form");
+const input = document.querySelector("#todo-input");
+const status = document.querySelector("#status");
+
+form.addEventListener("submit", (e) =&gt; {
+  e.preventDefault();                  <span class="cmt">// STOP the reload. Line one, always.</span>
+
+  const text = input.value.trim();     <span class="cmt">// basic validation</span>
+  if (text === "") {
+    status.textContent = "Please type something first.";
+    return;
+  }
+  if (text.length &gt; 50) {
+    status.textContent = "Keep it under 50 characters.";
+    return;
+  }
+
+  status.textContent = "";
+  addTodo(text);                       <span class="cmt">// your logic</span>
+  input.value = "";                    <span class="cmt">// clear and refocus for rapid entry</span>
+  input.focus();
+});
+<span class="cmt">// Listening to "submit" on the FORM (not "click" on the button) is the right way:</span>
+<span class="cmt">// it also catches Enter pressed inside the input, for free.</span></code></pre>
+
+<p>
+Note the pairing: <code>preventDefault()</code> cancels the browser's built-in <em>action</em> (submit
+reload, link navigation) but the event still bubbles; <code>stopPropagation()</code> stops the
+<em>journey</em> but the default action still happens. Different jobs, both on the event object.
+</p>
+
+<h2>8 · Browser storage — localStorage &amp; friends</h2>
+<p>
+Refresh the page and every variable dies. <code>localStorage</code> is a tiny per-site key-value store
+(~5&nbsp;MB) that survives refreshes, tab closes, even reboots. <code>sessionStorage</code> is the same API
+but dies with the tab. Both store <strong>strings only</strong> — hence the universal JSON round-trip
+pattern (Lesson 5's <code>JSON.stringify/parse</code>):
+</p>
+
+<pre><code>localStorage.setItem("theme", "dark");      <span class="cmt">// write a string</span>
+localStorage.getItem("theme");              <span class="cmt">// "dark" — or null if absent</span>
+localStorage.removeItem("theme");
+localStorage.clear();                       <span class="cmt">// wipe this site's storage</span>
+
+<span class="cmt">// THE pattern: objects/arrays go through JSON</span>
+const todos = [{ id: 1, text: "learn DOM", done: false }];
+localStorage.setItem("todos", JSON.stringify(todos));           <span class="cmt">// object → string</span>
+
+const saved = JSON.parse(localStorage.getItem("todos") ?? "[]"); <span class="cmt">// string → object,</span>
+<span class="cmt">// with ?? "[]" as the first-visit fallback (getItem returned null)</span>
+
+localStorage.setItem("count", 5);
+typeof localStorage.getItem("count");       <span class="cmt">// "string"! Numbers come back as strings —</span>
+Number(localStorage.getItem("count"));      <span class="cmt">// convert explicitly.</span></code></pre>
+
+<p>
+<strong>Cookies</strong>, in one paragraph: an older, tiny (~4&nbsp;KB) storage mechanism whose defining
+feature is that cookies are <em>automatically sent to the server with every HTTP request</em>. That makes
+them the vehicle for login sessions (the server sets a session cookie; the browser presents it on each
+request) — and irrelevant for general client-side data, where localStorage wins. You'll work with cookies
+properly in the Express auth lesson (19).
+</p>
+
+<p>
+<strong>location &amp; history</strong>, at a glance: <code>location.href</code> is the current URL (assign
+to it to navigate away), with parts like <code>location.pathname</code> and query params readable via
+<code>new URLSearchParams(location.search)</code>. <code>history.back()</code> is the back button;
+<code>history.pushState()</code> changes the URL <em>without reloading</em> — the trick single-page-app
+routers (React Router, Lesson 13) are built on.
+</p>
+
+<h2>9 · Errors done properly — throw, custom errors, strict mode</h2>
+<p>Straight from your Java instincts, with JS twists:</p>
+
+<pre><code><span class="cmt">// throw + try/catch/finally — semantics you already know</span>
+function getTodo(list, id) {
+  const t = list.find(t =&gt; t.id === id);
+  if (!t) throw new Error(`no todo with id ${id}`);   <span class="cmt">// throw Error OBJECTS,</span>
+  return t;                    <span class="cmt">// not strings — you want .message and .stack</span>
+}
+
+<span class="cmt">// custom errors — subclass Error, branch with instanceof (like Java catch types)</span>
+class ValidationError extends Error {
+  constructor(message, field) {
+    super(message);
+    this.name = "ValidationError";     <span class="cmt">// shows up in logs instead of "Error"</span>
+    this.field = field;                <span class="cmt">// carry structured data</span>
+  }
+}
+
+try {
+  throw new ValidationError("too long", "title");
+} catch (err) {
+  if (err instanceof ValidationError) console.log(`fix field: ${err.field}`);
+  else throw err;                      <span class="cmt">// not mine — rethrow (JS has ONE catch,</span>
+}                                      <span class="cmt">// no multi-catch: instanceof + rethrow instead</span>
+
+<span class="cmt">// finally quirk worth a glance: a RETURN inside finally silently OVERRIDES</span>
+<span class="cmt">// the try block's return AND swallows in-flight exceptions. Never return from finally.</span>
+function sneaky() {
+  try { return 1; } finally { return 2; }   <span class="cmt">// returns 2. Yes really.</span>
+}</code></pre>
+
+<p>
+<strong>Strict mode.</strong> <code>'use strict';</code> at the top of a file or function switches off
+JS's most forgiving (read: bug-hiding) behaviours: assigning to an undeclared variable becomes an error
+instead of silently creating a global; writing to read-only properties throws instead of failing silently;
+<code>this</code> in a plain function call is <code>undefined</code> instead of the global object;
+duplicate parameter names are rejected. You rarely type it today because <strong>ES modules and class
+bodies are automatically strict</strong> — but "what does strict mode change?" remains a stock interview
+question.
+</p>
+
+<pre><code>"use strict";
+count = 5;         <span class="cmt">// ReferenceError. Without strict mode: silently creates</span>
+                   <span class="cmt">// a GLOBAL variable — the classic typo-eats-your-data bug.</span></code></pre>
+
+<h2>10 · Capstone — a complete todo app</h2>
+<p>
+Everything above, wired together: state as a plain array, one render function, delegation for clicks,
+a form for input, filters via <code>dataset</code>, persistence via localStorage. This exact app is a
+common machine-coding round question. Uses the section 1 scaffold — this is the entire
+<code>app.js</code>:
+</p>
+
+<pre><code>"use strict";
+
+<span class="cmt">// ---------- state ----------</span>
+<span class="cmt">// ONE source of truth: an array of {id, text, done}. The DOM is merely a</span>
+<span class="cmt">// PICTURE of this array — we change state, then redraw. (React's core idea, by hand.)</span>
+let todos  = JSON.parse(localStorage.getItem("todos") ?? "[]");
+let filter = "all";                       <span class="cmt">// "all" | "active" | "done"</span>
+
+<span class="cmt">// ---------- elements ----------</span>
+const form   = document.querySelector("#todo-form");
+const input  = document.querySelector("#todo-input");
+const list   = document.querySelector("#todo-list");
+const status = document.querySelector("#status");
+
+<span class="cmt">// ---------- persistence ----------</span>
+function save() {
+  localStorage.setItem("todos", JSON.stringify(todos));   <span class="cmt">// JSON round-trip</span>
+}
+
+<span class="cmt">// ---------- render: state → DOM ----------</span>
+function render() {
+  list.replaceChildren();                 <span class="cmt">// wipe and redraw (simple &gt; clever, for now)</span>
+
+  const visible = todos.filter(t =&gt;
+    filter === "all"    ? true  :
+    filter === "active" ? !t.done :
+    t.done);
+
+  for (const todo of visible) {
+    const li = document.createElement("li");
+    li.dataset.id = todo.id;              <span class="cmt">// the id rides on the element for delegation</span>
+
+    const span = document.createElement("span");
+    span.textContent = todo.text;         <span class="cmt">// textContent: user input stays inert (no XSS)</span>
+    if (todo.done) span.style.textDecoration = "line-through";
+
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.className = "delete";
+
+    li.append(span, del);
+    list.append(li);
+  }
+
+  const left = todos.filter(t =&gt; !t.done).length;
+  status.textContent = `${left} item(s) left · showing: ${filter}`;
+}
+
+<span class="cmt">// ---------- add (form submit) ----------</span>
+form.addEventListener("submit", (e) =&gt; {
+  e.preventDefault();                     <span class="cmt">// no page reload</span>
+  const text = input.value.trim();
+  if (!text) return;                      <span class="cmt">// validation: ignore empty</span>
+
+  todos.push({ id: Date.now(), text, done: false });  <span class="cmt">// timestamp as a cheap unique id</span>
+  save();
+  render();
+  input.value = "";
+  input.focus();
+});
+
+<span class="cmt">// ---------- toggle + delete: ONE delegated listener ----------</span>
+list.addEventListener("click", (e) =&gt; {
+  const li = e.target.closest("li");
+  if (!li) return;                        <span class="cmt">// click on the empty ul itself</span>
+  const id = Number(li.dataset.id);       <span class="cmt">// dataset values are strings!</span>
+
+  if (e.target.closest("button.delete")) {
+    todos = todos.filter(t =&gt; t.id !== id);        <span class="cmt">// delete: keep everyone else</span>
+  } else {
+    const todo = todos.find(t =&gt; t.id === id);     <span class="cmt">// toggle</span>
+    todo.done = !todo.done;
+  }
+  save();
+  render();                               <span class="cmt">// state changed → redraw. Every action ends here.</span>
+});
+
+<span class="cmt">// ---------- filters: delegation again, via data-filter ----------</span>
+document.addEventListener("click", (e) =&gt; {
+  const btn = e.target.closest("button.filter");
+  if (!btn) return;
+  filter = btn.dataset.filter;            <span class="cmt">// "all" / "active" / "done" from the HTML</span>
+  render();
+});
+
+render();                                 <span class="cmt">// first paint from whatever localStorage had</span></code></pre>
+
+<p>Read the shape, not just the lines — it's the architecture every UI framework formalises:</p>
+<ul>
+  <li><strong>State lives in data</strong> (the array), never scraped back out of the DOM;</li>
+  <li><strong>render() is the only writer</strong> — one function turns state into pixels;</li>
+  <li><strong>every event handler does: mutate state → save → render.</strong> Nothing else touches the page.</li>
+</ul>
+<p>
+When React arrives in Lesson 11, its pitch is exactly: "you write <code>render()</code>, we'll call it at
+the right times and diff the DOM efficiently." You've now earned that sentence.
+</p>
+
+<h2>11 · Reference tables</h2>
+<table>
+  <thead><tr><th>Task</th><th>API</th><th>Watch out</th></tr></thead>
+  <tbody>
+    <tr><td>Select one / many</td><td><code>querySelector</code> / <code>querySelectorAll</code></td><td>null on no match; NodeList has forEach but not map</td></tr>
+    <tr><td>Set user-provided text</td><td><code>textContent</code></td><td>never innerHTML for user data (XSS)</td></tr>
+    <tr><td>Read an input</td><td><code>.value</code></td><td>always a string — Number() it for math</td></tr>
+    <tr><td>Toggle a CSS class</td><td><code>classList.toggle</code></td><td>prefer classes over .style for reusable looks</td></tr>
+    <tr><td>Create / attach / detach</td><td><code>createElement</code> / <code>append</code> / <code>remove</code></td><td>created nodes are invisible until appended</td></tr>
+    <tr><td>Listen / unlisten</td><td><code>addEventListener</code> / <code>removeEventListener</code></td><td>removal needs the same function reference</td></tr>
+    <tr><td>Stop form reload</td><td><code>e.preventDefault()</code> in submit handler</td><td>listen on the form, not the button</td></tr>
+    <tr><td>Dynamic list clicks</td><td>delegation: parent listener + <code>e.target.closest()</code></td><td>target = clicked node; currentTarget = listener's node</td></tr>
+    <tr><td>Persist data</td><td><code>localStorage</code> + JSON round-trip</td><td>strings only; null on missing key</td></tr>
+  </tbody>
+</table>
+
+<h2>12 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What is the DOM?"</strong><br>
+  An in-memory tree of node objects the browser builds from HTML, exposed to JS through
+  <code>document</code>. JS queries and mutates the tree; the browser re-renders to match. It's a browser
+  API, not part of the JS language — hence no DOM in Node.</li>
+  <li><strong>"Event bubbling vs capturing? target vs currentTarget?"</strong><br>
+  An event travels document → target (capturing), then target → document (bubbling); listeners default to
+  the bubbling phase. <code>target</code> is the element actually interacted with;
+  <code>currentTarget</code> is the element the listener is attached to — they differ exactly when the
+  event bubbled up.</li>
+  <li><strong>"What is event delegation and why use it?"</strong><br>
+  One listener on a stable ancestor handles events for all descendants via <code>e.target</code>. Fewer
+  listeners (memory), and elements added later are covered automatically — essential for dynamic lists.</li>
+  <li><strong>"preventDefault vs stopPropagation?"</strong><br>
+  <code>preventDefault</code> cancels the browser's default action (form submit reload, link navigation)
+  but the event still bubbles. <code>stopPropagation</code> halts the bubbling journey but the default
+  action still runs. Independent switches.</li>
+  <li><strong>"textContent vs innerHTML?"</strong><br>
+  textContent reads/writes plain text — markup is shown literally, so it's safe for user input. innerHTML
+  parses the string as HTML — powerful for trusted markup, but with user data it's an XSS hole.</li>
+  <li><strong>"localStorage vs sessionStorage vs cookies?"</strong><br>
+  localStorage: ~5&nbsp;MB, persists indefinitely, JS-only. sessionStorage: same API, per-tab lifetime.
+  Cookies: ~4&nbsp;KB, auto-sent to the server on every request — which is why they carry sessions, and why
+  you don't use them for general client data.</li>
+  <li><strong>"What does strict mode do?"</strong><br>
+  Turns silent failures into errors: undeclared assignments throw (no accidental globals), writes to
+  read-only properties throw, <code>this</code> is undefined in plain function calls, duplicate params are
+  rejected. Modules and classes are strict automatically.</li>
+</ul>
+
+<h2>13 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A user types <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> as a todo. Which line displays it safely?</div>
+  <button class="opt"><code>li.innerHTML = text</code> — innerHTML auto-escapes dangerous tags</button>
+  <button class="opt"><code>span.textContent = text</code> — it renders any string as inert text</button>
+  <button class="opt">Either — browsers block script injection from JS nowadays</button>
+  <div class="fb" data-correct="textContent never parses markup, so the payload appears as harmless visible text. innerHTML parses it — and while script tags inserted this way don't run, payloads like &lt;img onerror=...&gt; DO. That's XSS." data-wrong="innerHTML parses the string as HTML — attacker payloads such as &lt;img src=x onerror=...&gt; execute. User data must go through textContent (or be properly sanitised)."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A listener on <code>#todo-list</code> (a <code>ul</code>) fires when a <code>span</code> inside an <code>li</code> is clicked. What is <code>e.target</code> and what is <code>e.currentTarget</code>?</div>
+  <button class="opt">Both are the ul — the listener owns the event</button>
+  <button class="opt">target is the li, currentTarget is the span</button>
+  <button class="opt">target is the span (deepest element clicked), currentTarget is the ul (where the listener sits)</button>
+  <div class="fb" data-correct="target = the actual innermost element clicked; currentTarget = the element whose listener is running. Delegation uses target (often with .closest()) to find out what was really clicked." data-wrong="target is always the deepest element actually clicked (the span); currentTarget is the element the listener is attached to (the ul). They only coincide when you click the listener's own element directly."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does clicking a delete button on a <em>newly added</em> todo still work in our app, with no listener ever added to it?</div>
+  <button class="opt">The single listener is on the parent ul; the click bubbles up to it, and e.target identifies the button</button>
+  <button class="opt">addEventListener automatically copies itself onto new children of the element</button>
+  <button class="opt">render() re-attaches individual listeners to every li each redraw</button>
+  <div class="fb" data-correct="That's the whole point of delegation: the ancestor's one listener hears bubbled clicks from ANY descendant — including elements created long after the listener was registered." data-wrong="Listeners never auto-copy, and our render() attaches nothing. The ul's single delegated listener hears bubbled clicks from all current AND future children — that's why delegation matters for dynamic lists."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You store <code>localStorage.setItem("todos", todos)</code> where todos is an array, and later read it back. What do you get?</div>
+  <button class="opt">The original array — storage keeps JS values as-is</button>
+  <button class="opt">A useless string like "[object Object]" — you must JSON.stringify on write and JSON.parse on read</button>
+  <button class="opt">null — arrays cannot be stored at all</button>
+  <div class="fb" data-correct="localStorage stores STRINGS only; a non-string is converted with toString(), and an array of objects becomes '[object Object],...' — unrecoverable. Always JSON.stringify in, JSON.parse out." data-wrong="Everything in localStorage is coerced to a string — an object array degrades to '[object Object]' garbage. The JSON round-trip (stringify on save, parse on load) is mandatory."></div>
+</div>
+
+<h2>14 · Do this next</h2>
+<ul>
+  <li>Build the todo app yourself from a blank <code>app.js</code>, peeking only when stuck. Then add two features solo: an "Edit" flow (double-click a todo's text → replace the span with an input → Enter saves — the <code>keydown</code> event) and a "Clear completed" button. Both are classic follow-ups in machine-coding rounds.</li>
+  <li>Break it on purpose, three ways, and read each error like a detective: (1) move the script tag into <code>&lt;head&gt;</code>, (2) change the delete handler's <code>closest("li")</code> to <code>e.target</code> alone and click the ✕, (3) remove <code>preventDefault()</code> and watch the reload wipe the input. Knowing the failure modes is half the interview.</li>
+  <li>Merge lessons: replace the initial state load with a fetch from <code>https://jsonplaceholder.typicode.com/todos?_limit=5</code> (map its shape into yours), keeping localStorage as a cache — load storage first, fetch in the background, then re-render. That's a real app's startup sequence.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Delegation still feels like magic? Not sure when you need <code>DOMContentLoaded</code>, or why we redraw
+  the whole list instead of surgically editing one <code>li</code>? Ask in the chat — the todo app is worth
+  interrogating line by line. When you've built it (and one extension) with your own hands, say
+  <strong>"next"</strong> and we finish Module A with Lesson 10: JS Interview Patterns &amp; Output
+  Questions — the drill session that turns everything so far into interview points.
+</div>
+
+<div class="nav">
+  <span><a href="0008-modules-npm-tooling.html">← Modules &amp; npm</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0010-js-interview-patterns.html">Interview Patterns →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

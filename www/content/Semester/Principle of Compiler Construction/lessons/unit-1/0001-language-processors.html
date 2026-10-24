@@ -1,0 +1,485 @@
+<title>Language Processors</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit I &middot; Lesson 1 of 10</p>
+<h1>Language Processors</h1>
+<p class="deck">What a translator is, compiler versus interpreter, the complete language-processing system from preprocessor to loader, the hybrid model that Java uses, and the six kinds of translator worth naming.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two questions live here and both are certain. <strong>&ldquo;Differentiate compiler and interpreter&rdquo;</strong> &mdash; an eight-row table, and the winning row is <em>where the error is reported</em>. <strong>&ldquo;Explain the language processing system with a diagram&rdquo;</strong> &mdash; draw the vertical chain <strong>source &rarr; preprocessor &rarr; compiler &rarr; assembler &rarr; linker/loader &rarr; machine code</strong> and label what flows between each pair; the diagram alone carries most of the marks. Learn the <strong>hybrid Java model</strong> too, because it is the natural follow-up question and it sets up just-in-time compilation in Lesson 4.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Language Processing System</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=Cb46_P12bMY" target="_blank">Introduction to Compiler Design | Language Processing System</a>
+    <span class="v-meta">THE GATEHUB &middot; 15:27</span>
+    <div class="v-why">Comprehensive, syllabus-accurate walkthrough of the complete translation pipeline (Preprocessor &rarr; Compiler &rarr; Assembler &rarr; Linker/Loader) with exact intermediate file forms and memory relocation explained.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Compiler vs Interpreter vs JIT</span>
+      <span class="best-tag">Top Visual Summary</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=mQ-vQ2BlKrw" target="_blank">Interpreter vs Compiler vs JIT Compiler | Simply Explained</a>
+    <span class="v-meta">TechPrep &middot; 2:53</span>
+    <div class="v-why">Crisp, animated comparison highlighting why compilers execute faster while interpreters give immediate line-by-line error feedback, and how hybrid/JIT blends both.</div>
+  </div>
+</div>
+
+<h2>1. Translators</h2>
+
+<div class="formula">
+  <span class="name">Definitions to write verbatim</span>
+  A <strong>translator</strong> is a system software program that takes a program written in one language &mdash; the <strong>source language</strong> &mdash; and converts it into an equivalent program in another language &mdash; the <strong>target language</strong>.<br><br>
+  A <strong>compiler</strong> is a translator that reads a program written in a <strong>high-level language</strong> and translates it, <strong>as a whole</strong>, into an equivalent program in a <strong>low-level (machine or assembly) language</strong>, reporting any errors detected during translation.<br><br>
+  An <strong>interpreter</strong> is a translator that <strong>directly executes</strong> the operations specified in the source program on inputs supplied by the user, <strong>statement by statement</strong>, without producing a permanent target program.
+</div>
+
+<!-- FLOWCHART: COMPILER VS INTERPRETER -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Compiler vs Interpreter Execution Flow</span>
+  
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem;">
+    <!-- Compiler Flow -->
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--accent); margin-bottom:.8rem; font-size:.9rem; text-transform:uppercase; letter-spacing:.08em;">
+        Model A &middot; Pure Compiler (Two-Step Process)
+      </div>
+      <div class="flow-col">
+        <div class="flow-box"><strong>Source Program</strong><span class="sub">High-level code (e.g. <code>prog.c</code>)</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box highlight"><strong>COMPILER</strong><span class="sub">Translates entire program at once</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box ok"><strong>Target Program</strong><span class="sub">Executable machine code (<code>a.out</code>)</span></div>
+        
+        <div style="margin:1rem 0 .5rem; border-top:1px dashed var(--rule); width:100%; text-align:center; padding-top:.6rem;">
+          <span style="font-size:.76rem; font-weight:600; color:var(--ink-soft); text-transform:uppercase;">Execution Phase (Repeat as needed)</span>
+        </div>
+        
+        <div class="flow-row" style="margin:.3rem 0;">
+          <div class="flow-box" style="min-width:7rem; max-width:8rem; padding:.4rem .6rem;"><strong>User Input</strong></div>
+          <span class="flow-arrow-right">&rarr;</span>
+          <div class="flow-box ok" style="min-width:8rem; max-width:9rem; padding:.4rem .6rem;"><strong>Target Code</strong></div>
+          <span class="flow-arrow-right">&rarr;</span>
+          <div class="flow-box" style="min-width:7rem; max-width:8rem; padding:.4rem .6rem;"><strong>Output</strong></div>
+        </div>
+      </div>
+      <p style="font-size:.82rem; color:var(--ink-soft); margin:.7rem 0 0; text-align:center;">Translate <em>once</em>. Target program runs at maximum hardware speed.</p>
+    </div>
+
+    <!-- Interpreter Flow -->
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--warn); margin-bottom:.8rem; font-size:.9rem; text-transform:uppercase; letter-spacing:.08em;">
+        Model B &middot; Pure Interpreter (Single-Step Process)
+      </div>
+      <div class="flow-col">
+        <div class="flow-row" style="gap:.6rem; margin-bottom:0;">
+          <div class="flow-box" style="min-width:8.5rem; max-width:10rem;"><strong>Source Program</strong><span class="sub">High-level code</span></div>
+          <div class="flow-box" style="min-width:8.5rem; max-width:10rem;"><strong>User Input</strong><span class="sub">Data values</span></div>
+        </div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box warn" style="min-width:18rem;">
+          <strong>INTERPRETER</strong>
+          <span class="sub">Fetches, decodes &amp; executes line by line</span>
+        </div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box ok"><strong>Program Output</strong><span class="sub">Immediate execution result</span></div>
+      </div>
+      <p style="font-size:.82rem; color:var(--ink-soft); margin:1.8rem 0 0; text-align:center;">No target code file saved. Re-translated on every execution and inside every loop iteration.</p>
+    </div>
+  </div>
+</div>
+
+<h3>Compiler versus interpreter &mdash; the 8-point comparison</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th><strong>Compiler</strong></th><th><strong>Interpreter</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>1. Unit of translation</strong></td><td>The <strong>whole program</strong> at once before execution</td><td><strong>One statement</strong> at a time during execution</td></tr>
+<tr><td><strong>2. Intermediate output</strong></td><td>Produces an independent <strong>target object / executable file</strong></td><td><strong>Produces no target code</strong> file</td></tr>
+<tr><td><strong>3. Execution speed</strong></td><td><strong>Much faster</strong> &mdash; native machine instructions run directly on CPU</td><td><strong>Slower</strong> &mdash; translation overhead occurs on every statement and inside every loop</td></tr>
+<tr><td><strong>4. Translation time</strong></td><td>Slower &mdash; must analyse and optimise the entire program first</td><td>Faster initial start-up &mdash; starts execution immediately on line 1</td></tr>
+<tr><td><strong>5. Error reporting</strong></td><td>Reports <strong>all errors together in a batch</strong> after scanning the whole code</td><td>Reports the <strong>first error encountered and halts immediately</strong></td></tr>
+<tr><td><strong>6. Error diagnosis</strong></td><td>Harder &mdash; errors are decoupled from active execution state</td><td><strong>Superior</strong> &mdash; points directly to the offending line with runtime environment intact</td></tr>
+<tr><td><strong>7. Memory requirement</strong></td><td>Requires more memory to store object files and compiler symbol tables</td><td>Requires less storage &mdash; no target program is saved to disk</td></tr>
+<tr><td><strong>8. Execution lifecycle</strong></td><td><strong>Compile once, run many times</strong> without original source</td><td>Source program and interpreter required <strong>every single run</strong></td></tr>
+<tr><td><strong>Languages</strong></td><td>C, C++, Go, Rust, Fortran (gcc, clang)</td><td>Python (CPython), Ruby, JavaScript, PHP, MATLAB</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-line summary, and the trade-off</span>
+  <p><strong>&ldquo;A compiler trades slower translation for faster execution; an interpreter trades slower execution for better diagnostics and faster start-up.&rdquo;</strong></p>
+  <p>And the sentence examiners look for: <strong>the machine-language target program produced by a compiler is usually much faster at mapping inputs to outputs, but an interpreter can give better error diagnostics, because it executes the source program statement by statement.</strong></p>
+</div>
+
+<h2>2. The Language Processing System</h2>
+
+<p>A compiler is not an isolated utility; it operates as the centerpiece of a complete <strong>five-stage language processing pipeline</strong>. Draw this vertical flowchart with every intermediate representation labelled.</p>
+
+<!-- FLOWCHART: LANGUAGE PROCESSING SYSTEM -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Flowchart: The Complete Language Processing Pipeline</span>
+  
+  <div class="flow-col">
+    <!-- 0. Source -->
+    <div class="flow-box highlight">
+      <strong>Source Program with Preprocessor Directives</strong>
+      <span class="sub">Human-written C/C++ source code &middot; <code>prog.c</code></span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Raw text with #include, #define</span>
+    
+    <!-- 1. Preprocessor -->
+    <div class="flow-box">
+      <strong>1. PREPROCESSOR</strong>
+      <span class="sub">Macro expansion, file inclusion, conditional compilation &middot; <code>cpp</code></span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Modified Source Program (Pure HLL &middot; <code>prog.i</code>)</span>
+    
+    <!-- 2. Compiler -->
+    <div class="flow-box highlight">
+      <strong>2. COMPILER</strong>
+      <span class="sub">Phases 1&ndash;6: Lexical, Syntax, Semantic, IR, Optimiser, Code Gen</span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Target Assembly Program (Mnemonics &middot; <code>prog.s</code>)</span>
+    
+    <!-- 3. Assembler -->
+    <div class="flow-box">
+      <strong>3. ASSEMBLER</strong>
+      <span class="sub">Translates assembly mnemonics to relocatable binary &middot; <code>as</code></span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Relocatable Object Code (Addresses from 0 &middot; <code>prog.o</code>)</span>
+    
+    <!-- 4. Linker / Loader -->
+    <div class="flow-box warn" style="position:relative;">
+      <strong>4. LINKER / LOADER</strong>
+      <span class="sub">Resolves external symbols with libraries (<code>libc.a</code>, <code>libm.so</code>) &middot; <code>ld</code></span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Absolute Machine Code in Memory &middot; <code>a.out / prog.exe</code></span>
+    
+    <!-- 5. Target Machine Code -->
+    <div class="flow-box ok">
+      <strong>Target Machine Code (Executable Process)</strong>
+      <span class="sub">Loaded into RAM, Program Counter points to entry point</span>
+    </div>
+  </div>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Stage</th><th>Input &rarr; Output</th><th>Key Functionality</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>1. Preprocessor</strong></td>
+  <td>Source with directives (<code>prog.c</code>) &rarr; <strong>Modified Source</strong> (<code>prog.i</code>)</td>
+  <td>
+    <ul>
+      <li><strong>Macro expansion:</strong> replaces <code>#define PI 3.14</code> occurrences with literal tokens.</li>
+      <li><strong>File inclusion:</strong> inlines header files referenced by <code>#include &lt;stdio.h&gt;</code>.</li>
+      <li><strong>Conditional compilation:</strong> evaluates <code>#ifdef</code>, <code>#ifndef</code>, <code>#endif</code> blocks.</li>
+      <li><strong>Comment stripping:</strong> removes line and block comments. The output is still in the high-level language.</li>
+    </ul>
+  </td>
+</tr>
+<tr>
+  <td><strong>2. Compiler</strong></td>
+  <td>Modified Source (<code>prog.i</code>) &rarr; <strong>Target Assembly</strong> (<code>prog.s</code>)</td>
+  <td>Translates high-level statements into symbolic assembly instructions (e.g. <code>MOV</code>, <code>ADD</code>, <code>LDF</code>). Performs type validation and code optimisation while reporting structural errors.</td>
+</tr>
+<tr>
+  <td><strong>3. Assembler</strong></td>
+  <td>Assembly Code (<code>prog.s</code>) &rarr; <strong>Relocatable Machine Code</strong> (<code>prog.o</code>)</td>
+  <td>Translates symbolic opcodes and register names into binary machine words. <strong>Relocatable</strong> means addresses are relative to a base offset (typically offset 0) because final memory placement is unknown.</td>
+</tr>
+<tr>
+  <td><strong>4. Linker</strong></td>
+  <td>Relocatable Object Files + Library Files &rarr; <strong>Single Executable</strong></td>
+  <td>
+    <ul>
+      <li><strong>Symbol resolution:</strong> matches undefined external references (e.g. <code>printf</code>) with their definitions in library files (<code>libc.a</code>, <code>libm.so</code>).</li>
+      <li><strong>Section merging:</strong> merges all <code>.text</code> (code) and <code>.data</code> segments into unified executable sections.</li>
+    </ul>
+  </td>
+</tr>
+<tr>
+  <td><strong>5. Loader</strong></td>
+  <td>Executable file on disk &rarr; <strong>Active Process in RAM</strong></td>
+  <td>
+    <ul>
+      <li>Allocates address space in physical RAM (code, data, stack, heap).</li>
+      <li><strong>Relocation / Address fixing:</strong> adjusts relocatable relative offsets to absolute physical memory addresses.</li>
+      <li>Initialises registers, sets the stack pointer (SP), and jumps the Program Counter (PC) to <code>main()</code>.</li>
+    </ul>
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">Why compilers produce assembly code instead of direct binary</span>
+  <p><strong>Assembly language is easier to produce, isolate, and debug.</strong> Emitting symbolic assembly allows compiler developers to inspect intermediate compiler outputs easily. It also decouples the compiler from the hardware-specific binary encoding, leaving the straightforward conversion of mnemonics to machine bits to the assembler. Some specialized compilers do generate machine code directly to improve build speed; noting this nuance shows mastery.</p>
+</div>
+
+<h2>3. The Hybrid Model &mdash; Java and the JVM</h2>
+
+<p>Pure compilation achieves maximum execution speed but binds the binary to a specific CPU architecture. Pure interpretation is completely portable but incurs a heavy runtime penalty. <strong>Java merges both into a hybrid architecture.</strong></p>
+
+<!-- FLOWCHART: JAVA HYBRID -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Flowchart: The Java Hybrid Compilation &amp; Interpretation Pipeline</span>
+  
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Java Source Code</strong>
+      <span class="sub"><code>Prog.java</code></span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Ahead-of-Time Compile (javac)</span>
+    
+    <div class="flow-box">
+      <strong>Java Compiler (javac)</strong>
+      <span class="sub">Translates high-level source into virtual instructions</span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Portable Bytecode (<code>Prog.class</code>)</span>
+    
+    <div class="flow-box ok" style="min-width:20rem;">
+      <strong>Java Virtual Machine (JVM)</strong>
+      <span class="sub">Hardware-independent execution engine</span>
+      
+      <div style="display:flex; justify-content:center; gap:.8rem; margin-top:.6rem; padding-top:.5rem; border-top:1px dashed var(--rule);">
+        <div style="background:var(--paper); padding:.3rem .6rem; border-radius:4px; border:1px solid var(--rule); font-size:.78rem;">
+          <strong>Interpreter</strong><br><span style="font-size:.72rem; color:var(--ink-soft);">Fast start line-by-line</span>
+        </div>
+        <div style="background:var(--paper); padding:.3rem .6rem; border-radius:4px; border:1px solid var(--accent); font-size:.78rem;">
+          <strong>JIT Compiler (HotSpot)</strong><br><span style="font-size:.72rem; color:var(--accent);">Compiles hot loops to native code</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Direct CPU Execution</span>
+    
+    <div class="flow-box ok">
+      <strong>Target Native Machine Instructions &amp; Output</strong>
+      <span class="sub">Executes at near C/C++ native speed</span>
+    </div>
+  </div>
+</div>
+
+<p><strong>The mechanism:</strong> The Java compiler (<code>javac</code>) does not emit x86 or ARM machine code. Instead, it translates the source into <strong>bytecode</strong> &mdash; a compact, instruction-set architecture designed for a virtual processor. Any device equipped with a Java Virtual Machine (JVM) can execute this bytecode, realising the promise of <em>&ldquo;Write Once, Run Anywhere&rdquo; (WORA)</em>.</p>
+<p>To eliminate the execution slowdown of basic interpretation, modern JVMs incorporate a <strong>Just-In-Time (JIT) compiler</strong> (HotSpot). The JVM profiles execution in real-time; when a method or loop executes repeatedly (&ldquo;hot spot&rdquo;), the JIT compiles that bytecode into native machine instructions and caches it in RAM.</p>
+
+<h2>4. The Six Translators Worth Naming</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Translator</th><th>Source Language &rarr; Target Language</th><th>Standard Example</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Compiler</strong></td><td>High-level language &rarr; Low-level language (assembly or machine code)</td><td><code>gcc</code>, <code>clang</code>, <code>javac</code></td></tr>
+<tr><td><strong>2. Interpreter</strong></td><td>High-level language &rarr; Executed directly, no target code saved</td><td>CPython, Ruby MRI, PHP</td></tr>
+<tr><td><strong>3. Assembler</strong></td><td>Assembly language &rarr; Relocatable machine code</td><td>NASM, MASM, GNU Assembler (GAS)</td></tr>
+<tr><td><strong>4. Cross-Compiler</strong></td><td>Runs on Machine A, <strong>generates executable machine code for Machine B</strong></td><td>Compiling code on an x86 PC targeting an ARM Cortex microcontroller</td></tr>
+<tr><td><strong>5. Decompiler / Disassembler</strong></td><td>Machine code &rarr; Assembly or high-level source (the reverse direction)</td><td><code>objdump</code>, Ghidra, IDA Pro</td></tr>
+<tr><td><strong>6. Preprocessor</strong></td><td>High-level language &rarr; <strong>Modified high-level language</strong></td><td>GNU C Preprocessor (<code>cpp</code>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Related terminology:</strong> A <strong>source-to-source compiler</strong> (or <strong>transpiler</strong>) translates between two high-level languages of similar abstraction (e.g., Babel translating ES6 JavaScript to ES5, or TypeScript compiling to JavaScript).</p>
+
+<h2>5. The Analysis&ndash;Synthesis Model</h2>
+
+<p>Any compiler can be partitioned into two distinct conceptual phases: <strong>Analysis (Front End)</strong> and <strong>Synthesis (Back End)</strong>.</p>
+
+<!-- FLOWCHART: ANALYSIS-SYNTHESIS -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Architecture: The Front-End / Back-End Intermediate Representation Split</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:1rem; flex-wrap:wrap;">
+    <!-- Front Ends -->
+    <div style="border:1.5px solid var(--accent-soft); border-radius:6px; padding:.8rem; background:var(--panel); text-align:center;">
+      <span style="font-size:.75rem; font-weight:700; color:var(--accent); text-transform:uppercase;">Front-End (Analysis)</span>
+      <p style="font-size:.82rem; margin:.4rem 0;">Source Language Dependent<br><strong>Machine Independent</strong></p>
+      <div style="font-size:.76rem; color:var(--ink-soft); line-height:1.4;">
+        C &middot; C++ &middot; Rust &middot; Fortran<br><em>Lexical, Syntax, Semantic Analysis</em>
+      </div>
+    </div>
+    
+    <!-- Connector Arrow -->
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <span class="flow-arrow-right" style="font-size:1.4rem;">&rarr;</span>
+      <span class="flow-label" style="margin-top:.2rem;">Common IR</span>
+    </div>
+    
+    <!-- Intermediate Representation -->
+    <div style="border:2px solid var(--ok); border-radius:6px; padding:1rem; background:var(--ok-bg); text-align:center;">
+      <strong style="color:var(--ok); font-size:.95rem;">Intermediate Representation (IR)</strong>
+      <span style="display:block; font-size:.78rem; color:var(--ink-soft); margin-top:.3rem;">Standardised Three-Address Code / LLVM IR</span>
+    </div>
+    
+    <!-- Connector Arrow -->
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <span class="flow-arrow-right" style="font-size:1.4rem;">&rarr;</span>
+      <span class="flow-label" style="margin-top:.2rem;">Optimised IR</span>
+    </div>
+    
+    <!-- Back Ends -->
+    <div style="border:1.5px solid var(--accent-soft); border-radius:6px; padding:.8rem; background:var(--panel); text-align:center;">
+      <span style="font-size:.75rem; font-weight:700; color:var(--accent); text-transform:uppercase;">Back-End (Synthesis)</span>
+      <p style="font-size:.82rem; margin:.4rem 0;">Source Language Independent<br><strong>Machine Dependent</strong></p>
+      <div style="font-size:.76rem; color:var(--ink-soft); line-height:1.4;">
+        x86-64 &middot; ARM64 &middot; RISC-V<br><em>Instruction Selection &amp; Registers</em>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="formula">
+  <span class="name">The Two Halves Defined</span>
+  <strong>ANALYSIS (Front End):</strong> Breaks down the source program into grammatical constituents, imposes syntax structure, creates a symbol table, reports structural/type errors, and produces an <strong>intermediate representation (IR)</strong>. <em>Source-language dependent, machine independent.</em><br><br>
+  <strong>SYNTHESIS (Back End):</strong> Takes the intermediate representation and symbol table to construct the target machine code, performing register allocation and instruction scheduling. <em>Machine dependent, source-language independent.</em>
+</div>
+
+<div class="box win">
+  <span class="lbl">The Engineering Payoff &mdash; m + n vs m &times; n</span>
+  <p>If you need to support <strong>m source languages</strong> on <strong>n target processor architectures</strong>:</p>
+  <ul>
+    <li><strong>Without Front/Back separation:</strong> You must construct <strong>m &times; n distinct monolithic compilers</strong>.</li>
+    <li><strong>With Analysis-Synthesis separation:</strong> You build <strong>m front ends</strong> and <strong>n back ends</strong> connected via one shared Intermediate Representation &mdash; requiring only <strong>m + n components</strong>!</li>
+  </ul>
+  <p>This modular architecture is the architectural foundation of modern production compiler frameworks such as <strong>GCC</strong> and <strong>LLVM</strong>.</p>
+</div>
+
+<h2>6. Solved University Exercise &mdash; Classify the Translator</h2>
+
+<div class="solve">
+  <span class="lbl">Exam Numerical &middot; Classify the Translator Stage and Language Mapping</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Scenario / Operation</th><th>Translator Name</th><th>Source &rarr; Target Language</th></tr></thead>
+  <tbody>
+  <tr><td>Expanding <code>#include &lt;stdio.h&gt;</code> and <code>#define MAX 100</code></td><td><strong>Preprocessor</strong></td><td>C Source &rarr; Modified C Source (still high-level)</td></tr>
+  <tr><td>Translating <code>prog.s</code> assembly into binary object file <code>prog.o</code></td><td><strong>Assembler</strong></td><td>Assembly mnemonics &rarr; Relocatable machine code</td></tr>
+  <tr><td>Executing a Python script directly from the terminal without saving <code>.exe</code></td><td><strong>Interpreter</strong></td><td>Python code &rarr; Direct runtime execution (no file)</td></tr>
+  <tr><td>Compiling embedded C on an x86 laptop to run on an ARM micro-controller</td><td><strong>Cross-Compiler</strong></td><td>C Source &rarr; Target ARM machine code</td></tr>
+  <tr><td>Resolving calls to <code>printf</code> by merging <code>main.o</code> and <code>libc.a</code></td><td><strong>Linker</strong></td><td>Relocatable object files &rarr; Single executable file</td></tr>
+  <tr><td>Compiling <code>Main.java</code> into platform-independent <code>Main.class</code></td><td><strong>Compiler (javac)</strong></td><td>Java Source &rarr; Bytecode</td></tr>
+  <tr><td>Executing <code>Main.class</code> with dynamic compilation of hot loops</td><td><strong>JVM (Interpreter + JIT)</strong></td><td>Bytecode &rarr; Native CPU instructions at runtime</td></tr>
+  <tr><td>Placing <code>a.out</code> into RAM and adjusting relative addresses</td><td><strong>Loader</strong></td><td>Binary file on disk &rarr; Active executing process</td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="quiz">
+<h3>Check Yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The essential difference in error reporting between a compiler and an interpreter is that a compiler:</p>
+  <div class="opts">
+    <button class="opt">Only checks errors during dynamic execution</button>
+    <button class="opt" data-ok="1">Reports all errors together in a batch after scanning the whole program</button>
+    <button class="opt">Reports the first error encountered and halts immediately</button>
+    <button class="opt">Cannot detect structural syntax errors</button>
+  </div>
+  <p class="why">A compiler scans the complete code and aggregates all compile-time errors in one pass. An interpreter evaluates sequentially and halts upon encountering the very first error.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The output produced by the Preprocessor stage is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A modified source program, still in the high-level language</button>
+    <button class="opt">An absolute memory executable</button>
+    <button class="opt">Target assembly mnemonics</button>
+    <button class="opt">Relocatable machine binary</button>
+  </div>
+  <p class="why">The preprocessor expands macros (#define), includes headers (#include), and removes comments. Its output remains valid high-level source code.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. &ldquo;Relocatable machine code&rdquo; means that:</p>
+  <div class="opts">
+    <button class="opt">The binary code can be executed directly on any processor architecture</button>
+    <button class="opt">The code contains no memory addresses at all</button>
+    <button class="opt">The program code can be automatically translated back into C</button>
+    <button class="opt" data-ok="1">Addresses are given relative to an arbitrary base offset that is not yet fixed</button>
+  </div>
+  <p class="why">The assembler emits object code assuming a starting offset of 0. The loader subsequently binds these relative offsets to real physical addresses when loading into RAM.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Separating a compiler into front-end analysis and back-end synthesis allows m languages and n target architectures to be supported using:</p>
+  <div class="opts">
+    <button class="opt">m &times; n &minus; 1 modules</button>
+    <button class="opt">2(m + n) modules</button>
+    <button class="opt" data-ok="1">m + n modules</button>
+    <button class="opt">m &times; n complete compilers</button>
+  </div>
+  <p class="why">By interfacing through a unified Intermediate Representation (IR), each language requires one front end and each target architecture requires one back end, avoiding the combinatorial explosion.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A cross-compiler is defined as a compiler that:</p>
+  <div class="opts">
+    <button class="opt">Translates machine code back into high-level source</button>
+    <button class="opt">Compiles two source languages at the same time</button>
+    <button class="opt" data-ok="1">Runs on one machine host but produces code for a different target machine</button>
+    <button class="opt">Compiles high-level code directly into circuit netlists</button>
+  </div>
+  <p class="why">A cross-compiler runs on Machine A and generates executable binary designed to run on Machine B (common in embedded systems and microcontrollers).</p>
+</div>
+
+</div>
+
+<h2>Recall Without Looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define translator, compiler, and interpreter verbatim.</summary>
+    <p class="ans">A translator converts a program written in a source language into an equivalent program in a target language. A compiler translates a high-level program as a whole into low-level machine or assembly language, reporting errors in a batch. An interpreter executes the operations of a high-level program directly, statement by statement on user inputs, without generating an intermediate target file.</p></details>
+  <details class="card"><summary>Compare compiler and interpreter on the 8 key exam points.</summary>
+    <p class="ans">1. Unit: Whole program vs statement by statement. 2. Output: Target object file vs no target file. 3. Speed: Much faster execution vs slower execution. 4. Start time: Slower build vs immediate execution. 5. Error reporting: Batch error report after full scan vs stops at first error. 6. Debugging: Harder to trace runtime state vs superior line-by-line diagnosis. 7. Memory: Requires extra storage for binary vs minimal storage. 8. Lifecycle: Compile once run many times vs source must be re-translated on every run.</p></details>
+  <details class="card"><summary>Draw the Language Processing System pipeline and label what flows between stages.</summary>
+    <p class="ans">Source Program with directives &rarr; [Preprocessor] &rarr; Modified Source &rarr; [Compiler] &rarr; Target Assembly &rarr; [Assembler] &rarr; Relocatable Object Code &rarr; [Linker / Loader] (takes libraries) &rarr; Target Machine Code in RAM.</p></details>
+  <details class="card"><summary>Explain what the preprocessor, assembler, linker, and loader do.</summary>
+    <p class="ans">Preprocessor expands macros, resolves #include headers, strips comments, and evaluates conditionals. Assembler converts assembly mnemonics into relocatable machine binary. Linker resolves external library symbols and merges sections. Loader places the binary into RAM, binds relocatable offsets to physical memory, initialises CPU registers, and triggers execution.</p></details>
+  <details class="card"><summary>Explain the Java hybrid model and the role of bytecode and JVM.</summary>
+    <p class="ans">Java compiles source code into machine-independent bytecode using javac. The bytecode is interpreted by the JVM on any platform (Write Once Run Anywhere). Hot methods and loops are dynamically compiled into native machine code at runtime by the JIT compiler to achieve native execution speeds.</p></details>
+  <details class="card"><summary>Explain the Analysis-Synthesis model and the m + n advantage.</summary>
+    <p class="ans">Analysis (front end) is source-dependent and machine-independent; it validates syntax/semantics and generates intermediate code. Synthesis (back end) is machine-dependent and source-independent; it generates and optimises target code. Using an intermediate representation allows m languages on n platforms with m + n modules instead of m &times; n monolithic compilers.</p></details>
+</div>
+
+<p class="ask">Next: The internal structure of the compiler &mdash; the six phases traced on a real arithmetic statement.</p>
+
+<div class="nav">
+  <a href="../../index.html">All lessons</a>
+  <a href="0002-structure-of-a-compiler.html">Next: Structure of a Compiler &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

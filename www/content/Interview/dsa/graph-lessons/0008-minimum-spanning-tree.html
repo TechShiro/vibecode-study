@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 08 — Minimum Spanning Tree</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 08 of 09 · cheapest way to connect everything</div>
+<h1>Minimum Spanning Tree (Kruskal &amp; Prim)</h1>
+<p class="subtitle">Connect every node into one network for the least total cost. Two greedy builds — sort edges (Kruskal) or grow a tree (Prim) — and the same family of "minimum cost to connect" interview problems falls out.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Graphs are ~25% of Google intern questions, and "minimum cost to connect all points" is a verified Google favorite.
+  This is Lesson 8 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<div class="callout tip">
+  <span class="label">Prerequisite — two earlier lessons power this one</span>
+  Kruskal is just <strong>sort + Union-Find</strong> from
+  <a href="0006-union-find.html">Graph Lesson 06 (Union-Find / DSU)</a>, and Prim is
+  <strong>BFS with a min-heap</strong> using <code>PriorityQueue</code> from
+  <a href="../java-lessons/0003-priorityqueue-and-comparators.html">Java Lesson 03: PriorityQueue &amp; Comparators</a>.
+  If either is rusty, skim it first — MST adds almost no new machinery.
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A <strong>spanning tree</strong> of a connected, undirected graph picks a subset of edges that touches
+all <code>V</code> nodes using exactly <code>V − 1</code> edges and forms no cycle. A
+<strong>minimum</strong> spanning tree (MST) is the spanning tree whose edge weights sum to the smallest
+possible total. There are two greedy ways to build one, and both are provably optimal:
+</p>
+<ul>
+  <li><strong>Kruskal</strong> — sort all edges ascending, then walk them cheapest-first and
+  <em>add an edge iff it joins two different components</em> (otherwise it would close a cycle).
+  Component membership is tracked with Union-Find.</li>
+  <li><strong>Prim</strong> — grow one tree from an arbitrary start node; repeatedly take the
+  <em>cheapest edge crossing</em> from the tree to a node not yet in it, via a min-heap.</li>
+</ul>
+<p>
+Both stop the instant they have added <code>V − 1</code> edges. Either greedy choice is safe because of
+the <strong>cut property</strong>: across any partition of the nodes, the lightest crossing edge is
+always in some MST.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Minimum cost to <strong>connect all</strong> points / cities / houses / nodes", "make the whole
+  network reachable as cheaply as possible", "lay cable/road/pipe so everything is linked." The signal
+  is <em>connect everything once, minimize total weight, no shortest-path-between-two-nodes involved.</em>
+  If the question instead asks the cheapest path from A to B, that is Dijkstra (Lesson 07), not MST —
+  though the two share machinery, as the Prim cases below show.
+</div>
+
+<h2>2 · Core template — Kruskal (sort edges + DSU)</h2>
+<p>
+Kruskal needs an <strong>edge list</strong> <code>{u, v, w}</code>, sorted by weight. The Union-Find
+structure answers "are <code>u</code> and <code>v</code> already connected?" in near-O(1); if not, we
+union them and take the edge.
+</p>
+
+<pre><code><span class="cmt">// Returns total MST weight, or -1 if the graph is disconnected.</span>
+int kruskal(int n, int[][] edges) {       <span class="cmt">// edges[i] = {u, v, w}</span>
+    Arrays.sort(edges, (a, b) -&gt; Integer.compare(a[2], b[2])); <span class="cmt">// cheapest first</span>
+    DSU dsu = new DSU(n);
+    long total = 0;                        <span class="cmt">// long: summed weights can overflow int</span>
+    int used = 0;                          <span class="cmt">// edges added so far</span>
+    for (int[] e : edges) {
+        if (dsu.union(e[0], e[1])) {       <span class="cmt">// union returns false if already same set</span>
+            total += e[2];
+            if (++used == n - 1) break;    <span class="cmt">// V-1 edges → tree complete, stop early</span>
+        }
+    }
+    return used == n - 1 ? (int) total : -1; <span class="cmt">// fewer than V-1 → disconnected</span>
+}
+
+<span class="cmt">// Union-Find with path compression + union by size (from Lesson 06).</span>
+class DSU {
+    int[] parent, size;
+    DSU(int n) {
+        parent = new int[n];
+        size = new int[n];
+        for (int i = 0; i &lt; n; i++) { parent[i] = i; size[i] = 1; }
+    }
+    int find(int x) {
+        while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+        return x;
+    }
+    boolean union(int a, int b) {
+        int ra = find(a), rb = find(b);
+        if (ra == rb) return false;        <span class="cmt">// same component → adding edge makes a cycle</span>
+        if (size[ra] &lt; size[rb]) { int t = ra; ra = rb; rb = t; }
+        parent[rb] = ra;
+        size[ra] += size[rb];
+        return true;
+    }
+}</code></pre>
+<p><strong>Time</strong> O(E log E) dominated by the sort (the DSU work is near-O(E·α) ≈ O(E)).
+<strong>Space</strong> O(V) for the DSU arrays (the edge list is the input).</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: 5 nodes, weighted edges processed in ascending order. Kruskal accepts an edge only if it
+joins two different components, stopping at V−1 = 4 edges (the highlighted ones):</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 360 220" role="img" aria-label="Weighted graph with Kruskal's minimum spanning tree edges highlighted">
+  <line class="edge hl" x1="60"  y1="70"  x2="160" y2="40"/>
+  <line class="edge hl" x1="160" y1="40"  x2="160" y2="140"/>
+  <line class="edge"    x1="60"  y1="70"  x2="160" y2="140"/>
+  <line class="edge hl" x1="160" y1="140" x2="270" y2="180"/>
+  <line class="edge hl" x1="270" y1="180" x2="300" y2="70"/>
+  <line class="edge"    x1="160" y1="40"  x2="300" y2="70"/>
+  <text class="wt" x="104" y="48">1</text>
+  <text class="wt" x="172" y="94">2</text>
+  <text class="wt" x="98"  y="110">2</text>
+  <text class="wt" x="216" y="164">3</text>
+  <text class="wt" x="294" y="126">4</text>
+  <text class="wt" x="232" y="48">6</text>
+  <circle class="node" cx="60"  cy="70"  r="20"/><text class="lbl" x="60"  y="70">0</text>
+  <circle class="node" cx="160" cy="40"  r="20"/><text class="lbl" x="160" y="40">1</text>
+  <circle class="node" cx="160" cy="140" r="20"/><text class="lbl" x="160" y="140">2</text>
+  <circle class="node" cx="270" cy="180" r="20"/><text class="lbl" x="270" y="180">3</text>
+  <circle class="node" cx="300" cy="70"  r="20"/><text class="lbl" x="300" y="70">4</text>
+</svg>
+<figcaption>Kruskal's MST = {0-1, 1-2, 2-3, 3-4}, total weight 10. Edge (0,2) is rejected — it would close a cycle.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">sort edges ascending: (0,1,1) (1,2,2) (0,2,2) (2,3,3) (3,4,4) (1,4,6)</span>
+<span class="step now">(0,1,1): roots differ → union, add 0-1, total=<span class="ptr">1</span></span>
+<span class="step now">(1,2,2): roots differ → union, add 1-2, total=<span class="ptr">3</span></span>
+<span class="step">(0,2,2): 0 &amp; 2 already connected → <em>reject</em> (cycle)</span>
+<span class="step now">(2,3,3): roots differ → union, add 2-3, total=<span class="ptr">6</span></span>
+<span class="step now">(3,4,4): roots differ → union, add 3-4, total=<span class="ptr">10</span> — 4 edges = V−1, stop</span>
+<span class="step">(1,4,6): never examined — MST already complete</span>
+<span class="step">MST weight = <span class="ptr">10</span></span>
+</div>
+
+<h2>3 · Core template — Prim (PriorityQueue + visited[])</h2>
+<p>
+Prim treats MST like a BFS that always expands the cheapest frontier edge. Start from any node, push
+its edges into a min-heap keyed by weight, and repeatedly pop the lightest edge to an
+<strong>un-visited</strong> node. This wants an <strong>adjacency list</strong> of
+<code>int[]{neighbor, weight}</code>.
+</p>
+
+<pre><code><span class="cmt">// adj.get(u) = list of {neighbor, weight}. Returns MST weight or -1 if disconnected.</span>
+int prim(int n, List&lt;List&lt;int[]&gt;&gt; adj) {
+    boolean[] inTree = new boolean[n];     <span class="cmt">// node already absorbed into the tree?</span>
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; Integer.compare(a[1], b[1]));
+    pq.offer(new int[]{0, 0});             <span class="cmt">// {node, edgeWeight}; start node has cost 0</span>
+    long total = 0;
+    int count = 0;                         <span class="cmt">// nodes pulled into the tree</span>
+    while (!pq.isEmpty() &amp;&amp; count &lt; n) {
+        int[] top = pq.poll();             <span class="cmt">// cheapest crossing edge</span>
+        int u = top[0], w = top[1];
+        if (inTree[u]) continue;           <span class="cmt">// stale heap entry — skip (key trick)</span>
+        inTree[u] = true;                  <span class="cmt">// absorb u now</span>
+        total += w;
+        count++;
+        for (int[] nei : adj.get(u)) {     <span class="cmt">// add u's edges to the frontier</span>
+            if (!inTree[nei[0]]) pq.offer(new int[]{nei[0], nei[1]});
+        }
+    }
+    return count == n ? (int) total : -1;  <span class="cmt">// didn't reach all n → disconnected</span>
+}</code></pre>
+<p><strong>Time</strong> O(E log V) — each edge can be pushed once and every pop/push is O(log V).
+<strong>Space</strong> O(V + E) for the heap and adjacency list.</p>
+
+<div class="callout tip">
+  <span class="label">The "lazy Prim" skip is the crux</span>
+  We push a node every time we see a cheaper-looking edge and never decrease-key. So the heap holds
+  <em>stale</em> entries. The <code>if (inTree[u]) continue;</code> line discards any popped edge whose
+  endpoint is already in the tree — without it you'd double-count weight. Mark <code>inTree</code>
+  at <strong>pop</strong> time (when the edge is committed), not at push time. This mirrors the
+  Dijkstra "skip outdated" pattern from Lesson 07.
+</div>
+
+<h2>4 · Kruskal vs Prim — which to reach for</h2>
+<table>
+  <thead><tr><th>&nbsp;</th><th>Kruskal</th><th>Prim</th></tr></thead>
+  <tbody>
+    <tr><td>Core machine</td><td>Sort edges + Union-Find</td><td>Min-heap grown from one node</td></tr>
+    <tr><td>Input it likes</td><td><strong>Edge list</strong> — given <code>edges[][]</code> directly</td><td><strong>Adjacency list</strong> — already built / easy to build</td></tr>
+    <tr><td>Best when</td><td><strong>Sparse</strong> (E ≈ V): few edges to sort</td><td><strong>Dense</strong> (E ≈ V²): heap beats sorting V² edges</td></tr>
+    <tr><td>Complexity</td><td>O(E log E)</td><td>O(E log V)</td></tr>
+    <tr><td>Bonus</td><td>Edges arrive pre-sorted → near-linear; easy to reason about</td><td>Streams the tree outward; pairs with a <code>dist[]</code>/eager variant</td></tr>
+  </tbody>
+</table>
+<p>
+Rule of thumb: <strong>given raw edges or a sparse graph → Kruskal; given/needing an adjacency list or a
+dense graph → Prim.</strong> Both are correct everywhere; this is about which fits the input with least
+code. Since <code>E log E = E log V²= 2E log V</code>, the asymptotics tie on dense graphs — the
+constant factor and input shape decide.
+</p>
+
+<h2>5 · All the cases — free LeetCode tier, two per template</h2>
+<p>Almost every MST interview problem is "build the right graph, then run a template." The hard part is
+the <em>modeling</em>, not the algorithm. Everything below is on the <strong>free LeetCode tier</strong>:
+one flagship solved <em>both</em> ways, then two Kruskal-machinery cases, two Prim-machinery cases, and
+one stretch case.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>Template</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Connect points on a plane <span class="cmt">// Google favorite</span></td><td>LC 1584</td><td>Both</td><td>No edges given — the graph is <strong>implicit and complete</strong>: every pair, Manhattan-distance weight.</td></tr>
+    <tr><td>Edge-length-limited path queries</td><td>LC 1697</td><td>Kruskal</td><td><strong>Offline trick</strong>: sort queries too; the DSU only ever grows, each edge unions once total.</td></tr>
+    <tr><td>Remove max edges, keep Alice &amp; Bob connected</td><td>LC 1579</td><td>Kruskal</td><td><strong>Two DSUs</strong>, shared edges first; an edge is removable iff <code>union</code> fails everywhere it applies.</td></tr>
+    <tr><td>Safest path in a grid</td><td>LC 2812</td><td>Prim</td><td><strong>Max-heap bottleneck</strong>: maximize the minimum safeness along the path, not a sum.</td></tr>
+    <tr><td>Network delay time</td><td>LC 743</td><td>Prim*</td><td>Same heap + <code>visited</code> + stale-skip machinery, but the key is a <strong>path sum</strong> (Dijkstra key).</td></tr>
+    <tr><td>Critical &amp; pseudo-critical MST edges</td><td>LC 1489</td><td>Kruskal ×3</td><td>Run Kruskal <strong>repeatedly</strong>: base, edge-banned, edge-forced; compare totals.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Min Cost to Connect All Points (LC 1584) — build the complete graph, both ways</h3>
+<p>
+No edges are given, just points. The graph is implicit: <em>every</em> pair of points is an edge whose
+weight is their Manhattan distance <code>|x1−x2| + |y1−y2|</code>. That's <code>n(n−1)/2</code> edges,
+so O(n²). Code it both ways — interviewers love asking for the other one.
+</p>
+
+<p><strong>Kruskal way</strong> — materialize all pair edges, sort, union:</p>
+<pre><code>int minCostConnectPoints(int[][] points) {
+    int n = points.length;
+    List&lt;int[]&gt; edges = new ArrayList&lt;&gt;();   <span class="cmt">// build the complete graph: O(n^2) edges</span>
+    for (int i = 0; i &lt; n; i++)
+        for (int j = i + 1; j &lt; n; j++) {
+            int w = Math.abs(points[i][0] - points[j][0])
+                  + Math.abs(points[i][1] - points[j][1]); <span class="cmt">// Manhattan distance</span>
+            edges.add(new int[]{i, j, w});
+        }
+    edges.sort((a, b) -&gt; Integer.compare(a[2], b[2]));
+    DSU dsu = new DSU(n);
+    long total = 0;
+    int used = 0;
+    for (int[] e : edges) {
+        if (dsu.union(e[0], e[1])) {
+            total += e[2];
+            if (++used == n - 1) break;     <span class="cmt">// connected all points</span>
+        }
+    }
+    return (int) total;                     <span class="cmt">// always connectable (complete graph)</span>
+}</code></pre>
+
+<p><strong>Prim way</strong> — never build the edge list; generate a node's edges <em>at absorb time</em>.
+The graph is complete, so "the neighbors of <code>u</code>" is simply every un-absorbed point:</p>
+<pre><code>int minCostConnectPoints(int[][] points) {  <span class="cmt">// lazy Prim on the implicit graph</span>
+    int n = points.length;
+    boolean[] inTree = new boolean[n];
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; Integer.compare(a[1], b[1]));
+    pq.offer(new int[]{0, 0});               <span class="cmt">// {point index, edge weight}</span>
+    int total = 0, count = 0;
+    while (count &lt; n) {
+        int[] top = pq.poll();
+        int u = top[0], w = top[1];
+        if (inTree[u]) continue;             <span class="cmt">// stale entry — same skip as the template</span>
+        inTree[u] = true; total += w; count++;
+        for (int v = 0; v &lt; n; v++)          <span class="cmt">// implicit edges: u ↔ every other point</span>
+            if (!inTree[v])
+                pq.offer(new int[]{v, Math.abs(points[u][0] - points[v][0])
+                                    + Math.abs(points[u][1] - points[v][1])});
+    }
+    return total;
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Why Prim is often preferred here</span>
+  On a complete graph E = O(n²), so Kruskal's sort is O(n² log n) and you must store all n² edges.
+  Prim (above) never builds the edge list — O(n² log n) time but only O(n)-ish extra state. And a
+  dense-Prim with a plain <code>int[] minDist</code> array (no heap at all) runs in O(n²), the textbook
+  optimum for this problem. Mention this trade-off if the interviewer pushes on scale.
+</div>
+
+<h3>Kruskal case 1: Edge Length Limited Paths (LC 1697) — the offline trick</h3>
+<p>
+For each query <code>{u, v, limit}</code>: does a path exist using only edges strictly lighter than
+<code>limit</code>? Answering queries one-by-one rebuilds the DSU every time. The <strong>offline
+trick</strong>: sort the <em>queries</em> by limit too. Then as limits rise, the DSU only ever
+<em>grows</em> — each edge is unioned exactly once across all queries.
+</p>
+<pre><code><span class="cmt">// Main logic. Sort edges by weight; sort query INDICES by limit (answers must</span>
+<span class="cmt">// come back in original order, so sort indices, not the queries themselves).</span>
+Arrays.sort(edgeList, (a, b) -&gt; Integer.compare(a[2], b[2]));
+Integer[] qi = /* 0..q-1 sorted by queries[i][2] ascending */;
+DSU dsu = new DSU(n);
+int e = 0;
+for (int idx : qi) {
+    int u = queries[idx][0], v = queries[idx][1], limit = queries[idx][2];
+    while (e &lt; edgeList.length &amp;&amp; edgeList[e][2] &lt; limit) {  <span class="cmt">// absorb all edges below limit</span>
+        dsu.union(edgeList[e][0], edgeList[e][1]);           <span class="cmt">// Kruskal's exact inner loop</span>
+        e++;
+    }
+    ans[idx] = dsu.find(u) == dsu.find(v);   <span class="cmt">// one find answers the query</span>
+}</code></pre>
+<p>O((E + Q) log(E + Q)) for the sorts; the merge itself is near-linear. This is Kruskal's loop reused
+as a <em>query engine</em> — no tree is ever built.</p>
+
+<h3>Kruskal case 2: Remove Max Edges, Keep Graph Fully Traversable (LC 1579) — two DSUs</h3>
+<p>
+Edges are typed: 1 = Alice only, 2 = Bob only, 3 = both. Remove as many as possible while both can
+still reach everything. Greedy insight (same as Kruskal's cycle rejection): process the most valuable
+edges first — <strong>type-3 (shared) before type-specific</strong> — and an edge is removable exactly
+when <code>union</code> returns false in every DSU it applies to.
+</p>
+<pre><code><span class="cmt">// Main logic. Two independent DSUs; count redundant edges.</span>
+DSU alice = new DSU(n + 1), bob = new DSU(n + 1);  <span class="cmt">// nodes 1..n</span>
+int removed = 0, aliceUsed = 0, bobUsed = 0;
+for (int[] e : edges) if (e[0] == 3) {              <span class="cmt">// pass 1: shared edges first</span>
+    if (alice.union(e[1], e[2])) { bob.union(e[1], e[2]); aliceUsed++; bobUsed++; }
+    else removed++;                                 <span class="cmt">// cycle for both → safe to drop</span>
+}
+for (int[] e : edges) {                             <span class="cmt">// pass 2: type-specific edges</span>
+    if (e[0] == 1) { if (alice.union(e[1], e[2])) aliceUsed++; else removed++; }
+    if (e[0] == 2) { if (bob.union(e[1], e[2]))   bobUsed++;   else removed++; }
+}
+return (aliceUsed == n - 1 &amp;&amp; bobUsed == n - 1) ? removed : -1; <span class="cmt">// V-1 check, twice</span></code></pre>
+<p>Note the ending: the familiar <code>used == n − 1</code> spanning check, applied to <em>both</em>
+DSUs. If either falls short, the graph was never fully traversable → <code>-1</code>.</p>
+
+<h3>Prim case 1: Find the Safest Path in a Grid (LC 2812) — max-heap bottleneck</h3>
+<p>
+Each cell's "safeness" is its distance to the nearest thief; a path's safeness is the
+<strong>minimum</strong> cell safeness along it. Maximize that from top-left to bottom-right. Two
+phases: (1) multi-source BFS from all thieves to fill <code>safe[r][c]</code>; (2) the Prim template
+with the comparator <em>flipped to a max-heap</em> and the key = worst safeness so far.
+</p>
+<pre><code><span class="cmt">// Phase 2 main logic — Prim shape, max-heap, min-key. safe[][] from BFS.</span>
+PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; Integer.compare(b[0], a[0])); <span class="cmt">// MAX-heap</span>
+pq.offer(new int[]{safe[0][0], 0, 0});      <span class="cmt">// {pathSafeness, r, c}</span>
+boolean[][] seen = new boolean[n][n];
+while (!pq.isEmpty()) {
+    int[] t = pq.poll();
+    int s = t[0], r = t[1], c = t[2];
+    if (seen[r][c]) continue;               <span class="cmt">// same stale-skip as lazy Prim</span>
+    seen[r][c] = true;
+    if (r == n - 1 &amp;&amp; c == n - 1) return s; <span class="cmt">// first pop of target = best bottleneck</span>
+    for (int[] d : DIRS) {                   <span class="cmt">// 4 neighbors</span>
+        int nr = r + d[0], nc = c + d[1];
+        if (inBounds &amp;&amp; !seen[nr][nc])
+            pq.offer(new int[]{Math.min(s, safe[nr][nc]), nr, nc}); <span class="cmt">// key = worst cell so far</span>
+    }
+}</code></pre>
+<div class="callout">
+  <span class="label">The reusable lesson — bottleneck keys</span>
+  When a path is scored by its <em>worst</em> (or best-of-worst) edge/cell instead of a total, keep the
+  Prim/Dijkstra shape and swap only the key: <code>Math.min(...)</code> or <code>Math.max(...)</code>
+  instead of <code>+</code>, and flip the heap direction to match. The greedy pop-order argument still
+  holds — that's the cut property doing the work.
+</div>
+
+<h3>Prim case 2: Network Delay Time (LC 743) — same machinery, sum key</h3>
+<p>
+Signal from node <code>k</code> reaches everyone — how long until the last node hears it? This is
+formally Dijkstra (Lesson 07), but look at the code: it is <em>line-for-line the §3 Prim template</em>.
+Heap, <code>visited</code>, stale-skip at pop. The only difference is the key — Prim pushes the
+<strong>edge weight</strong>, Dijkstra pushes the <strong>accumulated path sum</strong>. Internalize
+that one-line delta and you own both algorithms.
+</p>
+<pre><code><span class="cmt">// Main logic — compare each line to §3. adj.get(u) = list of {neighbor, weight}.</span>
+PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; Integer.compare(a[1], b[1]));
+pq.offer(new int[]{k, 0});                   <span class="cmt">// start at k, elapsed time 0</span>
+boolean[] visited = new boolean[n + 1];
+int ans = 0, count = 0;
+while (!pq.isEmpty()) {
+    int[] top = pq.poll();
+    int u = top[0], d = top[1];
+    if (visited[u]) continue;                <span class="cmt">// identical stale-skip</span>
+    visited[u] = true; ans = Math.max(ans, d); count++;
+    for (int[] nei : adj.get(u))
+        if (!visited[nei[0]])
+            pq.offer(new int[]{nei[0], d + nei[1]}); <span class="cmt">// ← the ONLY delta: d + w, not w</span>
+}
+return count == n ? ans : -1;                <span class="cmt">// same reach-all check as Prim</span></code></pre>
+
+<h3>Stretch case: Critical and Pseudo-Critical MST Edges (LC 1489) — Kruskal as a subroutine</h3>
+<p>
+Hard, but the logic is just three runs of the same Kruskal you already have. Compute the base MST
+weight, then test each edge:
+</p>
+<pre><code><span class="cmt">// Main logic — kruskal(n, edges, forcedEdge, bannedEdge) returns MST weight.</span>
+int base = kruskal(n, edges, -1, -1);       <span class="cmt">// normal run: the reference weight</span>
+for (int i = 0; i &lt; edges.length; i++) {
+    if (kruskal(n, edges, -1, i) &gt; base)    <span class="cmt">// ban edge i: weight rises (or graph splits,</span>
+        critical.add(i);                    <span class="cmt">//   treat as ∞) → edge is CRITICAL</span>
+    else if (kruskal(n, edges, i, -1) == base) <span class="cmt">// force edge i in first: weight unchanged</span>
+        pseudo.add(i);                      <span class="cmt">//   → PSEUDO-critical (in some MST, not all)</span>
+}</code></pre>
+<p>
+The modified <code>kruskal</code> is the §2 template with two tweaks: if <code>forcedEdge ≥ 0</code>,
+union it and add its weight <em>before</em> the sorted loop; if an edge index equals
+<code>bannedEdge</code>, skip it. Total cost O(E² log E) — fine for LC constraints.
+</p>
+
+<h2>6 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Disconnected graph ⇒ no spanning tree.</strong> If you add fewer than <code>V − 1</code>
+  edges (Kruskal) or absorb fewer than <code>V</code> nodes (Prim), there is no MST — return <code>-1</code>
+  (or per spec). Always check the count at the end. LC 1579 applies this check <em>twice</em>, once per DSU.</li>
+  <li><strong>Honor the V−1 stop condition.</strong> Break as soon as <code>used == V − 1</code>; running
+  past it wastes time and, in Prim, risks adding stale heavy edges if your skip check is wrong.</li>
+  <li><strong>Parallel edges are fine.</strong> Multiple edges between the same pair just sit in the list;
+  the union/visited check keeps only the cheapest that actually joins components. No dedup needed.</li>
+  <li><strong>Self-loops</strong> (<code>u == v</code>) are harmless — <code>union(u,u)</code> returns
+  false / both ends are <code>inTree</code> — but never useful in an MST; ignore them.</li>
+  <li><strong>Overflow on summed weights.</strong> With up to ~10⁵ edges of weight up to ~10⁶, the total
+  exceeds <code>int</code>. Accumulate in a <code>long</code>, cast at the end (the templates do this).</li>
+  <li><strong>Indexing.</strong> If nodes are labelled <code>1..n</code> (LC 1579, LC 743), size the DSU /
+  arrays <code>n + 1</code> and ignore index 0; on grids (LC 2812), either flatten <code>(r, c)</code> to
+  <code>r * cols + c</code> or keep 2-D <code>seen[][]</code>. Off-by-one here is the classic silent bug.</li>
+  <li><strong>Prim: mark <code>inTree</code> at pop, skip stale entries.</strong> Marking at push (or
+  forgetting the skip) double-counts weight. See the §3 callout.</li>
+  <li><strong>Strict vs non-strict limits.</strong> LC 1697 requires edges <em>strictly less</em> than the
+  query limit — <code>&lt;</code>, not <code>&lt;=</code>, in the merge loop. Read the comparison in the
+  problem statement, don't assume.</li>
+  <li><strong>Answers in original order.</strong> Offline tricks (LC 1697) sort a copy of the query
+  <em>indices</em>, never the answer array — write results back via the original index.</li>
+</ul>
+
+<h2>7 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Kruskal's algorithm, you consider an edge <code>(u, v, w)</code> in ascending weight order. You should add it to the MST only when:</div>
+  <button class="opt">Either endpoint has not yet been touched by any earlier edge</button>
+  <button class="opt"><code>u</code> and <code>v</code> are in <em>different</em> components (Union-Find <code>find(u) != find(v)</code>)</button>
+  <button class="opt">Its weight is strictly smaller than every edge already added</button>
+  <div class="fb" data-correct="Adding an edge whose endpoints are already connected would close a cycle. So you take it only when union(u,v) succeeds — i.e. they were in different components." data-wrong="The test is whether u and v are in different components. If they're already connected, the edge would form a cycle and must be skipped — regardless of weight."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You're given a list of points on a plane and asked for the minimum cost to connect them all (LC 1584). What's the first modeling step?</div>
+  <button class="opt">Run Dijkstra from point 0 to find shortest paths to all others</button>
+  <button class="opt">Sort the points by x-coordinate and connect each to its right neighbor</button>
+  <button class="opt">Build a complete graph: every pair is an edge weighted by Manhattan distance, then run MST</button>
+  <div class="fb" data-correct="No edges are given, so you create them: all n(n-1)/2 pairs with Manhattan-distance weights, then Kruskal/Prim. It's an MST, not a shortest-path problem." data-wrong="There are no edges in the input — you must build the complete graph (every pair, Manhattan-distance weight) and run MST. Dijkstra solves a different problem."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In lazy Prim with a <code>PriorityQueue</code>, why do you check <code>if (inTree[u]) continue;</code> right after popping?</div>
+  <button class="opt">The heap can hold stale edges to nodes already absorbed; committing them would double-count weight</button>
+  <button class="opt">It detects negative-weight edges, which Prim cannot otherwise handle</button>
+  <button class="opt">It keeps the priority queue sorted, which Java's <code>PriorityQueue</code> does not do automatically</button>
+  <div class="fb" data-correct="Because we never decrease-key, a node may sit in the heap via several edges. Once it's in the tree, any later-popped edge to it is stale and must be skipped or you over-count the total." data-wrong="It's about stale entries: lazy Prim pushes a node multiple times and never decrease-keys, so once a node is in the tree, remaining heap edges to it are redundant and must be skipped."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In LC 1697 (Edge Length Limited Paths), why sort the queries by limit before processing?</div>
+  <button class="opt">Sorted queries let you binary-search the edge list, avoiding the DSU entirely</button>
+  <button class="opt">With rising limits the DSU only ever grows, so each edge is unioned exactly once across ALL queries</button>
+  <button class="opt">Union-Find requires its union calls to arrive in ascending weight order to stay balanced</button>
+  <div class="fb" data-correct="That's the offline trick: process queries in ascending limit order and keep one growing DSU. Every edge crosses the merge pointer once, giving near-linear work after the sorts — instead of rebuilding the DSU per query." data-wrong="The point is reuse: with queries sorted by limit, the set of allowed edges only expands, so one DSU serves all queries and each edge is unioned once. Unsorted queries would force a DSU rebuild (or rollback) per query."></div>
+</div>
+
+<h2>8 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (read):</strong> <a href="https://cp-algorithms.com/graph/mst_kruskal.html">CP-Algorithms — Kruskal's MST</a> and <a href="https://cp-algorithms.com/graph/mst_prim.html">Prim's MST</a> (rigorous, with the cut-property proof). Video backup: <a href="https://neetcode.io/problems/min-cost-to-connect-points">NeetCode — Min Cost to Connect Points (Prim)</a>.</li>
+  <li><strong>Practice ladder (Java, all free tier):</strong>
+    <br><em>Flagship:</em> LC 1584 (<em>Google favorite — code it BOTH Kruskal and Prim from a blank file</em>).
+    <br><em>Kruskal reps:</em> LC 1697 (offline queries — Kruskal's loop as a query engine) → LC 1579 (two DSUs, greedy edge order).
+    <br><em>Prim reps:</em> LC 2812 (max-heap bottleneck, after a multi-source BFS) → LC 743 (sum key — prove to yourself it's the §3 template with one changed line).
+    <br><em>Stretch:</em> LC 1489 (Kruskal as a subroutine; attempt once the others are automatic). If you stall on the DSU, that's a Lesson 06 gap.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure when to pick Kruskal vs Prim, why the cut property makes the greedy choice safe, or why the
+  offline trick in LC 1697 works? Want me to dry-run Kruskal on a small edge list, or trace the Prim
+  heap step by step? Ask in the chat. When you can write both templates from memory and model LC 1584,
+  LC 1697, and LC 2812 cold, say <strong>"next"</strong> and we finish the track with Advanced Graphs.
+</div>
+
+<div class="nav">
+  <span><a href="0007-weighted-shortest-paths.html">← Weighted Shortest Paths</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0009-advanced-graphs.html">Advanced Graphs →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

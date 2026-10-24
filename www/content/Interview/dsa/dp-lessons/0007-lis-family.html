@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 07 — Longest Increasing Subsequence &amp; friends</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 07 of 12 · one array, two speeds: O(n²) and O(n log n)</div>
+<h1>Longest Increasing Subsequence &amp; friends</h1>
+<p class="subtitle">Learn LIS twice — the honest O(n²) DP and the patience-sorting <code>tails</code> trick — then unlock a whole family of 2D problems with one move: <em>sort one dimension, LIS the other</em>.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 7 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+LIS has two canonical solutions and you need <strong>both</strong>. The DP view:
+<code>dp[i]</code> = length of the longest increasing subsequence <em>ending exactly at</em> index
+<code>i</code> — extend any earlier smaller element, O(n²). The fast view: keep an array
+<code>tails</code> where <code>tails[k]</code> = the <em>smallest possible tail</em> of any increasing
+subsequence of length <code>k+1</code>; each new element binary-searches its slot, O(n log n).
+The DP version generalizes (counts, reconstruction, weird predecessor rules); the tails version
+is the speed demon when only the <em>length</em> matters.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "longest <em>increasing / decreasing</em> subsequence", "longest <em>chain</em>", "how many can you
+  <em>nest / stack / fit inside each other</em>" (pairs, envelopes, boxes), "minimum removals to make
+  it sorted" (= n − LIS). Any problem where you pick items in order and each must "beat" the previous
+  one under some comparator — that comparator is the only thing that changes.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<table>
+  <thead><tr><th>Part</th><th>O(n²) DP version</th></tr></thead>
+  <tbody>
+    <tr><td><strong>State</strong></td><td><code>dp[i]</code> = length of the longest increasing subsequence that <em>ends at</em> <code>nums[i]</code> (element i is mandatory — this is "ending here", like Kadane).</td></tr>
+    <tr><td><strong>Recurrence</strong></td><td><code>dp[i] = 1 + max(dp[j])</code> over all <code>j &lt; i</code> with <code>nums[j] &lt; nums[i]</code>; if no such j, <code>dp[i] = 1</code>.</td></tr>
+    <tr><td><strong>Base case</strong></td><td>Every <code>dp[i]</code> starts at 1 — an element alone is a subsequence of length 1.</td></tr>
+    <tr><td><strong>Order</strong></td><td>Left → right; <code>dp[i]</code> only reads earlier indices.</td></tr>
+    <tr><td><strong>Answer</strong></td><td><code>max(dp[i])</code> over all i — <em>not</em> <code>dp[n-1]</code>; the LIS can end anywhere.</td></tr>
+  </tbody>
+</table>
+<p>The tails version keeps the same "smallest-tail-per-length" invariant instead of a per-index state —
+it's a compressed view of the same information, and it's why binary search works.</p>
+
+<h2>3 · Core template</h2>
+
+<h3>Version A — O(n²) DP (generalizes to everything below)</h3>
+<pre><code>int lengthOfLIS(int[] nums) {
+    int n = nums.length;
+    int[] dp = new int[n];
+    Arrays.fill(dp, 1);                       <span class="cmt">// base case: each element alone = length 1</span>
+    int best = 1;
+    for (int i = 1; i &lt; n; i++) {
+        for (int j = 0; j &lt; i; j++)
+            if (nums[j] &lt; nums[i])            <span class="cmt">// strictly increasing — the ONLY line variants change</span>
+                dp[i] = Math.max(dp[i], dp[j] + 1);
+        best = Math.max(best, dp[i]);         <span class="cmt">// answer = max over ALL endings</span>
+    }
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(n²). <strong>Space</strong> O(n). To handle a different comparator (divisibility,
+pair chains, word predecessors) you edit exactly one line: the <code>if</code>.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 300 · Longest Increasing Subsequence</strong> (Medium) — the template verbatim; solve it O(n²) first and only then read Version B.</li>
+  <li><strong>LC 2826 · Sorting Three Groups</strong> (Medium) — "minimum removals to make it sorted" in costume: answer = n − longest <em>non-decreasing</em> subsequence, so flip the comparator to <code>&lt;=</code>.</li>
+  <li><strong>LC 1671 · Minimum Number of Removals to Make Mountain Array</strong> (Hard) — run the O(n²) DP left→right AND right→left, then combine <code>lis[i] + lds[i] − 1</code> at every peak.</li>
+</ul>
+
+<h3>Version B — tails + binary search, O(n log n)</h3>
+<pre><code>int lengthOfLIS(int[] nums) {
+    int[] tails = new int[nums.length];       <span class="cmt">// tails[k] = smallest tail of any inc. subseq of length k+1</span>
+    int size = 0;
+    for (int x : nums) {
+        int lo = 0, hi = size;                <span class="cmt">// lower bound: first index with tails[idx] &gt;= x</span>
+        while (lo &lt; hi) {
+            int mid = (lo + hi) &gt;&gt;&gt; 1;
+            if (tails[mid] &lt; x) lo = mid + 1; else hi = mid;
+        }
+        tails[lo] = x;                        <span class="cmt">// replace that slot (or append when lo == size)</span>
+        if (lo == size) size++;               <span class="cmt">// x extends the longest subsequence seen so far</span>
+    }
+    return size;                              <span class="cmt">// NOTE: tails is NOT an actual LIS — only its length is right</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log n). <strong>Space</strong> O(n).
+<strong>Why it works:</strong> <code>tails</code> is always sorted (a smaller tail for a longer length
+would contradict itself), so binary search is legal. Replacing <code>tails[lo]</code> with a smaller
+value never shortens anything already found — it just makes future extensions <em>easier</em>.
+Appending means x beat every tail, i.e. a strictly longer subsequence now exists.</p>
+
+<div class="callout trap">
+  <span class="label">The classic tails misconception</span>
+  <code>tails</code> is <em>not</em> the LIS itself. On <code>[10,9,2,5,3,7,101,18]</code> it ends as
+  <code>[2,3,7,18]</code>, which happens to be an LIS — but on <code>[1,5,2]</code> it ends as
+  <code>[1,2]</code> while the LIS is <code>[1,5]</code> or <code>[1,2]</code>… and on
+  <code>[3,4,1]</code> it ends as <code>[1,4]</code>, which isn't even a subsequence. Only
+  <code>size</code> is guaranteed correct. Need the actual sequence or a count? Use Version A.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 300 · Longest Increasing Subsequence</strong> (Medium) — <em>re-solve with this method</em>: the follow-up demands O(n log n), and the lower-bound loop is exactly what interviewers watch you write.</li>
+  <li><strong>LC 334 · Increasing Triplet Subsequence</strong> (Medium) — tails capped at length 3: two variables play the role of <code>tails[0]</code> and <code>tails[1]</code>; return true the moment something would append as slot 2.</li>
+  <li><strong>LC 1964 · Find the Longest Valid Obstacle Course at Each Position</strong> (Hard) — tails for a <em>non-decreasing</em> sequence: switch lower bound (first ≥ x) to upper bound (first &gt; x), and record <code>lo + 1</code> per element.</li>
+</ul>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Problem</th><th>LC #</th><th>What changes vs vanilla LIS</th></tr></thead>
+  <tbody>
+    <tr><td>Longest Increasing Subsequence</td><td>300</td><td>The template itself. Follow-up asks for O(n log n) — that's the tails version.</td></tr>
+    <tr><td>Number of LIS</td><td>673</td><td>Carry <code>cnt[i]</code> alongside <code>len[i]</code>: strictly longer → copy count; equal length → add counts.</td></tr>
+    <tr><td>Longest Divisible Subset</td><td>368</td><td>Sort first, comparator becomes <code>nums[i] % nums[j] == 0</code>, and reconstruct via a <code>prev[]</code> parent array.</td></tr>
+    <tr><td>Maximum Length of Pair Chain</td><td>646</td><td>LIS on pairs with <code>a[1] &lt; b[0]</code> — works, but greedy by right endpoint is O(n log n) and simpler. Know both.</td></tr>
+    <tr><td>Russian Doll Envelopes</td><td>354 <em>(Google-reported)</em></td><td>Sort width ASC, height <strong>DESC</strong> on ties, then O(n log n) LIS on heights only.</td></tr>
+    <tr><td>Longest String Chain</td><td>1048 <em>(Google-reported)</em></td><td>Sort by length; <code>dp</code> in a <code>HashMap&lt;String,Integer&gt;</code>; predecessors generated by deleting one char.</td></tr>
+  </tbody>
+</table>
+
+<h3>Number of LIS (673) — lengths and counts travel together</h3>
+<pre><code>int findNumberOfLIS(int[] nums) {
+    int n = nums.length, maxLen = 0, total = 0;
+    int[] len = new int[n], cnt = new int[n];
+    for (int i = 0; i &lt; n; i++) {
+        len[i] = 1; cnt[i] = 1;
+        for (int j = 0; j &lt; i; j++) {
+            if (nums[j] &gt;= nums[i]) continue;
+            if (len[j] + 1 &gt; len[i]) { len[i] = len[j] + 1; cnt[i] = cnt[j]; }  <span class="cmt">// new best: REPLACE count</span>
+            else if (len[j] + 1 == len[i]) cnt[i] += cnt[j];                     <span class="cmt">// tie: ACCUMULATE count</span>
+        }
+        if (len[i] &gt; maxLen) { maxLen = len[i]; total = cnt[i]; }
+        else if (len[i] == maxLen) total += cnt[i];
+    }
+    return total;
+}</code></pre>
+<p><strong>Time</strong> O(n²). <strong>Space</strong> O(n). Same skeleton as Version A, but every index now
+carries a second value: <code>cnt[i]</code> = how many distinct LIS end at i. A strictly better length
+<em>replaces</em> the count (old ways are now too short); an equal length <em>adds</em> counts (new,
+equally good ways). Tails can't do this — compression discards the per-index information counting needs.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 673 · Number of Longest Increasing Subsequence</strong> (Medium) — the code above; the whole game is the replace-vs-accumulate branch on <code>len[j] + 1</code> vs <code>len[i]</code>.</li>
+  <li><strong>LC 1027 · Longest Arithmetic Subsequence</strong> (Medium) — same "extra state rides along with dp[i]" idea: state becomes <code>dp[i][diff]</code> because "increasing" is replaced by "extends an arithmetic difference".</li>
+  <li><strong>LC 873 · Length of Longest Fibonacci Subsequence</strong> (Medium) — state is a <em>pair</em> of indices <code>dp[j][i]</code>; a value→index map finds the required predecessor in O(1), like cnt[] this only works with per-index DP.</li>
+</ul>
+
+<h3>Longest Divisible Subset (368) — sort, swap the comparator, reconstruct</h3>
+<pre><code>List&lt;Integer&gt; largestDivisibleSubset(int[] nums) {
+    Arrays.sort(nums);                        <span class="cmt">// sorted ⇒ divisibility chains only look backwards</span>
+    int n = nums.length, best = 0;
+    int[] dp = new int[n], prev = new int[n];
+    for (int i = 0; i &lt; n; i++) {
+        dp[i] = 1; prev[i] = -1;
+        for (int j = 0; j &lt; i; j++)
+            if (nums[i] % nums[j] == 0 &amp;&amp; dp[j] + 1 &gt; dp[i]) {  <span class="cmt">// comparator swapped in</span>
+                dp[i] = dp[j] + 1; prev[i] = j;                   <span class="cmt">// remember who we extended</span>
+            }
+        if (dp[i] &gt; dp[best]) best = i;
+    }
+    List&lt;Integer&gt; res = new ArrayList&lt;&gt;();
+    for (int i = best; i != -1; i = prev[i]) res.add(nums[i]);   <span class="cmt">// walk parents to rebuild</span>
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n²). <strong>Space</strong> O(n). Two ideas stack here: sorting makes
+divisibility a one-directional "look backwards" relation (if <code>nums[i] % nums[j] == 0</code> and
+j &lt; i after sorting, the whole chain through j still divides), and <code>prev[]</code> records
+<em>which</em> j each i extended so you can walk the parents and output the actual subset — the
+reconstruction pattern the tails version can never give you.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 368 · Largest Divisible Subset</strong> (Medium) — the code above; comparator is divisibility, and forgetting to sort first is the classic wrong-answer.</li>
+  <li><strong>LC 2901 · Longest Unequal Adjacent Groups Subsequence II</strong> (Medium) — same skeleton with a two-condition comparator (different group AND hamming distance 1); must return the actual words, so <code>prev[]</code> reconstruction is mandatory.</li>
+</ul>
+
+<h3>Maximum Length of Pair Chain (646) — DP vs greedy on the same problem</h3>
+<p>A chain of pairs is an LIS where "increasing" means <code>prev[1] &lt; cur[0]</code> — but unlike a
+plain array, pairs may be picked in <em>any</em> order, so you're free to sort them first. State:
+<code>dp[i]</code> = longest chain ending at pair i (after sorting by first element). Recurrence:
+<code>dp[i] = 1 + max(dp[j])</code> over j with <code>pairs[j][1] &lt; pairs[i][0]</code>; base case
+<code>dp[i] = 1</code>. That's Version A with one line swapped. But because pairs are intervals and only
+the <em>length</em> is asked, greedy wins: sort by <strong>right</strong> endpoint and always take the pair
+that finishes earliest — finishing early can never hurt future choices.</p>
+<pre><code>int findLongestChain(int[][] pairs) {
+    <span class="cmt">// --- Method 1: LIS DP, O(n^2) — the transferable skill ---</span>
+    Arrays.sort(pairs, (a, b) -&gt; a[0] - b[0]);   <span class="cmt">// sorting is legal: chain order != input order</span>
+    int n = pairs.length, best = 1;
+    int[] dp = new int[n];
+    Arrays.fill(dp, 1);
+    for (int i = 1; i &lt; n; i++) {
+        for (int j = 0; j &lt; i; j++)
+            if (pairs[j][1] &lt; pairs[i][0])        <span class="cmt">// the one changed line: strict gap between pairs</span>
+                dp[i] = Math.max(dp[i], dp[j] + 1);
+        best = Math.max(best, dp[i]);
+    }
+    return best;
+}
+
+int findLongestChainGreedy(int[][] pairs) {
+    <span class="cmt">// --- Method 2: greedy, O(n log n) — optimal here because pairs are intervals ---</span>
+    Arrays.sort(pairs, (a, b) -&gt; a[1] - b[1]);   <span class="cmt">// sort by RIGHT endpoint, not left</span>
+    int count = 0, end = Integer.MIN_VALUE;
+    for (int[] p : pairs)
+        if (p[0] &gt; end) {                         <span class="cmt">// strictly after the last chain's end → take it</span>
+            count++;
+            end = p[1];                           <span class="cmt">// chain now ends as early as possible</span>
+        }
+    return count;
+}</code></pre>
+<p><strong>Time</strong> O(n²) DP / O(n log n) greedy. <strong>Space</strong> O(n) / O(1).
+Interviews love the follow-up "can you beat O(n²)?" — the answer is greedy, not tails, because the
+exchange argument (an earliest-ending pair is always safe to keep) only exists for intervals.
+For divisibility, counts, or string predecessors, no such argument exists and DP is the only game.</p>
+<div class="callout trap">
+  <span class="label">The greedy sort direction</span>
+  Sorting by <em>left</em> endpoint and greedily taking pairs fails: on
+  <code>[[1,100],[2,3],[4,5]]</code> it grabs <code>[1,100]</code> and gets chain length 1, while
+  right-endpoint order takes <code>[2,3] → [4,5]</code> for length 2. Greedy interval selection is
+  <em>always</em> "sort by right endpoint" — earliest finisher leaves the most room. Also note the
+  comparator is strict: <code>p[0] &gt; end</code>, because <code>(1,2)</code> and <code>(2,3)</code>
+  do NOT chain.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 646 · Maximum Length of Pair Chain</strong> (Medium) — solve it twice: DP first for the LIS reps, then greedy; be ready to explain when each is required.</li>
+  <li><strong>LC 435 · Non-overlapping Intervals</strong> (Medium) — same greedy skeleton; answer = n − (max chain kept), with <code>&gt;=</code> instead of <code>&gt;</code> because touching intervals don't overlap.</li>
+  <li><strong>LC 452 · Minimum Number of Arrows to Burst Balloons</strong> (Medium) — one arrow per greedy "chain group": sort by right end, shoot at it, skip every balloon it pierces.</li>
+</ul>
+
+<h3>Russian Doll Envelopes (354) — the sort that makes LIS legal</h3>
+<pre><code>int maxEnvelopes(int[][] env) {
+    Arrays.sort(env, (a, b) -&gt;
+        a[0] == b[0] ? b[1] - a[1]            <span class="cmt">// equal width → height DESCENDING (the trick)</span>
+                     : a[0] - b[0]);           <span class="cmt">// otherwise width ascending</span>
+    <span class="cmt">// now run tails-LIS on heights env[i][1] (Version B, strict &lt;)</span>
+    int[] tails = new int[env.length]; int size = 0;
+    for (int[] e : env) {
+        int x = e[1], lo = 0, hi = size;
+        while (lo &lt; hi) { int m = (lo + hi) &gt;&gt;&gt; 1; if (tails[m] &lt; x) lo = m + 1; else hi = m; }
+        tails[lo] = x; if (lo == size) size++;
+    }
+    return size;
+}</code></pre>
+<p><strong>Why the descending tiebreak?</strong> An envelope needs <em>strictly</em> bigger width AND
+height to nest. After sorting width ascending, two envelopes with equal width must never chain — by
+putting their heights in descending order, the height-LIS (which is strictly increasing) can pick at
+most one of them. Sort them ascending and <code>(5,4),(5,7)</code> would wrongly chain.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 354 · Russian Doll Envelopes</strong> (Hard) — the code above; constraints force the O(n log n) tails version, and the DESC tiebreak is the whole interview.</li>
+  <li><strong>LC 1626 · Best Team With No Conflicts</strong> (Medium) — sort by (age, score), then the O(n²) template maximizing a score <em>sum</em> instead of a length: <code>dp[i] = score[i] + max(dp[j])</code>.</li>
+  <li><strong>LC 1691 · Maximum Height by Stacking Cuboids</strong> (Hard) — the 3D boss: sort each cuboid's own dimensions, sort the cuboids, then O(n²) max-sum LIS with an all-three-dimensions comparator.</li>
+</ul>
+
+<h3>Longest String Chain (1048) — LIS where "smaller" = delete one character</h3>
+<pre><code>int longestStrChain(String[] words) {
+    Arrays.sort(words, (a, b) -&gt; a.length() - b.length());   <span class="cmt">// "sort one dimension" = length</span>
+    Map&lt;String, Integer&gt; dp = new HashMap&lt;&gt;();
+    int best = 1;
+    for (String w : words) {
+        int cur = 1;
+        for (int i = 0; i &lt; w.length(); i++) {               <span class="cmt">// generate each 1-char-deleted predecessor</span>
+            String pred = w.substring(0, i) + w.substring(i + 1);
+            cur = Math.max(cur, dp.getOrDefault(pred, 0) + 1);
+        }
+        dp.put(w, cur);
+        best = Math.max(best, cur);
+    }
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(n·L²) — generating predecessors beats comparing all pairs when n is large
+and words are short. Same LIS skeleton, different notion of "previous element".</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1048 · Longest String Chain</strong> (Medium) — the code above; sort by length is the "sort one dimension" move, the HashMap is dp indexed by word instead of position.</li>
+  <li><strong>LC 1218 · Longest Arithmetic Subsequence of Given Difference</strong> (Medium) — purest HashMap-predecessor drill: each x has exactly one possible predecessor, <code>x − diff</code>, so the inner loop disappears entirely.</li>
+  <li><strong>LC 2370 · Longest Ideal Subsequence</strong> (Medium) — dp keyed by <em>last character</em> (26 slots); a predecessor is any letter within k in the alphabet — same "generate my predecessors, take the best" shape.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>Tails-LIS (Version B) on <code>nums = [10, 9, 2, 5, 3, 7, 101, 18]</code>. Each element either
+<em>replaces</em> the first tail ≥ it, or <em>appends</em> if it beats every tail:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 400 175" role="img" aria-label="The input array 10,9,2,5,3,7,101,18 above the final tails array 2,3,7,18; the elements 2,5,7,101 forming one LIS are highlighted in the input">
+  <text class="wt" x="30" y="28">nums</text>
+  <rect class="cell" x="60"  y="14" width="40" height="28"/><text class="lbl" x="80"  y="28">10</text>
+  <rect class="cell" x="100" y="14" width="40" height="28"/><text class="lbl" x="120" y="28">9</text>
+  <rect class="cell done" x="140" y="14" width="40" height="28"/><text class="lbl" x="160" y="28">2</text>
+  <rect class="cell done" x="180" y="14" width="40" height="28"/><text class="lbl" x="200" y="28">5</text>
+  <rect class="cell" x="220" y="14" width="40" height="28"/><text class="lbl" x="240" y="28">3</text>
+  <rect class="cell done" x="260" y="14" width="40" height="28"/><text class="lbl" x="280" y="28">7</text>
+  <rect class="cell done" x="300" y="14" width="40" height="28"/><text class="lbl" x="320" y="28">101</text>
+  <rect class="cell" x="340" y="14" width="40" height="28"/><text class="lbl" x="360" y="28">18</text>
+  <text class="wt" x="220" y="62">shaded = one actual LIS: 2, 5, 7, 101 (length 4)</text>
+
+  <text class="wt" x="30" y="112">tails</text>
+  <rect class="cell cur" x="60"  y="98" width="40" height="28"/><text class="lbl inv" x="80"  y="112">2</text>
+  <rect class="cell cur" x="100" y="98" width="40" height="28"/><text class="lbl inv" x="120" y="112">3</text>
+  <rect class="cell cur" x="140" y="98" width="40" height="28"/><text class="lbl inv" x="160" y="112">7</text>
+  <rect class="cell cur" x="180" y="98" width="40" height="28"/><text class="lbl inv" x="200" y="112">18</text>
+  <text class="wt" x="80"  y="145">len 1</text>
+  <text class="wt" x="120" y="145">len 2</text>
+  <text class="wt" x="160" y="145">len 3</text>
+  <text class="wt" x="200" y="145">len 4</text>
+  <text class="wt" x="220" y="168">tails[k] = smallest tail of any increasing subsequence of length k+1</text>
+</svg>
+<figcaption>Final state: <code>size = 4</code> → LIS length 4. Note <code>tails = [2,3,7,18]</code> keeps the <em>smallest</em> tail per length; the highlighted LIS above ends in 101, not 18.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">x=10 → tails empty → append               → tails=[<span class="ptr">10</span>], size=1</span>
+<span class="step">x=9  → first tail ≥ 9 is 10 (slot 0) → replace → tails=[<span class="ptr">9</span>], size=1</span>
+<span class="step">x=2  → first tail ≥ 2 is 9 (slot 0)  → replace → tails=[<span class="ptr">2</span>], size=1</span>
+<span class="step now">x=5  → no tail ≥ 5 → append                    → tails=[2,<span class="ptr">5</span>], size=2</span>
+<span class="step">x=3  → first tail ≥ 3 is 5 (slot 1)  → replace → tails=[2,<span class="ptr">3</span>], size=2</span>
+<span class="step now">x=7  → no tail ≥ 7 → append                    → tails=[2,3,<span class="ptr">7</span>], size=3</span>
+<span class="step now">x=101 → no tail ≥ 101 → append                 → tails=[2,3,7,<span class="ptr">101</span>], size=4</span>
+<span class="step">x=18 → first tail ≥ 18 is 101 (slot 3) → replace → tails=[2,3,7,<span class="ptr">18</span>], size=4</span>
+<span class="step">done → return size = <span class="ptr">4</span></span>
+</div>
+<p>Watch what the replacements buy: after <code>x=3</code>, the length-2 tail drops from 5 to 3, so a
+future 4 could still extend to length 3. Replacing never destroys progress — it only lowers the bar
+for what comes next.</p>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Strict vs non-decreasing:</strong> "increasing" almost always means strict (<code>&lt;</code>). For non-decreasing, Version A uses <code>&lt;=</code>; Version B switches lower-bound (first ≥ x) to upper-bound (first &gt; x).</li>
+  <li><strong>Answer is <code>max(dp[i])</code>, not <code>dp[n-1]</code></strong> — the LIS can end at any index. Rite-of-passage bug.</li>
+  <li><strong>Duplicates in 354/368:</strong> equal widths must not chain — that's exactly what the height-DESC tiebreak enforces. Test with <code>[[5,4],[5,7]]</code>.</li>
+  <li><strong>n = 0 or 1:</strong> return n. Both templates handle it, but check before dereferencing <code>nums[0]</code>.</li>
+  <li><strong>673 tie handling:</strong> <code>len[j]+1 == len[i]</code> must <em>add</em> counts, and a strictly better length must <em>overwrite</em> the count — mixing these up double-counts.</li>
+  <li><strong>Reading tails as the answer sequence:</strong> it isn't (see trap above). Reconstruction needs Version A + <code>prev[]</code>.</li>
+  <li><strong>"Minimum removals to sort" disguise:</strong> LC 1909 / "make array sorted" problems = <code>n − LIS</code>. Recognize the costume.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the O(n log n) version, what exactly does <code>tails[k]</code> store?</div>
+  <button class="opt">The k-th element of the longest increasing subsequence found so far</button>
+  <button class="opt">The smallest value that ends <em>any</em> increasing subsequence of length k+1 seen so far</button>
+  <button class="opt">The largest value seen among the first k+1 elements of the array</button>
+  <div class="fb" data-correct="Exactly — smallest tail per length. That invariant keeps tails sorted (so binary search works) and means replacing a slot only makes future extensions easier." data-wrong="tails is NOT the LIS itself — it can even fail to be a subsequence. tails[k] is the smallest tail over ALL increasing subsequences of length k+1, which is what keeps it sorted and searchable."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Russian Doll Envelopes (354): after sorting widths ascending, why must equal-width envelopes be sorted by height <em>descending</em>?</div>
+  <button class="opt">Descending heights make the binary search terminate one step faster on average</button>
+  <button class="opt">It puts the tallest envelope first so the LIS can start from the largest value</button>
+  <button class="opt">A strictly-increasing height-LIS can then pick at most one envelope per width, matching the "strictly bigger in both dimensions" rule</button>
+  <div class="fb" data-correct="Right — equal widths can never nest, and descending heights guarantee the strict height-LIS never chains two of them. Ascending ties would let (5,4)→(5,7) sneak in illegally." data-wrong="Think about two envelopes with the same width: they can never nest. If their heights were ascending, the height-LIS would happily chain them. Descending ties make that impossible."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You need the <em>number</em> of distinct longest increasing subsequences (LC 673). Which approach fits?</div>
+  <button class="opt">The O(n²) DP, carrying a <code>cnt[i]</code> array that copies on a strictly-better length and accumulates on ties</button>
+  <button class="opt">The tails array — count how many times each slot was replaced during the scan</button>
+  <button class="opt">Run tails-LIS once forward and once backward, then multiply the two lengths</button>
+  <div class="fb" data-correct="Counting needs the per-index state dp[i]/cnt[i] — new best length copies the count, equal length adds it. The compressed tails array throws that information away." data-wrong="tails compresses away everything except lengths — replacement counts don't correspond to subsequence counts. Counting variants are exactly where the O(n²) per-index DP earns its keep."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/longest-increasing-subsequence">NeetCode — Longest Increasing Subsequence</a> (both solutions). Backup: <a href="https://www.youtube.com/watch?v=ekcwMsSIzVc">Striver DP-41 — LIS</a> and DP-42/43 for reconstruction + Divisible Subset (Java, India-standard).</li>
+  <li><strong>Practice ladder (Java), easiest → hardest:</strong> LC 300 (both versions from memory) → 646 (DP, then greedy) → 673 (counts) → 368 (reconstruction) → 1048 <em>(Google-reported)</em> → 354 <em>(Google-reported, the boss fight)</em>.</li>
+  <li><strong>Drill:</strong> from a blank file, write Version B including the lower-bound loop three times — off-by-one in the binary search is the #1 live-coding fumble here.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0008-state-machine-dp.html">DP Lesson 08 — State-machine DP</a>, where states get names like <em>holding</em> and <em>cooldown</em>.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Not convinced tails stays sorted? Want the [1,5,2] counter-example dry-run, or the 354 tiebreak
+  shown failing with ascending ties? Ask in the chat. When you can write both LIS versions from
+  memory and explain the tails invariant in one sentence, say <strong>"next"</strong> for state-machine DP.
+</div>
+
+<div class="nav">
+  <span><a href="0006-palindrome-dp.html">← Palindrome DP</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0008-state-machine-dp.html">State-machine DP →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

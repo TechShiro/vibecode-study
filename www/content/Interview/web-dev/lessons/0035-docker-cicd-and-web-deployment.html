@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 35 - Docker &amp; Web Deployment | Web Dev Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">Web Dev · DevOps · Lesson 35 of 35 · Multi-Stage Builds, GitHub Actions, Nginx</div>
+  
+  <h1>Docker, CI/CD &amp; Web Deployment</h1>
+  <p class="subtitle">Multi-stage container builds, automated test pipelines, and zero-downtime production deployments.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module G — Modern APIs &amp; DevOps</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Building code on your laptop is only half the journey. Getting an application running securely, reproducibly, and continuously in production requires <strong>Multi-Stage Docker Builds</strong> (separating build tools from tiny production runtime images) and <strong>CI/CD Pipelines</strong> (automating linting, testing, and deployment whenever code is pushed to <code>main</code>).</p>
+
+  <h2>2 · Production Multi-Stage Dockerfile for Node.js / Next.js</h2>
+  <pre><code><span class="cmt"># Stage 1: Build &amp; Compile</span>
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+<span class="cmt"># Stage 2: Minimal Production Runner (No devDependencies or build tools!)</span>
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+
+USER node
+EXPOSE 3000
+CMD ["node", "dist/main.js"]</code></pre>
+
+  <h2>3 · 🏆 Master Web Development Course Completed!</h2>
+  <p>Congratulations! You have completed all <strong>35 Lessons</strong> of the Web Development Curriculum, spanning:</p>
+  <ul>
+    <li><strong>HTML &amp; Modern CSS (26–29):</strong> Semantics, a11y, CSS Box Model, Flexbox, CSS Grid, and Tailwind CSS.</li>
+    <li><strong>JavaScript Mastery (01–10):</strong> Execution context, closures, prototypes, event loop, async/await, DOM, and interview drills.</li>
+    <li><strong>React &amp; Modern State (11–14, 30):</strong> Hooks, VDOM reconciliation, performance internals, Zustand, and TanStack Query.</li>
+    <li><strong>Next.js (15–16):</strong> App Router, Server Components, SSR/SSG/ISR, and Server Actions.</li>
+    <li><strong>Backend Engineering (17–20, 31, 33):</strong> Node.js internals, Express, NestJS DI, WebSockets (Socket.io), and GraphQL.</li>
+    <li><strong>Database &amp; Security (21–25, 34–35):</strong> PostgreSQL, Indexes, Drizzle ORM, MongoDB, Auth.js, XSS/CSRF security, and Docker deployments.</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Course Capstone</span>
+    You are now equipped with full-stack capability to build real-world web applications and design production systems!
+  </div>
+
+  <div class="nav">
+    <a href="0034-web-security-and-oauth-authjs.html">← Previous: Web Security &amp; OAuth</a>
+    <a href="../INDEX.md">Course Index</a>
+    <span style="color:var(--good); font-weight:bold;">Course Complete! 🎓</span>
+  </div>
+</body>
+</html>

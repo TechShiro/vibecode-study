@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 16 – Active Directory & Kerberos Attacks</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module F · Lesson 16 of 17 · Enterprise Networks</div>
+  <h1>Active Directory Attacks, Kerberos & Domain Dominance</h1>
+  <p class="subtitle">Ticket Granting Tickets, Kerberoasting SPNs, AS-REP Roasting, Golden Tickets, and BloodHound attack paths.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module F – Red Teaming & Enterprise Exploitation</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Over 90% of Fortune 500 corporations run on <strong>Microsoft Active Directory (AD)</strong> to manage users, computers, permissions, and single sign-on across the enterprise. In enterprise penetration testing, compromising a single workstation is just the beginning. The ultimate prize is compromising the <strong>Domain Controller (DC)</strong> to attain <strong>Domain Admin</strong> control over every computer and email account in the organization.</p>
+
+  <h2>2 · The Kerberos Authentication Protocol</h2>
+  <div class="arch-flow">
+    <div class="box">Client requests TGT (AS-REQ)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">KDC issues Ticket Granting Ticket (TGT)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Client requests Service Ticket (TGS-REQ)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">KDC issues TGS encrypted with Service Account Hash</div>
+  </div>
+
+  <h2>3 · Famous Active Directory Attacks</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Attack Name</th><th>Mechanism</th><th>Why It Works</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Kerberoasting</strong></td>
+        <td>Any authenticated domain user requests a TGS service ticket for an account with a <strong>Service Principal Name (SPN)</strong> (e.g. MSSQL service).</td>
+        <td>The returned TGS is encrypted with the service account's NTLM password hash. Attacker extracts the ticket from memory and cracks the plaintext password offline using Hashcat with zero detection on the DC!</td>
+      </tr>
+      <tr>
+        <td><strong>AS-REP Roasting</strong></td>
+        <td>Targets accounts with <em>"Do not require Kerberos pre-authentication"</em> enabled.</td>
+        <td>Attacker requests an AS-REP ticket without sending user credentials. KDC returns encrypted ticket, which is cracked offline.</td>
+      </tr>
+      <tr>
+        <td><strong>Pass-the-Hash (PtH)</strong></td>
+        <td>NTLM authentication uses the raw password hash directly without needing plaintext.</td>
+        <td>If an attacker dumps local LSASS memory and grabs a Domain Admin's NTLM hash, they authenticate directly across the network!</td>
+      </tr>
+      <tr>
+        <td><strong>Golden Ticket</strong></td>
+        <td>Attacker compromises the <strong>krbtgt</strong> account hash on the Domain Controller.</td>
+        <td>The attacker can now forge valid TGT tickets for ANY user, inject arbitrary Group SIDs (Domain Admin), and grant themselves permanent undetectable access.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Attack Path Mapping with BloodHound</h2>
+  <p>Active Directory contains convoluted permission graphs (nested security groups, GPOs, local admin rights). <strong>BloodHound</strong> uses graph theory (Neo4j database) to uncover non-obvious attack paths (e.g. <em>User A &isin; Helpdesk &rarr; Can Reset Password of User B &rarr; User B is Admin on FileServer &rarr; FileServer has Domain Admin Session in Memory &rarr; Domain Admin Compromised</em>).</p>
+
+  <nav class="bottom-nav">
+    <a href="0015-privilege-escalation-linux-and-windows.html">← Lesson 15: Privilege Escalation</a>
+    <a href="0017-soc-operations-siem-and-incident-response.html">Lesson 17: SOC Operations & Incident Response →</a>
+  </nav>
+</body>
+</html>

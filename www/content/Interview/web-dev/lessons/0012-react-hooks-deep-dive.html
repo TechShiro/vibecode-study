@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 12 — React Hooks Deep Dive</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 12 of 24 · renders, effects, refs, custom hooks</div>
+<h1>React Hooks Deep Dive</h1>
+<p class="subtitle">Hooks look like magic until you remember lesson 2: they're closures plus an array — after this lesson you'll predict every stale-value bug before it happens.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 12 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The render mental model</h2>
+<p>
+Burn this in: <strong>a component is a function that React calls again on every state change.</strong> Each call is
+a <em>render</em>. Within one render, props and state are ordinary <code>const</code>s — a frozen
+<strong>snapshot</strong>. They never change mid-render; instead, a state change causes a <em>new call</em> with new
+snapshots. Any function you define during a render (handlers, effect callbacks) closes over that render's snapshot —
+straight from lesson 2's closures.
+</p>
+
+<pre><code>function Counter() {
+  const [count, setCount] = useState(0);
+
+  function handleAlert() {
+    setTimeout(() =&gt; alert(count), 3000);  <span class="cmt">// closes over THIS render's count</span>
+  }
+  return &lt;button onClick={handleAlert}&gt;Alert {count}&lt;/button&gt;;
+}
+<span class="cmt">// Click when count=0, then quickly click +1 three times.</span>
+<span class="cmt">// The alert says 0 — the timeout's closure captured render #1's snapshot.</span></code></pre>
+
+<p>
+So here's the puzzle hooks solve: if the whole function re-runs, <em>local variables reset every time</em>. Where
+does state actually live? Answer: <strong>outside your function</strong>, in a per-component list that React
+maintains. <code>useState</code> doesn't "create a variable" — it reads slot N of that list and hands you the current
+value plus a setter wired to that slot. Conceptually:
+</p>
+
+<pre><code><span class="cmt">// Simplified sketch of what React does (not real source, right idea)</span>
+let hooks = [];      <span class="cmt">// one list PER component instance, owned by React</span>
+let i = 0;           <span class="cmt">// cursor reset to 0 before every render</span>
+
+function useState(initial) {
+  const slot = i++;                          <span class="cmt">// this call = slot number `slot`</span>
+  if (hooks[slot] === undefined) hooks[slot] = initial;
+  const setState = (v) =&gt; {                  <span class="cmt">// a CLOSURE over `slot` (lesson 2!)</span>
+    hooks[slot] = typeof v === 'function' ? v(hooks[slot]) : v;
+    rerender();                              <span class="cmt">// call the component function again</span>
+  };
+  return [hooks[slot], setState];
+}</code></pre>
+
+<p>
+Note what identifies a piece of state: <strong>its call position</strong>. First <code>useState</code> call = slot 0,
+second = slot 1. No names, no keys — just order. That single design decision explains the next section.
+</p>
+
+<h2>2 · The rules of hooks — and the real reason for them</h2>
+<ul>
+  <li><strong>Rule 1: only call hooks at the top level</strong> — never inside <code>if</code>, loops, or nested
+  functions.</li>
+  <li><strong>Rule 2: only call hooks from React function components or from custom hooks</strong> (functions named
+  <code>useSomething</code>) — because only there does React have a hooks list ready.</li>
+</ul>
+<p>Why rule 1? Because slots are matched by call order. Make a hook conditional and the order shifts between renders:</p>
+
+<pre><code>function Broken({ loggedIn }) {
+  if (loggedIn) {
+    const [name, setName] = useState('');   <span class="cmt">// render A: slot 0 … render B: gone!</span>
+  }
+  const [count, setCount] = useState(0);    <span class="cmt">// render A: slot 1 … render B: slot 0</span>
+  <span class="cmt">// After loggedIn flips, `count` reads the slot that used to hold `name`.</span>
+  <span class="cmt">// React detects the order change and throws instead of corrupting state.</span>
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Hooks must be called unconditionally at the top level because React identifies each hook by its call order within
+  the component, not by name. A conditional hook shifts the order between renders, so hook calls would read the wrong
+  state slots. Need conditional state? Move the hook into a child component and render the child conditionally."
+</div>
+
+<h2>3 · useState, the deep cut</h2>
+<p><strong>Lazy initializer.</strong> <code>useState(expensiveFn())</code> runs the expensive call on <em>every</em>
+render (the argument is evaluated before useState is even called), even though the result is only used once. Pass the
+function itself and React calls it only on the first render:</p>
+
+<pre><code>const [data, setData] = useState(readHugeLocalStorage());   <span class="cmt">// runs EVERY render ✘</span>
+const [data, setData] = useState(() =&gt; readHugeLocalStorage()); <span class="cmt">// runs ONCE ✔</span></code></pre>
+
+<p><strong>The stale-closure pitfall.</strong> A long-lived callback keeps the snapshot it was born with:</p>
+
+<pre><code>useEffect(() =&gt; {
+  const id = setInterval(() =&gt; {
+    setCount(count + 1);        <span class="cmt">// ✘ closure captured count = 0 forever → 1, 1, 1…</span>
+  }, 1000);
+  return () =&gt; clearInterval(id);
+}, []);                          <span class="cmt">// effect ran once; its closure never refreshes</span>
+
+<span class="cmt">// ✔ Functional update: don't READ the stale snapshot — ask React for the latest</span>
+setCount(c =&gt; c + 1);            <span class="cmt">// 1, 2, 3, … works from any old closure</span></code></pre>
+
+<h2>4 · useEffect — talking to the world outside</h2>
+<p>
+Rendering must be pure: props/state in, JSX out, no side trips. But real apps need <em>side effects</em> — fetching
+data, timers, subscriptions, touching <code>document.title</code>, logging. "Effect" means exactly that: work that
+reaches <strong>outside</strong> the render. <code>useEffect</code> is React's designated place for it, and its
+timing is the point: the callback runs <strong>after React has committed the render to the DOM</strong> — so effects
+never block painting, and the DOM they see is up to date.
+</p>
+
+<pre><code>useEffect(() =&gt; {
+  document.title = `${unread} unread`;   <span class="cmt">// the effect</span>
+  return () =&gt; { /* cleanup */ };        <span class="cmt">// optional cleanup function</span>
+}, [unread]);                            <span class="cmt">// dependency array</span></code></pre>
+
+<p>The dependency array is a contract — "re-run this effect when any of these values changes (Object.is comparison)":</p>
+
+<table>
+  <thead><tr><th>Second argument</th><th>Effect runs</th><th>Typical use</th></tr></thead>
+  <tbody>
+    <tr><td><em>omitted</em></td><td>After <strong>every</strong> render</td><td>Rare — usually a mistake</td></tr>
+    <tr><td><code>[]</code></td><td>After the <strong>first</strong> render only</td><td>One-time setup: subscribe, initial fetch</td></tr>
+    <tr><td><code>[a, b]</code></td><td>After the first render, and after any render where <code>a</code> or <code>b</code> changed</td><td>Re-fetch when an id changes, re-subscribe on channel change</td></tr>
+  </tbody>
+</table>
+
+<p>
+<strong>Cleanup</strong> is the returned function. React calls it <em>before the effect runs again</em> and
+<em>when the component unmounts</em> — so every setup is paired with exactly one teardown, and nothing leaks:
+</p>
+
+<pre><code>useEffect(() =&gt; {
+  const onResize = () =&gt; setWidth(window.innerWidth);
+  window.addEventListener('resize', onResize);         <span class="cmt">// setup</span>
+  return () =&gt; window.removeEventListener('resize', onResize);  <span class="cmt">// teardown</span>
+}, []);
+<span class="cmt">// Same pattern for: clearInterval, socket.close(), subscription.unsubscribe()</span></code></pre>
+
+<p><strong>Fetching in an effect</strong> — with the race-condition guard. Suppose the user flips between profiles
+fast: two fetches are in flight, and the <em>older</em> one might resolve <em>last</em>, overwriting fresh data with
+stale data. Guard with a flag, or abort the outdated request (AbortController, lesson 7):</p>
+
+<pre><code>useEffect(() =&gt; {
+  const ctrl = new AbortController();
+  let ignore = false;                       <span class="cmt">// belt AND suspenders shown; either works</span>
+
+  async function load() {
+    try {
+      const res = await fetch(`/api/users/${userId}`, { signal: ctrl.signal });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      if (!ignore) setUser(data);           <span class="cmt">// stale render's effect won't set state</span>
+    } catch (err) {
+      if (err.name !== 'AbortError') setError(err);
+    }
+  }
+  load();
+
+  return () =&gt; {        <span class="cmt">// userId changed (or unmount) → this run is now stale</span>
+    ignore = true;
+    ctrl.abort();       <span class="cmt">// actually cancel the network request</span>
+  };
+}, [userId]);           <span class="cmt">// new userId → cleanup old, run again</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha: the two infinite loops</span>
+  <strong>(1) setState with no deps:</strong> effect sets state → re-render → effect runs again → sets state → …
+  Fix: add a proper dependency array.
+  <strong>(2) Object/array/function deps:</strong> <code>useEffect(fn, [{ id }])</code> — a fresh object literal is
+  created every render, <code>Object.is</code> says it changed every time, so the effect loops even with a deps array.
+  Depend on primitives (<code>[id]</code>) or memoize the object (section 6).
+</div>
+
+<div class="callout">
+  <span class="label">StrictMode double-invoke</span>
+  In development, <code>&lt;StrictMode&gt;</code> (Vite includes it in <code>main.jsx</code>) mounts every component
+  twice: effect → cleanup → effect. Not a bug — it's a stress test proving your cleanup truly undoes your setup
+  (if a subscription doubles or a fetch races, your effect was leaky). Production runs everything once. Don't "fix"
+  it by removing StrictMode; fix the effect.
+</div>
+
+<h2>5 · useRef — the box that doesn't re-render</h2>
+<p>
+<code>useRef(x)</code> returns one stable object <code>{ current: x }</code> that survives re-renders — like state —
+but <strong>mutating <code>.current</code> does not trigger a re-render</strong>. Two jobs:
+</p>
+
+<pre><code><span class="cmt">// JOB 1: grab a real DOM node (React's replacement for querySelector)</span>
+function SearchBox() {
+  const inputRef = useRef(null);
+  useEffect(() =&gt; { inputRef.current.focus(); }, []);  <span class="cmt">// after mount, DOM exists</span>
+  return &lt;input ref={inputRef} /&gt;;   <span class="cmt">// React fills .current with the node</span>
+}
+
+<span class="cmt">// JOB 2: a mutable instance variable (timer ids, previous values, flags)</span>
+function Stopwatch() {
+  const timerId = useRef(null);            <span class="cmt">// changing this must NOT re-render</span>
+  const [ticks, setTicks] = useState(0);   <span class="cmt">// changing this MUST re-render</span>
+
+  const start = () =&gt; {
+    timerId.current = setInterval(() =&gt; setTicks(t =&gt; t + 1), 1000);
+  };
+  const stop = () =&gt; clearInterval(timerId.current);
+  return &lt;&gt;&lt;p&gt;{ticks}s&lt;/p&gt;&lt;button onClick={start}&gt;▶&lt;/button&gt;&lt;button onClick={stop}&gt;⏸&lt;/button&gt;&lt;/&gt;;
+}</code></pre>
+
+<table>
+  <thead><tr><th></th><th><code>useState</code></th><th><code>useRef</code></th></tr></thead>
+  <tbody>
+    <tr><td>Survives re-renders</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Change triggers re-render</td><td>Yes</td><td><strong>No</strong></td></tr>
+    <tr><td>How you change it</td><td>Setter, immutably, async/batched</td><td><code>ref.current = x</code>, direct mutation, instant</td></tr>
+    <tr><td>Read during render?</td><td>Yes — it IS the render input</td><td>Avoid — render output shouldn't depend on it</td></tr>
+    <tr><td>Use for</td><td>Anything the screen shows</td><td>DOM nodes, timer ids, previous values, "instance fields"</td></tr>
+    <tr><td>Java parallel</td><td>Field whose setter repaints the view</td><td>Plain private field</td></tr>
+  </tbody>
+</table>
+
+<h2>6 · useMemo &amp; useCallback — referential equality tools</h2>
+<p>
+The root problem, once more: every render re-creates objects, arrays, and functions defined in the component body.
+New reference each time. Anything that compares by reference — effect deps, <code>React.memo</code> children
+(lesson 14), context values — sees "changed!" every render. Two hooks cache across renders:
+</p>
+
+<pre><code>const sorted = useMemo(
+  () =&gt; [...products].sort(byPrice),   <span class="cmt">// expensive OR needs a stable reference</span>
+  [products]                           <span class="cmt">// recompute only when products changes</span>
+);
+
+const handleSelect = useCallback(
+  (id) =&gt; setSelected(id),
+  []                                   <span class="cmt">// same function object across renders</span>
+);
+<span class="cmt">// useCallback(fn, deps) ≡ useMemo(() =&gt; fn, deps) — memoizing the function ITSELF</span></code></pre>
+
+<p>
+<strong>When they matter:</strong> genuinely expensive computations; values used in dependency arrays; props passed
+to <code>React.memo</code>-wrapped children; context values. <strong>When they're noise:</strong> wrapping every
+variable "for performance". Each memo costs memory and a deps comparison per render — cheap code re-running is often
+cheaper than memoizing it. Measure first (lesson 14), and remember this is <em>memoization from lesson 10</em> with
+a cache size of one.
+</p>
+
+<h2>7 · useContext — skipping the prop relay</h2>
+<p>
+Props flow one level at a time; a theme or current-user object needed six levels down means six components relaying
+a prop they don't use (<em>prop drilling</em>). Context is a broadcast channel: a provider above, direct consumers
+below.
+</p>
+
+<pre><code>import { createContext, useContext, useState } from 'react';
+
+const ThemeContext = createContext('light');        <span class="cmt">// 1. create (module scope)</span>
+
+function App() {
+  const [theme, setTheme] = useState('dark');
+  return (
+    &lt;ThemeContext.Provider value={theme}&gt;          {<span class="cmt">/* 2. provide */</span>}
+      &lt;Page /&gt;                                     {<span class="cmt">/* any depth of nesting */</span>}
+    &lt;/ThemeContext.Provider&gt;
+  );
+}
+
+function DeepButton() {
+  const theme = useContext(ThemeContext);           <span class="cmt">// 3. consume — no props needed</span>
+  return &lt;button className={theme}&gt;Save&lt;/button&gt;;
+}</code></pre>
+
+<p>
+<strong>What re-renders?</strong> When the provider's <code>value</code> changes (Object.is again), every component
+that calls <code>useContext(ThemeContext)</code> re-renders — consumers only, but <em>all</em> consumers, whether
+they use the changed part or not. That's the performance caveat lesson 13 digs into. Use context for low-churn
+global-ish data: theme, auth user, locale.
+</p>
+
+<h2>8 · useReducer — the state machine hook</h2>
+<p>
+When one piece of state is updated in five different ways from five different places, scattered setter logic gets
+messy. <code>useReducer</code> centralises it: all transitions live in one pure function
+<code>(state, action) =&gt; newState</code>, and components just <em>dispatch actions</em> describing what happened.
+Java parallel: a state machine's single <code>transition(currentState, event)</code> method — or a tiny
+switch-based interpreter — instead of setters sprinkled everywhere.
+</p>
+
+<pre><code>import { useReducer } from 'react';
+
+function todosReducer(state, action) {        <span class="cmt">// PURE: no mutation, no fetch</span>
+  switch (action.type) {
+    case 'add':
+      return [...state, { id: crypto.randomUUID(), text: action.text, done: false }];
+    case 'toggle':
+      return state.map(t =&gt; t.id === action.id ? { ...t, done: !t.done } : t);
+    case 'delete':
+      return state.filter(t =&gt; t.id !== action.id);
+    default:
+      throw new Error('Unknown action: ' + action.type);
+  }
+}
+
+function TodoApp() {
+  const [todos, dispatch] = useReducer(todosReducer, []);
+  return (
+    &lt;&gt;
+      &lt;button onClick={() =&gt; dispatch({ type: 'add', text: 'learn reducers' })}&gt;Add&lt;/button&gt;
+      {todos.map(t =&gt; (
+        &lt;li key={t.id} onClick={() =&gt; dispatch({ type: 'toggle', id: t.id })}&gt;
+          {t.text}
+        &lt;/li&gt;
+      ))}
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<p>
+<strong>useState vs useReducer:</strong> useState for independent simple values; useReducer when the next state
+depends on structured transitions, several fields update together, or you want the update logic testable in
+isolation (a reducer is a plain function — unit test it with no React at all). Bonus: <code>dispatch</code> is
+stable across renders — safe in dependency arrays, no useCallback needed. This exact pattern scales up into Redux
+(lesson 13).
+</p>
+
+<h2>9 · Custom hooks — your own reusable state logic</h2>
+<p>
+A custom hook is just a function named <code>useSomething</code> that calls other hooks. That's the entire feature —
+no registration, no API. Because each <em>call</em> gets its own hook slots, two components using the same custom
+hook share <strong>logic, not state</strong>. This is how you extract and reuse stateful behaviour:
+</p>
+
+<pre><code><span class="cmt">// 1) useFetch — the section-4 pattern, packaged</span>
+function useFetch(url) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  useEffect(() =&gt; {
+    const ctrl = new AbortController();
+    setLoading(true);
+    fetch(url, { signal: ctrl.signal })
+      .then(res =&gt; { if (!res.ok) throw new Error(res.status); return res.json(); })
+      .then(setData)
+      .catch(err =&gt; { if (err.name !== 'AbortError') setError(err); })
+      .finally(() =&gt; setLoading(false));
+    return () =&gt; ctrl.abort();
+  }, [url]);
+
+  return { data, loading, error };
+}
+<span class="cmt">// Usage: const { data, loading, error } = useFetch('/api/todos');</span>
+
+<span class="cmt">// 2) useLocalStorage — useState that survives refresh (lesson 9's localStorage)</span>
+function useLocalStorage(key, initial) {
+  const [value, setValue] = useState(() =&gt; {          <span class="cmt">// lazy init — read disk once</span>
+    const stored = localStorage.getItem(key);
+    return stored !== null ? JSON.parse(stored) : initial;
+  });
+  useEffect(() =&gt; {
+    localStorage.setItem(key, JSON.stringify(value)); <span class="cmt">// sync on every change</span>
+  }, [key, value]);
+  return [value, setValue];                           <span class="cmt">// same shape as useState!</span>
+}
+
+<span class="cmt">// 3) useDebounce — lesson 10's debounce, hook-ified (type fast, fetch once)</span>
+function useDebounce(value, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() =&gt; {
+    const id = setTimeout(() =&gt; setDebounced(value), delay);
+    return () =&gt; clearTimeout(id);   <span class="cmt">// each keystroke cancels the previous timer</span>
+  }, [value, delay]);
+  return debounced;
+}
+<span class="cmt">// const results = useFetch('/api/search?q=' + useDebounce(query));</span></code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "A custom hook is a plain function starting with <code>use</code> that composes built-in hooks. It shares
+  <em>stateful logic</em>, not state — every component calling it gets independent state slots. It's the modern
+  replacement for the HOC and render-props patterns of class-era React."
+</div>
+
+<h2>10 · Honourable mentions</h2>
+<p>
+<strong><code>useLayoutEffect</code></strong> — same API as useEffect but fires <em>synchronously after DOM mutation,
+before the browser paints</em>. Use only when you must measure or adjust layout without a visible flicker (e.g.
+positioning a tooltip). Default to useEffect.
+<strong><code>useId</code></strong> — generates stable unique ids for accessibility wiring
+(<code>&lt;label htmlFor={id}&gt;</code> + <code>&lt;input id={id}&gt;</code>), safe across server and client
+rendering — do not use it for list keys.
+</p>
+
+<h2>11 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"Why can't hooks be called conditionally?"</strong><br>
+  React stores hook state in a list indexed by call order per component. A conditional call shifts every later hook's
+  index between renders, so reads would hit the wrong slots. The rules of hooks keep the order identical every render.</li>
+  <li><strong>"Explain the useEffect dependency array."</strong><br>
+  It lists every reactive value the effect reads. React re-runs the effect after renders where any dep changed by
+  Object.is; <code>[]</code> means run once after mount; omitted means after every render. Cleanup runs before each
+  re-run and on unmount.</li>
+  <li><strong>"What is a stale closure in React?"</strong><br>
+  A long-lived callback (timer, subscription, effect from an old render) that captured old props/state via closure and
+  keeps reading them. Fixes: functional updates, correct dependency arrays, or a ref for the latest value.</li>
+  <li><strong>"useEffect vs useLayoutEffect?"</strong><br>
+  useEffect runs asynchronously after paint (non-blocking, default); useLayoutEffect runs synchronously after DOM
+  mutations but before paint — for measuring/adjusting layout to avoid flicker.</li>
+  <li><strong>"useMemo vs useCallback?"</strong><br>
+  useMemo caches a computed <em>value</em>; useCallback caches the <em>function itself</em> —
+  <code>useCallback(fn, deps)</code> equals <code>useMemo(() =&gt; fn, deps)</code>. Both exist to preserve
+  referential equality across renders and to skip expensive recomputation.</li>
+  <li><strong>"Why does my effect run twice in development?"</strong><br>
+  StrictMode intentionally mounts components twice in dev to expose effects whose cleanup doesn't fully undo their
+  setup. Production runs once. The fix is a correct cleanup function, not removing StrictMode.</li>
+  <li><strong>"When useReducer over useState?"</strong><br>
+  When updates are structured transitions on complex state, multiple sub-values change together, or update logic
+  should be centralised and unit-testable as a pure function. Also, dispatch is stable, easing deps.</li>
+</ul>
+
+<h2>12 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">An interval set in <code>useEffect(..., [])</code> runs <code>setCount(count + 1)</code> every second. The display shows 1 and stops. Why?</div>
+  <button class="opt">setInterval only fires once inside useEffect unless you re-register it</button>
+  <button class="opt">The interval's closure captured count = 0 from the first render, so every tick stores 0 + 1</button>
+  <button class="opt">Batching merges all the interval ticks into a single update</button>
+  <div class="fb" data-correct="Classic stale closure: the effect ran once, its callback froze count at 0, so every tick computes 1. Fix with a functional update — setCount(c => c + 1) — which reads the latest value from React." data-wrong="The interval fires every second just fine — but its closure holds render #1's count (0), so each tick stores 0 + 1 = 1. Functional updates, setCount(c => c + 1), bypass the stale snapshot."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What is the fundamental reason hooks can't be called inside an <code>if</code>?</div>
+  <button class="opt">Conditionals make renders slower, so React forbids them near hooks</button>
+  <button class="opt">Hooks return Promises, and Promises can't be created conditionally</button>
+  <button class="opt">React matches each hook call to its stored state by call order, which a conditional would shift between renders</button>
+  <div class="fb" data-correct="State lives in an ordered list per component; the Nth hook call reads the Nth slot. If a conditional skips a call, every later hook reads its neighbour's slot — so React enforces a fixed order." data-wrong="It's pure bookkeeping: hooks have no names, only positions. The Nth call reads the Nth state slot, so the sequence of calls must be identical on every render."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You need to store a <code>setInterval</code> id so a Stop button can clear it. Where should it live?</div>
+  <button class="opt">In a useRef — it must survive re-renders, but changing it shouldn't cause one</button>
+  <button class="opt">In useState — all component data belongs in state</button>
+  <button class="opt">In a plain <code>let</code> at the top of the component function</button>
+  <div class="fb" data-correct="The id isn't shown on screen, so re-rendering on change would be waste; but it must outlive renders, so a plain local (reset every render) loses it. useRef is exactly this: a persistent mutable box with no render side effects." data-wrong="A plain let resets on every re-render (the function re-runs), and useState would trigger pointless re-renders for a value the UI never displays. useRef persists without re-rendering — its exact purpose."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q"><code>useEffect(fetchUser, [{ id: userId }])</code> causes the effect to run on every render. Why?</div>
+  <button class="opt">Effects with object dependencies always run twice because of StrictMode</button>
+  <button class="opt">The object literal is recreated each render, so Object.is sees a new reference and re-runs the effect</button>
+  <button class="opt">Fetch calls inside effects reset the dependency array automatically</button>
+  <div class="fb" data-correct="Deps are compared with Object.is — a reference check for objects. A fresh literal every render never equals the previous one. Depend on the primitive instead: [userId]." data-wrong="StrictMode double-mounts only in dev and only twice; this loops forever. The real cause: {} !== {} — each render's new object literal fails the Object.is comparison, so deps 'changed' every time. Use [userId]."></div>
+</div>
+
+<h2>13 · Do this next</h2>
+<ul>
+  <li>Build the stale-closure interval counter (broken version first — watch it stick at 1), then fix it with a
+  functional update. Then add Start/Stop buttons storing the interval id in a <code>useRef</code>, with cleanup on
+  unmount.</li>
+  <li>Write <code>useLocalStorage</code> from memory and swap it into your lesson-11 todo app in place of
+  <code>useState</code> — todos should now survive a page refresh. Verify the lazy initializer runs once with a
+  <code>console.log</code>.</li>
+  <li>Build a live search box against <code>https://dummyjson.com/products/search?q=</code> using
+  <code>useDebounce</code> + <code>useFetch</code>. Open the Network tab: typing "phone" should fire one request,
+  not five. Then throttle your connection and switch queries fast to watch the AbortController cancel stale requests.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  If the snapshot model, the slot-array trick, or the difference between "runs after paint" and "runs on state change"
+  feels wobbly, ask in the chat — this is the deepest lesson in the module and everything after leans on it. When you
+  can explain a stale closure and write useFetch unaided, say <strong>"next"</strong> for
+  Lesson 13: State Patterns, Forms &amp; Routing.
+</div>
+
+<div class="nav">
+  <span><a href="0011-react-components-props-state.html">← Components, JSX, Props &amp; State</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0013-react-state-forms-routing.html">State, Forms &amp; Routing →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

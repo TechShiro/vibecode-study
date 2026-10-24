@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 49 - Encapsulation | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · LLD · Lesson 49 of 66 · Data Hiding, Invariants, Access Modifiers</div>
+  
+  <h1>Encapsulation &amp; Information Hiding</h1>
+  <p class="subtitle">Protecting your object's internal state and enforcing business invariants.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module L — OOP Foundations</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p><strong>Encapsulation</strong> is the bundling of data (attributes) and the methods that operate on that data into a single unit (class), while restricting direct access to internal implementation details (Data Hiding). At the zero level, encapsulation is NOT just making fields <code>private</code> and generating boilerplate <code>getter</code> and <code>setter</code> methods! Real encapsulation means <strong>protecting business invariants</strong>: making it physically impossible for external code to corrupt the object into an invalid state.</p>
+
+  <h2>2 · The Flaw of Blind Getters/Setters</h2>
+  <p>Look at this classic beginner mistake:</p>
+  <pre><code>public class BankAccount {
+    <span class="cmt">// Blind getter/setter exposes internal field to corruption</span>
+    private double balance;
+    public double getBalance() { return balance; }
+    public void setBalance(double b) { this.balance = b; }
+}
+
+<span class="cmt">// Somewhere in external code:</span>
+account.setBalance(-500000.0); <span class="cmt">// Balance corrupted! Invariant broken!</span></code></pre>
+
+  <h2>3 · True Encapsulation: Enforcing Invariants</h2>
+  <p>An encapsulated class guards its own boundaries through intentional domain methods:</p>
+  <pre><code>public class BankAccount {
+    private double balance;
+
+    public BankAccount(double initialDeposit) {
+        if (initialDeposit &lt; 0) {
+            throw new IllegalArgumentException("Initial deposit cannot be negative");
+        }
+        this.balance = initialDeposit;
+    }
+
+    public void deposit(double amount) {
+        if (amount &lt;= 0) throw new IllegalArgumentException("Deposit must be positive");
+        this.balance += amount;
+    }
+
+    public void withdraw(double amount) {
+        if (amount &lt;= 0) throw new IllegalArgumentException("Withdrawal must be positive");
+        if (amount &gt; this.balance) throw new IllegalStateException("Insufficient funds");
+        this.balance -= amount;
+    }
+
+    public double getBalance() { return balance; } <span class="cmt">// Read-only view</span>
+}</code></pre>
+
+  <h2>4 · Access Modifiers Summary</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Modifier</th>
+        <th>Class</th>
+        <th>Package</th>
+        <th>Subclass</th>
+        <th>World</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>private</code></td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr>
+      <tr><td><code>default</code> (package-private)</td><td>Yes</td><td>Yes</td><td>No</td><td>No</td></tr>
+      <tr><td><code>protected</code></td><td>Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+      <tr><td><code>public</code></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do objects share behavior? Next: Inheritance vs Composition.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0048-estimation.html">← Previous: Estimation</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0050-inheritance.html">Next: Inheritance &amp; Composition →</a>
+  </div>
+</body>
+</html>

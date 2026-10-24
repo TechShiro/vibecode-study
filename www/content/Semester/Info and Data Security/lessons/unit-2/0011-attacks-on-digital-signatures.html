@@ -1,0 +1,277 @@
+<title>Attacks on Digital Signatures</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit II &middot; Lesson 11 of 14</p>
+<h1>Attacks on Digital Signatures</h1>
+<p class="deck">What the adversary is allowed to do, the four levels of success, and the specific attacks &mdash; existential forgery, the multiplicative property, blinding, birthday and replay &mdash; three of them worked with real numbers.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Asked as <strong>&ldquo;Explain the attacks on digital signatures&rdquo;</strong>, usually 5&ndash;10 marks. Answer in <strong>two lists, not one</strong>: first the <strong>attack types</strong> (what the attacker can obtain), then the <strong>forgery levels</strong> (what counts as a break). Then give <strong>two or three concrete attacks</strong> with their countermeasures. That structure is what separates a full-mark answer from a list of half-remembered names.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Attacks on Digital Signatures (Classification)</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=y35Xk-rUqiE" target="_blank">Attacks on Digital Signature &mdash; Lesson 86</a>
+    <span class="v-meta">Wisdomers / Learning Monkey &middot; 6:39</span>
+    <div class="v-why">Maps exactly to the syllabus list: Key-Only Attacks, Known-Message Attacks, Generic Chosen-Message, and Directed Chosen-Message Attacks.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Forgery Levels &amp; Multiplicative Attacks</span>
+      <span class="best-tag">Top Exam Theory</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=OPE8EkXP_AY" target="_blank">Attacks on Digital Signature: Forgery Levels &amp; Mathematical Vulnerabilities</a>
+    <span class="v-meta">Anitha Haridas &middot; 23:44</span>
+    <div class="v-why">In-depth mathematical breakdown of Total Break, Selective Forgery, and Existential Forgery, proving why unpadded textbook signatures succumb to homomorphic multiplication.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: ATTACK TAXONOMY -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Taxonomy: Adversary Capabilities and Forgery Severity</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+    <div class="flow-box warn" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--warn);">&bull; Total Break (Catastrophic)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Adversary recovers signer's private key $PR_A$ directly. Can forge valid signatures on arbitrary messages indefinitely.</span>
+    </div>
+    <div class="flow-box highlight" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--accent);">&bull; Selective Forgery</strong>
+      <span class="sub" style="margin-top:0.3rem;">Adversary creates a valid signature for a specific target message chosen before attack, without knowing private key.</span>
+    </div>
+    <div class="flow-box" style="min-width:auto; text-align:left; border-color:var(--rule);">
+      <strong style="color:var(--ink);">&bull; Existential Forgery</strong>
+      <span class="sub" style="margin-top:0.3rem;">Adversary generates at least one valid message-signature pair $(M, S)$, but has zero control over message contents.</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Part 1 &mdash; Attack types: what the attacker is given</h2>
+
+<p>These are ordered from weakest attacker to strongest. The scheme is judged by <strong>the strongest attack it survives</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack type</th><th>What the attacker has</th><th>Comment</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Key-only attack</strong></td><td>Only the signer&rsquo;s <strong>public key</strong>, which is published anyway</td><td>The weakest attacker. Any scheme broken here is worthless.</td></tr>
+<tr><td><strong>2. Known-message attack</strong></td><td>The public key plus <strong>a set of messages and their valid signatures</strong>, but the attacker did not choose them</td><td>Realistic &mdash; signed messages are often public</td></tr>
+<tr><td><strong>3. Generic chosen-message attack</strong></td><td>The attacker <strong>chooses a list of messages in advance</strong> and obtains signatures on all of them &mdash; chosen <em>before</em> seeing the signer&rsquo;s public key, so it is not aimed at a particular victim</td><td>Also called a <strong>directed</strong> attack when the list is chosen <em>after</em> seeing that user&rsquo;s public key</td></tr>
+<tr><td><strong>4. Adaptive chosen-message attack</strong></td><td>The attacker uses the signer as an <strong>oracle</strong>, choosing each new message <em>after</em> seeing the signatures on earlier ones</td><td><strong>The strongest attack.</strong> A scheme secure against this is the modern standard</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Part 2 &mdash; Forgery levels: what counts as success</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Level</th><th>Attacker achieves</th><th>Severity</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Total break</strong></td><td>Recovers the <strong>private key</strong> itself</td><td><strong>Catastrophic</strong> &mdash; the attacker becomes the signer permanently</td></tr>
+<tr><td><strong>2. Universal forgery</strong></td><td>Finds an <strong>algorithm equivalent to signing</strong> &mdash; can sign <em>any</em> message without holding the key</td><td>Nearly as bad as a total break</td></tr>
+<tr><td><strong>3. Selective forgery</strong></td><td>Forges a signature on <strong>a message of the attacker&rsquo;s choosing</strong></td><td>Serious &mdash; this is what forging a cheque or contract means</td></tr>
+<tr><td><strong>4. Existential forgery</strong></td><td>Forges a signature on <strong>at least one message</strong>, possibly meaningless, that the attacker does not control</td><td>The weakest break &mdash; but <strong>still a break</strong>, because the forged &ldquo;message&rdquo; may later prove useful</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The sentence that ties the two lists together</span>
+  <p><strong>A scheme is called secure if it resists existential forgery even under an adaptive chosen-message attack</strong> &mdash; the weakest kind of success against the strongest kind of attacker. Writing that one line shows the examiner you understand why there are two lists rather than one.</p>
+</div>
+
+<h2>Part 3 &mdash; The specific attacks</h2>
+
+<h3>Attack 1: existential forgery on textbook RSA</h3>
+
+<p>Raw RSA signing &mdash; <strong>signing the message directly instead of its hash</strong> &mdash; is existentially forgeable in one step: <strong>pick the signature first and derive the message from it.</strong></p>
+
+<div class="solve">
+  <span class="lbl">Numerical 1 &mdash; existential forgery</span>
+  <p><strong>Setup:</strong> p = 17, q = 11, so n = 187 and &phi;(n) = 160. Public key e = 7, private key d = 23 (7 &times; 23 = 161 = 160 + 1 &check;).</p>
+  <p><strong>The attack:</strong> Eve does not know d. She simply <strong>picks any value as the signature</strong>, say <strong>S = 9</strong>, and computes the message it happens to sign using only the <em>public</em> key:</p>
+  <p><strong>M = S<sup>e</sup> mod n = 9<sup>7</sup> mod 187 = 70</strong></p>
+  <p>She publishes the pair <strong>(M = 70, S = 9)</strong>. Anyone verifying computes 9<sup>7</sup> mod 187 = 70 = M, so <strong>the signature is valid</strong> &mdash; and Alice never signed anything.</p>
+  <p><em>Check:</em> Alice&rsquo;s genuine signature on 70 would be 70<sup>23</sup> mod 187 = 9. The same pair. The forgery is indistinguishable from the real thing.</p>
+  <p><strong>Why it is only existential:</strong> Eve cannot choose M &mdash; it fell out of her choice of S, and is almost certainly meaningless. <strong>The countermeasure is to hash first:</strong> she would need a message whose <em>digest</em> equals 70, which is a preimage attack on the hash.</p>
+</div>
+
+<h3>Attack 2: the multiplicative property of RSA</h3>
+
+<div class="formula">
+  <span class="name">The algebraic weakness</span>
+  <strong>sig(M<sub>1</sub>) &times; sig(M<sub>2</sub>) &equiv; sig(M<sub>1</sub> &times; M<sub>2</sub>) mod n</strong><br>
+  <span style="font-size:.85em">because (M<sub>1</sub><sup>d</sup>)(M<sub>2</sub><sup>d</sup>) = (M<sub>1</sub>M<sub>2</sub>)<sup>d</sup> &mdash; RSA is <em>homomorphic</em> under multiplication.</span>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2 &mdash; forging a signature from two known ones</span>
+  <p><strong>Same keys: n = 187, e = 7, d = 23.</strong> Eve has seen Alice sign two harmless messages:</p>
+  <p><strong>sig(3) = 3<sup>23</sup> mod 187 = 181</strong> &nbsp;&nbsp;and&nbsp;&nbsp; <strong>sig(5) = 5<sup>23</sup> mod 187 = 180</strong></p>
+  <p>Eve multiplies the two signatures: <strong>181 &times; 180 = 32580 &equiv; 42 mod 187</strong> &nbsp;(187 &times; 174 = 32538; 32580 &minus; 32538 = 42).</p>
+  <p>She claims 42 is Alice&rsquo;s signature on <strong>M = 3 &times; 5 = 15</strong>. Verify: <strong>42<sup>7</sup> mod 187 = 15</strong> &check;, and Alice&rsquo;s genuine signature 15<sup>23</sup> mod 187 is indeed <strong>42</strong>.</p>
+  <p><strong>Eve has forged a signature on a message Alice never saw</strong>, using only two signatures and a multiplication. <strong>Countermeasure: hash before signing</strong> &mdash; H(M<sub>1</sub>) &times; H(M<sub>2</sub>) is not the hash of anything in particular, so the algebra collapses. Modern RSA also adds structured padding (<strong>PSS</strong>).</p>
+</div>
+
+<h3>Attack 3: the blinding attack (chosen-message)</h3>
+
+<p>Eve wants Alice&rsquo;s signature on a message M that Alice would refuse to sign. She <strong>disguises it</strong>, gets the disguise signed, and removes the disguise.</p>
+
+<div class="solve">
+  <span class="lbl">Numerical 3 &mdash; blinding, worked</span>
+  <p><strong>Same keys: n = 187, e = 7, d = 23. Target message M = 88.</strong></p>
+  <p><strong>Step 1 &mdash; blind it.</strong> Eve picks a random r = 2 and computes<br>
+  <strong>M&prime; = r<sup>e</sup> &times; M mod n = 2<sup>7</sup> &times; 88 = 128 &times; 88 = 11264 &equiv; 44 mod 187</strong></p>
+  <p><strong>Step 2 &mdash; get it signed.</strong> M&prime; = 44 looks like random junk, so Alice signs it:<br>
+  <strong>S&prime; = 44<sup>23</sup> mod 187 = 22</strong></p>
+  <p><strong>Step 3 &mdash; unblind.</strong> Eve computes r<sup>&minus;1</sup> mod 187 = <strong>94</strong> (2 &times; 94 = 188 &equiv; 1 &check;) and multiplies:<br>
+  <strong>S = S&prime; &times; r<sup>&minus;1</sup> = 22 &times; 94 = 2068 &equiv; 11 mod 187</strong></p>
+  <p><strong>Result: S = 11, which is exactly Alice&rsquo;s genuine signature on 88</strong> (88<sup>23</sup> mod 187 = 11). Verify: 11<sup>7</sup> mod 187 = 88 &check;</p>
+  <p><em>Why it works:</em> S&prime; = (r<sup>e</sup>M)<sup>d</sup> = r<sup>ed</sup>M<sup>d</sup> = r &middot; M<sup>d</sup>, so dividing by r leaves M<sup>d</sup>. <strong>Countermeasures: never sign random-looking data supplied by others, and always hash and pad the message first.</strong> (Note that the same trick, used deliberately, is what makes <strong>blind signatures</strong> possible in e-cash and e-voting &mdash; Lesson 14.)</p>
+</div>
+
+<h3>Attack 4: the birthday attack on the hash</h3>
+
+<p>Signature security is <strong>capped by the hash</strong>. Eve prepares two versions of a contract &mdash; one harmless, one fraudulent &mdash; and varies spacing, synonyms or invisible characters until <strong>both have the same digest</strong>. This costs only <strong>2<sup>n/2</sup></strong> work for an n-bit digest, by the birthday paradox of Unit I. Alice signs the harmless one; the signature verifies equally on the fraudulent one. <strong>Alice&rsquo;s key was never broken &mdash; only her hash function.</strong> Countermeasure: a collision-resistant hash of at least 256 bits, and never signing a document supplied wholesale by the other party.</p>
+
+<h3>Attack 5: replay</h3>
+
+<p>The signature on a genuine message stays valid for ever, so a captured &ldquo;transfer &#8377;10,000&rdquo; message can be <strong>re-sent unchanged</strong> and will verify every time. Nothing about it is forged. <strong>Countermeasures: timestamps, nonces or sequence numbers inside the signed data</strong>, plus an expiry on the signature.</p>
+
+<h3>Attack 6: key compromise and repudiation</h3>
+
+<p>Two related problems from Lesson 10. A <strong>stolen private key</strong> allows unlimited backdated forgeries; a dishonest signer can <strong>falsely claim theft</strong> to repudiate a genuine signature. <strong>Countermeasures: trusted timestamping, immediate revocation through a CRL or OCSP, and a certificate authority that fixes validity periods.</strong></p>
+
+<h3>Attack 7: nonce reuse in DSS-type schemes</h3>
+
+<p>Named here and worked in Lesson 13: in ElGamal, DSA and ECDSA the random <strong>k must be fresh and secret for every signature</strong>. Reuse across two messages lets an attacker solve two linear equations for k and then for the <strong>private key</strong> &mdash; a <strong>total break</strong>, the worst level of forgery. This is not theoretical: it is how the PlayStation 3 code-signing key was recovered in 2010.</p>
+
+<h2>Countermeasures, collected</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack</th><th>Countermeasure</th></tr></thead>
+<tbody>
+<tr><td>Existential forgery, multiplicative property, blinding</td><td><strong>Hash the message before signing</strong>; use structured padding (RSA-PSS)</td></tr>
+<tr><td>Birthday attack</td><td><strong>Collision-resistant hash of 256 bits or more</strong> (SHA-256/512); do not sign text you did not compose</td></tr>
+<tr><td>Replay</td><td><strong>Timestamps, nonces or sequence numbers</strong> inside the signed data</td></tr>
+<tr><td>Key compromise / false repudiation</td><td><strong>Certificates, trusted timestamping, revocation lists, arbitrated signatures</strong></td></tr>
+<tr><td>Nonce reuse</td><td><strong>A cryptographically random, never-repeated k</strong> per signature (or deterministic RFC 6979 nonces)</td></tr>
+<tr><td>All of the above</td><td>Use a <strong>standardised scheme</strong> &mdash; RSA-PSS, DSA, ECDSA &mdash; never a hand-rolled one</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In an adaptive chosen-message attack, the adversary:</p>
+  <div class="opts">
+    <button class="opt">Collects signed messages that happen to be public but chooses none</button>
+    <button class="opt">Recovers the private key directly from the published certificate</button>
+    <button class="opt" data-ok="1">Chooses each new message to be signed after seeing the signatures on earlier ones</button>
+    <button class="opt">Holds only the signer's public key and no signed messages at all</button>
+  </div>
+  <p class="why">This is the strongest attack model, and modern schemes are designed to resist even existential forgery under it. The last option describes a total break, which is a forgery level, not an attack type.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Existential forgery means the attacker:</p>
+  <div class="opts">
+    <button class="opt">Produces a valid signature on any message of their own choosing</button>
+    <button class="opt">Finds an algorithm that is functionally equivalent to the signing algorithm</button>
+    <button class="opt" data-ok="1">Produces a valid signature on at least one message, which they do not get to choose</button>
+    <button class="opt">Recovers the signer's private key and can then sign at will</button>
+  </div>
+  <p class="why">The other three are selective forgery, total break and universal forgery. Existential forgery is the weakest success — but still counts as breaking the scheme.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. With n = 187, e = 7 and d = 23, if sig(3) = 181 and sig(5) = 180, then 181 × 180 mod 187 = 42 is a valid signature on:</p>
+  <div class="opts">
+    <button class="opt">361, the product of the two signature values before reduction</button>
+    <button class="opt">8, because the exponents of the two messages are added together</button>
+    <button class="opt">No message at all — the product of two signatures is never valid</button>
+    <button class="opt" data-ok="1">15, because RSA signatures are multiplicative: sig(M₁)·sig(M₂) = sig(M₁M₂)</button>
+  </div>
+  <p class="why">(3^d)(5^d) = 15^d mod n. Verify: 42⁷ mod 187 = 15. Hashing before signing is what destroys this algebra.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In the blinding attack, Eve multiplies the target message by rᵉ before submitting it because:</p>
+  <div class="opts">
+    <button class="opt">It prevents the signer from computing the digest of the message</button>
+    <button class="opt">It reverses the exponent so the signer effectively encrypts rather than signs</button>
+    <button class="opt" data-ok="1">Signing the blinded value yields r·Mᵈ, so dividing by r leaves the genuine signature</button>
+    <button class="opt">It makes the blinded message shorter than the RSA modulus n</button>
+  </div>
+  <p class="why">(rᵉM)ᵈ = r^{ed}Mᵈ = r·Mᵈ, since ed ≡ 1 mod φ(n). Multiplying by r⁻¹ then strips the blind — as the worked example shows, recovering S = 11 for M = 88.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A birthday attack against a signature scheme succeeds by:</p>
+  <div class="opts">
+    <button class="opt">Guessing the random value k used during the signing operation</button>
+    <button class="opt">Replaying an old signed message so that it verifies a second time</button>
+    <button class="opt" data-ok="1">Finding two documents with the same digest, one harmless and one fraudulent</button>
+    <button class="opt">Recovering the private key from a large collection of valid signatures</button>
+  </div>
+  <p class="why">It attacks the hash, not the key: 2^(n/2) work by the birthday paradox. The victim signs one document and the signature is equally valid on the other.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A replayed signed message verifies correctly because:</p>
+  <div class="opts">
+    <button class="opt">The verifier uses the wrong public key on the second occasion</button>
+    <button class="opt">The hash of a repeated message differs from the original hash</button>
+    <button class="opt">Signature values expire and default to valid once expired</button>
+    <button class="opt" data-ok="1">Nothing about it is forged — it was genuine when first sent</button>
+  </div>
+  <p class="why">Freshness is a separate property from authenticity. Timestamps, nonces or sequence numbers inside the signed data are what defeat replay.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the four attack types on digital signatures.</summary>
+    <p class="ans">Key-only, where the attacker has only the public key; known-message, where they also hold message–signature pairs they did not choose; chosen-message, generic or directed, where they choose the list of messages to be signed in advance; and adaptive chosen-message, where each new message is chosen after seeing the previous signatures. The last is the strongest.</p></details>
+  <details class="card"><summary>Name the four levels of forgery.</summary>
+    <p class="ans">Total break — the private key is recovered. Universal forgery — an algorithm equivalent to signing is found. Selective forgery — a signature is forged on a message the attacker chooses. Existential forgery — a signature is forged on at least one message, possibly meaningless. A scheme is secure if it resists existential forgery under an adaptive chosen-message attack.</p></details>
+  <details class="card"><summary>Explain existential forgery against textbook RSA.</summary>
+    <p class="ans">The attacker picks any value S as the signature and computes M = Sᵉ mod n using only the public key. The pair (M, S) verifies correctly although the owner never signed. With n = 187 and e = 7, choosing S = 9 gives M = 70. It is only existential because M cannot be chosen, and hashing before signing defeats it.</p></details>
+  <details class="card"><summary>State RSA's multiplicative property and its consequence.</summary>
+    <p class="ans">sig(M₁)·sig(M₂) ≡ sig(M₁M₂) mod n, because (M₁ᵈ)(M₂ᵈ) = (M₁M₂)ᵈ. An attacker who has seen signatures on two messages can forge one on their product — with n = 187, sig(3) = 181 and sig(5) = 180 give 181 × 180 ≡ 42 = sig(15). Hashing and PSS padding remove the algebraic structure.</p></details>
+  <details class="card"><summary>Describe the blinding attack.</summary>
+    <p class="ans">Eve blinds a target message M as M′ = rᵉM mod n for a random r, has the signer sign the innocuous-looking M′ to get S′ = r·Mᵈ, then unblinds with S = S′·r⁻¹ = Mᵈ. With n = 187, e = 7, M = 88 and r = 2: M′ = 44, S′ = 22, r⁻¹ = 94, and S = 11, the genuine signature. Never sign random-looking data supplied by others; hash and pad first.</p></details>
+  <details class="card"><summary>Explain the birthday attack and the replay attack on signatures.</summary>
+    <p class="ans">Birthday: the attacker produces two documents with the same digest — one harmless, one fraudulent — at a cost of only 2^(n/2), gets the harmless one signed, and reuses the signature on the other; countered by a 256-bit or larger collision-resistant hash. Replay: a genuine signed message is captured and re-sent, verifying every time because nothing is forged; countered by timestamps, nonces or sequence numbers within the signed data.</p></details>
+  <details class="card"><summary>List the main countermeasures.</summary>
+    <p class="ans">Hash before signing and use structured padding such as RSA-PSS; use a collision-resistant hash of at least 256 bits; include timestamps or nonces to stop replay; use certificates, trusted timestamping and revocation to handle key compromise and false repudiation; never reuse the random k; and use standardised schemes rather than hand-built ones.</p></details>
+</div>
+
+<p class="ask">Next: the schemes themselves &mdash; RSA and ElGamal signatures, both worked end to end with numbers.</p>
+
+<div class="nav">
+  <a href="0010-digital-signature.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0012-rsa-and-elgamal-signatures.html">Next: RSA and ElGamal Signatures &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,197 @@
+<title>I/O Hardware and Interfaces</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit V &middot; Lesson 24 of 27</p>
+<h1>I/O Hardware and Interfaces</h1>
+<p class="deck">I/O devices, device controllers, memory-mapped vs port-mapped I/O, polling (busy-waiting), interrupt-driven I/O, and Direct Memory Access (DMA) with cycle stealing.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Compare Polling, Interrupts, and Direct Memory Access (DMA) for I/O operations&rdquo;</strong> is a guaranteed 7-to-10 mark question. Always draw the DMA architecture diagram and contrast cycle stealing with burst mode.</p>
+</div>
+
+<h2>I/O Hardware Structure</h2>
+<p>The computer interacts with peripheral hardware via three components: physical devices, electronic <strong>device controllers</strong>, and system buses (PCIe, USB, SATA).</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Device Category</th><th>Characteristics</th><th>Examples</th><th>Access unit</th></tr></thead>
+<tbody>
+<tr><td><strong>Block Devices</strong></td><td>Random access; data transferred in fixed-size blocks (typically 512B or 4KB). Seekable.</td><td>HDDs, SSDs, optical discs</td><td>Blocks / sectors</td></tr>
+<tr><td><strong>Character-Stream Devices</strong></td><td>Sequential stream of linear bytes; non-seekable.</td><td>Keyboards, mice, serial ports</td><td>Single bytes</td></tr>
+<tr><td><strong>Network Devices</strong></td><td>Packet-oriented stream; addressed via network sockets.</td><td>Ethernet, Wi-Fi adapters</td><td>Packets / frames</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Device Controller Registers</h3>
+<p>The CPU communicates with a device controller through four hardware registers:</p>
+<ol>
+  <li><strong>Data-in register:</strong> Read by the CPU to receive input data from the device.</li>
+  <li><strong>Data-out register:</strong> Written by the CPU to transmit output data to the device.</li>
+  <li><strong>Status register:</strong> Read by the CPU; contains bit flags (e.g. <code>busy</code>, <code>data-ready</code>, <code>error</code>).</li>
+  <li><strong>Control register:</strong> Written by the CPU to command the controller (e.g. start read, enable interrupts).</li>
+</ol>
+
+<h2>Memory-Mapped I/O vs Port-Mapped I/O</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Port-Mapped (Isolated) I/O</th><th>Memory-Mapped I/O</th></tr></thead>
+<tbody>
+<tr><td><strong>Address Space</strong></td><td>Separate dedicated I/O address space (e.g. 0 to 65,535).</td><td>Device registers share the standard physical RAM address space.</td></tr>
+<tr><td><strong>CPU Instructions</strong></td><td>Requires special assembly instructions (e.g., x86 <code>IN</code> and <code>OUT</code>).</td><td>Standard memory instructions (<code>MOV</code>, <code>LOAD</code>, <code>STORE</code>).</td></tr>
+<tr><td><strong>Hardware Decoding</strong></td><td>Requires distinct CPU control lines for memory vs I/O selection.</td><td>Same bus lines used for memory and I/O register access.</td></tr>
+<tr><td><strong>Memory Protection</strong></td><td>Requires CPU I/O privilege level checks.</td><td>Protected naturally via standard OS page table permissions.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The Three I/O Transfer Techniques</h2>
+
+<div class="solve">
+  <span class="lbl">1. Polling (Programmed I/O / Busy-Waiting)</span>
+  <p>The CPU repeatedly loops reading the controller's status register until the <code>busy</code> bit clears and the <code>data-ready</code> bit is set:</p>
+  <pre class="mono">while (controller->status & BUSY) {
+    /* Busy-wait / spin loop */
+}
+*buffer++ = controller->data_in;</pre>
+  <ul>
+    <li><strong>Advantage:</strong> Very simple; minimal latency if the hardware device is extremely fast (e.g. sub-microsecond cache controller).</li>
+    <li><strong>Disadvantage:</strong> Completely wastes CPU clock cycles in a spin-wait if the device is slow (e.g., waiting for human typing or mechanical disk rotation).</li>
+  </ul>
+</div>
+
+<div class="solve">
+  <span class="lbl">2. Interrupt-Driven I/O</span>
+  <p>The CPU commands the controller to initiate an operation, then immediately switches context to execute other user processes. When the controller finishes, it asserts an electrical <strong>Interrupt Request (INTR)</strong> line on the bus.</p>
+  <ul>
+    <li>The CPU finishes its current clock cycle instruction, saves process registers, and queries the <strong>Interrupt Vector Table (IVT)</strong> to find the address of the corresponding <strong>Interrupt Service Routine (ISR)</strong>.</li>
+    <li>The ISR transfers the data, clears the interrupt flag, and returns via <code>IRET</code>.</li>
+    <li><strong>Maskable vs Non-Maskable:</strong> Maskable interrupts can be temporarily deferred by the CPU during critical code sections; Non-Maskable Interrupts (NMI) handle unrecoverable hardware faults (memory parity failure).</li>
+    <li><strong>Disadvantage:</strong> Inefficient for high-speed devices; interrupting the CPU for every single byte/word of a 100MB file transfer causes crippling context-switch overhead.</li>
+  </ul>
+</div>
+
+<div class="solve">
+  <span class="lbl">3. Direct Memory Access (DMA)</span>
+  <p>For high-speed block devices (disks, Gigabit NICs), the CPU delegates the entire data movement to a specialized hardware co-processor: the <strong>DMA Controller (DMAC)</strong>.</p>
+  <pre class="mono">Step 1: CPU writes to DMAC registers:
+        - Source address (Device port)
+        - Destination address (Memory buffer)
+        - Byte count (e.g. 4096 bytes)
+        - Control command (Read/Write)
+Step 2: CPU resumes running user processes.
+Step 3: DMAC manages bus requests and transfers the entire block 
+        directly between device and RAM without CPU intervention.
+Step 4: Once all bytes are moved, DMAC raises a SINGLE interrupt to the CPU.</pre>
+
+  <p><strong>DMA Bus Arbitration Modes:</strong></p>
+  <ul>
+    <li><strong>Burst Mode (Block Transfer):</strong> The DMAC seizes total control of the system bus and transfers the entire data block in one contiguous burst. Fast for I/O, but CPU is locked out of RAM during the burst.</li>
+    <li><strong>Cycle Stealing:</strong> The DMAC &ldquo;steals&rdquo; single bus clock cycles from the CPU when the CPU is executing internal arithmetic (ALU) operations not requiring the system bus. Minimizes CPU interference.</li>
+  </ul>
+</div>
+
+<h2>Master Comparison: Polling vs Interrupts vs DMA</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Polling (Busy-Waiting)</th><th>Interrupt-Driven I/O</th><th>Direct Memory Access (DMA)</th></tr></thead>
+<tbody>
+<tr><td><strong>CPU Involvement</strong></td><td>Continuous (100% busy-wait during transfer)</td><td>Per byte or word transferred</td><td>Only at initiation and completion of entire block</td></tr>
+<tr><td><strong>Data Transfer By</strong></td><td>CPU instructions</td><td>CPU executing ISR</td><td>DMA Controller hardware</td></tr>
+<tr><td><strong>Best Suited For</strong></td><td>Extremely fast, predictable devices</td><td>Low-bandwidth, sporadic devices (keyboard, mouse)</td></tr>
+<tr><td>High-bandwidth block devices (disk, NIC, audio)</td></tr>
+<tr><td><strong>Hardware Complexity</strong></td><td>None (pure software)</td><td>Interrupt controller (APIC)</td><td>Dedicated DMA controller &amp; bus arbiter</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Direct Memory Access (DMA) Controller Cycle Stealing Engine</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>1. CPU Programmed DMA Initialization: Passes [Memory Address, Byte Count, Control Bit]</strong>
+    </div>
+    <div class="flow-arrow-down">&darr; CPU releases bus</div>
+    <div class="flow-row">
+      <div class="flow-box ok"><strong>2. DMA Controller (DMAC)</strong><span class="sub">Transfers entire data block directly between device & RAM via System Bus</span></div>
+      <div class="flow-arrow-right">&rarr; Cycle Stealing &rarr;</div>
+      <div class="flow-box"><strong>3. System Memory (RAM)</strong><span class="sub">Direct block written without wasting CPU cycles!</span></div>
+    </div>
+    <div class="flow-arrow-down">&darr; When Byte Count reaches 0</div>
+    <div class="flow-box warn" style="max-width:32rem;"><strong>4. DMAC sends Interrupt to CPU: Data Transfer Complete!</strong></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">DMA & I/O Hardware</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Direct Memory Access (DMA) Controller & Cycle Stealing Modes</div>
+    <div class="v-desc">Clear comparison of programmed I/O polling, interrupt-driven I/O, and DMA bus arbitration (burst mode vs cycle stealing).</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=qhbgkyi_fbw" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Why is interrupt-driven I/O inefficient for moving large files from an SSD to RAM?</p>
+  <div class="opts">
+    <button class="opt">Interrupts erase cache memory on every invocation</button>
+    <button class="opt">SSDs cannot generate electrical bus signals</button>
+    <button class="opt">Interrupt lines do not work on solid state drives</button>
+    <button class="opt" data-ok="1">The CPU would suffer massive context-switch overhead interrupting for every single byte or word</button>
+  </div>
+  <p class="why">Handling millions of interrupts per second causes unacceptable ISR context-switching penalties, making DMA essential.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In Direct Memory Access (DMA), what is 'cycle stealing'?</p>
+  <div class="opts">
+    <button class="opt">The CPU halts all background processes permanently</button>
+    <button class="opt" data-ok="1">The DMAC transfers a byte over the system bus when the CPU is not accessing memory</button>
+    <button class="opt">The operating system crashes and reboots</button>
+    <button class="opt">The device driver steals clock cycles from the GPU</button>
+  </div>
+  <p class="why">Cycle stealing interleaves bus access between the CPU and DMAC without blocking the CPU for long contiguous periods.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In Memory-Mapped I/O, how does the CPU communicate with device registers?</p>
+  <div class="opts">
+    <button class="opt">By rebooting into BIOS</button>
+    <button class="opt">Using network HTTP requests</button>
+    <button class="opt">Using special dedicated IN and OUT instructions</button>
+    <button class="opt" data-ok="1">Using regular memory instructions (like MOV or LOAD) targeted at mapped physical RAM addresses</button>
+  </div>
+  <p class="why">Device registers appear as normal memory addresses, accessible with standard load/store CPU instructions.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Name the four registers of an I/O device controller.</summary>
+    <p class="ans">Data-in (receive), Data-out (transmit), Status (busy/ready flags), Control (command execution).</p></details>
+  <details class="card"><summary>Memory-mapped vs Port-mapped I/O.</summary>
+    <p class="ans">Memory-mapped: device registers share RAM address space, use standard MOV instructions. Port-mapped: separate I/O space, requires special IN/OUT instructions.</p></details>
+  <details class="card"><summary>Contrast DMA burst mode and cycle stealing.</summary>
+    <p class="ans">Burst mode: DMAC locks the bus for the entire block transfer. Cycle stealing: DMAC takes individual bus cycles when the CPU is busy with internal ALU operations.</p></details>
+</div>
+
+<div class="nav">
+  <a href="../unit-4/0023-disk-scheduling.html">&larr; Previous: Disk Scheduling &amp; RAID</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0025-kernel-io-subsystem.html">Next: Kernel I/O Subsystem &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

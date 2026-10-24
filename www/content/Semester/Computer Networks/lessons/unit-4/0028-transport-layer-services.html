@@ -1,0 +1,264 @@
+<title>Transport Layer Services</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit IV &middot; Lesson 28 of 42</p>
+<h1>Transport Layer: Introduction and Services</h1>
+<p class="deck">Process-to-process delivery, port numbers and socket addresses, multiplexing and demultiplexing, and the connectionless/connection-oriented split. The framing lesson for Unit&nbsp;IV.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Asked as <strong>"Explain the services of the transport layer"</strong> &mdash; 5 marks. Lead with the <strong>three deliveries</strong> line (hop-to-hop, host-to-host, process-to-process); it frames everything and takes one sentence. Then <strong>port addressing</strong>, <strong>multiplexing/demultiplexing</strong>, segmentation and reassembly, connection control, flow control, error control. The <strong>well-known port numbers</strong> are a separate one-mark question &mdash; learn the eight that matter.</p>
+</div>
+
+<h2>What the transport layer is for</h2>
+
+<div class="formula">
+  <span class="name">The three deliveries &mdash; write this first</span>
+  <strong>Data link layer</strong> &rarr; hop to hop &nbsp;(node to adjacent node, using MAC addresses)<br>
+  <strong>Network layer</strong> &rarr; host to host &nbsp;(source to destination, using IP addresses)<br>
+  <strong>Transport layer</strong> &rarr; <strong>process to process</strong> &nbsp;(using <strong>port numbers</strong>)
+</div>
+
+<p>The network layer gets a packet to the right <em>computer</em>. But a computer runs many processes at once &mdash; a browser, a mail client, a game. <strong>The transport layer's defining job is getting the data to the right <em>process</em> on that computer</strong>, and getting the whole message there, in order and intact.</p>
+
+<div class="box win">
+  <span class="lbl">The analogy examiners recognise</span>
+  <p><strong>The IP address is the street address of a building; the port number is the flat number inside it.</strong> The postal service (IP) gets the letter to the building; the port number decides which door it goes under.</p>
+</div>
+
+<h2>Port numbers and socket addresses</h2>
+
+<div class="formula">
+  <span class="name">Addressing at the transport layer</span>
+  <strong>Port number</strong> = 16 bits &nbsp;&rarr;&nbsp; range <strong>0 to 65,535</strong><br>
+  <strong>Socket address</strong> = IP address + port number &nbsp;(e.g. <code>200.23.56.8 : 69</code>)<br>
+  A connection is identified by the <strong>pair</strong> of socket addresses, one at each end.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Range</th><th>Name</th><th>Assigned by</th><th>Used for</th></tr></thead>
+<tbody>
+<tr><td><strong>0 &ndash; 1023</strong></td><td><strong>Well-known ports</strong></td><td>IANA</td><td>Standard server processes</td></tr>
+<tr><td><strong>1024 &ndash; 49151</strong></td><td><strong>Registered ports</strong></td><td>Registered with IANA, not assigned</td><td>Vendor applications</td></tr>
+<tr><td><strong>49152 &ndash; 65535</strong></td><td><strong>Dynamic / ephemeral ports</strong></td><td>Chosen at random by the client</td><td>The <strong>client side</strong> of a connection</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The asymmetry worth stating:</strong> the <strong>server's port must be well known</strong>, because the client has to know where to send its first packet. The <strong>client's port is ephemeral</strong> &mdash; chosen at random for that one connection and released afterwards &mdash; because the server learns it from the arriving packet.</p>
+
+<h3>The well-known ports to memorise</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Port</th><th>Protocol</th><th>Transport</th></tr></thead>
+<tbody>
+<tr><td class="num"><strong>20, 21</strong></td><td><strong>FTP</strong> &mdash; 20 data, 21 control</td><td>TCP</td></tr>
+<tr><td class="num"><strong>22</strong></td><td>SSH</td><td>TCP</td></tr>
+<tr><td class="num"><strong>23</strong></td><td>TELNET</td><td>TCP</td></tr>
+<tr><td class="num"><strong>25</strong></td><td><strong>SMTP</strong></td><td>TCP</td></tr>
+<tr><td class="num"><strong>53</strong></td><td><strong>DNS</strong></td><td><strong>UDP</strong> (and TCP for zone transfers)</td></tr>
+<tr><td class="num"><strong>67, 68</strong></td><td><strong>DHCP</strong> &mdash; 67 server, 68 client</td><td>UDP</td></tr>
+<tr><td class="num"><strong>69</strong></td><td>TFTP</td><td>UDP</td></tr>
+<tr><td class="num"><strong>80</strong></td><td><strong>HTTP</strong></td><td>TCP</td></tr>
+<tr><td class="num"><strong>110</strong></td><td>POP3</td><td>TCP</td></tr>
+<tr><td class="num"><strong>143</strong></td><td>IMAP4</td><td>TCP</td></tr>
+<tr><td class="num"><strong>161</strong></td><td>SNMP</td><td>UDP</td></tr>
+<tr><td class="num"><strong>443</strong></td><td><strong>HTTPS</strong></td><td>TCP</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Multiplexing and demultiplexing</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Multiplexing</th><th>Demultiplexing</th></tr></thead>
+<tbody>
+<tr><td><strong>Where</strong></td><td>At the <strong>sender</strong></td><td>At the <strong>receiver</strong></td></tr>
+<tr><td><strong>What happens</strong></td><td>Several processes hand data to the transport layer; it accepts messages from all of them, adds a header with the source port, and passes them <strong>down to one network layer</strong>.</td><td>The transport layer receives segments from the one network layer, reads each <strong>destination port</strong>, and delivers each to the <strong>correct process</strong>.</td></tr>
+<tr><td><strong>Direction</strong></td><td>Many to one</td><td>One to many</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>This is why a single IP connection can carry a browser, a download and a video call at once: <strong>one network-layer channel, many processes, separated by port number</strong>.</p>
+
+<h2>Connectionless vs connection-oriented service</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Connectionless (UDP)</th><th>Connection-oriented (TCP)</th></tr></thead>
+<tbody>
+<tr><td><strong>Setup</strong></td><td>None &mdash; send immediately</td><td>A <strong>connection is established first</strong> (three-way handshake)</td></tr>
+<tr><td><strong>Packets</strong></td><td>Each is independent; no relationship between them</td><td>Numbered and tracked as one stream</td></tr>
+<tr><td><strong>Order</strong></td><td>Not guaranteed</td><td><strong>Guaranteed in order</strong></td></tr>
+<tr><td><strong>Reliability</strong></td><td>None &mdash; no acknowledgement, no retransmission</td><td><strong>Reliable</strong> &mdash; acknowledged and retransmitted</td></tr>
+<tr><td><strong>Flow / congestion control</strong></td><td>None</td><td>Both</td></tr>
+<tr><td><strong>Overhead</strong></td><td><strong>Low</strong> &mdash; 8-byte header</td><td>High &mdash; 20 to 60-byte header, plus setup and teardown</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Fast</strong></td><td>Slower</td></tr>
+<tr><td><strong>Teardown</strong></td><td>None</td><td>Explicit connection release</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The services in full</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Service</th><th>What it means</th><th>UDP</th><th>TCP</th></tr></thead>
+<tbody>
+<tr><td><strong>Process-to-process delivery</strong></td><td>Port addressing, so data reaches the right process</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><strong>Multiplexing / demultiplexing</strong></td><td>Many processes over one network channel</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><strong>Segmentation and reassembly</strong></td><td>Break the message into segments with <strong>sequence numbers</strong>; reassemble in order at the far end</td><td>&mdash;</td><td>&#10003;</td></tr>
+<tr><td><strong>Connection control</strong></td><td>Establish, maintain and release a connection</td><td>&mdash;</td><td>&#10003;</td></tr>
+<tr><td><strong>Flow control</strong></td><td><strong>End to end</strong> &mdash; stop a fast sender overwhelming a slow receiver</td><td>&mdash;</td><td>&#10003;</td></tr>
+<tr><td><strong>Error control</strong></td><td><strong>End to end</strong> &mdash; checksum, acknowledgement, retransmission</td><td>Detection only (optional checksum)</td><td>&#10003; full</td></tr>
+<tr><td><strong>Congestion control</strong></td><td>Stop the sender overwhelming the <em>network</em></td><td>&mdash;</td><td>&#10003;</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Flow control vs congestion control &mdash; the distinction that separates answers</span>
+  <p><strong>Flow control protects the <em>receiver</em>. Congestion control protects the <em>network</em>.</strong> Flow control is driven by the receiver's advertised window (rwnd); congestion control is driven by the sender's own estimate of network load (cwnd). Both limit how much the sender may transmit, and TCP obeys whichever is smaller. Say both sentences &mdash; most answers conflate the two.</p>
+</div>
+
+<h2>The three transport protocols</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>UDP</th><th>TCP</th><th>SCTP</th></tr></thead>
+<tbody>
+<tr><td><strong>Full form</strong></td><td>User Datagram Protocol</td><td>Transmission Control Protocol</td><td>Stream Control Transmission Protocol</td></tr>
+<tr><td><strong>Service</strong></td><td>Connectionless, unreliable</td><td>Connection-oriented, reliable</td><td>Connection-oriented, reliable</td></tr>
+<tr><td><strong>Header</strong></td><td>8 bytes, fixed</td><td>20&ndash;60 bytes</td><td>12 bytes + chunks</td></tr>
+<tr><td><strong>Data unit</strong></td><td>User datagram</td><td>Segment</td><td>Packet (of chunks)</td></tr>
+<tr><td><strong>Distinctive feature</strong></td><td><strong>Minimal &mdash; speed over safety</strong></td><td><strong>Byte-stream, fully reliable</strong></td><td><strong>Multi-homing and multi-streaming</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Transport Layer Port Addressing & Multiplexing Architecture</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box"><strong>Application Processes</strong><span class="sub">HTTP (Port 80) &bull; DNS (Port 53) &bull; SSH (Port 22)</span></div>
+      <div class="flow-arrow-down">&darr; Multiplexing</div>
+      <div class="flow-box highlight"><strong>Socket Address</strong><span class="sub">IP Address + 16-bit Port Number (e.g., 192.168.1.10:80)</span></div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Transport Layer Protocol</strong><span class="sub">Process-to-Process end-to-end reliability (TCP/UDP)</span></div>
+      <div class="flow-arrow-down">&darr; Demultiplexing</div>
+      <div class="flow-box"><strong>Delivery to Destination Port</strong><span class="sub">Directs incoming segment to exact process socket buffer</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Transport Layer Services</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-67 & Lec-68: Responsibilities of Transport Layer & Socket Addressing</div>
+    <div class="v-desc">Clear explanation of why port addresses are required alongside IP addresses, well-known port ranges (0-1023), and process multiplexing.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=kAty4mKczEg" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. A socket address consists of:</p>
+  <div class="opts">
+    <button class="opt">An IP address combined with a sequence number</button>
+    <button class="opt">A source port combined with a destination port</button>
+    <button class="opt">A MAC address combined with a port number</button>
+    <button class="opt" data-ok="1">An IP address combined with a port number</button>
+  </div>
+  <p class="why">IP address + port number identifies one process on one host. A connection is then identified by the <em>pair</em> of socket addresses — which is how a server can hold thousands of connections on the same port 80.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A client's source port number is typically:</p>
+  <div class="opts">
+    <button class="opt">Identical to the server's destination port number</button>
+    <button class="opt" data-ok="1">Ephemeral &mdash; chosen at random from 49152 upward</button>
+    <button class="opt">Well known &mdash; assigned by IANA below 1024</button>
+    <button class="opt">Fixed permanently for that client machine</button>
+  </div>
+  <p class="why">The server needs a well-known port because the client must know where to send the first packet. The client does not, because the server learns its port from the arriving segment — so it takes a random ephemeral one and releases it afterwards.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Demultiplexing at the receiver uses which field to decide the destination process?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The destination port number in the transport header</button>
+    <button class="opt">The sequence number carried in each segment</button>
+    <button class="opt">The destination MAC address in the frame header</button>
+    <button class="opt">The destination IP address in the network header</button>
+  </div>
+  <p class="why">The IP address already got the segment to the right machine; the port number is what picks the process. That is exactly why one host can run a browser, a download and a call over one IP connection at the same time.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Flow control and congestion control differ in that:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Flow control protects the receiver; congestion control protects the network</button>
+    <button class="opt">Flow control protects the network; congestion control protects the receiver</button>
+    <button class="opt">Flow control is end to end; congestion control is hop by hop</button>
+    <button class="opt">Flow control applies to UDP; congestion control applies to TCP</button>
+  </div>
+  <p class="why">Flow control is driven by the receiver's advertised window (rwnd), congestion control by the sender's estimate of network load (cwnd), and TCP obeys whichever is smaller. Neither applies to UDP at all.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Which port pair belongs to DHCP?</p>
+  <div class="opts">
+    <button class="opt">20 and 21</button>
+    <button class="opt">80 and 443</button>
+    <button class="opt">110 and 143</button>
+    <button class="opt" data-ok="1">67 and 68</button>
+  </div>
+  <p class="why">DHCP uses 67 (server) and 68 (client) over UDP. 20/21 is FTP data and control, 110/143 are POP3 and IMAP4, and 80/443 are HTTP and HTTPS.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the three deliveries and which layer provides each.</summary>
+    <p class="ans">Data link — hop to hop, using MAC addresses. Network — host to host (source to destination), using IP addresses. Transport — process to process, using port numbers.</p></details>
+  <details class="card"><summary>Define port number and socket address.</summary>
+    <p class="ans">A port number is a 16-bit address (0–65,535) identifying a process on a host. A socket address is the IP address combined with the port number; a connection is identified by the pair of socket addresses, one at each end.</p></details>
+  <details class="card"><summary>Name the three port ranges and who uses each.</summary>
+    <p class="ans">Well-known 0–1023, assigned by IANA to standard server processes. Registered 1024–49151, registered but not assigned. Dynamic/ephemeral 49152–65535, chosen at random by the client for one connection.</p></details>
+  <details class="card"><summary>Give eight well-known port numbers.</summary>
+    <p class="ans">FTP 20/21, SSH 22, TELNET 23, SMTP 25, DNS 53, DHCP 67/68, TFTP 69, HTTP 80, POP3 110, IMAP4 143, SNMP 161, HTTPS 443.</p></details>
+  <details class="card"><summary>Define multiplexing and demultiplexing.</summary>
+    <p class="ans">Multiplexing (sender): the transport layer accepts messages from several processes, adds a header with the source port to each, and passes them down to the one network layer — many to one. Demultiplexing (receiver): it reads each segment's destination port and delivers it to the correct process — one to many.</p></details>
+  <details class="card"><summary>List the seven transport layer services.</summary>
+    <p class="ans">Process-to-process delivery via port addressing; multiplexing and demultiplexing; segmentation and reassembly with sequence numbers; connection control; end-to-end flow control; end-to-end error control; congestion control.</p></details>
+  <details class="card"><summary>Give six differences between connectionless and connection-oriented transport.</summary>
+    <p class="ans">No setup vs three-way handshake; independent packets vs one tracked stream; order not guaranteed vs guaranteed; no reliability vs acknowledged and retransmitted; no flow or congestion control vs both; 8-byte header vs 20–60 bytes; fast vs slower.</p></details>
+</div>
+
+<p class="ask">Next: UDP, which is this whole list with almost everything switched off &mdash; and the lesson explains why that is a feature.</p>
+
+<div class="nav">
+  <a href="../unit-3/0027-ipv6.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0029-udp.html">Next: UDP &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

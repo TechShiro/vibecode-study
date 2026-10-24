@@ -1,0 +1,197 @@
+<title>Hamiltonian Cycle, TSP and Approximations</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit V &middot; Lesson 28 of 28</p>
+<h1>Hamiltonian Cycle, TSP and Approximations</h1>
+<p class="deck">Eulerian vs Hamiltonian graphs, Hamiltonian cycle NP-completeness, reducing Hamiltonian cycle to Traveling Salesman (TSP), and polynomial-time approximation algorithms.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Prove that the Traveling Salesman Problem (TSP) is NP-Complete by reducing from Hamiltonian Cycle&rdquo;</strong> is a guaranteed 7-to-10 mark question. <strong>&ldquo;Explain the 2-approximation algorithm for Vertex Cover or Metric TSP&rdquo;</strong> is the standard follow-up question.</p>
+</div>
+
+<h2>Eulerian vs Hamiltonian: The Fine Line of Complexity</h2>
+<p>One of the most striking results in graph theory is how a slight phrasing change shifts an algorithm from linear time to NP-Complete:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Graph Property</th><th>Condition</th><th>Complexity</th><th>Algorithm</th></tr></thead>
+<tbody>
+<tr><td><strong>Eulerian Circuit</strong></td><td>Visits every <strong>edge</strong> in $G$ exactly once and returns to start.</td><td><strong>$O(V + E)$ (Class P)</strong></td><td>Check if all vertex degrees are even (Euler's Theorem / Hierholzer's algorithm).</td></tr>
+<tr><td><strong>Hamiltonian Cycle</strong></td><td>Visits every <strong>vertex</strong> in $G$ exactly once and returns to start.</td><td><strong>NP-Complete</strong></td><td>No known polynomial-time algorithm; requires exponential search.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Hamiltonian Cycle Problem</h2>
+<p>Given an undirected graph $G = (V, E)$, does there exist a simple cycle that contains every vertex in $V$?</p>
+<ul>
+  <li><strong>Verification in NP:</strong> Certificate is an ordered permutation $\langle v_1, v_2, \dots, v_n \rangle$. Verifier checks that all $n$ vertices are distinct, each $(v_i, v_{i+1}) \in E$, and $(v_n, v_1) \in E$. Runs in $O(V)$ time.</li>
+  <li><strong>NP-Hardness:</strong> Proven by polynomial reduction from 3-SAT (using vertex-gadget chains) or from Directed Hamiltonian Cycle.</li>
+</ul>
+
+<h2>The Traveling Salesman Problem (TSP)</h2>
+<p>Given a complete graph $G = (V, E)$ with non-negative edge costs $c(u, v)$ between all pairs of vertices:</p>
+<ul>
+  <li><strong>Optimization TSP:</strong> Find a tour (Hamiltonian cycle) of minimum total edge cost.</li>
+  <li><strong>Decision TSP:</strong> Given threshold $k$, does there exist a tour with total cost $\le k$?</li>
+</ul>
+
+<div class="solve">
+  <span class="lbl">Proof: TSP is NP-Complete (Reducing Hamiltonian Cycle ≤_P TSP)</span>
+  <p><strong>Step 1: TSP &isin; NP</strong></p>
+  <p>Certificate is a sequence of $n$ vertices. The verifier sums the edge costs along the tour and checks if the sum is $\le k$. Takes $O(n)$ time &rarr; TSP &isin; NP.</p>
+
+  <p><strong>Step 2: Reduction Construction from Hamiltonian Cycle</strong></p>
+  <p>Let $G = (V, E)$ be an arbitrary unweighted graph with $n = |V|$ vertices. We construct a complete weighted graph $G' = (V, E')$ for TSP as follows:</p>
+  <ol>
+    <li>The vertex set of $G'$ is identical to $V$.</li>
+    <li>For every pair of vertices $u, v \in V$:
+      $$c(u, v) = \begin{cases} 1 & \text{if } (u, v) \in E \text{ (edge exists in } G) \\ 2 & \text{if } (u, v) \notin E \text{ (edge does not exist in } G) \end{cases}$$
+    </li>
+    <li>Set target threshold cost <strong>$k = n$</strong>.</li>
+  </ol>
+  <p>This construction creates $\binom{n}{2}$ edges in $O(n^2)$ polynomial time.</p>
+
+  <p><strong>Step 3: Correctness Proof (&hArr;)</strong></p>
+  <ul>
+    <li><strong>Forward (&rArr;):</strong> Suppose $G$ contains a Hamiltonian cycle $C$. This cycle visits all $n$ vertices using $n$ edges from $E$. In $G'$, each of these edges has cost 1. The total cost of the tour in $G'$ is:
+    $$\text{Cost} = n \times 1 = n \le k$$
+    Thus, $G'$ has a TSP tour of cost $\le n$.</li>
+    <li><strong>Backward (&lArr;):</strong> Suppose $G'$ contains a TSP tour of cost $\le n$. A valid tour must visit all $n$ vertices, requiring at least $n$ edges. Since all edge costs in $G'$ are integers $\ge 1$, the only way for $n$ edges to sum to $\le n$ is if <strong>every single edge in the tour has cost exactly 1</strong>. By our definition, an edge in $G'$ has cost 1 if and only if that edge exists in $G$. Therefore, these edges form a valid Hamiltonian cycle in $G$.</li>
+  </ul>
+  <p>Hence, TSP is NP-Complete.</p>
+</div>
+
+<h2>Coping with NP-Completeness: Approximation Algorithms</h2>
+<p>When an optimization problem is NP-Hard, finding the exact optimal solution in polynomial time is impossible (assuming $P \ne NP$). Instead, we design <strong>polynomial-time approximation algorithms</strong> that deliver near-optimal solutions with a mathematically guaranteed bound.</p>
+
+<div class="formula">
+  <span class="name">Approximation Ratio $\rho(n)$</span>
+  For a minimization problem, an algorithm has approximation ratio $\rho(n)$ if for all inputs of size $n$:
+  $$\frac{C}{C^*} \le \rho(n)$$
+  where $C$ is the cost of the algorithm's solution and $C^*$ is the cost of the optimal solution. (A 2-approximation never costs more than twice the optimal).
+</div>
+
+<h3>1. 2-Approximation for Vertex Cover (Maximal Matching)</h3>
+<div class="solve">
+  <span class="lbl">Algorithm Approx_Vertex_Cover(G):</span>
+  <pre class="mono">C = ∅
+E' = E
+while E' is not empty:
+    Pick an arbitrary edge (u, v) from E'
+    Add both u and v to C: C = C ∪ {u, v}
+    Remove from E' all edges incident to either u or v
+return C</pre>
+
+  <p><strong>Proof of 2-Approximation Bound:</strong></p>
+  <ul>
+    <li>Let $M$ be the set of edges selected by the loop. By construction, no two edges in $M$ share an endpoint; $M$ is a <strong>matching</strong>.</li>
+    <li>To cover the edges in $M$, any valid vertex cover (including the optimal cover $C^*$) must pick at least one distinct endpoint for each edge in $M$. Therefore:
+    $$|C^*| \ge |M|$$</li>
+    <li>Our algorithm puts both endpoints of each edge in $M$ into $C$. Therefore:
+    $$|C| = 2 \cdot |M| \le 2 \cdot |C^*|$$</li>
+    <li>The algorithm guarantees $|C| \le 2 \cdot |C^*|$ and runs in fast $O(V + E)$ time!</li>
+  </ul>
+</div>
+
+<h3>2. 2-Approximation for Metric TSP (Using Minimum Spanning Tree)</h3>
+<p>When edge costs satisfy the <strong>triangle inequality</strong> ($c(u, w) \le c(u, v) + c(v, w)$):</p>
+<ol>
+  <li>Compute a <strong>Minimum Spanning Tree (MST)</strong> $T$ of $G$ using Kruskal's or Prim's algorithm ($O(E \log V)$).</li>
+  <li>Double every edge of $T$ to create a graph where every vertex has even degree. This admits an <strong>Eulerian tour</strong> $W$.</li>
+  <li>List the vertices in the order visited by $W$, and <strong>shortcut</strong> repeated visits directly to the next unvisited vertex (permitted by the triangle inequality).</li>
+</ol>
+<div class="formula">
+  $$\text{cost}(T) &lt; \text{cost}(C^*) \quad \implies \quad \text{cost}(W) = 2 \cdot \text{cost}(T) &lt; 2 \cdot \text{cost}(C^*)$$
+  By triangle inequality, shortcutting only reduces cost: $\text{cost}(\text{Tour}) \le \text{cost}(W) &lt; 2 \cdot \text{cost}(C^*)$.
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">2-Approximation Metric TSP Algorithm via MST</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>1. Compute MST</strong><span class="sub">Weight(MST) &lt; Cost(OPT<sub>TSP</sub>)</span></div>
+    <div class="flow-arrow-right">&rarr;</div>
+    <div class="flow-box highlight"><strong>2. Double Edges</strong><span class="sub">Creates Eulerian multigraph with even degrees</span></div>
+    <div class="flow-arrow-right">&rarr;</div>
+    <div class="flow-box ok"><strong>3. Euler Tour & Shortcut</strong><span class="sub">Skip already-visited vertices using Triangle Inequality &bull; Cost &le; 2 &times; OPT!</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 20 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">TSP & Approximation</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">7.2 Traveling Salesperson Problem & Approximation Algorithms</div>
+    <div class="v-desc">Comprehensive breakdown of Hamiltonian Cycle NP-completeness, Metric TSP triangle inequality, and the 2-approximation MST shortcut proof.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=e2cF8a5V67Q" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Why does the reduction from Hamiltonian Cycle to TSP set edge weights to 1 and 2?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">So that a tour of cost ≤ n can ONLY be formed if all n edges have cost 1 (meaning they exist in G)</button>
+    <button class="opt">Because TSP only accepts binary numbers</button>
+    <button class="opt">Because 1 and 2 are prime numbers</button>
+    <button class="opt">To balance the adjacency matrix</button>
+  </div>
+  <p class="why">If non-existing edges cost 2, choosing even a single non-existent edge pushes the tour cost to at least n+1.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the 2-approximation algorithm for Vertex Cover, why are both endpoints of each picked edge added to C?</p>
+  <div class="opts">
+    <button class="opt">To convert the graph into a binary search tree</button>
+    <button class="opt">To ensure all vertices have degree 2</button>
+    <button class="opt">Because graphs must always have even numbers of vertices</button>
+    <button class="opt" data-ok="1">It covers the edge and guarantees |C| = 2|M| ≤ 2|C*| using the disjoint matching property</button>
+  </div>
+  <p class="why">Since the edges in M are disjoint, the optimal cover must pick at least one endpoint from each; picking two gives at most 2× optimal.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. What geometric property allows vertex shortcutting in the Metric TSP approximation without increasing total tour cost?</p>
+  <div class="opts">
+    <button class="opt">Cook's hypothesis</button>
+    <button class="opt">Pythagorean theorem</button>
+    <button class="opt">Master's theorem</button>
+    <button class="opt" data-ok="1">The Triangle Inequality (c(u, w) ≤ c(u, v) + c(v, w))</button>
+  </div>
+  <p class="why">The triangle inequality guarantees that taking a direct shortcut between two nodes is never more expensive than routing through an intermediary.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Contrast Eulerian circuit vs Hamiltonian cycle complexity.</summary>
+    <p class="ans">Eulerian circuit visits every edge once and is solvable in linear time O(V+E) (Class P). Hamiltonian cycle visits every vertex once and is NP-Complete.</p></details>
+  <details class="card"><summary>How does the Hamiltonian Cycle to TSP reduction assign weights?</summary>
+    <p class="ans">Weight 1 for existing edges in G, weight 2 for non-existing edges. Target threshold cost k = n (where n = |V|).</p></details>
+  <details class="card"><summary>How does the 2-approximation for Vertex Cover work?</summary>
+    <p class="ans">Finds a maximal matching M of disjoint edges. Adds both endpoints of every edge in M to cover C. Since |C*| ≥ |M| and |C| = 2|M|, |C| ≤ 2|C*|.</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">Unit V and Design &amp; Analysis of Algorithms are complete!</span>
+  <p>Review the comprehensive printable summary on the <a href="../../reference/unit5-cheat-sheet.html">Unit V Cheat Sheet</a>.</p>
+</div>
+
+<div class="nav">
+  <a href="0027-classic-np-complete-problems-reductions.html">&larr; Previous: Classic NP-Complete Reductions</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Cheat sheet &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

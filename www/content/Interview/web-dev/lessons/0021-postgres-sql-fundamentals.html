@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 21 — PostgreSQL: SQL Fundamentals</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 21 of 24 · tables, constraints, joins, normalization</div>
+<h1>PostgreSQL: SQL Fundamentals</h1>
+<p class="subtitle">Every API you've built so far forgets everything on restart — today your data finally gets a permanent, queryable, rule-enforcing home.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 21 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Why a database at all?</h2>
+<p>
+In the Express lessons you stored notes and users in a plain JavaScript array: <code>const users = []</code>.
+It worked for learning, but think about what happens in real life. Four problems kill the in-memory (or "just write a JSON file") approach, and each one is a reason databases exist:
+</p>
+<ul>
+  <li><strong>Persistence.</strong> Restart the server — deploy, crash, laptop reboot — and the array is gone. A file survives restarts, but…</li>
+  <li><strong>Concurrency.</strong> Two requests hit your API at the same moment. Both read the JSON file, both modify their copy, both write it back — one write silently overwrites the other. This is a <em>lost update</em>, and files have no defence against it. A database serialises and coordinates concurrent writers safely.</li>
+  <li><strong>Integrity.</strong> Nothing stops your array from holding two users with the same email, a post whose <code>authorId</code> points at a deleted user, or a price of <code>-50</code>. In a database you declare these rules <em>once</em> (UNIQUE, FOREIGN KEY, CHECK) and the database refuses bad data from <em>any</em> code path — even a buggy one.</li>
+  <li><strong>Querying.</strong> "Top 10 users by post count in the last 30 days" against an array means writing loops, sorts and grouping by hand, loading <em>everything</em> into memory first. SQL expresses that in four lines, and the database answers it without shipping a million rows to Node — using indexes to touch only what's needed.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "A database gives you four things application memory and flat files can't: durable storage that survives crashes, safe concurrent access from many clients, enforced data integrity via constraints, and a declarative query language that answers complex questions efficiently."
+</div>
+
+<h2>2 · The relational model — tables, rows, columns</h2>
+<p>
+A <strong>relational database</strong> organises data into <strong>tables</strong>. Start with the Excel analogy:
+a table is a sheet, each <strong>row</strong> is one record (one user, one post), each <strong>column</strong> is one attribute (email, title, created date). Simple.
+</p>
+<p>Then go beyond Excel, because the differences are the whole point:</p>
+<ul>
+  <li><strong>Every column has a fixed type.</strong> An <code>integer</code> column can never hold <code>"hello"</code>. Excel lets any cell hold anything; a database is more like a Java class — <code>int age;</code> is <code>int</code> forever.</li>
+  <li><strong>Rows have no inherent order.</strong> A table is a <em>set</em> of rows. If you want order, you ask for it with <code>ORDER BY</code>.</li>
+  <li><strong>Tables reference each other.</strong> A post row stores the <em>id</em> of its author, not a copy of the author. The database can enforce that this reference is always valid. Excel has nothing like this.</li>
+  <li><strong>You talk to it in SQL</strong> — a declarative language where you say <em>what</em> you want, and the database's planner decides <em>how</em> to fetch it.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  A table is roughly a class (<code>class User { long id; String email; }</code>), a row is an object, and a column is a field.
+  The mismatch between "rows in tables" and "objects in memory" is called the <em>object-relational impedance mismatch</em> — ORMs like Drizzle (Lesson 23) exist to bridge it.
+</div>
+
+<h2>3 · The database landscape — and why PostgreSQL</h2>
+<p>
+Before picking one, know the map. Databases split into two big families. <strong>Relational (SQL)</strong> databases
+store data in tables with a fixed schema and speak SQL — Postgres, MySQL, SQLite, SQL Server, Oracle.
+<strong>NoSQL</strong> databases drop the table model for something else: <strong>documents</strong> (MongoDB stores
+JSON-like objects), <strong>key-value</strong> (Redis — an in-memory cache, blazing fast, usually a sidekick rather
+than the main database), <strong>wide-column</strong> (Cassandra) and <strong>graph</strong> (Neo4j).
+</p>
+
+<table>
+  <thead><tr><th>Database</th><th>Type</th><th>Where you'll meet it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>PostgreSQL</strong></td><td>Relational</td><td>#1 in developer surveys; default for new products and startups; what this track uses</td></tr>
+    <tr><td><strong>MySQL</strong></td><td>Relational</td><td>The long-time web workhorse (LAMP, WordPress); huge legacy + current install base</td></tr>
+    <tr><td><strong>MongoDB</strong></td><td>NoSQL (document)</td><td>The most popular NoSQL DB; the "M" in MERN; flexible-schema JSON documents</td></tr>
+    <tr><td>Oracle / SQL Server</td><td>Relational</td><td>Big enterprise, banks, government — by revenue Oracle still leads the industry</td></tr>
+    <tr><td>SQLite</td><td>Relational (embedded)</td><td>A single-file DB inside apps and phones — no server at all</td></tr>
+    <tr><td>Redis</td><td>Key-value (in-memory)</td><td>Caching, sessions, queues — alongside a primary DB, not instead of one</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Relational databases like Postgres or MySQL are the default: strict schema, joins, ACID transactions.
+  I'd reach for a document store like MongoDB when the data is naturally document-shaped or the schema changes
+  fast, and add Redis as a cache in front of either. For anything with money, relationships, or integrity
+  rules — relational wins."
+</div>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  "NoSQL is faster" is a myth worth killing in interviews. Each is fast at what it's shaped for: MongoDB reads a
+  whole document in one hop but joins poorly; Postgres joins effortlessly and, with <code>jsonb</code> (Lesson 22),
+  can store documents too. Choose by data shape and integrity needs, not by hype.
+</div>
+
+<p>
+Within the relational family, we use <strong>PostgreSQL</strong> ("Postgres") because it is the modern default choice:
+</p>
+<ul>
+  <li><strong>Open-source and free</strong>, with three decades of engineering behind it — no licence tiers, no vendor lock-in.</li>
+  <li><strong>Feature-rich</strong>: real data types (arrays, <code>jsonb</code>, <code>uuid</code>), full-text search, window functions, strict standards compliance. Things that are extensions elsewhere are built in.</li>
+  <li><strong>Strict by default.</strong> Postgres rejects invalid data loudly instead of silently coercing it (older MySQL was infamous for quietly truncating strings).</li>
+  <li><strong>The ecosystem default</strong>: Neon, Supabase, RDS, Railway — every modern hosting platform leads with Postgres, and Drizzle/Prisma treat it as the first-class target.</li>
+</ul>
+<p>Everything you learn here is 90% portable SQL anyway — switching databases later is mostly relearning edge cases, not the language.</p>
+
+<h2>4 · Getting it running</h2>
+<p>Two good options — pick one:</p>
+<pre><code><span class="cmt">-- Option A: Docker (recommended — clean, disposable, one line)</span>
+docker run --name pg -e POSTGRES_PASSWORD=secret -p 5432:5432 -d postgres:16
+
+<span class="cmt">-- then open an interactive SQL shell inside it:</span>
+docker exec -it pg psql -U postgres</code></pre>
+<p>
+Option B: the <a href="https://www.postgresql.org/download/">official installer</a> for Windows — it installs the server as a service plus <strong>pgAdmin</strong> (a GUI) and the <code>psql</code> command-line client. Default port is <strong>5432</strong>; default superuser is <code>postgres</code>.
+</p>
+<p><code>psql</code> is where you'll live in this lesson. The commands starting with a backslash are psql meta-commands (client-side helpers), not SQL:</p>
+<pre><code>\l          <span class="cmt">-- list all databases on this server</span>
+CREATE DATABASE devlog;   <span class="cmt">-- real SQL: make a database (note the ; — SQL statements end with one)</span>
+\c devlog   <span class="cmt">-- connect to (switch into) database devlog</span>
+\dt         <span class="cmt">-- list tables in the current database</span>
+\d users    <span class="cmt">-- describe table 'users': columns, types, constraints, indexes</span>
+\q          <span class="cmt">-- quit psql</span></code></pre>
+<p>
+If you prefer clicking, <strong>pgAdmin</strong> (bundled) or <strong>TablePlus</strong> give you a GUI with a query editor and table browser — useful for inspecting data, but learn the SQL first; the GUI just runs SQL for you.
+</p>
+
+<h2>5 · The SQL language — three families</h2>
+<p>SQL statements fall into families you'll hear named in interviews:</p>
+<table>
+  <thead><tr><th>Category</th><th>Stands for</th><th>What it does</th><th>Examples</th></tr></thead>
+  <tbody>
+    <tr><td><strong>DDL</strong></td><td>Data Definition Language</td><td>Defines <em>structure</em> — the shape of tables</td><td><code>CREATE</code>, <code>ALTER</code>, <code>DROP</code></td></tr>
+    <tr><td><strong>DML</strong></td><td>Data Manipulation Language</td><td>Works with the <em>rows</em> inside tables</td><td><code>INSERT</code>, <code>SELECT</code>, <code>UPDATE</code>, <code>DELETE</code></td></tr>
+    <tr><td><strong>DCL</strong></td><td>Data Control Language</td><td>Permissions — who may do what</td><td><code>GRANT</code>, <code>REVOKE</code></td></tr>
+  </tbody>
+</table>
+<p>This lesson is DDL + DML. DCL matters when you run shared production databases; a glance is enough for now. (Some lists add TCL — transaction control, <code>BEGIN</code>/<code>COMMIT</code> — which is Lesson 22's centrepiece.)</p>
+
+<h2>6 · Data types — choose deliberately</h2>
+<p>Unlike JavaScript, every column commits to a type up front. The ones you'll actually use:</p>
+<table>
+  <thead><tr><th>Type</th><th>Use for</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>integer</code> / <code>bigint</code></td><td>Counts, quantities, ids</td><td>4 / 8 bytes. Like Java's <code>int</code>/<code>long</code>. Ids should be <code>bigint</code>-friendly.</td></tr>
+    <tr><td><code>serial</code> / <code>bigserial</code></td><td>Auto-incrementing id</td><td>Shorthand: integer + auto-sequence. Modern preferred spelling: <code>bigint GENERATED ALWAYS AS IDENTITY</code>.</td></tr>
+    <tr><td><code>numeric(p,s)</code></td><td><strong>Money</strong>, exact decimals</td><td>Exact arithmetic, like Java's <code>BigDecimal</code>.</td></tr>
+    <tr><td><code>real</code> / <code>double precision</code></td><td>Scientific/approximate values</td><td>Binary floating point — <code>0.1 + 0.2 ≠ 0.3</code>. <strong>Never for money.</strong></td></tr>
+    <tr><td><code>text</code></td><td>Any string</td><td>In Postgres, <code>text</code> and <code>varchar</code> perform identically; use <code>text</code>, add <code>varchar(n)</code> only when a hard length limit is a business rule.</td></tr>
+    <tr><td><code>boolean</code></td><td>true/false flags</td><td><code>TRUE</code>, <code>FALSE</code>, or <code>NULL</code> (unknown!).</td></tr>
+    <tr><td><code>timestamptz</code></td><td>Any point in time</td><td>Stores an absolute instant (UTC internally). Plain <code>timestamp</code> has no zone and causes bugs the moment users or servers span time zones — <strong>always use <code>timestamptz</code></strong>.</td></tr>
+    <tr><td><code>uuid</code></td><td>Globally unique ids</td><td>128-bit random id, e.g. for public-facing keys. Tradeoffs in Lesson 22.</td></tr>
+    <tr><td><code>jsonb</code></td><td>Flexible/nested data</td><td>Binary JSON you can query and index. Teaser — full treatment in Lesson 22.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">Gotcha — float money loses money</span>
+  <code>SELECT 0.1::float + 0.2::float;</code> gives <code>0.30000000000000004</code> — same IEEE-754 floats you met in JavaScript.
+  Store money as <code>numeric(12,2)</code> (or as integer paise/cents). Saying this unprompted in an interview is an easy credibility win.
+</div>
+
+<h2>7 · CREATE TABLE — structure plus rules</h2>
+<p>
+Here is our running example for the rest of the lesson (and the track): a mini blog with <strong>users</strong>, <strong>posts</strong>, and <strong>tags</strong>.
+Constraints are the star — each one is a rule the database enforces forever, no matter which app, script, or careless intern writes the data:
+</p>
+<pre><code>CREATE TABLE users (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                                  <span class="cmt">-- PRIMARY KEY = NOT NULL + UNIQUE + the row's official identity</span>
+  email       text NOT NULL UNIQUE,   <span class="cmt">-- must exist, no duplicates across the table</span>
+  name        text NOT NULL,
+  age         integer CHECK (age &gt;= 13),          <span class="cmt">-- arbitrary rule; NULL age is still allowed</span>
+  created_at  timestamptz NOT NULL DEFAULT now()  <span class="cmt">-- filled in automatically if omitted</span>
+);
+
+CREATE TABLE posts (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  author_id   bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                  <span class="cmt">-- FOREIGN KEY: must match an existing users.id;</span>
+                                  <span class="cmt">-- deleting a user auto-deletes their posts</span>
+  title       text NOT NULL,
+  body        text NOT NULL DEFAULT '',
+  published   boolean NOT NULL DEFAULT FALSE,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);</code></pre>
+<p>The constraint vocabulary, spelled out:</p>
+<ul>
+  <li><strong>PRIMARY KEY</strong> — the column that uniquely identifies each row. Every table should have one; almost always a generated id.</li>
+  <li><strong>NOT NULL</strong> — the column must have a value. <code>NULL</code> means "unknown/absent", and it is the SQL cousin of Java's <code>null</code> — with even sharper edges (see WHERE below).</li>
+  <li><strong>UNIQUE</strong> — no two rows may share this value (two NULLs are allowed — NULL isn't equal to anything, even itself).</li>
+  <li><strong>DEFAULT</strong> — value used when the INSERT doesn't supply one.</li>
+  <li><strong>CHECK</strong> — any boolean condition rows must satisfy.</li>
+  <li><strong>FOREIGN KEY / REFERENCES</strong> — this value must exist as a key in another table. The referential-integrity option matters:
+    <code>ON DELETE CASCADE</code> (delete children with the parent — posts die with their user),
+    <code>ON DELETE SET NULL</code> (orphan the child gracefully — needs a nullable column),
+    or the default <code>NO ACTION</code>/<code>RESTRICT</code> (refuse to delete a referenced parent).</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Constraints push data-integrity rules from application code into the database, where they're enforced for every writer.
+  A foreign key guarantees you can never have a post pointing at a user that doesn't exist — the app can't forget the check, because the check isn't in the app."
+</div>
+
+<p>Structure changes later? <strong>ALTER</strong> and <strong>DROP</strong>:</p>
+<pre><code>ALTER TABLE posts ADD COLUMN views integer NOT NULL DEFAULT 0;
+ALTER TABLE posts RENAME COLUMN body TO content;
+ALTER TABLE posts DROP COLUMN views;
+ALTER TABLE users ALTER COLUMN name SET DEFAULT 'anonymous';
+
+DROP TABLE posts;              <span class="cmt">-- deletes the table AND all its data, no undo</span>
+DROP TABLE IF EXISTS posts;    <span class="cmt">-- no error if it's already gone</span></code></pre>
+
+<h2>8 · INSERT and SELECT — writing and reading rows</h2>
+<pre><code><span class="cmt">-- single row; unlisted columns take their DEFAULT (id, created_at, published)</span>
+INSERT INTO users (email, name, age) VALUES ('krish@dev.io', 'Krish', 21);
+
+<span class="cmt">-- multi-row insert: one statement, several rows — much faster than a loop</span>
+INSERT INTO users (email, name, age) VALUES
+  ('asha@dev.io',  'Asha',  22),
+  ('ravi@dev.io',  'Ravi',  25),
+  ('meera@dev.io', 'Meera', NULL);
+
+<span class="cmt">-- RETURNING hands back the row you just wrote — no second query needed.</span>
+<span class="cmt">-- This is how your API will get the generated id to send in the 201 response.</span>
+INSERT INTO posts (author_id, title, body, published)
+VALUES (1, 'Hello Postgres', 'First post!', TRUE)
+RETURNING id, created_at;</code></pre>
+<p>Reading is <code>SELECT</code>. Its clauses always appear in the same order — memorise the skeleton:</p>
+<pre><code>SELECT ...columns... FROM table
+WHERE ...filter rows...
+GROUP BY ... HAVING ...
+ORDER BY ... LIMIT ... OFFSET ...;</code></pre>
+<pre><code>SELECT * FROM users;                       <span class="cmt">-- every column, every row (debugging only)</span>
+SELECT name, email FROM users;             <span class="cmt">-- pick columns — in APIs, always list them</span>
+SELECT name AS display_name FROM users;    <span class="cmt">-- alias: rename in the result</span>
+SELECT DISTINCT age FROM users;            <span class="cmt">-- de-duplicated values</span></code></pre>
+
+<h2>9 · WHERE, ORDER BY, LIMIT — filtering and shaping</h2>
+<pre><code>SELECT * FROM users WHERE age &gt;= 21;                 <span class="cmt">-- =, &lt;&gt; (not equal), &lt;, &gt;, &lt;=, &gt;=</span>
+SELECT * FROM users WHERE age &gt;= 21 AND age &lt; 30;    <span class="cmt">-- AND / OR / NOT, parentheses to group</span>
+SELECT * FROM users WHERE age BETWEEN 21 AND 29;     <span class="cmt">-- inclusive both ends</span>
+SELECT * FROM users WHERE name IN ('Asha', 'Ravi');  <span class="cmt">-- membership in a list</span>
+SELECT * FROM users WHERE email LIKE '%@dev.io';     <span class="cmt">-- pattern: % = any chars, _ = one char</span>
+SELECT * FROM users WHERE name ILIKE 'kri%';         <span class="cmt">-- ILIKE = case-insensitive (Postgres)</span>
+SELECT * FROM users WHERE age IS NULL;               <span class="cmt">-- NULL check needs IS, never =</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha — NULL breaks =</span>
+  <code>WHERE age = NULL</code> returns <em>zero rows</em>, silently. Any comparison with NULL evaluates to <em>unknown</em> — not true, not false — and WHERE only keeps rows where the condition is true. Use <code>IS NULL</code> / <code>IS NOT NULL</code>. This trips up nearly everyone once.
+</div>
+
+<pre><code><span class="cmt">-- ORDER BY: sort the result (remember: tables themselves are unordered sets)</span>
+SELECT name, age FROM users ORDER BY age DESC, name ASC;   <span class="cmt">-- tie-break with a 2nd key</span>
+
+<span class="cmt">-- LIMIT/OFFSET: pagination — page 3 with 10 per page:</span>
+SELECT * FROM posts ORDER BY created_at DESC LIMIT 10 OFFSET 20;</code></pre>
+<p>
+This <code>LIMIT/OFFSET</code> pattern is exactly what backs the <code>?page=3&amp;limit=10</code> query params from your Express lessons. (Large OFFSETs get slow — the database still walks past the skipped rows; keyset pagination fixes that, a story for the System Design track.)
+</p>
+
+<h2>10 · UPDATE and DELETE — with a horror story</h2>
+<pre><code>UPDATE posts
+SET title = 'Hello PostgreSQL', published = TRUE
+WHERE id = 1;                       <span class="cmt">-- WHERE picks which rows change</span>
+
+UPDATE posts SET views = views + 1 WHERE id = 7;   <span class="cmt">-- read-modify-write in ONE atomic statement</span>
+
+DELETE FROM posts WHERE id = 1;
+DELETE FROM posts WHERE published = FALSE AND created_at &lt; now() - interval '1 year';</code></pre>
+
+<div class="callout trap">
+  <span class="label">The forgot-the-WHERE horror story</span>
+  <code>UPDATE users SET email = 'x@x.com';</code> — no WHERE. Every user in production now has the same email. Same with <code>DELETE FROM users;</code> — the table is empty. SQL does exactly what you said, instantly, to <em>all rows</em>.
+  Working habits that save careers: run a <code>SELECT</code> with the same WHERE first to see what you'll hit; and in a manual session, wrap risky statements in <code>BEGIN; ... ROLLBACK;</code> (transactions — Lesson 22) so you can undo.
+</div>
+
+<h2>11 · Aggregates, GROUP BY and HAVING</h2>
+<p>Aggregates collapse many rows into one number:</p>
+<pre><code>SELECT COUNT(*) FROM posts;                    <span class="cmt">-- how many rows</span>
+SELECT COUNT(age) FROM users;                  <span class="cmt">-- counts only NON-NULL ages — subtle!</span>
+SELECT AVG(age), MIN(age), MAX(age) FROM users;
+SELECT SUM(views) FROM posts WHERE published;</code></pre>
+<p>
+<strong>GROUP BY</strong> makes aggregates per-bucket instead of per-table: "split the rows into groups by this column, then aggregate each group."
+</p>
+<pre><code><span class="cmt">-- posts per author:</span>
+SELECT author_id, COUNT(*) AS post_count
+FROM posts
+GROUP BY author_id;
+
+<span class="cmt">-- only authors with 5+ posts — HAVING filters GROUPS (WHERE filters rows, and</span>
+<span class="cmt">-- runs BEFORE grouping; HAVING runs AFTER, so it can see the aggregate):</span>
+SELECT author_id, COUNT(*) AS post_count
+FROM posts
+WHERE published = TRUE
+GROUP BY author_id
+HAVING COUNT(*) &gt;= 5
+ORDER BY post_count DESC;</code></pre>
+
+<div class="callout trap">
+  <span class="label">The classic GROUP BY error</span>
+  <code>SELECT author_id, title, COUNT(*) FROM posts GROUP BY author_id;</code> →
+  <em>"column "posts.title" must appear in the GROUP BY clause or be used in an aggregate function."</em>
+  Why: each result row represents a whole <em>group</em> of posts — which single <code>title</code> would it show? Ambiguous, so Postgres refuses.
+  Every selected column must be either in the GROUP BY or wrapped in an aggregate. Interviewers love asking why this errors.
+</div>
+
+<h2>12 · Modeling relationships — 1:1, 1:N, M:N</h2>
+<p>Real data is connected. Three shapes cover everything:</p>
+<ul>
+  <li><strong>One-to-one (1:1)</strong> — a user has one profile. Give <code>profiles.user_id</code> a foreign key that is also <code>UNIQUE</code> (unique FK = at most one profile per user). Used to split rarely-needed or private columns out of a hot table.</li>
+  <li><strong>One-to-many (1:N)</strong> — a user has many posts; each post has one author. The <em>many</em> side carries the foreign key: <code>posts.author_id</code>. This is the most common shape by far.</li>
+  <li><strong>Many-to-many (M:N)</strong> — a post has many tags; a tag belongs to many posts. Neither table can hold the other's id (which one of many would it store?). The fix is a third table — a <strong>junction (join) table</strong> — where each row is one <em>link</em>:</li>
+</ul>
+<pre><code>CREATE TABLE tags (
+  id    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name  text NOT NULL UNIQUE
+);
+
+CREATE TABLE post_tags (
+  post_id  bigint NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  tag_id   bigint NOT NULL REFERENCES tags(id)  ON DELETE CASCADE,
+  PRIMARY KEY (post_id, tag_id)   <span class="cmt">-- composite PK: the same link can't exist twice</span>
+);
+
+<span class="cmt">-- 'tag post 3 with tag 2' is just an insert:</span>
+INSERT INTO post_tags (post_id, tag_id) VALUES (3, 2);</code></pre>
+
+<h2>13 · JOINs — reading across tables</h2>
+<p>
+Splitting data into tables is only useful if you can put it back together. A <strong>JOIN</strong> pairs rows from two tables using a condition — almost always <em>foreign key = primary key</em>. Picture two circles of a Venn diagram: users on the left, posts on the right, matches in the overlap. Our running example:
+</p>
+<pre><code><span class="cmt">-- users: (1 Krish) (2 Asha) (3 Ravi — has written no posts)</span>
+<span class="cmt">-- posts: ('Hello' author 1) ('SQL 101' author 2) ('Draft' author 2)</span>
+
+<span class="cmt">-- INNER JOIN: only pairs that MATCH. Ravi vanishes (no posts).</span>
+SELECT u.name, p.title
+FROM users u
+INNER JOIN posts p ON p.author_id = u.id;
+<span class="cmt">--   Krish | Hello
+--   Asha  | SQL 101
+--   Asha  | Draft</span>
+
+<span class="cmt">-- LEFT JOIN: every LEFT row survives; missing right side becomes NULLs.</span>
+SELECT u.name, p.title
+FROM users u
+LEFT JOIN posts p ON p.author_id = u.id;
+<span class="cmt">--   Krish | Hello
+--   Asha  | SQL 101
+--   Asha  | Draft
+--   Ravi  | NULL      ← kept! This is how you find users with no posts:</span>
+
+SELECT u.name FROM users u
+LEFT JOIN posts p ON p.author_id = u.id
+WHERE p.id IS NULL;                        <span class="cmt">-- classic interview query</span></code></pre>
+<ul>
+  <li><strong>RIGHT JOIN</strong> — mirror image: every right row survives. Rarely written; people swap the table order and use LEFT.</li>
+  <li><strong>FULL JOIN</strong> — every row from both sides; non-matches padded with NULLs on the missing side.</li>
+  <li><strong>CROSS JOIN</strong> — every row paired with every row (m × n, no condition). Rare; useful for generating combinations.</li>
+  <li><strong>Self-join</strong> — a table joined to itself, e.g. an <code>employees</code> table where <code>manager_id REFERENCES employees(id)</code>:</li>
+</ul>
+<pre><code>SELECT e.name AS employee, m.name AS manager
+FROM employees e
+LEFT JOIN employees m ON e.manager_id = m.id;  <span class="cmt">-- two aliases, one table</span>
+
+<span class="cmt">-- and the M:N read — posts with their tags takes TWO joins through the junction:</span>
+SELECT p.title, t.name AS tag
+FROM posts p
+JOIN post_tags pt ON pt.post_id = p.id
+JOIN tags t       ON t.id = pt.tag_id;</code></pre>
+
+<table>
+  <thead><tr><th>JOIN type</th><th>Rows you get</th><th>Typical use</th></tr></thead>
+  <tbody>
+    <tr><td><code>INNER JOIN</code></td><td>Only matching pairs from both tables</td><td>"Posts with their authors"</td></tr>
+    <tr><td><code>LEFT JOIN</code></td><td>All left rows; NULLs where right has no match</td><td>"All users, with posts if any" / find-the-missing</td></tr>
+    <tr><td><code>RIGHT JOIN</code></td><td>All right rows; NULLs where left has no match</td><td>Mirror of LEFT — usually rewritten as LEFT</td></tr>
+    <tr><td><code>FULL JOIN</code></td><td>All rows from both; NULL-padded non-matches</td><td>Reconciling two datasets</td></tr>
+    <tr><td><code>CROSS JOIN</code></td><td>Every combination (m × n)</td><td>Generating pairs/grids</td></tr>
+    <tr><td>Self-join</td><td>Table joined to itself via aliases</td><td>Hierarchies: employee→manager, comment→parent</td></tr>
+  </tbody>
+</table>
+
+<h2>14 · Subqueries and CTEs — queries inside queries</h2>
+<pre><code><span class="cmt">-- subquery with IN: authors of published posts</span>
+SELECT name FROM users
+WHERE id IN (SELECT author_id FROM posts WHERE published = TRUE);
+
+<span class="cmt">-- scalar subquery: one value used inline — users older than average</span>
+SELECT name, age FROM users
+WHERE age &gt; (SELECT AVG(age) FROM users);
+
+<span class="cmt">-- correlated subquery (glance): the inner query references the outer row,</span>
+<span class="cmt">-- so it conceptually re-runs per row — powerful but often slower than a join</span>
+SELECT u.name,
+  (SELECT COUNT(*) FROM posts p WHERE p.author_id = u.id) AS post_count
+FROM users u;</code></pre>
+<p>A <strong>CTE</strong> (Common Table Expression, the <code>WITH</code> clause) names an intermediate result so big queries read top-to-bottom instead of inside-out:</p>
+<pre><code>WITH author_counts AS (
+  SELECT author_id, COUNT(*) AS post_count
+  FROM posts GROUP BY author_id
+)
+SELECT u.name, ac.post_count
+FROM author_counts ac
+JOIN users u ON u.id = ac.author_id
+WHERE ac.post_count &gt;= 2;</code></pre>
+
+<h2>15 · Normalization — 1NF, 2NF, 3NF in five minutes</h2>
+<p>
+Normalization is the discipline behind "split data into related tables". The enemy is <strong>redundancy</strong>: the same fact stored in many rows drifts out of sync (update one copy, forget the others — an <em>update anomaly</em>). Start with a denormalized mess:
+</p>
+<pre><code><span class="cmt">-- ONE table for everything (bad):
+-- orders(id, customer_name, customer_email, product_names, total)
+--   1 | Krish | krish@dev.io | 'keyboard,mouse' | 2500
+--   2 | Krish | krish@d.io   | 'monitor'        | 9000   ← email drifted!</span></code></pre>
+<ul>
+  <li><strong>1NF — atomic values.</strong> No lists inside a cell. <code>'keyboard,mouse'</code> is unqueryable — you can't join or index inside a string. Fix: one row per order-item (an <code>order_items</code> table).</li>
+  <li><strong>2NF — no partial dependency.</strong> With a composite key like <code>(order_id, product_id)</code>, every non-key column must depend on the <em>whole</em> key. A <code>product_name</code> column there depends only on <code>product_id</code> — move it to a <code>products</code> table.</li>
+  <li><strong>3NF — no transitive dependency.</strong> Non-key columns must depend on the key <em>directly</em>. <code>customer_email</code> depends on the customer, not the order — move customer fields to a <code>customers</code> table and keep <code>customer_id</code> in orders.</li>
+</ul>
+<pre><code><span class="cmt">-- normalized: each fact lives in exactly ONE place</span>
+customers(id, name, email)
+products(id, name, price)
+orders(id, customer_id → customers, created_at)
+order_items(order_id → orders, product_id → products, qty)</code></pre>
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Normalize until every fact is stored exactly once: atomic values (1NF), non-key columns depending on the whole key (2NF), and on nothing but the key (3NF).
+  Denormalize later only as a measured performance tradeoff — accepting redundancy for read speed." A cheap mnemonic for 2NF/3NF:
+  every column depends on <em>the key (1NF), the whole key (2NF), and nothing but the key (3NF)</em>.
+</div>
+
+<h2>16 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What's the difference between WHERE and HAVING?"</strong><br>
+  WHERE filters individual rows <em>before</em> grouping, so it can't use aggregates; HAVING filters groups <em>after</em> GROUP BY, so it can (<code>HAVING COUNT(*) &gt;= 5</code>).</li>
+  <li><strong>"Explain the types of JOINs."</strong><br>
+  INNER returns only matching pairs; LEFT keeps all left rows padding misses with NULLs (RIGHT is its mirror); FULL keeps all rows from both sides; CROSS is every combination. A self-join joins a table to itself via aliases for hierarchical data.</li>
+  <li><strong>"What is a primary key vs a foreign key vs a unique constraint?"</strong><br>
+  A primary key uniquely identifies each row (NOT NULL + UNIQUE, one per table). A foreign key makes a column reference another table's key, and the database rejects values that don't exist there. UNIQUE forbids duplicates but allows NULLs and can appear on many columns.</li>
+  <li><strong>"How do you model a many-to-many relationship?"</strong><br>
+  With a junction table holding two foreign keys — e.g. <code>post_tags(post_id, tag_id)</code> with a composite primary key. Each row is one link; M:N becomes two 1:N relationships.</li>
+  <li><strong>"What is normalization? Explain 1NF/2NF/3NF."</strong><br>
+  Organising tables to remove redundancy and update anomalies: 1NF atomic values, 2NF no non-key column depending on part of a composite key, 3NF no non-key column depending on another non-key column — "the key, the whole key, and nothing but the key."</li>
+  <li><strong>"Why did SELECT with GROUP BY throw 'column must appear in GROUP BY'?"</strong><br>
+  Because each output row represents a whole group; a column that's neither grouped nor aggregated has no single defined value for that group, so Postgres refuses the ambiguity.</li>
+  <li><strong>"Why store money in NUMERIC and time in timestamptz?"</strong><br>
+  Floats are binary approximations that accumulate rounding errors; NUMERIC is exact like BigDecimal. Plain timestamp records a wall-clock time with no zone, which breaks across time zones and DST; timestamptz stores an absolute UTC instant.</li>
+</ul>
+
+<h2>17 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Ravi exists in <code>users</code> but has written no posts. Which query still shows him in the result?</div>
+  <button class="opt"><code>SELECT u.name, p.title FROM users u INNER JOIN posts p ON p.author_id = u.id</code></button>
+  <button class="opt"><code>SELECT u.name, p.title FROM users u CROSS JOIN posts p WHERE p.author_id = u.id</code></button>
+  <button class="opt"><code>SELECT u.name, p.title FROM users u LEFT JOIN posts p ON p.author_id = u.id</code></button>
+  <div class="fb" data-correct="LEFT JOIN keeps every row of the left table (users) and fills the post columns with NULL when there's no match — so Ravi appears with title NULL." data-wrong="INNER JOIN (and CROSS JOIN with that WHERE, which is effectively the same inner join) only returns matching pairs — a user with zero posts produces zero pairs. Only LEFT JOIN preserves unmatched left rows."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You run <code>SELECT * FROM users WHERE age = NULL;</code> on a table that definitely has rows with NULL age. What do you get?</div>
+  <button class="opt">All rows whose age is NULL, as intended</button>
+  <button class="opt">Zero rows — comparisons with NULL are 'unknown', so no row passes the filter</button>
+  <button class="opt">A syntax error, because NULL cannot appear in a WHERE clause</button>
+  <div class="fb" data-correct="Any comparison involving NULL evaluates to unknown — not true — and WHERE keeps only rows where the condition is true. The correct spelling is WHERE age IS NULL." data-wrong="The query is legal SQL and runs fine — it just silently returns nothing, because = NULL is never true. NULL needs IS NULL / IS NOT NULL."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A post must belong to exactly one user, and deleting a user should delete their posts. How do you model it?</div>
+  <button class="opt"><code>posts.author_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE</code></button>
+  <button class="opt">A junction table <code>user_posts(user_id, post_id)</code> with a composite primary key</button>
+  <button class="opt">Store an array of post ids in a <code>users.post_ids</code> column</button>
+  <div class="fb" data-correct="One-to-many: the many side (posts) carries a NOT NULL foreign key to users, and ON DELETE CASCADE removes the children when the parent goes." data-wrong="A junction table models many-to-many — overkill and it would allow a post to have several users. An id array in users defeats 1NF, foreign-key enforcement, and joins. 1:N means: FK on the many side."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does <code>SELECT author_id, title, COUNT(*) FROM posts GROUP BY author_id;</code> fail?</div>
+  <button class="opt">COUNT(*) cannot be combined with ordinary columns in the same SELECT</button>
+  <button class="opt">Each result row is a whole group, and <code>title</code> has no single value per group — it must be grouped or aggregated</button>
+  <button class="opt">GROUP BY requires an ORDER BY clause on the same column</button>
+  <div class="fb" data-correct="After grouping by author_id, one output row summarises many posts. Which title should that row show? Ambiguous, so Postgres rejects it — select only grouped columns or aggregates like MAX(title)." data-wrong="Aggregates mix fine with grouped columns (author_id works!), and ORDER BY is optional. The problem is title: it's neither in the GROUP BY nor inside an aggregate, so its value per group is undefined."></div>
+</div>
+
+<h2>18 · Do this next</h2>
+<ul>
+  <li>Get Postgres running (Docker one-liner or installer), open <code>psql</code>, and build the whole blog schema from this lesson: <code>users</code>, <code>posts</code>, <code>tags</code>, <code>post_tags</code>. Insert 4 users, 6 posts, 3 tags, and tag a few posts. Then verify every constraint by trying to break it: duplicate email, post with <code>author_id = 999</code>, age 10 — read each error message.</li>
+  <li>Write and run these queries: (a) all published posts with author names, newest first; (b) users who have written no posts (LEFT JOIN + IS NULL); (c) post count per user with only counts ≥ 2 (GROUP BY + HAVING); (d) all posts carrying a specific tag (double join through <code>post_tags</code>).</li>
+  <li>Delete one user and observe CASCADE wipe their posts and the post_tags links. Then recreate <code>posts.author_id</code> with <code>ON DELETE SET NULL</code> (you'll need to drop NOT NULL) and watch the difference. Say in one sentence when you'd pick each.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Confused about when a JOIN duplicates rows, why NULL refuses to equal anything, or how the junction table really works? Ask right here in the chat — walk me through your query and I'll walk you through the result set. When you can sketch users/posts/post_tags/tags from memory and explain LEFT vs INNER in one breath, say <strong>"next"</strong> and we'll open Lesson 22: PostgreSQL — Indexes, Transactions &amp; JSONB, where queries get fast and writes get safe.
+</div>
+
+<div class="nav">
+  <span><a href="0020-nestjs-architecture.html">← NestJS Architecture</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0022-postgres-indexes-transactions.html">Indexes &amp; Transactions →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

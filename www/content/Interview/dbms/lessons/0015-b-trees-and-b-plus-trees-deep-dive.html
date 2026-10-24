@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 15 – B-Trees & B+ Trees Deep Dive</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module D · Lesson 15 of 17 · The Ubiquitous DB Data Structure</div>
+  <h1>B-Trees & B+ Trees Deep Dive</h1>
+  <p class="subtitle">The mathematics, node splitting, merging, and range queries of B+ Trees.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Storage & Indexing</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Why do databases use B+ Trees instead of in-memory balanced binary search trees (AVL Trees, Red-Black Trees)? Because <strong>disks transfer data in blocks (4KB–16KB)</strong>. A binary tree has a fanout of 2; searching 10,000,000 rows requires traversing a tree of height ~24, incurring 24 random disk reads (unacceptably slow). A B+ Tree matches node size to disk page size, achieving a fanout of <strong>hundreds or thousands of keys per node</strong>. The height is reduced to <strong>3 or 4 levels</strong>, meaning any row among billions of records is retrieved in at most 3–4 page lookups.</p>
+
+  <h2>2 · Recommended Deep-Dive Lecture</h2>
+  <p>For mastering B+ Tree node insertion, node splitting, and deletion balancing step-by-step, watch Abdul Bari's definitive visualization:</p>
+  <div class="video-container">
+    <iframe src="https://www.youtube-nocookie.com/embed/aZjYr87r1b8" title="B+ Tree Insertion and Deletion - Abdul Bari" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+
+  <h2>3 · Structural Invariants of B+ Trees</h2>
+  <p>A B+ Tree of order <code>m</code> adheres to strict mathematical invariants:</p>
+  <ul>
+    <li>Every node contains at most <code>m - 1</code> search keys and <code>m</code> children pointers.</li>
+    <li>Every internal node (except root) has at least <code>&lceil;m/2&rceil;</code> children.</li>
+    <li>The root node has at least 2 children if it is not a leaf.</li>
+    <li><strong>All leaf nodes are at the exact same depth</strong> (perfect height balance).</li>
+  </ul>
+
+  <h2>4 · B-Tree vs B+ Tree Architectural Comparison</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Property</th><th>Standard B-Tree</th><th>B+ Tree</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Key & Record Storage</strong></td><td>Keys and data records stored in <strong>both internal nodes and leaf nodes</strong>.</td><td>Internal nodes store <strong>ONLY routing keys</strong>; ALL data records reside exclusively in leaf nodes.</td></tr>
+      <tr><td><strong>Node Fanout</strong></td><td>Lower (data records consume space in internal nodes).</td><td><strong>Significantly higher</strong> (internal nodes fit hundreds of routing keys).</td></tr>
+      <tr><td><strong>Range Queries</strong></td><td>Slow; requires in-order tree traversal jumping up and down levels.</td><td><strong>Blazing fast</strong>; all leaves are linked together in a <strong>doubly linked list</strong> (sequential scan).</td></tr>
+      <tr><td><strong>Tree Height</strong></td><td>Taller for same data volume.</td><td>Shorter (typically 3 to 4 levels).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5 · Insertion & Node Splitting Mechanism</h2>
+  <ol>
+    <li>Traverse down from root to locate the target leaf node.</li>
+    <li>Insert the key in sorted order into the leaf node.</li>
+    <li><strong>Overflow Check:</strong> If leaf node now has <code>m</code> keys (exceeds <code>m - 1</code> capacity):
+      <ul>
+        <li>Split the leaf into two leaves, each holding half the keys.</li>
+        <li><strong>Copy up</strong> the middle key into the parent internal node.</li>
+        <li>Maintain leaf linked list pointers (<code>prev</code> and <code>next</code>).</li>
+      </ul>
+    </li>
+    <li>If the parent internal node overflows:
+      <ul>
+        <li>Split the internal node.</li>
+        <li><strong>Push up</strong> (move, not copy) the middle key to the grandparent node.</li>
+      </ul>
+    </li>
+    <li>If root splits, create a new root with 2 children. Tree height increases by 1 at the root.</li>
+  </ol>
+
+  <h2>6 · Deletion & Balancing (Borrowing vs Merging)</h2>
+  <ol>
+    <li>Locate the target leaf node and remove the key.</li>
+    <li><strong>Underflow Check:</strong> If keys drop below <code>&lceil;m/2&rceil; - 1</code>:
+      <ul>
+        <li><strong>Borrow (Redistribution):</strong> If an immediate left or right sibling has spare keys (more than minimum), borrow a key and adjust the parent's routing key.</li>
+        <li><strong>Merge:</strong> If siblings are also at minimum capacity, merge the node with a sibling and pull down/remove the separator key from the parent.</li>
+      </ul>
+    </li>
+    <li>If the root node loses all keys, delete it; its single child becomes the new root. Tree height shrinks by 1.</li>
+  </ol>
+
+  <nav class="bottom-nav">
+    <a href="0014-indexing-foundations-clustered-vs-secondary.html">← Lesson 14: Indexing Foundations</a>
+    <a href="0016-hash-indexing-and-lsm-trees.html">Lesson 16: Hash Indexing & LSM Trees →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<title>ECDSA, Variations and Applications</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit II &middot; Lesson 14 of 14</p>
+<h1>ECDSA, Variations and Applications</h1>
+<p class="deck">DSA moved onto an elliptic curve, worked end to end on a real curve; the five-scheme comparison table that closes the unit; and the variations &mdash; blind, proxy, group, ring, undeniable, multi-signature &mdash; with where signatures are actually used.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three separate marks-earners here. <strong>ECDSA</strong> is a numerical, and it is just DSA with point multiplication in place of exponentiation &mdash; if DSA is solid, this is nearly free. <strong>&ldquo;Variations of digital signatures&rdquo;</strong> is a definitional 5-marker where <strong>one line per variation plus its application</strong> is exactly what is wanted. <strong>&ldquo;Applications of digital signatures&rdquo;</strong> is the easiest question in the unit &mdash; but only if you have a list ready, so learn six.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; ECDSA Algorithm &amp; Verification</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=b2d5OLlpiaM" target="_blank">Elliptic Curve Digital Signature Algorithm (ECDSA) Architecture</a>
+    <span class="v-meta">Dr. P. Raghu Vamsi &middot; 11:11</span>
+    <div class="v-why">Step-by-step walkthrough of ECDSA over $\mathbb{F}_p$, computing ephemeral point $(x_1, y_1) = k \cdot G$, setting $r = x_1 \pmod n$, and verifying signature via linear point combinations.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Efficiency &amp; 5-Scheme Comparison</span>
+      <span class="best-tag">Top Exam Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=6TI5YOpnrgI" target="_blank">ECDSA: Why 256-bit ECC Matches 3072-bit RSA Security</a>
+    <span class="v-meta">Trustica &middot; 5:21</span>
+    <div class="v-why">Clear animated explanation contrasting key length, signature size, signing/verifying speeds, and energy footprint across RSA, ElGamal, Schnorr, DSA, and ECDSA.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: ECDSA SIGNATURE ENGINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: ECDSA Elliptic Curve Point Lifecycle</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Domain Parameters: Curve $E(\mathbb{F}_p)$, Base Point $G$, Order $n$</strong>
+      <span class="sub">Private Key $d_A \in [1, n-1]$ &middot; Public Key Point $Q_A = d_A \cdot G$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Ephemeral Point Multiplication: $(x_1, y_1) = k \cdot G$</span>
+    
+    <div class="flow-box warn" style="min-width:22rem;">
+      <strong>Compute Signature $(r, s)$</strong>
+      <span class="sub">$r = x_1 \pmod n$<br>$s = k^{-1}(H(M) + d_A \cdot r) \pmod n$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Verifier computes linear point combination</span>
+    
+    <div class="flow-box ok" style="min-width:22rem;">
+      <strong>Reconstructed Point: $(x_1', y_1') = u_1 \cdot G + u_2 \cdot Q_A$</strong>
+      <span class="sub">$u_1 = H(M) \cdot s^{-1} \pmod n$ &nbsp;|&nbsp; $u_2 = r \cdot s^{-1} \pmod n$ &nbsp;|&nbsp; Valid if $x_1' \equiv r \pmod n$</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Part 1 &mdash; ECDSA</h2>
+
+<p><strong>ECDSA is DSA with the group changed.</strong> Every modular exponentiation g<sup>k</sup> mod p becomes a scalar multiplication kG on an elliptic curve, and the modulus q becomes n, the order of the base point. Nothing else moves. It is standardised in <strong>FIPS 186</strong> and <strong>ANSI X9.62</strong>, and is what secures TLS certificates, Bitcoin and Ethereum.</p>
+
+<div class="formula">
+  <span class="name">The scheme</span>
+  <strong>Domain parameters:</strong> curve E<sub>p</sub>(a, b), base point <strong>G</strong> of prime order <strong>n</strong>.<br>
+  <strong>Keys:</strong> private <strong>d</strong> (1 &lt; d &lt; n); public <strong>Q = dG</strong>.<br><br>
+  <strong>SIGN M:</strong> pick a fresh random <strong>k</strong> (1 &lt; k &lt; n)<br>
+  &nbsp;&nbsp; <strong>R = kG = (x<sub>R</sub>, y<sub>R</sub>)</strong> &nbsp;&nbsp; <strong>r = x<sub>R</sub> mod n</strong><br>
+  &nbsp;&nbsp; <strong>s = k<sup>&minus;1</sup>[H(M) + d&middot;r] mod n</strong> &nbsp;&nbsp; Signature = <strong>(r, s)</strong><br><br>
+  <strong>VERIFY:</strong> &nbsp; <strong>w = s<sup>&minus;1</sup> mod n</strong><br>
+  &nbsp;&nbsp; <strong>u<sub>1</sub> = H(M)&middot;w mod n</strong> &nbsp;&nbsp; <strong>u<sub>2</sub> = r&middot;w mod n</strong><br>
+  &nbsp;&nbsp; <strong>X = u<sub>1</sub>G + u<sub>2</sub>Q</strong>, &nbsp;accept if <strong>x<sub>X</sub> mod n = r</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>DSA</th><th>ECDSA</th></tr></thead>
+<tbody>
+<tr><td>g<sup>k</sup> mod p</td><td><strong>kG</strong> &mdash; scalar multiplication</td></tr>
+<tr><td>y = g<sup>x</sup> mod p</td><td><strong>Q = dG</strong></td></tr>
+<tr><td>q, a prime divisor of p &minus; 1</td><td><strong>n</strong>, the order of G</td></tr>
+<tr><td>r = (g<sup>k</sup> mod p) mod q</td><td><strong>r = x-coordinate of kG, mod n</strong></td></tr>
+<tr><td>v = [(g<sup>u<sub>1</sub></sup>y<sup>u<sub>2</sub></sup>) mod p] mod q</td><td><strong>x-coordinate of (u<sub>1</sub>G + u<sub>2</sub>Q), mod n</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; ECDSA, worked in full</span>
+  <p><strong>Q. On the curve E<sub>17</sub>(2, 2): y<sup>2</sup> = x<sup>3</sup> + 2x + 2 mod 17, with G = (5, 1) of order n = 19, Alice&rsquo;s private key is d = 7. She signs a message with digest H(M) = 5 using k = 3. Find the signature and verify it.</strong></p>
+  <p><strong>Step 0 &mdash; the multiples of G we will need</strong> (from Lesson 8&rsquo;s double-and-add):</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">k</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">7</th><th class="num">8</th><th class="num">13</th><th class="num">18</th></tr></thead>
+  <tbody><tr><td><strong>kG</strong></td><td>(5,1)</td><td>(6,3)</td><td>(10,6)</td><td>(3,1)</td><td>(0,6)</td><td>(13,7)</td><td>(16,4)</td><td>(5,16)</td></tr></tbody>
+  </table>
+  </div>
+  <p><strong>Step 1 &mdash; the public key.</strong> Q = dG = 7G = <strong>(0, 6)</strong></p>
+  <p><strong>Step 2 &mdash; compute R and r.</strong> R = kG = 3G = <strong>(10, 6)</strong>, so <strong>r = x<sub>R</sub> mod n = 10 mod 19 = 10</strong> &nbsp;(r &ne; 0 &check;)</p>
+  <p><strong>Step 3 &mdash; compute k<sup>&minus;1</sup> mod n.</strong> 3 &times; 13 = 39 = 38 + 1 &equiv; 1 mod 19, so <strong>k<sup>&minus;1</sup> = 13</strong></p>
+  <p><strong>Step 4 &mdash; compute s.</strong><br>
+  s = k<sup>&minus;1</sup>[H(M) + d&middot;r] mod n = 13 &times; [5 + 7 &times; 10] mod 19 = 13 &times; 75 mod 19<br>
+  75 mod 19 = 75 &minus; 57 = <strong>18</strong>; &nbsp; s = 13 &times; 18 = 234 mod 19 = 234 &minus; 228 = <strong>6</strong></p>
+  <p><strong>Signature = (r, s) = (10, 6).</strong></p>
+  <p><strong>Step 5 &mdash; verification. w = s<sup>&minus;1</sup> mod n.</strong> 6 &times; 16 = 96 = 95 + 1 &equiv; 1 mod 19, so <strong>w = 16</strong></p>
+  <p><strong>Step 6 &mdash; u<sub>1</sub> and u<sub>2</sub>.</strong><br>
+  u<sub>1</sub> = H(M)&middot;w mod n = 5 &times; 16 = 80 mod 19 = <strong>4</strong> &nbsp;(80 &minus; 76)<br>
+  u<sub>2</sub> = r&middot;w mod n = 10 &times; 16 = 160 mod 19 = <strong>8</strong> &nbsp;(160 &minus; 152)</p>
+  <p><strong>Step 7 &mdash; compute X = u<sub>1</sub>G + u<sub>2</sub>Q.</strong><br>
+  u<sub>1</sub>G = 4G = <strong>(3, 1)</strong><br>
+  u<sub>2</sub>Q = 8 &times; (0,6) = 8 &times; 7G = 56G; and 56 mod 19 = 56 &minus; 38 = 18, so u<sub>2</sub>Q = 18G = <strong>(5, 16)</strong></p>
+  <p><strong>Add them: (3, 1) + (5, 16).</strong><br>
+  &lambda; = (16 &minus; 1)(5 &minus; 3)<sup>&minus;1</sup> = 15 &times; 2<sup>&minus;1</sup> &equiv; 15 &times; 9 = 135 &equiv; <strong>16 mod 17</strong> &nbsp;(2<sup>&minus;1</sup> = 9; 135 &minus; 119 = 16)<br>
+  x<sub>3</sub> = &lambda;<sup>2</sup> &minus; x<sub>1</sub> &minus; x<sub>2</sub> = 256 &minus; 3 &minus; 5 = 248 &equiv; <strong>10</strong> &nbsp;(248 &minus; 238)<br>
+  y<sub>3</sub> = &lambda;(x<sub>1</sub> &minus; x<sub>3</sub>) &minus; y<sub>1</sub> = 16(3 &minus; 10) &minus; 1 = &minus;113 &equiv; <strong>6</strong> &nbsp;(&minus;113 + 119)<br>
+  <strong>X = (10, 6)</strong></p>
+  <p><strong>Step 8 &mdash; compare.</strong> x<sub>X</sub> mod n = 10 mod 19 = <strong>10 = r. Signature valid. &check;</strong></p>
+  <p><em>Sanity checks:</em> X should come out equal to <strong>R = kG</strong> itself &mdash; here (10,6) both times, which is the fastest way to spot an error. And both r and s must be non-zero mod n; if either is zero, <strong>choose a new k</strong>.</p>
+</div>
+
+<h3>Why it works, and the two warnings</h3>
+
+<div class="formula">
+  <span class="name">The derivation</span>
+  From s = k<sup>&minus;1</sup>(H + dr) mod n: &nbsp; <strong>k &equiv; s<sup>&minus;1</sup>H + s<sup>&minus;1</sup>dr = u<sub>1</sub> + du<sub>2</sub> (mod n)</strong><br>
+  so &nbsp; u<sub>1</sub>G + u<sub>2</sub>Q = u<sub>1</sub>G + u<sub>2</sub>(dG) = (u<sub>1</sub> + du<sub>2</sub>)G = <strong>kG = R</strong>.
+</div>
+
+<ul>
+<li><strong>k must be random, secret and never repeated.</strong> Two signatures sharing an r reveal k, and then <strong>d = (sk &minus; H)r<sup>&minus;1</sup> mod n</strong> &mdash; a total break. This exact failure exposed <strong>Sony&rsquo;s PlayStation 3 signing key in 2010</strong> and has drained Bitcoin wallets built on weak random number generators. RFC 6979 answers it with <strong>deterministic nonces</strong> derived from the key and the message.</li>
+<li><strong>Signature malleability:</strong> if (r, s) verifies, so does <strong>(r, n &minus; s)</strong>. Bitcoin therefore requires the &ldquo;low-s&rdquo; form. Worth a line if a question asks about ECDSA weaknesses.</li>
+</ul>
+
+<h2>Part 2 &mdash; The five schemes side by side</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>RSA</th><th>ElGamal</th><th>Schnorr</th><th>DSA</th><th>ECDSA</th></tr></thead>
+<tbody>
+<tr><td><strong>Hard problem</strong></td><td>Factoring</td><td>DLP mod p</td><td>DLP in subgroup</td><td>DLP in subgroup</td><td><strong>ECDLP</strong></td></tr>
+<tr><td><strong>Signature</strong></td><td>One value</td><td>(r, s)</td><td>(e, y)</td><td>(r, s)</td><td>(r, s)</td></tr>
+<tr><td><strong>Size at 128-bit security</strong></td><td class="num">3072 bits</td><td class="num">6144 bits</td><td class="num">512 bits</td><td class="num">512 bits</td><td class="num"><strong>512 bits</strong> with a 256-bit curve</td></tr>
+<tr><td><strong>Random k needed</strong></td><td>No</td><td><strong>Yes</strong></td><td><strong>Yes</strong></td><td><strong>Yes</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Recovers digest?</strong></td><td><strong>Yes</strong></td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+<tr><td><strong>Also encrypts?</strong></td><td><strong>Yes</strong></td><td>No (as a signature)</td><td>No</td><td>No</td><td>No</td></tr>
+<tr><td><strong>Precomputation</strong></td><td>&mdash;</td><td>Partial</td><td><strong>Full</strong></td><td>Partial</td><td>Partial</td></tr>
+<tr><td><strong>Where used</strong></td><td>Legacy PKI, certificates</td><td>Mostly historical</td><td>Bitcoin Taproot, EdDSA lineage</td><td>FIPS 186, legacy government</td><td><strong>TLS, Bitcoin, smart cards, passports</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Part 3 &mdash; Variations of digital signatures</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Variation</th><th>What it does</th><th>Where it is used</th></tr></thead>
+<tbody>
+<tr><td><strong>Blind signature</strong> (Chaum, 1983)</td><td>The signer signs a <strong>blinded</strong> message without seeing its content; the requester unblinds afterwards to get a valid signature on the original</td><td><strong>E-cash, e-voting</strong> &mdash; the bank certifies a coin without linking it to the spender. (Technically the same algebra as the blinding <em>attack</em> of Lesson 11, used deliberately.)</td></tr>
+<tr><td><strong>Proxy signature</strong></td><td>A signer <strong>delegates</strong> signing authority to a proxy, who signs on their behalf; verifiers can tell it was the proxy</td><td>A manager on leave delegating approvals; distributed and mobile agent systems</td></tr>
+<tr><td><strong>Group signature</strong></td><td><strong>Any member</strong> of a group can sign anonymously on the group&rsquo;s behalf; only the <strong>group manager</strong> can open the signature and identify the signer</td><td>Anonymous attestation, whistleblowing with accountability, vehicle-to-vehicle networks</td></tr>
+<tr><td><strong>Ring signature</strong></td><td>Like a group signature but with <strong>no manager and no way to revoke anonymity</strong> &mdash; the verifier learns only that <em>someone</em> in the ring signed</td><td><strong>Monero</strong> transactions; anonymous leaks</td></tr>
+<tr><td><strong>Undeniable signature</strong></td><td>Verification <strong>requires the signer&rsquo;s cooperation</strong>, but a disavowal protocol stops them denying a genuine signature</td><td>Licensed software: only the buyer can confirm authenticity</td></tr>
+<tr><td><strong>Multi-signature</strong></td><td><strong>Several signers</strong> sign one document; all signatures are required</td><td>Joint bank accounts, multi-party contracts, Bitcoin multisig wallets</td></tr>
+<tr><td><strong>Threshold signature</strong></td><td><strong>Any t of n</strong> key-share holders can jointly produce one signature; fewer than t cannot</td><td>Custody of high-value keys, distributed CAs</td></tr>
+<tr><td><strong>Aggregate signature</strong></td><td>Many signatures on many messages are <strong>compressed into one short signature</strong></td><td>Blockchain block compression (BLS signatures)</td></tr>
+<tr><td><strong>One-time signature</strong> (Lamport)</td><td>A key pair usable for <strong>exactly one</strong> signature; built from hash functions only</td><td>Post-quantum schemes and hash-based signatures (XMSS, SPHINCS+)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Part 4 &mdash; Applications</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Domain</th><th>How digital signatures are used</th></tr></thead>
+<tbody>
+<tr><td><strong>Web security &mdash; SSL/TLS</strong></td><td>A CA <strong>signs the server&rsquo;s certificate</strong>; the browser verifies it, then the handshake is signed with ECDSA or RSA. The whole PKI is a chain of signatures.</td></tr>
+<tr><td><strong>Software and code signing</strong></td><td>Publishers sign executables, drivers, app-store packages and firmware; <strong>secure boot</strong> refuses unsigned code. This is where the Sony PS3 key loss mattered.</td></tr>
+<tr><td><strong>Email security</strong></td><td><strong>PGP and S/MIME</strong> sign messages for authenticity and non-repudiation &mdash; the subject of Unit IV.</td></tr>
+<tr><td><strong>E-governance in India</strong></td><td>The <strong>IT Act, 2000</strong> gives digital signatures legal standing. <strong>Digital Signature Certificates (DSC)</strong> from licensed CAs are mandatory for <strong>income-tax e-filing, GST returns, MCA/ROC filings, EPFO and e-tendering</strong>; <strong>Aadhaar eSign</strong> provides an online alternative.</td></tr>
+<tr><td><strong>Documents and contracts</strong></td><td>Signed PDFs, e-agreements and digitally signed university mark sheets; the signature both authenticates and detects any later alteration.</td></tr>
+<tr><td><strong>Blockchain and cryptocurrency</strong></td><td>Every Bitcoin or Ethereum transaction is <strong>signed with ECDSA</strong> over secp256k1; the signature <em>is</em> the proof of ownership of the coins.</td></tr>
+<tr><td><strong>Identity documents</strong></td><td>E-passports, national ID smart cards and SIM applets carry signed data objects verified offline.</td></tr>
+<tr><td><strong>Protocols</strong></td><td><strong>IPsec IKE, SSH host keys, DNSSEC</strong> and Kerberos-adjacent PKINIT all rest on signatures.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In ECDSA, the value r is obtained as:</p>
+  <div class="opts">
+    <button class="opt">The x-coordinate of the public key point Q, modulo n</button>
+    <button class="opt" data-ok="1">The x-coordinate of the point kG, reduced modulo n</button>
+    <button class="opt">The scalar k multiplied by the private key d, modulo n</button>
+    <button class="opt">The y-coordinate of the point kG, reduced modulo p</button>
+  </div>
+  <p class="why">R = kG, and r = x_R mod n. It mirrors DSA, where r = (g^k mod p) mod q — a group element crushed down into the small modulus.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. On E₁₇(2,2) with G = (5,1), n = 19, d = 7, k = 3 and H(M) = 5, the signature is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">(10, 6)</button>
+    <button class="opt">(6, 10)</button>
+    <button class="opt">(3, 13)</button>
+    <button class="opt">(10, 18)</button>
+  </div>
+  <p class="why">3G = (10,6), so r = 10; k⁻¹ = 13 mod 19, and s = 13(5 + 70) = 13 × 18 ≡ 6. The signature is (r, s) = (10, 6) — in that order.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. ECDSA verification succeeds when the computed point X = u₁G + u₂Q satisfies:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">x_X mod n = r, because X reconstructs the point kG</button>
+    <button class="opt">X = Q, because the public key is rebuilt from the signature</button>
+    <button class="opt">y_X mod n = s, matching the second signature component</button>
+    <button class="opt">X = O, the point at infinity, confirming the two terms cancel</button>
+  </div>
+  <p class="why">u₁ + du₂ ≡ k mod n, so u₁G + u₂Q = kG = R. Comparing x-coordinates mod n is exactly the DSA test v = r.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A blind signature allows:</p>
+  <div class="opts">
+    <button class="opt">A signature to be verified only with the signer's cooperation</button>
+    <button class="opt" data-ok="1">The signer to sign a message whose content they cannot see</button>
+    <button class="opt">Any member of a group to sign while staying anonymous</button>
+    <button class="opt">Several signatures to be compressed into one short value</button>
+  </div>
+  <p class="why">The other three describe group, undeniable and aggregate signatures. Blind signatures underpin e-cash and e-voting, and use the same algebra as the blinding attack — deliberately.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The difference between a group signature and a ring signature is that:</p>
+  <div class="opts">
+    <button class="opt">Ring signatures work only on elliptic curves, group signatures only on RSA</button>
+    <button class="opt">A ring signature requires all members to sign, while a group signature needs only one</button>
+    <button class="opt" data-ok="1">A group manager can reveal the signer of a group signature; a ring signature has no such authority</button>
+    <button class="opt">Group signatures are anonymous while ring signatures identify the signer openly</button>
+  </div>
+  <p class="why">Both hide the individual signer, but only the group scheme keeps a trapdoor for accountability. Monero uses ring signatures precisely because nobody can open them.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Reusing k across two ECDSA signatures is catastrophic because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The two signatures share r, from which k and then the private key d follow</button>
+    <button class="opt">The two signatures become identical, revealing the message digests</button>
+    <button class="opt">The public key Q must then be regenerated for every new message</button>
+    <button class="opt">The verification equation no longer holds, so both are rejected</button>
+  </div>
+  <p class="why">Equal k gives equal R and so equal r; subtracting the s equations yields k, and then d = (sk − H)r⁻¹ mod n. This is how the PS3 signing key was recovered.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the ECDSA signing and verification algorithms.</summary>
+    <p class="ans">Domain: curve E_p(a,b), base point G of order n. Private d, public Q = dG. Sign with a fresh k: R = kG, r = x_R mod n, s = k⁻¹[H(M) + dr] mod n, signature (r, s). Verify: w = s⁻¹ mod n, u₁ = H(M)w mod n, u₂ = rw mod n, X = u₁G + u₂Q; accept if x_X mod n = r.</p></details>
+  <details class="card"><summary>Work the ECDSA example on E₁₇(2,2), G = (5,1), n = 19, d = 7, k = 3, H(M) = 5.</summary>
+    <p class="ans">Q = 7G = (0,6). R = 3G = (10,6) so r = 10. k⁻¹ = 13 mod 19, and s = 13(5 + 70) = 13 × 18 ≡ 6, giving (10, 6). Verify: w = 16, u₁ = 4, u₂ = 8; u₁G = 4G = (3,1) and u₂Q = 18G = (5,16); their sum is (10,6), whose x-coordinate 10 equals r.</p></details>
+  <details class="card"><summary>Map DSA onto ECDSA.</summary>
+    <p class="ans">g^k mod p becomes kG; y = gˣ mod p becomes Q = dG; the subgroup order q becomes n, the order of G; r = (g^k mod p) mod q becomes the x-coordinate of kG mod n; and the verification value v becomes the x-coordinate of u₁G + u₂Q. The structure of the equations is unchanged.</p></details>
+  <details class="card"><summary>Give the two ECDSA-specific warnings.</summary>
+    <p class="ans">The nonce k must be random, secret and never reused — two signatures sharing r give k and then d = (sk − H)r⁻¹ mod n, a total break, as happened to Sony&rsquo;s PS3 key; RFC 6979 deterministic nonces are the standard fix. And signatures are malleable: if (r, s) verifies then so does (r, n − s), which is why Bitcoin mandates the low-s form.</p></details>
+  <details class="card"><summary>Name six variations of digital signatures with one use each.</summary>
+    <p class="ans">Blind signature — e-cash and e-voting; proxy signature — delegated approval; group signature — anonymous signing with a manager who can identify the signer; ring signature — anonymity with no manager, as in Monero; undeniable signature — verification needing the signer&rsquo;s cooperation, used for licensed software; multi-signature and threshold signature — joint accounts and distributed key custody; aggregate signature — compressing many signatures into one.</p></details>
+  <details class="card"><summary>List six applications of digital signatures.</summary>
+    <p class="ans">SSL/TLS certificates and the PKI chain; code, driver and firmware signing including secure boot; email security through PGP and S/MIME; Indian e-governance under the IT Act 2000 — DSCs for income-tax e-filing, GST, MCA filings and e-tendering, plus Aadhaar eSign; signed PDFs, contracts and certificates; and blockchain transactions signed with ECDSA.</p></details>
+  <details class="card"><summary>Compare the five signature schemes.</summary>
+    <p class="ans">RSA rests on factoring, gives one large value, is deterministic and can also encrypt. ElGamal rests on the discrete log, gives a pair the size of p, and needs a fresh k. Schnorr and DSA work in a subgroup of order q, giving short pairs; Schnorr allows full precomputation and is provably secure in the random oracle model, while DSA became the FIPS standard. ECDSA is DSA on an elliptic curve, giving the same short signature at a far smaller key size, and is what TLS and Bitcoin use.</p></details>
+</div>
+
+<p class="ask">That completes Unit II. The <a href="../../reference/unit2-cheat-sheet.html">Unit II exam sheet</a> collects every formula, every worked numerical and every comparison table from these seven lessons onto printable pages.</p>
+
+<div class="nav">
+  <a href="0013-schnorr-and-dss.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-3/0015-entity-authentication-and-passwords.html">Next: Authentication &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

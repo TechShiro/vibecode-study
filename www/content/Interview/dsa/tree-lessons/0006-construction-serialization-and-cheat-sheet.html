@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree Lesson 06 — Construction, Serialization &amp; Cheat Sheet</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Tree Track · Lesson 6 of 6 · build from traversals, serialize/deserialize, track cheat sheet</div>
+<h1>Construction, Serialization &amp; the Cheat Sheet</h1>
+<p class="subtitle">Traversals in reverse: instead of tree → sequence, rebuild sequence → tree. One insight powers all of it — preorder tells you WHO the root is, inorder tells you WHERE the split is.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Construct from Traversals (105) and Serialize/Deserialize (297) are Meta and Amazon
+  regulars, and 297 is the classic "design" tree question. This closes the tree track — cheat sheet at the bottom.
+  Lesson 6 of 6. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Every construction problem is the same two questions asked recursively: <strong>which element is the root?</strong>
+and <strong>which elements belong to its left subtree vs its right?</strong> Preorder (and postorder) answer the
+first — the root is the <em>first</em> (resp. <em>last</em>) element. Inorder answers the second — everything left
+of the root's position is the left subtree, everything right is the right subtree. Serialization is the same game
+made easy: by <em>recording the nulls</em>, one preorder string alone pins down the tree, no second traversal needed.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Construct / build the tree from…", "serialize / deserialize", "encode to a string and back". Also fires when a
+  problem hands you two traversal arrays, or asks you to transmit/store a tree. Route: two arrays → root-and-split
+  recursion; string round-trip → preorder with explicit null markers.
+</div>
+
+<h2>2 · Core template</h2>
+
+<h3>Core A — Construct from Preorder + Inorder (LC 105)</h3>
+<p>
+Naive version: take <code>preorder[0]</code> as root, <em>scan</em> inorder to find it, copy subarrays, recurse —
+O(n²) from the scans and copies. Two standard upgrades: a <strong>HashMap</strong> from value → inorder index kills
+the scan, and <strong>index ranges</strong> instead of copied arrays kill the copying. A single advancing
+<code>pre</code> pointer replaces subarray arithmetic entirely — preorder hands out roots in exactly the order the
+recursion asks for them (root, then all of left, then all of right).
+</p>
+<pre><code><span class="cmt">// Time O(n) — each node built once, O(1) map lookup. Space O(n) map + O(h) stack.</span>
+Map&lt;Integer, Integer&gt; idx = new HashMap&lt;&gt;();  <span class="cmt">// value → its inorder position</span>
+int pre = 0;                                   <span class="cmt">// next unused preorder element</span>
+
+TreeNode buildTree(int[] preorder, int[] inorder) {
+    for (int i = 0; i &lt; inorder.length; i++) idx.put(inorder[i], i);
+    return build(preorder, 0, inorder.length - 1);
+}
+TreeNode build(int[] preorder, int inLo, int inHi) {
+    if (inLo &gt; inHi) return null;              <span class="cmt">// this inorder range is empty → no subtree</span>
+    int rootVal = preorder[pre++];             <span class="cmt">// preorder ALWAYS knows the next root</span>
+    TreeNode root = new TreeNode(rootVal);
+    int mid = idx.get(rootVal);                <span class="cmt">// inorder splits: [inLo..mid-1] | [mid+1..inHi]</span>
+    root.left  = build(preorder, inLo, mid - 1);  <span class="cmt">// MUST build left first — preorder order</span>
+    root.right = build(preorder, mid + 1, inHi);
+    return root;
+}</code></pre>
+
+<h3>Worked example — dry run</h3>
+<div class="trace">
+<span class="step">preorder = [3, 9, 20, 15, 7], inorder = [9, 3, 15, 20, 7]</span>
+<span class="step now">pre=0 → root <span class="ptr">3</span>; inorder index 1 → left gets [9], right gets [15, 20, 7]</span>
+<span class="step now">pre=1 → root <span class="ptr">9</span> (left subtree); its inorder range is just [9] → both children null</span>
+<span class="step now">pre=2 → root <span class="ptr">20</span> (right subtree); splits [15] | [7]</span>
+<span class="step now">pre=3 → <span class="ptr">15</span>, pre=4 → <span class="ptr">7</span> — done</span>
+<span class="step">tree: 3 / (9, 20), 20 / (15, 7) ✓</span>
+</div>
+
+<h3>Core B — Serialize / Deserialize (LC 297)</h3>
+<p>
+Why can one traversal rebuild the tree here when LC 105 needed two? Because we <strong>write the nulls</strong>.
+With every null recorded, preorder becomes unambiguous: read a token — if it's <code>#</code> the subtree is empty,
+otherwise it's a root and the next tokens are its left then right subtrees. Encoder and decoder are mirror images.
+</p>
+<pre><code><span class="cmt">// Preorder with null markers. Time O(n) both ways, Space O(n).</span>
+String serialize(TreeNode root) {
+    StringBuilder sb = new StringBuilder();
+    ser(root, sb);
+    return sb.toString();                  <span class="cmt">// e.g. "1,2,#,#,3,4,#,#,#,"</span>
+}
+void ser(TreeNode n, StringBuilder sb) {
+    if (n == null) { sb.append("#,"); return; }  <span class="cmt">// null marker — the crucial part</span>
+    sb.append(n.val).append(',');          <span class="cmt">// root first (preorder)</span>
+    ser(n.left, sb);
+    ser(n.right, sb);
+}
+
+int pos = 0;                               <span class="cmt">// shared cursor over the token stream</span>
+TreeNode deserialize(String data) {
+    pos = 0;
+    return des(data.split(","));
+}
+TreeNode des(String[] t) {
+    String tok = t[pos++];                 <span class="cmt">// consume exactly one token per call</span>
+    if (tok.equals("#")) return null;      <span class="cmt">// empty subtree</span>
+    TreeNode n = new TreeNode(Integer.parseInt(tok));
+    n.left  = des(t);                      <span class="cmt">// tokens arrive in preorder —</span>
+    n.right = des(t);                      <span class="cmt">// left subtree's tokens come first</span>
+    return n;
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Why LC 105 needs inorder but LC 297 doesn't</span>
+  Plain preorder without nulls is ambiguous — <code>[1,2]</code> could be a left child or a right child. LC 105
+  resolves the ambiguity with a second traversal (inorder gives the split); LC 297 resolves it by recording nulls
+  (every subtree boundary is explicit). Two solutions to the same information problem — say this in the interview.
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Preorder + inorder</td><td>LC 105</td><td>Core A: roots from the FRONT of preorder, advancing forward.</td></tr>
+    <tr><td>Inorder + postorder</td><td>LC 106</td><td>Roots from the BACK of postorder; build RIGHT subtree first.</td></tr>
+    <tr><td>Serialize / deserialize</td><td>LC 297</td><td>Core B: preorder with null markers, cursor-consuming decoder.</td></tr>
+    <tr><td>Vertical order</td><td>LC 987</td><td>Not construction — DFS with (col, row) coordinates + sorting.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Construct from Inorder + Postorder (LC 106)</h3>
+<p>
+Mirror image of Core A. Postorder is (left, right, root), so read it <strong>backwards</strong>: the last element
+is the root, and walking backwards yields root, then the <em>right</em> subtree's roots, then the left's. So the
+pointer starts at the end and you must recurse <strong>right before left</strong>.
+</p>
+<pre><code>Map&lt;Integer, Integer&gt; idx = new HashMap&lt;&gt;();
+int post;                                      <span class="cmt">// cursor starts at the END</span>
+
+TreeNode buildTree(int[] inorder, int[] postorder) {
+    for (int i = 0; i &lt; inorder.length; i++) idx.put(inorder[i], i);
+    post = postorder.length - 1;
+    return build(postorder, 0, inorder.length - 1);
+}
+TreeNode build(int[] postorder, int inLo, int inHi) {
+    if (inLo &gt; inHi) return null;
+    TreeNode root = new TreeNode(postorder[post--]);  <span class="cmt">// take from the back</span>
+    int mid = idx.get(root.val);
+    root.right = build(postorder, mid + 1, inHi); <span class="cmt">// ★ RIGHT first — reversed postorder</span>
+    root.left  = build(postorder, inLo, mid - 1); <span class="cmt">// is (root, right, left)</span>
+    return root;
+}</code></pre>
+
+<h3>Case: Vertical Order Traversal (LC 987) — brief</h3>
+<p>
+Different flavor: assign each node a coordinate — root at column 0, left child col−1, right child col+1, row = depth —
+then group by column, sorting each group by (row, then value) per the problem's tie rule. A
+<code>TreeMap&lt;col, list&gt;</code> plus one DFS does it; know the shape more than the boilerplate.
+</p>
+<pre><code>TreeMap&lt;Integer, List&lt;int[]&gt;&gt; cols = new TreeMap&lt;&gt;();  <span class="cmt">// col → [(row, val)…], keys sorted</span>
+
+List&lt;List&lt;Integer&gt;&gt; verticalTraversal(TreeNode root) {
+    dfs(root, 0, 0);
+    List&lt;List&lt;Integer&gt;&gt; out = new ArrayList&lt;&gt;();
+    for (List&lt;int[]&gt; col : cols.values()) {
+        col.sort((a, b) -&gt; a[0] != b[0] ? a[0] - b[0] : a[1] - b[1]); <span class="cmt">// row, then value</span>
+        List&lt;Integer&gt; vals = new ArrayList&lt;&gt;();
+        for (int[] p : col) vals.add(p[1]);
+        out.add(vals);
+    }
+    return out;
+}
+void dfs(TreeNode n, int col, int row) {
+    if (n == null) return;
+    cols.computeIfAbsent(col, k -&gt; new ArrayList&lt;&gt;()).add(new int[]{row, n.val});
+    dfs(n.left,  col - 1, row + 1);           <span class="cmt">// left = one column west, one row down</span>
+    dfs(n.right, col + 1, row + 1);
+}</code></pre>
+<p><strong>Time</strong> O(n log n) from sorting. Note LC 314 (Vertical Order, the premium sibling) wants BFS order within a column instead of the sort rule — read the tie-break rules carefully.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>LC 105/106 assume unique values</strong> — the value→index map is only valid then. With duplicates you'd need pure index bookkeeping.</li>
+  <li><strong>LC 106: right before left</strong>, cursor from the back. Recursing left first with a back-cursor builds a scrambled tree — the signature bug.</li>
+  <li><strong>Serialize negative numbers</strong> — split on a delimiter, never parse character by character (<code>-12</code> is one token).</li>
+  <li><strong>Null markers are load-bearing</strong> — dropping them (or the trailing ones) makes the preorder string ambiguous and the decoder misalign.</li>
+  <li><strong>Deserialize shares one cursor</strong> — a field or a queue of tokens. Passing a plain <code>int</code> index down doesn't work: Java is pass-by-value, so child consumption wouldn't advance the parent's index.</li>
+  <li><strong>Empty tree round-trip</strong> — serialize(null) must produce something ("#,") that deserializes back to null.</li>
+  <li><strong>Vertical order tie rules differ</strong> between LC 314 (BFS order) and LC 987 (sort by row, then value) — mixing them fails hidden tests.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In LC 105, preorder = [A, …]. How do you know which of the remaining elements form A's left subtree?</div>
+  <button class="opt">The next ⌊n/2⌋ preorder elements are the left subtree — preorder is always split evenly</button>
+  <button class="opt">Find A in the inorder array — every element before that position is in A's left subtree</button>
+  <button class="opt">Scan preorder for the first element greater than A — that's where the right subtree begins</button>
+  <div class="fb" data-correct="Inorder is (left, root, right), so A's position splits it exactly: left of A = left subtree, right of A = right subtree. Preorder alone can't tell you the split — that's why the problem gives you both." data-wrong="Trees aren't guaranteed balanced, and value comparisons only work for BSTs (that trick is LC 1008). For a general tree the split comes from inorder: elements before A's inorder position are the left subtree."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why can LC 297 rebuild the tree from a single preorder string when LC 105 needed two traversals?</div>
+  <button class="opt">The serializer may choose any format, so it embeds each subtree's size before its values</button>
+  <button class="opt">Deserialization is approximate — any tree with the same preorder is accepted by the judge</button>
+  <button class="opt">The string records null markers, so every subtree's boundary is explicit and no second traversal is needed</button>
+  <div class="fb" data-correct="Nulls are the missing information. Plain preorder can't distinguish a left child from a right child, but with '#' at every empty slot, each token stream parses one unambiguous tree." data-wrong="No sizes are embedded and the round-trip must be exact. The standard trick: record '#' for every null. Those markers mark subtree boundaries, making one preorder pass unambiguous."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In LC 106 (inorder + postorder) with a cursor moving backwards through postorder, why must you build the right subtree before the left?</div>
+  <button class="opt">Postorder is (left, right, root), so read in reverse it yields root, then the whole right subtree, then the left — the cursor must consume in that order</button>
+  <button class="opt">The right subtree is always larger in postorder-built trees, so building it first avoids resizing</button>
+  <button class="opt">Java evaluates the second assignment first, so writing left-first actually runs right-first</button>
+  <div class="fb" data-correct="Reversed postorder is (root, right, left). The cursor hands out values in exactly that sequence, so recursion order must match: root, then right, then left. Swap them and subtrees get each other's nodes." data-wrong="Subtree sizes are irrelevant and Java evaluates statements top to bottom. The reason is the token order: postorder reversed = (root, right, left), and the shared cursor must be consumed in that exact order."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/binary-tree-from-preorder-and-inorder-traversal">NeetCode — Construct from Preorder and Inorder</a>, then <a href="https://neetcode.io/problems/serialize-and-deserialize-binary-tree">NeetCode — Serialize and Deserialize Binary Tree</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 105 (pre+in) → LC 106 (in+post, feel the mirror) → LC 297 (serialize) → LC 1008 (BST from preorder alone — why does one traversal suffice here?) → LC 987 (vertical order) → LC 654 (maximum binary tree, same split idea). Then re-solve LC 105 cold in under 10 minutes.</li>
+</ul>
+
+<h2>7 · Tree cheat sheet — the whole track on one card</h2>
+<p>Print this. Left column is what the problem says; the rest is what your hands should do.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Recursive traversal</td><td>"pre/in/post-order", collect nodes</td><td>null-check, recurse L, recurse R; visit line placement = order</td><td>O(n) / O(h)</td><td>144·94·145</td></tr>
+    <tr><td>In-order = sorted</td><td>BST + "sorted / kth / successor"</td><td>in-order visits BST values ascending</td><td>O(n) / O(h)</td><td>94·230</td></tr>
+    <tr><td>Iterative in-order</td><td>"no recursion", pausable scan</td><td>push left spine; pop = visit; step right</td><td>O(n) / O(h)</td><td>94·173</td></tr>
+    <tr><td>Morris in-order</td><td>"O(1) space" follow-up</td><td>thread predecessor.right → cur; remove on 2nd arrival</td><td>O(n) / O(1)</td><td>99 var</td></tr>
+    <tr><td>Level order</td><td>"level by level / width / depth of level"</td><td>queue; snapshot size = q.size(); drain size per round</td><td>O(n) / O(w)</td><td>102</td></tr>
+    <tr><td>Zigzag levels</td><td>"alternate direction"</td><td>level order + LinkedList.addFirst on odd levels</td><td>O(n) / O(w)</td><td>103</td></tr>
+    <tr><td>Right side view</td><td>"seen from the right"</td><td>level order; keep node where i == size−1</td><td>O(n) / O(w)</td><td>199</td></tr>
+    <tr><td>Compute from children</td><td>one fact about whole tree</td><td>base for null; combine(left, right, node) post-order</td><td>O(n) / O(h)</td><td>104·226·100·101</td></tr>
+    <tr><td>Poison value</td><td>validity + measure in one pass</td><td>return height, or −1 = failed below; short-circuit up</td><td>O(n) / O(h)</td><td>110</td></tr>
+    <tr><td>Value up, answer global</td><td>path may BEND at a node</td><td>return one arm up; record two-arm best globally</td><td>O(n) / O(h)</td><td>543·124·687</td></tr>
+    <tr><td>Root-to-leaf paths</td><td>"path from root to leaf"</td><td>pass remaining target down; decide at leaf (L==null&amp;&amp;R==null)</td><td>O(n) / O(h)</td><td>112·113</td></tr>
+    <tr><td>LCA, general tree</td><td>"lowest common ancestor"</td><td>return null/p/q up; both sides non-null ⇒ I'm LCA</td><td>O(n) / O(h)</td><td>236</td></tr>
+    <tr><td>LCA in BST</td><td>LCA + BST</td><td>walk: both smaller→left, both bigger→right, else stop</td><td>O(h) / O(1)</td><td>235</td></tr>
+    <tr><td>Validate BST</td><td>"is it a valid BST"</td><td>pass (lo, hi) window down; local child-check is the trap</td><td>O(n) / O(h)</td><td>98</td></tr>
+    <tr><td>BST insert / delete</td><td>"modify the BST"</td><td>walk to slot; delete: 0/1 child splice, 2 → successor swap</td><td>O(h) / O(h)</td><td>701·450</td></tr>
+    <tr><td>Sorted array → BST</td><td>"balanced BST from sorted"</td><td>mid = root; recurse halves</td><td>O(n) / O(log n)</td><td>108</td></tr>
+    <tr><td>Build from 2 traversals</td><td>"construct from pre+in / in+post"</td><td>pre/post cursor gives root; inorder map gives split</td><td>O(n) / O(n)</td><td>105·106</td></tr>
+    <tr><td>Serialize / deserialize</td><td>"encode to string and back"</td><td>preorder with '#' null markers; decoder eats one token per call</td><td>O(n) / O(n)</td><td>297</td></tr>
+    <tr><td>Vertical order</td><td>"column by column"</td><td>DFS with (col, row); TreeMap by col; sort per tie rule</td><td>O(n log n) / O(n)</td><td>987·314</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  That's the tree track — six lessons, one recursive skeleton, and every big-tech tree case mapped. Want to re-derive
+  any row of the cheat sheet, mock-interview a random LC number from it, or stress-test your serialize code? Ask in
+  the chat. When you're ready, say <strong>"next"</strong> — the sliding-window track is up.
+</div>
+
+<div class="nav">
+  <span><a href="0005-bst.html">← Binary Search Trees</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../sliding-window-lessons/0001-fixed-size-windows.html">Sliding Window Track →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

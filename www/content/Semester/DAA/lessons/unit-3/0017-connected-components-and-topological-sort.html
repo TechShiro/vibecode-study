@@ -1,0 +1,222 @@
+<title>Connected Components and Topological Sorting</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit III &middot; Lesson 17 of 19</p>
+<h1>Connected Components and Topological Sorting</h1>
+<p class="deck">Finding connected components in undirected graphs, strongly connected components (Kosaraju&rsquo;s algorithm), topological sorting of DAGs by DFS reverse-finish and by Kahn&rsquo;s BFS &mdash; with full worked traces.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Find all connected components&rdquo;</strong> is usually a sub-question. <strong>&ldquo;Find a topological ordering of the given DAG&rdquo;</strong> is a standalone 5&ndash;10 marker &mdash; show DFS with finish times, then list vertices in reverse finish order. Know Kahn&rsquo;s algorithm too.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Topological Sorting & Strongly Connected Components (SCC)</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>Topological Sort (DAG only)</strong><span class="sub">Linear ordering such that for every directed edge (u, v), u appears before v.<br><strong>Kahn's Algorithm:</strong> Queue vertices with in-degree 0; remove and decrement neighbors</span></div>
+    <div class="flow-box ok"><strong>Kosaraju's SCC Algorithm (O(V + E))</strong><span class="sub">1. Run DFS on G; push to stack by finish time<br>2. Transpose graph G &rarr; G<sup>T</sup><br>3. Pop stack and run DFS on G<sup>T</sup> to extract components</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Topological Sort & SCC</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Topological Sort and Strongly Connected Components (Kosaraju Algorithm)</div>
+    <div class="v-desc">Step-by-step execution of Kahn's in-degree algorithm and Kosaraju's two-pass DFS on transposed graphs.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=qz9tKlF431k" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>Connected components (undirected)</h2>
+
+<p>A <em class="term">connected component</em> is a maximal set of vertices such that there is a path between every pair.</p>
+
+<div class="formula">
+  <span class="name">Algorithm</span>
+  Run BFS or DFS from an unvisited vertex. All vertices reached form one component. Repeat until all vertices are visited.<br>
+  <strong>Time: O(V + E)</strong>
+</div>
+
+<h2>Strongly Connected Components (directed)</h2>
+
+<p>In a directed graph, a <em class="term">strongly connected component (SCC)</em> is a maximal set of vertices where every vertex is reachable from every other vertex (via directed paths).</p>
+
+<div class="formula">
+  <span class="name">Kosaraju&rsquo;s algorithm</span>
+  1. Run DFS on G, recording <strong>finish times</strong>.<br>
+  2. Compute G<sup>T</sup> (transpose: reverse all edges).<br>
+  3. Run DFS on G<sup>T</sup> in <strong>decreasing finish-time order</strong>.<br>
+  4. Each DFS tree in step 3 is one SCC.<br><br>
+  <strong>Time: &Theta;(V + E)</strong>
+</div>
+
+<h2>Topological sorting</h2>
+
+<p>A <em class="term">topological sort</em> of a DAG (directed acyclic graph) is a linear ordering of vertices such that for every edge (u,v), u appears before v. <strong>Only possible if the graph has no cycle.</strong></p>
+
+<h3>Method 1: DFS-based</h3>
+
+<div class="formula">
+  <span class="name">DFS topological sort</span>
+  1. Run DFS on the entire graph.<br>
+  2. As each vertex <strong>finishes</strong> (turns black), prepend it to a list.<br>
+  3. The list is a valid topological order.<br><br>
+  <strong>Time: &Theta;(V + E)</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; topological sort by DFS</span>
+  <p>DAG with edges: A&rarr;B, A&rarr;C, B&rarr;D, C&rarr;D, C&rarr;E, D&rarr;E.</p>
+  <p>DFS from A (alphabetical tie-breaking):</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Vertex</th><th>d[v]</th><th>f[v]</th></tr></thead>
+  <tbody>
+  <tr><td>A</td><td>1</td><td>10</td></tr>
+  <tr><td>B</td><td>2</td><td>7</td></tr>
+  <tr><td>D</td><td>3</td><td>6</td></tr>
+  <tr><td>E</td><td>4</td><td>5</td></tr>
+  <tr><td>C</td><td>8</td><td>9</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Finish order:</strong> E(5), D(6), B(7), C(9), A(10).</p>
+  <p><strong>Reverse finish = topological order:</strong> <strong>A, C, B, D, E</strong></p>
+  <p><strong>Verify:</strong> A&rarr;B &check;, A&rarr;C &check;, B&rarr;D &check;, C&rarr;D &check;, C&rarr;E &check;, D&rarr;E &check;. All sources before destinations.</p>
+</div>
+
+<h3>Method 2: Kahn&rsquo;s algorithm (BFS-based)</h3>
+
+<div class="formula">
+  <span class="name">Kahn&rsquo;s algorithm</span>
+  1. Compute in-degree of every vertex.<br>
+  2. Enqueue all vertices with in-degree 0.<br>
+  3. While queue is not empty:<br>
+  &nbsp;&nbsp; u = Dequeue. Add u to output.<br>
+  &nbsp;&nbsp; For each neighbour v of u: in-degree[v]&minus;&minus;. If in-degree[v] = 0, enqueue v.<br>
+  4. If output has fewer than V vertices, <strong>the graph has a cycle</strong>.<br><br>
+  <strong>Time: O(V + E)</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Kahn&rsquo;s on the same DAG</span>
+  <p>Initial in-degrees: A=0, B=1, C=1, D=2, E=2.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Dequeue</th><th>Update in-degrees</th><th>Queue</th><th>Output</th></tr></thead>
+  <tbody>
+  <tr><td>0</td><td>&mdash;</td><td>&mdash;</td><td>[A]</td><td>&mdash;</td></tr>
+  <tr><td>1</td><td>A</td><td>B:0, C:0</td><td>[B, C]</td><td>A</td></tr>
+  <tr><td>2</td><td>B</td><td>D:1</td><td>[C]</td><td>A, B</td></tr>
+  <tr><td>3</td><td>C</td><td>D:0, E:1</td><td>[D]</td><td>A, B, C</td></tr>
+  <tr><td>4</td><td>D</td><td>E:0</td><td>[E]</td><td>A, B, C, D</td></tr>
+  <tr><td>5</td><td>E</td><td>&mdash;</td><td>[ ]</td><td>A, B, C, D, E</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Topological order:</strong> A, B, C, D, E &check;</p>
+</div>
+
+<div class="box win">
+  <span class="lbl">Both methods give valid orderings</span>
+  <p>A DAG may have <strong>multiple valid topological orderings</strong>. DFS-based and Kahn&rsquo;s may produce different ones &mdash; both are correct.</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Topological sorting is possible only on:</p>
+  <div class="opts">
+    <button class="opt">Any directed graph</button>
+    <button class="opt" data-ok="1">Directed Acyclic Graphs (DAGs)</button>
+    <button class="opt">Complete graphs</button>
+    <button class="opt">Undirected graphs</button>
+  </div>
+  <p class="why">A cycle would make it impossible to put all vertices in a before-after ordering. If DFS finds a back edge, topological sort fails.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In DFS-based topological sort, vertices are ordered by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Reverse finish time (decreasing f[v])</button>
+    <button class="opt">Alphabetical order</button>
+    <button class="opt">In-degree</button>
+    <button class="opt">Discovery time (increasing d[v])</button>
+  </div>
+  <p class="why">The last vertex to finish is placed first. Reverse finish order ensures every source comes before its targets.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Kahn&rsquo;s algorithm starts by enqueuing vertices with:</p>
+  <div class="opts">
+    <button class="opt">The highest degree</button>
+    <button class="opt" data-ok="1">In-degree 0 &mdash; no prerequisites</button>
+    <button class="opt">The lowest label</button>
+    <button class="opt">Out-degree 0</button>
+  </div>
+  <p class="why">Vertices with no incoming edges can safely go first. As they are removed, other vertices' in-degrees drop to 0.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Kosaraju&rsquo;s algorithm uses:</p>
+  <div class="opts">
+    <button class="opt">A single BFS pass</button>
+    <button class="opt" data-ok="1">Two DFS passes &mdash; one on G, one on the transpose G<sup>T</sup></button>
+    <button class="opt">Matrix multiplication</button>
+    <button class="opt">Union-Find</button>
+  </div>
+  <p class="why">First DFS records finish times. Second DFS on G^T in reverse finish order identifies SCCs. Total time &Theta;(V+E).</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The time complexity of finding connected components is:</p>
+  <div class="opts">
+    <button class="opt">O(V &middot; E)</button>
+    <button class="opt">O(V&sup2;)</button>
+    <button class="opt">O(E log V)</button>
+    <button class="opt" data-ok="1">O(V + E) &mdash; one BFS or DFS traversal</button>
+  </div>
+  <p class="why">Run BFS/DFS from each unvisited vertex. Each vertex and edge is processed once total.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. If Kahn&rsquo;s algorithm processes fewer than V vertices, it means:</p>
+  <div class="opts">
+    <button class="opt">The graph is a tree</button>
+    <button class="opt">The graph is disconnected</button>
+    <button class="opt" data-ok="1">The graph contains a cycle &mdash; topological sort is impossible</button>
+    <button class="opt">Some vertices have zero out-degree</button>
+  </div>
+  <p class="why">Vertices in a cycle never reach in-degree 0, so they are never dequeued. The output is short.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>How to find connected components.</summary>
+    <p class="ans">Run BFS/DFS from any unvisited vertex; all reached vertices form one component. Repeat. Time O(V+E).</p></details>
+  <details class="card"><summary>Two methods for topological sorting.</summary>
+    <p class="ans">DFS-based: reverse finish order. Kahn's: repeatedly remove in-degree-0 vertices. Both O(V+E). Only works on DAGs.</p></details>
+  <details class="card"><summary>Kosaraju's algorithm for SCCs.</summary>
+    <p class="ans">1. DFS on G, record finish times. 2. Transpose G. 3. DFS on G^T in decreasing finish order. Each tree = one SCC. Time &Theta;(V+E).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0016-graph-representation-bfs-dfs.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0018-biconnected-components.html">Next: Biconnected Components &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

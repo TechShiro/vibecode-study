@@ -1,0 +1,402 @@
+<title>Predictive Parsing — FIRST, FOLLOW and LL(1)</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit III &middot; Lesson 13 of 17</p>
+<h1>Predictive Parsing &mdash; FIRST, FOLLOW and LL(1)</h1>
+<p class="deck">Computing FIRST and FOLLOW sets, building the LL(1) parsing table, formal conditions for LL(1) grammars, and stack-driven predictive parsing with complete trace.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>This is the highest-scoring topic in Unit III.</strong> <strong>&ldquo;Compute FIRST and FOLLOW sets&rdquo;</strong> is a guaranteed 10-mark question. <strong>&ldquo;Construct the LL(1) parsing table and parse the string <code>id + id * id</code>&rdquo;</strong> is a 10&ndash;15 mark numerical. Examiners grade on: showing the computation for every non-terminal, correct end-marker <code>$</code> in <code>FOLLOW(S)</code>, no duplicate entries in table cells, and a full three-column stack trace table.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; FIRST and FOLLOW Computation</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Find FIRST and FOLLOW in Compiler Design with Solved Examples</a>
+    <span class="v-meta">Gate Smashers &middot; 18:24</span>
+    <div class="v-why">Varun Singla works through standard university grammars with detailed explanations of &epsilon;-handling and FOLLOW propagation rules.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; LL(1) Table Construction &amp; Conflicts</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">LL(1) Parsing Table | Check Whether a Grammar is LL(1) or Not</a>
+    <span class="v-meta">Gate Smashers &middot; 14:10</span>
+    <div class="v-why">Step-by-step population of M[A, a] cells using FIRST and FOLLOW, and identifying parsing conflicts.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 3 &middot; Stack-Driven LL(1) Parsing Engine</span>
+      <span class="best-tag">Algorithm Trace</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">What is LL(1) Parser | How it Works | Complete Stack Simulation</a>
+    <span class="v-meta">Gate Smashers &middot; 12:45</span>
+    <div class="v-why">Simulates stack behavior ($S initialisation, table lookups, production pushes in reverse, terminal matching).</div>
+  </div>
+</div>
+
+<h2>1. The Non-Recursive Table-Driven Parser</h2>
+
+<p>An <strong>LL(1) parser</strong> is a non-recursive, table-driven top-down parser. The name signifies:</p>
+<ul>
+  <li><strong>L (First):</strong> Scans input from <strong>Left to right</strong>.</li>
+  <li><strong>L (Second):</strong> Produces a <strong>Leftmost derivation</strong>.</li>
+  <li><strong>(1):</strong> Uses strictly <strong>1 lookahead token</strong> at each step.</li>
+</ul>
+
+<!-- FLOWCHART: LL(1) SYSTEM ARCHITECTURE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">System Architecture: Table-Driven LL(1) Predictive Parser</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:1.2rem; flex-wrap:wrap; margin:1rem 0;">
+    <div class="flow-box highlight" style="min-width:11rem; max-width:13rem;">
+      <strong>Input Buffer</strong><br>
+      <code>w $ &nbsp;(e.g. id + id * id $)</code>
+      <span class="sub">Ended with $ delimiter</span>
+    </div>
+
+    <div style="display:flex; flex-direction:column; align-items:center; gap:.4rem;">
+      <span class="flow-arrow-right">&rarr; current lookahead 'a' &rarr;</span>
+      <span class="flow-arrow-right">&larr; top of stack 'X' &larr;</span>
+    </div>
+
+    <div class="flow-box ok" style="min-width:14rem; max-width:16rem; border:2px solid var(--ok);">
+      <strong style="color:var(--ok);">PARSER ENGINE</strong>
+      <span class="sub">Compares Stack Top X with Lookahead a</span>
+    </div>
+
+    <span class="flow-arrow-right">&larr; M[X, a] lookup &larr;</span>
+
+    <div class="flow-box warn" style="min-width:12rem; max-width:14rem;">
+      <strong>Parsing Table M</strong><br>
+      <code>M[Non-terminal, Terminal]</code>
+      <span class="sub">Stores production rules</span>
+    </div>
+  </div>
+  
+  <div style="display:flex; justify-content:center; margin-top:1rem;">
+    <div class="flow-box" style="min-width:16rem;">
+      <strong>Parsing Stack: <code>$ S</code></strong><br>
+      <span class="sub">Initialised with bottom marker $ and start symbol S</span>
+    </div>
+  </div>
+</div>
+
+<h2>2. Formal Definition of FIRST and FOLLOW Sets</h2>
+
+<h3>FIRST(&alpha;)</h3>
+<div class="formula">
+  <span class="name">Definition and Construction Rules</span>
+  <strong>FIRST(&alpha;)</strong> is the set of terminals that can appear as the first symbol of a string derived from &alpha;. If $\alpha \Rightarrow^* \epsilon$, then $\epsilon \in \text{FIRST}(\alpha)$.<br><br>
+  <strong>Rule 1:</strong> If $X$ is a terminal, $\text{FIRST}(X) = \{X\}$.<br>
+  <strong>Rule 2:</strong> If $X \to \epsilon$ is a production, then add $\epsilon$ to $\text{FIRST}(X)$.<br>
+  <strong>Rule 3:</strong> If $X \to Y_1 Y_2 \dots Y_k$ is a production:<br>
+  &nbsp;&nbsp;&bull; Add all non-$\epsilon$ symbols of $\text{FIRST}(Y_1)$ to $\text{FIRST}(X)$.<br>
+  &nbsp;&nbsp;&bull; If $\epsilon \in \text{FIRST}(Y_1)$, add $\text{FIRST}(Y_2) \setminus \{\epsilon\}$, and so on until $Y_i$ does not derive $\epsilon$.<br>
+  &nbsp;&nbsp;&bull; If all $Y_1, \dots, Y_k$ derive $\epsilon$, add $\epsilon$ to $\text{FIRST}(X)$.
+</div>
+
+<h3>FOLLOW(A)</h3>
+<div class="formula">
+  <span class="name">Definition and Construction Rules</span>
+  <strong>FOLLOW(A)</strong> is the set of terminals that can appear immediately to the right of non-terminal $A$ in some sentential form ($S \Rightarrow^* \alpha A a \beta$).<br><br>
+  <strong>Rule 1:</strong> Put <strong>$ (input end-marker)</strong> into $\text{FOLLOW}(S)$, where $S$ is the start symbol.<br>
+  <strong>Rule 2:</strong> If there is a production $A \to \alpha B \beta$, then everything in $\text{FIRST}(\beta)$ (except $\epsilon$) is in $\text{FOLLOW}(B)$.<br>
+  <strong>Rule 3:</strong> If there is a production $A \to \alpha B$, OR a production $A \to \alpha B \beta$ where $\epsilon \in \text{FIRST}(\beta)$, then everything in $\text{FOLLOW}(A)$ is in $\text{FOLLOW}(B)$.
+</div>
+
+<div class="box win">
+  <span class="lbl">Critical Rule</span>
+  <p><strong>$\epsilon$ is NEVER an element of any FOLLOW set.</strong> FOLLOW sets contain only terminals and the end-marker symbol <code>$</code>.</p>
+</div>
+
+<h2>3. Solved Numerical &middot; Compute FIRST and FOLLOW</h2>
+
+<div class="solve">
+  <span class="lbl">Worked Problem &middot; The Standard Arithmetic Grammar</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.85rem; line-height:1.6;">
+    (1) E  &rarr; T E'<br>
+    (2) E' &rarr; + T E' | &epsilon;<br>
+    (3) T  &rarr; F T'<br>
+    (4) T' &rarr; * F T' | &epsilon;<br>
+    (5) F  &rarr; ( E ) | id
+  </div>
+
+  <div class="tw" style="margin-top:1rem;">
+  <table>
+  <thead><tr><th>Non-Terminal</th><th>FIRST Set</th><th>FOLLOW Set</th><th>Derivation Explanation</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><strong>E</strong></td>
+    <td><code>{ (, id }</code></td>
+    <td><code>{ ), $ }</code></td>
+    <td>Start symbol gets <code>$</code>; <code>F &rarr; ( E )</code> places <code>)</code> into FOLLOW(E).</td>
+  </tr>
+  <tr>
+    <td><strong>E'</strong></td>
+    <td><code>{ +, &epsilon; }</code></td>
+    <td><code>{ ), $ }</code></td>
+    <td>E &rarr; T E' makes FOLLOW(E') = FOLLOW(E).</td>
+  </tr>
+  <tr>
+    <td><strong>T</strong></td>
+    <td><code>{ (, id }</code></td>
+    <td><code>{ +, ), $ }</code></td>
+    <td>E &rarr; T E' puts FIRST(E')&minus;{&epsilon;} = {+} into FOLLOW(T). Since E' &rArr; &epsilon;, FOLLOW(E) is also included.</td>
+  </tr>
+  <tr>
+    <td><strong>T'</strong></td>
+    <td><code>{ *, &epsilon; }</code></td>
+    <td><code>{ +, ), $ }</code></td>
+    <td>T &rarr; F T' makes FOLLOW(T') = FOLLOW(T).</td>
+  </tr>
+  <tr>
+    <td><strong>F</strong></td>
+    <td><code>{ (, id }</code></td>
+    <td><code>{ *, +, ), $ }</code></td>
+    <td>T &rarr; F T' puts FIRST(T')&minus;{&epsilon;} = {*} into FOLLOW(F). Since T' &rArr; &epsilon;, FOLLOW(T) is also included.</td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<h2>4. Constructing the LL(1) Parsing Table</h2>
+
+<div class="formula">
+  <span class="name">Table Construction Algorithm</span>
+  For each production $A \to \alpha$ of the grammar:<br>
+  <strong>1.</strong> For each terminal $a \in \text{FIRST}(\alpha)$, add $A \to \alpha$ to table entry <strong>$M[A, a]$</strong>.<br>
+  <strong>2.</strong> If $\epsilon \in \text{FIRST}(\alpha)$, then for each terminal (or $) $b \in \text{FOLLOW}(A)$, add $A \to \alpha$ to <strong>$M[A, b]$</strong>.
+</div>
+
+<div class="solve">
+  <span class="lbl">LL(1) Parsing Table M</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Non-Terminal</th><th><code>id</code></th><th><code>+</code></th><th><code>*</code></th><th><code>(</code></th><th><code>)</code></th><th><code>$</code></th></tr></thead>
+  <tbody>
+  <tr>
+    <td><strong>E</strong></td>
+    <td><code>E &rarr; T E'</code></td>
+    <td></td>
+    <td></td>
+    <td><code>E &rarr; T E'</code></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><strong>E'</strong></td>
+    <td></td>
+    <td><code>E' &rarr; + T E'</code></td>
+    <td></td>
+    <td></td>
+    <td><code>E' &rarr; &epsilon;</code></td>
+    <td><code>E' &rarr; &epsilon;</code></td>
+  </tr>
+  <tr>
+    <td><strong>T</strong></td>
+    <td><code>T &rarr; F T'</code></td>
+    <td></td>
+    <td></td>
+    <td><code>T &rarr; F T'</code></td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><strong>T'</strong></td>
+    <td></td>
+    <td><code>T' &rarr; &epsilon;</code></td>
+    <td><code>T' &rarr; * F T'</code></td>
+    <td></td>
+    <td><code>T' &rarr; &epsilon;</code></td>
+    <td><code>T' &rarr; &epsilon;</code></td>
+  </tr>
+  <tr>
+    <td><strong>F</strong></td>
+    <td><code>F &rarr; id</code></td>
+    <td></td>
+    <td></td>
+    <td><code>F &rarr; ( E )</code></td>
+    <td></td>
+    <td></td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="color:var(--ok); font-weight:700; text-align:center;">
+    Conclusion: Because every entry in the table contains at most one production, the grammar is strictly LL(1)!
+  </p>
+</div>
+
+<h2>5. The Formal LL(1) Grammar Conditions</h2>
+<p>A context-free grammar $G$ is LL(1) if and only if for every pair of distinct productions $A \to \alpha \mid \beta$:</p>
+<ol>
+  <li><strong>Disjoint FIRST sets:</strong> $\text{FIRST}(\alpha) \cap \text{FIRST}(\beta) = \emptyset$.</li>
+  <li><strong>At most one derives $\epsilon$:</strong> At most one of $\alpha$ or $\beta$ can derive the empty string $\epsilon$.</li>
+  <li><strong>Disjoint FOLLOW and FIRST:</strong> If $\beta \Rightarrow^* \epsilon$, then $\text{FIRST}(\alpha) \cap \text{FOLLOW}(A) = \emptyset$.</li>
+</ol>
+
+<h2>6. Complete Stack Simulation Trace: <code>id + id * id $</code></h2>
+
+<div class="solve">
+  <span class="lbl">Mechanical Parsing Trace &middot; Stack, Input Buffer, and Action</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Step</th><th>Matched</th><th>Stack</th><th>Input Buffer</th><th>Action Taken</th></tr></thead>
+  <tbody>
+  <tr><td class="num">1</td><td></td><td><code>$ E</code></td><td><code>id + id * id $</code></td><td>Consult M[E, id] &rarr; Output <code>E &rarr; T E'</code></td></tr>
+  <tr><td class="num">2</td><td></td><td><code>$ E' T</code></td><td><code>id + id * id $</code></td><td>Consult M[T, id] &rarr; Output <code>T &rarr; F T'</code></td></tr>
+  <tr><td class="num">3</td><td></td><td><code>$ E' T' F</code></td><td><code>id + id * id $</code></td><td>Consult M[F, id] &rarr; Output <code>F &rarr; id</code></td></tr>
+  <tr><td class="num">4</td><td></td><td><code>$ E' T' id</code></td><td><code>id + id * id $</code></td><td>Match terminal <code>id</code></td></tr>
+  <tr><td class="num">5</td><td><code>id</code></td><td><code>$ E' T'</code></td><td><code>+ id * id $</code></td><td>Consult M[T', +] &rarr; Output <code>T' &rarr; &epsilon;</code></td></tr>
+  <tr><td class="num">6</td><td><code>id</code></td><td><code>$ E'</code></td><td><code>+ id * id $</code></td><td>Consult M[E', +] &rarr; Output <code>E' &rarr; + T E'</code></td></tr>
+  <tr><td class="num">7</td><td><code>id</code></td><td><code>$ E' T +</code></td><td><code>+ id * id $</code></td><td>Match terminal <code>+</code></td></tr>
+  <tr><td class="num">8</td><td><code>id +</code></td><td><code>$ E' T</code></td><td><code>id * id $</code></td><td>Consult M[T, id] &rarr; Output <code>T &rarr; F T'</code></td></tr>
+  <tr><td class="num">9</td><td><code>id +</code></td><td><code>$ E' T' F</code></td><td><code>id * id $</code></td><td>Consult M[F, id] &rarr; Output <code>F &rarr; id</code></td></tr>
+  <tr><td class="num">10</td><td><code>id +</code></td><td><code>$ E' T' id</code></td><td><code>id * id $</code></td><td>Match terminal <code>id</code></td></tr>
+  <tr><td class="num">11</td><td><code>id + id</code></td><td><code>$ E' T'</code></td><td><code>* id $</code></td><td>Consult M[T', *] &rarr; Output <code>T' &rarr; * F T'</code></td></tr>
+  <tr><td class="num">12</td><td><code>id + id</code></td><td><code>$ E' T' F *</code></td><td><code>* id $</code></td><td>Match terminal <code>*</code></td></tr>
+  <tr><td class="num">13</td><td><code>id + id *</code></td><td><code>$ E' T' F</code></td><td><code>id $</code></td><td>Consult M[F, id] &rarr; Output <code>F &rarr; id</code></td></tr>
+  <tr><td class="num">14</td><td><code>id + id *</code></td><td><code>$ E' T' id</code></td><td><code>id $</code></td><td>Match terminal <code>id</code></td></tr>
+  <tr><td class="num">15</td><td><code>id + id * id</code></td><td><code>$ E' T'</code></td><td><code>$</code></td><td>Consult M[T', $] &rarr; Output <code>T' &rarr; &epsilon;</code></td></tr>
+  <tr><td class="num">16</td><td><code>id + id * id</code></td><td><code>$ E'</code></td><td><code>$</code></td><td>Consult M[E', $] &rarr; Output <code>E' &rarr; &epsilon;</code></td></tr>
+  <tr><td class="num">17</td><td><code>id + id * id</code></td><td><code>$</code></td><td><code>$</code></td><td><strong style="color:var(--ok);">ACCEPT &mdash; Parse Complete</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<h2>7. Error Recovery in Predictive Parsing (Panic Mode &amp; SYNCH Tokens)</h2>
+
+<p>In a non-recursive table-driven predictive parser, a syntax error is detected under two exact circumstances:
+<ol>
+  <li>The non-terminal on top of the stack is $A$, the current input token is $a$, and the parsing table entry $M[A, a]$ is <strong>blank (empty)</strong>.</li>
+  <li>The symbol on top of the stack is a <strong>terminal</strong>, but it does not match the current input token $a$.</li>
+</ol>
+Without error recovery, the parser would halt immediately at the first syntax error, failing to inspect the rest of the source file. High-quality compilers implement <strong>Panic-Mode Recovery</strong> using <strong>synchronizing tokens (<code>synch</code>)</strong>.</p>
+
+<div class="box exam">
+  <span class="lbl">How SYNCH Tokens are Placed in the LL(1) Table (Mam's SA-1.pdf)</span>
+  <p>To enable panic-mode recovery without altering grammar logic, the compiler designer fills blank cells with <code>synch</code> markers using the following formal heuristics:
+  <ul>
+    <li><strong>Heuristic 1 (The Standard FOLLOW Rule):</strong> For every non-terminal $A$, add a <code>synch</code> marker in table entry $M[A, b]$ for all input terminals $b \in \text{FOLLOW}(A)$. If the parser sees an unexpected token that can legally follow $A$, it <strong>pops $A$ off the stack</strong>, effectively assuming $A$ successfully parsed.</li>
+    <li><strong>Heuristic 2 (Blank cells / Skip Input):</strong> If entry $M[A, a]$ is completely blank (neither a production nor <code>synch</code>), the current token $a$ is completely unexpected. The parser <strong>discards (skips) input token $a$</strong> and reads the next token from the input buffer.</li>
+    <li><strong>Heuristic 3 (Terminal Mismatch):</strong> If a terminal on top of the stack fails to match the current input terminal, <strong>pop the terminal off the stack</strong> and emit an error message indicating that the expected terminal was inserted.</li>
+  </ul>
+  </p>
+</div>
+
+<h3>The LL(1) Parsing Table Augmented with SYNCH Entries</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Non-Terminal</th><th><code>id</code></th><th><code>+</code></th><th><code>*</code></th><th><code>(</code></th><th><code>)</code></th><th><code>$</code></th></tr></thead>
+<tbody>
+<tr><td><strong>$E$</strong></td><td>$E \to T E'$</td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td>$E \to T E'$</td><td><strong style="color:var(--accent);">synch</strong></td><td><strong style="color:var(--accent);">synch</strong></td></tr>
+<tr><td><strong>$E'$</strong></td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td>$E' \to + T E'$</td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td>$E' \to \epsilon$</td><td>$E' \to \epsilon$</td></tr>
+<tr><td><strong>$T$</strong></td><td>$T \to F T'$</td><td><strong style="color:var(--accent);">synch</strong></td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td>$T \to F T'$</td><td><strong style="color:var(--accent);">synch</strong></td><td><strong style="color:var(--accent);">synch</strong></td></tr>
+<tr><td><strong>$T'$</strong></td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td>$T' \to \epsilon$</td><td>$T' \to * F T'$</td><td><span style="color:var(--ink-soft); font-style:italic;">blank (skip)</span></td><td>$T' \to \epsilon$</td><td>$T' \to \epsilon$</td></tr>
+<tr><td><strong>$F$</strong></td><td>$F \to \mathbf{id}$</td><td><strong style="color:var(--accent);">synch</strong></td><td><strong style="color:var(--accent);">synch</strong></td><td>$F \to ( E )$</td><td><strong style="color:var(--accent);">synch</strong></td><td><strong style="color:var(--accent);">synch</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Complete Worked Trace of Panic-Mode Recovery on Erroneous Input</h3>
+<p>Input to parse: <code>+ id * + id $</code> (Notice illegal leading <code>+</code> and double operator <code>* +</code>):</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Step</th><th>Stack (grows right)</th><th>Input Buffer</th><th>Table Lookup / Recovery Action</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>$ E</code></td><td><code>+ id * + id $</code></td><td>$M[E, +] = \text{blank} \implies$ <strong>Error: unexpected '+'. Skip '+' from input.</strong></td></tr>
+<tr><td>2</td><td><code>$ E</code></td><td><code>id * + id $</code></td><td>$M[E, \mathbf{id}] = E \to T E' \implies$ Output $E \to T E'$, replace $E$ with $T E'$.</td></tr>
+<tr><td>3</td><td><code>$ E' T</code></td><td><code>id * + id $</code></td><td>$M[T, \mathbf{id}] = T \to F T' \implies$ Output $T \to F T'$, replace $T$ with $F T'$.</td></tr>
+<tr><td>4</td><td><code>$ E' T' F</code></td><td><code>id * + id $</code></td><td>$M[F, \mathbf{id}] = F \to \mathbf{id} \implies$ Replace $F$ with $\mathbf{id}$.</td></tr>
+<tr><td>5</td><td><code>$ E' T' id</code></td><td><code>id * + id $</code></td><td>Match terminal <code>id</code>. Pop <code>id</code>, advance input.</td></tr>
+<tr><td>6</td><td><code>$ E' T'</code></td><td><code>* + id $</code></td><td>$M[T', *] = T' \to * F T' \implies$ Replace $T'$ with $* F T'$.</td></tr>
+<tr><td>7</td><td><code>$ E' T' F *</code></td><td><code>* + id $</code></td><td>Match terminal <code>*</code>. Pop <code>*</code>, advance input.</td></tr>
+<tr><td>8</td><td><code>$ E' T' F</code></td><td><code>+ id $</code></td><td>$M[F, +] = \mathbf{synch} \implies$ <strong>Error: missing operand before '+'. Pop non-terminal $F$ from stack!</strong></td></tr>
+<tr><td>9</td><td><code>$ E' T'</code></td><td><code>+ id $</code></td><td>$M[T', +] = T' \to \epsilon \implies$ Reduce $T' \to \epsilon$, pop $T'$.</td></tr>
+<tr><td>10</td><td><code>$ E'</code></td><td><code>+ id $</code></td><td>$M[E', +] = E' \to + T E' \implies$ Replace $E'$ with $+ T E'$.</td></tr>
+<tr><td>11</td><td><code>$ E' T +</code></td><td><code>+ id $</code></td><td>Match terminal <code>+</code>. Pop <code>+</code>, advance input.</td></tr>
+<tr><td>12</td><td><code>$ E' T</code></td><td><code>id $</code></td><td>$M[T, \mathbf{id}] = T \to F T' \implies$ Replace $T$ with $F T'$.</td></tr>
+<tr><td>13</td><td><code>$ E' T' F</code></td><td><code>id $</code></td><td>$M[F, \mathbf{id}] = F \to \mathbf{id} \implies$ Replace $F$ with $\mathbf{id}$.</td></tr>
+<tr><td>14</td><td><code>$ E' T' id</code></td><td><code>id $</code></td><td>Match terminal <code>id</code>. Pop <code>id</code>, advance input.</td></tr>
+<tr><td>15</td><td><code>$ E' T'</code></td><td><code>$</code></td><td>$M[T', \$] = T' \to \epsilon \implies$ Reduce $T' \to \epsilon$, pop $T'$.</td></tr>
+<tr><td>16</td><td><code>$ E'</code></td><td><code>$</code></td><td>$M[E', \$] = E' \to \epsilon \implies$ Reduce $E' \to \epsilon$, pop $E'$.</td></tr>
+<tr><td>17</td><td><code>$</code></td><td><code>$</code></td><td><strong>Match <code>$</code>. Input successfully parsed with 2 errors recovered!</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check Yourself</h3>
+
+<div class="q">
+  <p class="stem">1. When constructing an LL(1) table, if production A &rarr; &epsilon; exists, we place A &rarr; &epsilon; into:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">M[A, b] for all terminals b in FOLLOW(A)</button>
+    <button class="opt">Every cell in row A</button>
+    <button class="opt">M[A, b] for all terminals b in FIRST(A)</button>
+    <button class="opt">Only the cell M[A, $]</button>
+  </div>
+  <p class="why">When an &epsilon;-production expands, the non-terminal dissolves, so the lookahead token that follows must come from FOLLOW(A).</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A parsing table cell containing two or more productions indicates:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The grammar is NOT LL(1) due to a parsing conflict</button>
+    <button class="opt">A lexical error</button>
+    <button class="opt">The parser will parse the input twice as fast</button>
+    <button class="opt">The grammar is unambiguous</button>
+  </div>
+  <p class="why">Multiple entries mean the parser cannot deterministically choose which production to apply using 1 lookahead token, meaning the grammar is not LL(1).</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The symbol $ is placed into the FOLLOW set of:</p>
+  <div class="opts">
+    <button class="opt">Only non-terminals with &epsilon;-productions</button>
+    <button class="opt">Every non-terminal</button>
+    <button class="opt" data-ok="1">The grammar start symbol S</button>
+    <button class="opt">Every terminal</button>
+  </div>
+  <p class="why">By definition, $ represents the input end-marker and follows the overall language start symbol S.</p>
+</div>
+
+</div>
+
+<h2>Recall Without Looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the 3 rules for computing FIRST sets.</summary>
+    <p class="ans">1. If X is a terminal, FIRST(X) = {X}. 2. If X &rarr; &epsilon;, add &epsilon; to FIRST(X). 3. If X &rarr; Y1 Y2 ... Yk, add FIRST(Y1)&minus;{&epsilon;}; if &epsilon; &isin; FIRST(Y1), add FIRST(Y2)&minus;{&epsilon;}, etc. If all derive &epsilon;, add &epsilon;.</p></details>
+  <details class="card"><summary>State the 3 rules for computing FOLLOW sets.</summary>
+    <p class="ans">1. Put $ in FOLLOW(S). 2. If A &rarr; &alpha;B&beta;, add FIRST(&beta;)&minus;{&epsilon;} to FOLLOW(B). 3. If A &rarr; &alpha;B, or A &rarr; &alpha;B&beta; where &epsilon; &isin; FIRST(&beta;), add FOLLOW(A) to FOLLOW(B). Note: &epsilon; is NEVER in a FOLLOW set.</p></details>
+  <details class="card"><summary>How is an LL(1) parsing table constructed?</summary>
+    <p class="ans">For each A &rarr; &alpha;: 1. For each terminal a in FIRST(&alpha;), add A &rarr; &alpha; to M[A, a]. 2. If &epsilon; in FIRST(&alpha;), for each b in FOLLOW(A), add A &rarr; &alpha; to M[A, b]. If any cell has &gt;1 entry, the grammar is not LL(1).</p></details>
+</div>
+
+<p class="ask">Next: Bottom-up parsing &mdash; Shift-Reduce parsing mechanics and conflicts.</p>
+
+<div class="nav">
+  <a href="0012-recursive-descent-parsing.html">&larr; Recursive Descent</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0014-shift-reduce-parsing.html">Next: Shift-Reduce Parsing &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

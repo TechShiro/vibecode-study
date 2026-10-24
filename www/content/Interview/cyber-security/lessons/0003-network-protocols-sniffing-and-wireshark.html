@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 03 – Packet Forensics & Wireshark</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module B · Lesson 3 of 17 · Network Analysis</div>
+  <h1>Network Protocols, Packet Sniffing & Wireshark</h1>
+  <p class="subtitle">Promiscuous mode, ARP poisoning, and dissecting raw packet streams with Wireshark and Tcpdump.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Network Security & Forensics</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Every digital conversation—from browsing a webpage to an attacker exfiltrating credit card numbers—is broken down into discrete binary packets transmitted across copper wire, optical fiber, or radio waves. A network interface card (NIC) normally ignores packets not addressed to its MAC address. By switching the NIC into <strong>Promiscuous Mode</strong> and executing <strong>ARP Poisoning</strong>, an attacker or forensic investigator intercepts and inspects every byte traversing the local network using tools like <strong>Wireshark</strong> and <strong>Tcpdump</strong>.</p>
+
+  <h2>2 · Recommended Deep-Dive Lecture</h2>
+  <p>To master Wireshark packet capture, display filtering, and extracting credentials from live traffic, watch NetworkChuck's hands-on guide:</p>
+  <div class="video-container">
+    <iframe src="https://www.youtube-nocookie.com/embed/lb1Dw0elw0Q" title="Wireshark for Beginners - NetworkChuck" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+
+  <h2>3 · ARP Poisoning: Man-in-the-Middle (MITM)</h2>
+  <p>The <strong>Address Resolution Protocol (ARP)</strong> maps Layer 3 IP addresses to Layer 2 MAC addresses. ARP is completely stateless and has zero authentication:</p>
+  <div class="arch-flow">
+    <div class="box">Victim (192.168.1.10)</div>
+    <div class="arrow-right"></div>
+    <div class="box" style="border-color:red">Attacker: "I have IP 192.168.1.1 (Gateway)!"</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Router Gateway (192.168.1.1)</div>
+  </div>
+  <p>By blasting unsolicited <strong>Gratuitous ARP replies</strong>, an attacker tricks the Victim into sending all outbound internet traffic to the Attacker's MAC address, and tricks the Gateway into sending inbound traffic to the Attacker. All traffic is intercepted before being forwarded.</p>
+
+  <h2>4 · Essential Wireshark Display Filters</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Filter Syntax</th><th>What It Filters</th><th>Investigative Use Case</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>ip.addr == 192.168.1.50</code></td><td>Packets where source OR destination matches IP.</td><td>Isolates all traffic related to a compromised machine.</td></tr>
+      <tr><td><code>tcp.flags.syn == 1 && tcp.flags.ack == 0</code></td><td>Initial SYN packets.</td><td>Detects incoming TCP port scans or SYN flood DDoS attacks.</td></tr>
+      <tr><td><code>http.request.method == "POST"</code></td><td>All HTTP POST requests.</td><td>Uncovers unencrypted login forms and submitted credentials.</td></tr>
+      <tr><td><code>dns.flags.response == 0</code></td><td>Outbound DNS queries.</td><td>Detects malware beaconing to Command & Control (C2) domains or DNS tunneling data exfiltration.</td></tr>
+      <tr><td><code>tcp.analysis.retransmission</code></td><td>Retransmitted TCP segments.</td><td>Indicates network congestion, packet drops, or active RST attacks.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5 · Command-Line Forensics: Tcpdump</h2>
+  <pre><code># 1. Capture 100 packets on interface eth0 and write to file
+sudo tcpdump -i eth0 -c 100 -w capture.pcap
+
+# 2. Sniff plain-text HTTP traffic on port 80 showing ASCII payloads
+sudo tcpdump -i eth0 -A -s 0 'tcp port 80 and (((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12:1] & 0xf0)>>2)) != 0)'
+
+# 3. Filter specific IP and capture credentials
+sudo tcpdump -i eth0 host 192.168.1.10 and port 21 -X</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0002-reconnaissance-osint-and-port-scanning.html">← Lesson 02: Reconnaissance & Nmap</a>
+    <a href="0004-firewalls-ids-ips-and-vpn-tunneling.html">Lesson 04: Firewalls, IDS/IPS & VPNs →</a>
+  </nav>
+</body>
+</html>

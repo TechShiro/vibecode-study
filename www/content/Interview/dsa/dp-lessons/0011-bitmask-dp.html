@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 11 — Bitmask DP</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 11 of 12 · a subset is just an int</div>
+<h1>Bitmask DP</h1>
+<p class="subtitle">When n ≤ ~20, every subset of your items fits in one integer — so "best answer for this subset" becomes a plain array lookup: <code>dp[mask]</code>.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 11 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+"Try every permutation" is n! — dead at n = 12. But the <em>optimal way to finish</em> usually depends only on
+<strong>which items are already used</strong>, not the order you used them in. Encode that set as an int
+(<code>bit i set ⇔ item i used</code>) and you collapse n! orderings into 2ⁿ states. The killer convenience:
+<strong>every proper submask of <code>mask</code> is a smaller number</strong>, so a simple ascending loop
+<code>for (mask = 0 .. 2ⁿ−1)</code> visits states in valid dependency order — no topological sorting needed.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  <strong>n ≤ ~20</strong> (the constraint IS the hint) + "assign / visit / partition / cover <em>all</em> of them",
+  or "every ordering would work but n! is too big". Small n plus a set-shaped question — "which subset
+  is used so far" — means bitmask DP. If order-within-the-set matters (routes), add a second dimension:
+  <code>dp[mask][last]</code>.
+</div>
+
+<h2>2 · The bit toolkit (2-minute recap — you'll use all six)</h2>
+<pre><code><span class="cmt">// CHECK — is item i in the subset?</span>
+boolean in = ((mask &gt;&gt; i) &amp; 1) == 1;     <span class="cmt">// or: (mask &amp; (1 &lt;&lt; i)) != 0 — NEVER == 1, the bit's value is 2^i</span>
+<span class="cmt">// SET — add item i (idempotent: safe if already present)</span>
+mask |= (1 &lt;&lt; i);
+<span class="cmt">// CLEAR — remove item i (idempotent: safe if already absent)</span>
+mask &amp;= ~(1 &lt;&lt; i);
+<span class="cmt">// TOGGLE — flip item i (add if absent, remove if present; only use XOR to "remove" when you KNOW it's set)</span>
+mask ^= (1 &lt;&lt; i);
+<span class="cmt">// POPCOUNT — how many items chosen: a free progress counter (hardware instruction, O(1))</span>
+int size = Integer.bitCount(mask);
+<span class="cmt">// ITERATE the set bits without scanning all n positions:</span>
+for (int m = mask; m != 0; m &amp;= (m - 1)) {        <span class="cmt">// m &amp;= m-1 strips the LOWEST set bit each round</span>
+    int i = Integer.numberOfTrailingZeros(m);      <span class="cmt">// index of that bit → "item i is in the subset"</span>
+}
+int low  = mask &amp; (-mask);               <span class="cmt">// isolate the lowest set bit as a mask (two's complement trick)</span>
+int full = (1 &lt;&lt; n) - 1;                 <span class="cmt">// the "everything chosen" mask: n ones</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">Trap — <code>1 &lt;&lt; i</code> is an <em>int</em> shift</span>
+  <code>1 &lt;&lt; 31</code> is <code>Integer.MIN_VALUE</code> (negative!), and Java silently shifts by <code>i % 32</code>,
+  so <code>1 &lt;&lt; 32 == 1</code> — no error, just wrong answers. The moment a mask can hold more than 31 items
+  (e.g. a team mask over 60 people in LC&nbsp;1125), switch to <code>long</code> and write <code>1L &lt;&lt; i</code> /
+  <code>Long.bitCount</code>. For DP <em>state</em> masks this never bites (n ≤ 20 by construction), but for masks
+  stored as <em>values</em> it's the classic silent bug.
+</div>
+
+<h2>3 · State · Recurrence · Base case</h2>
+<ul>
+  <li><strong>State:</strong> <code>dp[mask]</code> = best answer when exactly the items in <code>mask</code> are used.
+      For routes: <code>dp[mask][last]</code> = best way to visit set <code>mask</code> <em>ending at</em> <code>last</code>.</li>
+  <li><strong>Recurrence:</strong> extend by one element — <code>dp[mask | (1&lt;&lt;j)] = best(dp[mask] + cost of adding j)</code>
+      for each unused <code>j</code>. In assignment problems, <em>who</em> gets item j is implied by
+      <code>Integer.bitCount(mask)</code> — person k is served k-th.</li>
+  <li><strong>Base case:</strong> <code>dp[0] = 0</code> (nothing used); TSP: <code>dp[1][0] = 0</code> (standing at the start city, only it visited).</li>
+  <li><strong>Order:</strong> masks ascending <code>0 .. 2ⁿ−1</code> — submasks are numerically smaller, so predecessors are always ready.</li>
+  <li><strong>Answer:</strong> <code>dp[full]</code>; TSP tour: <code>min over last of dp[full][last] + dist[last][0]</code>.</li>
+</ul>
+
+<h2>4 · Core templates</h2>
+<h3>Assignment: dp[mask] — "who's used so far"</h3>
+<pre><code><span class="cmt">// Min cost to assign n jobs to n people, cost[person][job]. Person index = bitCount(mask).</span>
+int assign(int[][] cost) {
+    int n = cost.length, full = (1 &lt;&lt; n) - 1;
+    int[] dp = new int[1 &lt;&lt; n];
+    Arrays.fill(dp, Integer.MAX_VALUE / 2);       <span class="cmt">// "infinity" that survives an addition</span>
+    dp[0] = 0;
+    for (int mask = 0; mask &lt; full; mask++) {     <span class="cmt">// ascending = dependency order for free</span>
+        if (dp[mask] &gt;= Integer.MAX_VALUE / 2) continue;
+        int person = Integer.bitCount(mask);      <span class="cmt">// people 0..person-1 already served</span>
+        for (int j = 0; j &lt; n; j++)
+            if ((mask &amp; (1 &lt;&lt; j)) == 0)           <span class="cmt">// job j still free → give it to `person`</span>
+                dp[mask | (1 &lt;&lt; j)] = Math.min(dp[mask | (1 &lt;&lt; j)], dp[mask] + cost[person][j]);
+    }
+    return dp[full];
+}</code></pre>
+<p><strong>Time</strong> O(2ⁿ · n). <strong>Space</strong> O(2ⁿ). n = 20 → ~2·10⁷ ops: fine. n = 25 → 8·10⁸: not fine. Check the constraint.</p>
+
+<h3>Routes: dp[mask][last] — TSP / shortest Hamiltonian path</h3>
+<pre><code><span class="cmt">// Cheapest tour: start at 0, visit every city once, return to 0.</span>
+int tsp(int[][] dist) {
+    int n = dist.length, full = (1 &lt;&lt; n) - 1;
+    int[][] dp = new int[1 &lt;&lt; n][n];              <span class="cmt">// dp[mask][last] = cheapest path over `mask` ending at `last`</span>
+    for (int[] row : dp) Arrays.fill(row, Integer.MAX_VALUE / 2);
+    dp[1][0] = 0;                                 <span class="cmt">// base: at city 0, {0} visited — NOT dp[0]</span>
+    for (int mask = 1; mask &lt;= full; mask++)
+        for (int last = 0; last &lt; n; last++) {
+            if ((mask &amp; (1 &lt;&lt; last)) == 0 || dp[mask][last] &gt;= Integer.MAX_VALUE / 2) continue;
+            for (int next = 0; next &lt; n; next++)
+                if ((mask &amp; (1 &lt;&lt; next)) == 0)    <span class="cmt">// extend the path by one unvisited city</span>
+                    dp[mask | (1 &lt;&lt; next)][next] =
+                        Math.min(dp[mask | (1 &lt;&lt; next)][next], dp[mask][last] + dist[last][next]);
+        }
+    int best = Integer.MAX_VALUE;
+    for (int last = 1; last &lt; n; last++)
+        best = Math.min(best, dp[full][last] + dist[last][0]);  <span class="cmt">// close the tour</span>
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(2ⁿ · n²). <strong>Space</strong> O(2ⁿ · n). For a Hamiltonian <em>path</em> (no return),
+seed <code>dp[1&lt;&lt;i][i] = 0</code> for every start i and skip the closing edge. This template is CP-classic;
+LeetCode dresses it up as LC 943 (Find the Shortest Superstring — overlap costs instead of distances)
+and LC 847 (Shortest Path Visiting All Nodes — same <code>(mask, node)</code> state, but BFS because revisits are allowed).</p>
+
+<div class="callout trap">
+  <span class="label">Trap — when order matters, <code>dp[mask]</code> alone is not enough</span>
+  The cost of adding city <code>next</code> depends on <em>where you are now</em> — that's why the state needs the
+  extra <code>last</code> dimension. If you catch yourself writing <code>dp[mask] + dist[?][next]</code> and don't know
+  what to put for <code>?</code>, that's the signal: you dropped the <code>last</code> dimension.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 943 · Find the Shortest Superstring</strong> (Hard) — pure <code>dp[mask][last]</code>: precompute pairwise overlaps, then this exact template with "cost of adding j after last = len(j) − overlap(last, j)"; reconstruct the path from parent pointers.</li>
+<li><strong>LC 847 · Shortest Path Visiting All Nodes</strong> (Hard) — same <code>(mask, node)</code> state, but nodes may be revisited, so run <strong>BFS over states</strong> instead of an ascending-mask DP; start with all <code>(1&lt;&lt;i, i)</code> seeded at distance 0.</li>
+<li><strong>LC 996 · Number of Squareful Arrays</strong> (Hard) — <code>dp[mask][last]</code> that <em>counts</em> orderings instead of minimizing cost; only append j if <code>nums[last]+nums[j]</code> is a perfect square, then divide out duplicate-value permutations.</li></ul>
+
+<h2>5 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Partition to K Equal Sum Subsets</td><td>698</td><td><code>dp[mask]</code> = fill of the <em>current</em> bucket (mod target); bucket auto-rolls at exactly <code>target</code></td></tr>
+    <tr><td>Number of Ways to Wear Different Hats</td><td>1434</td><td>40 hats × 10 people → <strong>mask the smaller side</strong>: iterate hats, mask over people</td></tr>
+    <tr><td>Minimum XOR Sum of Two Arrays</td><td>1879</td><td>Pure assignment template: pair <code>a[bitCount(mask)−1]</code> with each <code>b[j]</code> in mask</td></tr>
+    <tr><td>Smallest Sufficient Team</td><td>1125</td><td>Mask over <em>skills</em> (≤16); dp value stores the team itself as a <code>long</code> of person-bits</td></tr>
+    <tr><td>Traveling Salesman / Hamiltonian path</td><td>CP · 943 · 847</td><td><code>dp[mask][last]</code> — the route template above</td></tr>
+    <tr><td>Maximum Students Taking Exam</td><td>1349</td><td>Row-by-row: <code>dp[row][mask]</code> = best given this row's seating mask; check vs previous row's mask</td></tr>
+    <tr><td>Submask enumeration</td><td>idiom</td><td><code>for (sub = mask; sub &gt; 0; sub = (sub−1) &amp; mask)</code> — all submasks, O(3ⁿ) total</td></tr>
+  </tbody>
+</table>
+
+<h3>Partition to K Equal Sum Subsets (698)</h3>
+<pre><code>boolean canPartitionKSubsets(int[] nums, int k) {
+    int sum = Arrays.stream(nums).sum();
+    if (sum % k != 0) return false;
+    int target = sum / k, n = nums.length;
+    int[] rem = new int[1 &lt;&lt; n];              <span class="cmt">// rem[mask] = current bucket's fill; -1 = unreachable</span>
+    Arrays.fill(rem, -1);
+    rem[0] = 0;
+    for (int mask = 0; mask &lt; (1 &lt;&lt; n); mask++) {
+        if (rem[mask] &lt; 0) continue;          <span class="cmt">// skip unreachable states</span>
+        for (int i = 0; i &lt; n; i++)
+            if ((mask &amp; (1 &lt;&lt; i)) == 0 &amp;&amp; rem[mask] + nums[i] &lt;= target)   <span class="cmt">// never overfill a bucket</span>
+                rem[mask | (1 &lt;&lt; i)] = (rem[mask] + nums[i]) % target;     <span class="cmt">// hit target → next bucket starts at 0</span>
+    }
+    return rem[(1 &lt;&lt; n) - 1] == 0;            <span class="cmt">// all used AND last bucket exactly full</span>
+}</code></pre>
+<p><strong>Time</strong> O(2ⁿ · n). <strong>Space</strong> O(2ⁿ). The trick that makes one bucket's fill enough state:
+buckets are interchangeable, so you only ever fill <em>one bucket at a time</em> — when it hits <code>target</code>
+the <code>% target</code> rolls it to 0 and the next bucket implicitly begins.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 698 · Partition to K Equal Sum Subsets</strong> (Medium) — the template above verbatim; also try the DFS+memo formulation to compare.</li>
+<li><strong>LC 473 · Matchsticks to Square</strong> (Medium) — the exact same problem with k = 4 fixed; re-derive <code>target = sum/4</code> and reuse the bucket-rolling mask DP.</li>
+<li><strong>LC 2305 · Fair Distribution of Cookies</strong> (Medium) — buckets no longer need to be <em>equal</em>: minimize the max bucket instead, so the dp value becomes a cost, not a boolean.</li></ul>
+
+<h3>Minimum XOR Sum (1879) — bitCount as the hidden index</h3>
+<pre><code>int minimumXORSum(int[] a, int[] b) {
+    int n = a.length;
+    int[] dp = new int[1 &lt;&lt; n];
+    Arrays.fill(dp, Integer.MAX_VALUE);
+    dp[0] = 0;
+    for (int mask = 1; mask &lt; (1 &lt;&lt; n); mask++) {
+        int i = Integer.bitCount(mask) - 1;   <span class="cmt">// a[0..i] are paired ⇔ |mask| elements of b used</span>
+        for (int j = 0; j &lt; n; j++)
+            if ((mask &amp; (1 &lt;&lt; j)) != 0)       <span class="cmt">// b[j] was the LAST one paired — undo it</span>
+                dp[mask] = Math.min(dp[mask], dp[mask ^ (1 &lt;&lt; j)] + (a[i] ^ b[j]));
+    }
+    return dp[(1 &lt;&lt; n) - 1];
+}</code></pre>
+<p><strong>Time</strong> O(2ⁿ · n). <strong>Space</strong> O(2ⁿ). This is the assignment template written "pull-style"
+(each state asks its predecessors) instead of "push-style" (each state feeds its successors) — both are fine;
+pick one and stay consistent. <code>bitCount(mask) − 1</code> works because pairing is done in a-index order:
+if k elements of <code>b</code> are used, then <code>a[0..k−1]</code> are exactly the ones paired.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 1879 · Minimum XOR Sum of Two Arrays</strong> (Hard) — the code above; n ≤ 14 is the give-away that n! matching is meant to become 2ⁿ.</li>
+<li><strong>LC 1947 · Maximum Compatibility Score Sum</strong> (Medium) — identical assignment shape, just <em>maximize</em> a score matrix instead of minimizing XOR; the gentlest first drill.</li>
+<li><strong>LC 526 · Beautiful Arrangement</strong> (Medium) — assignment where you <em>count</em> valid pairings: dp value becomes a count, position = <code>bitCount(mask)</code>, and the divisibility test filters which j may extend.</li></ul>
+
+<h3>Number of Ways to Wear Different Hats (1434) — mask the smaller side</h3>
+<p>
+40 hats means 2⁴⁰ hat-masks — dead on arrival. But there are at most 10 people, and 2¹⁰ = 1024.
+So flip the roles: the <strong>hats become the sequence you walk</strong> (like items in a knapsack) and the
+<strong>people become the mask</strong>. State: <code>dp[mask]</code> after considering hats <code>1..h</code> = number of ways
+to have satisfied exactly the people in <code>mask</code>. Transition per hat h: either <em>nobody</em> wears it
+(state carries over) or exactly one not-yet-satisfied person who likes h wears it. Base:
+<code>dp[0] = 1</code> before any hats; answer: <code>dp[full]</code> after hat 40.
+</p>
+<pre><code>int numberWays(List&lt;List&lt;Integer&gt;&gt; hats) {
+    int MOD = 1_000_000_007, n = hats.size(), full = (1 &lt;&lt; n) - 1;
+    List&lt;List&lt;Integer&gt;&gt; wearers = new ArrayList&lt;&gt;();   <span class="cmt">// invert the input: wearers.get(h) = people who like hat h</span>
+    for (int h = 0; h &lt;= 40; h++) wearers.add(new ArrayList&lt;&gt;());
+    for (int p = 0; p &lt; n; p++)
+        for (int h : hats.get(p)) wearers.get(h).add(p);
+    long[] dp = new long[1 &lt;&lt; n];
+    dp[0] = 1;                                          <span class="cmt">// no hats considered, nobody satisfied yet</span>
+    for (int h = 1; h &lt;= 40; h++) {                     <span class="cmt">// hats are the linear "time" axis</span>
+        long[] next = dp.clone();                       <span class="cmt">// option A: nobody wears hat h — carry every state over</span>
+        for (int mask = 0; mask &lt;= full; mask++) {
+            if (dp[mask] == 0) continue;
+            for (int p : wearers.get(h))
+                if ((mask &amp; (1 &lt;&lt; p)) == 0)             <span class="cmt">// option B: p (still hatless) wears hat h</span>
+                    next[mask | (1 &lt;&lt; p)] = (next[mask | (1 &lt;&lt; p)] + dp[mask]) % MOD;
+        }
+        dp = next;                                      <span class="cmt">// hat h fully processed</span>
+    }
+    return (int) dp[full];
+}</code></pre>
+<p><strong>Time</strong> O(40 · 2ⁿ · n) ≈ 4·10⁵ for n = 10. <strong>Space</strong> O(2ⁿ).</p>
+
+<div class="callout trap">
+  <span class="label">Trap — update in place and one hat gets worn twice</span>
+  The <code>next = dp.clone()</code> is load-bearing. If you write into <code>dp</code> while still reading
+  <code>dp</code> for the same hat, a state you just created (person p wearing h) can be extended <em>again</em>
+  within the same hat — giving hat h to two people. Read from the old layer, write to the new one.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 1434 · Number of Ways to Wear Different Hats</strong> (Hard) — the code above; the whole problem is recognizing which side to mask.</li>
+<li><strong>LC 691 · Stickers to Spell Word</strong> (Hard) — same instinct, different axis: mask the ≤15 target letters, iterate stickers freely (they're reusable, so they can't be the mask side at all).</li>
+<li><strong>LC 1595 · Minimum Cost to Connect Two Groups of Points</strong> (Hard, stretch) — mask the smaller group (≤12) while scanning the larger one row by row; a preview of the row-profile style below.</li></ul>
+
+<h3>Smallest Sufficient Team (1125) — the dp <em>value</em> is a mask too</h3>
+<pre><code><span class="cmt">// skillOf[p] = bitmask of required skills person p covers (m required skills, m ≤ 16).</span>
+long[] dp = new long[1 &lt;&lt; m];                 <span class="cmt">// dp[skills] = smallest team (person-bits in a long), -1 = unset</span>
+Arrays.fill(dp, -1);
+dp[0] = 0;
+for (int mask = 0; mask &lt; (1 &lt;&lt; m); mask++) {
+    if (dp[mask] &lt; 0) continue;
+    for (int p = 0; p &lt; people; p++) {
+        int with = mask | skillOf[p];         <span class="cmt">// skills covered after hiring p</span>
+        long team = dp[mask] | (1L &lt;&lt; p);
+        if (dp[with] &lt; 0 || Long.bitCount(team) &lt; Long.bitCount(dp[with]))
+            dp[with] = team;                  <span class="cmt">// keep the smaller team per skill-set</span>
+    }
+}
+<span class="cmt">// decode dp[(1 &lt;&lt; m) - 1]'s set bits into the answer array</span></code></pre>
+<p>Note the asymmetry: 60 people would need 2⁶⁰ — impossible. But <em>skills</em> ≤ 16 → 2¹⁶ states.
+<strong>Always mask the smaller side</strong> — the same trick as LC 1434 (mask the ≤10 people, iterate the ≤40 hats).
+<strong>Time</strong> O(2ᵐ · people). <strong>Space</strong> O(2ᵐ). Two more things to notice: the dp <em>value</em> is itself
+a bitmask (the team, in a <code>long</code> because people can exceed 31 — hence <code>1L &lt;&lt; p</code>), and
+<code>mask | skillOf[p]</code> may <em>stay equal</em> to <code>mask</code> (p adds nothing new) — the
+<code>bitCount</code> comparison quietly rejects that, so no infinite loop and no bloated teams.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 1125 · Smallest Sufficient Team</strong> (Hard, Google-reported) — the code above; the covering-problems archetype: mask what must be <em>covered</em>, not who covers it.</li>
+<li><strong>LC 691 · Stickers to Spell Word</strong> (Hard) — <strong>re-solve with this method</strong>: after doing it as "mask the smaller side", see it as covering — dp[letter-mask] = fewest stickers, each sticker ORs letters in.</li>
+<li><strong>LC 2172 · Maximum AND Sum of Array</strong> (Hard) — covering with capacity: each slot holds ≤ 2 numbers, so give each slot two bits in the mask and assign <code>numbers[bitCount(mask)]</code> one at a time.</li></ul>
+
+<h3>Maximum Students Taking Exam (1349) — row-by-row masks (broken profile)</h3>
+<p>
+Here the mask is <em>not</em> "which items are used overall" — it's the <strong>seating pattern of one row</strong>,
+and the DP walks the rows the way 1D DP walks indices. State: <code>dp[r][prev]</code> = max students seated in
+rows <code>0..r−1</code> given row <code>r−1</code> was seated exactly as <code>prev</code>. Transition: try every mask
+<code>cur</code> for row r that (1) uses only intact seats, (2) has no two adjacent students, (3) has no
+diagonal conflict with <code>prev</code>. Base: <code>dp[0][0] = 0</code> (before any rows, the "previous row" is empty).
+Answer: max over <code>dp[m][·]</code>. Columns ≤ 8, so at most 2⁸ = 256 masks per row — tiny.
+</p>
+<pre><code>int maxStudents(char[][] seats) {
+    int m = seats.length, n = seats[0].length, full = (1 &lt;&lt; n) - 1;
+    int[] ok = new int[m];                                <span class="cmt">// ok[r] = bitmask of intact ('.') seats in row r</span>
+    for (int r = 0; r &lt; m; r++)
+        for (int c = 0; c &lt; n; c++)
+            if (seats[r][c] == '.') ok[r] |= (1 &lt;&lt; c);
+    int[][] dp = new int[m + 1][1 &lt;&lt; n];
+    for (int[] row : dp) Arrays.fill(row, -1);            <span class="cmt">// -1 = "previous row never seated this way"</span>
+    dp[0][0] = 0;
+    for (int r = 0; r &lt; m; r++)
+        for (int prev = 0; prev &lt;= full; prev++) {
+            if (dp[r][prev] &lt; 0) continue;                <span class="cmt">// unreachable predecessor — skip</span>
+            for (int cur = 0; cur &lt;= full; cur++) {
+                if ((cur &amp; ~ok[r]) != 0) continue;        <span class="cmt">// someone on a broken seat</span>
+                if ((cur &amp; (cur &lt;&lt; 1)) != 0) continue;    <span class="cmt">// two students side by side in this row</span>
+                if ((cur &amp; (prev &lt;&lt; 1)) != 0              <span class="cmt">// upper-left diagonal conflict…</span>
+                 || (cur &amp; (prev &gt;&gt; 1)) != 0) continue;   <span class="cmt">// …and upper-right — you need BOTH shifts</span>
+                dp[r + 1][cur] = Math.max(dp[r + 1][cur], dp[r][prev] + Integer.bitCount(cur));
+            }
+        }
+    int best = 0;
+    for (int mask = 0; mask &lt;= full; mask++) best = Math.max(best, dp[m][mask]);
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(m · 4ⁿ) over row-mask pairs (n = columns ≤ 8 → 8·256·256 ≈ 5·10⁵). <strong>Space</strong> O(m · 2ⁿ),
+or O(2ⁿ) with two rolling rows. To trim the <code>cur</code> loop to valid seatings only, enumerate submasks of
+<code>ok[r]</code> with the idiom below — that's exactly where the 3ⁿ trick earns its keep.</p>
+
+<div class="callout trap">
+  <span class="label">Trap — one shift checks only one diagonal</span>
+  <code>cur &amp; (prev &lt;&lt; 1)</code> alone passes tests where the cheater sits to the <em>other</em> diagonal.
+  A student at column c conflicts with previous-row students at c−1 <em>and</em> c+1, so you must test both
+  <code>prev &lt;&lt; 1</code> and <code>prev &gt;&gt; 1</code>. Same-row adjacency is the self-check <code>cur &amp; (cur &lt;&lt; 1)</code> —
+  one shift suffices there because the pair is symmetric.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 1349 · Maximum Students Taking Exam</strong> (Hard) — the code above; the canonical "broken profile" drill.</li>
+<li><strong>LC 1411 · Number of Ways to Paint N×3 Grid</strong> (Hard) — <strong>re-solve with this method</strong>: you saw it in Lesson 8 as two collapsed states; here, do it honestly as dp[row][color-mask] with a compatibility check between consecutive rows.</li>
+<li><strong>LC 1659 · Maximize Grid Happiness</strong> (Hard, stretch) — row-profile DP where the profile also carries <em>who</em> (introvert/extrovert/empty) — base-3 masks; attempt only after 1349 feels easy.</li></ul>
+
+<h3>Submask enumeration — the O(3ⁿ) idiom</h3>
+<pre><code>for (int sub = mask; sub &gt; 0; sub = (sub - 1) &amp; mask) {
+    <span class="cmt">// visits every non-empty submask of `mask`, in decreasing order</span>
+    <span class="cmt">// (sub-1) drops the lowest set bit and floods below it; &amp; mask re-confines to mask's bits</span>
+}</code></pre>
+<p><strong>Why it works:</strong> <code>sub − 1</code> flips <code>sub</code>'s lowest set bit to 0 and floods 1s below it;
+<code>&amp; mask</code> then erases every bit outside <code>mask</code>. The effect: "count down" but only through numbers
+whose bits all lie inside <code>mask</code> — which is exactly the set of submasks, visited in decreasing order.</p>
+<p><strong>Cost over <em>all</em> masks:</strong> Σ 2^popcount(mask) = <strong>3ⁿ</strong> — each element independently lands in one
+of three buckets: (in mask &amp; in sub), (in mask, not in sub), (not in mask). So the nested
+"for every mask, for every submask" pattern is O(3ⁿ), not the lazy 2ⁿ·2ⁿ = 4ⁿ estimate. For n = 16
+that's 4·10⁷ vs 4·10⁹ — the difference between accepted and TLE.</p>
+<p><strong>When you need it:</strong> when one transition consumes a whole <em>group</em> at once rather than one element —
+"peel off a valid subset and recurse on the rest": <code>dp[mask] = best over valid sub ⊆ mask of
+dp[mask ^ sub] + cost(sub)</code>. Typical: partition people into work sessions (LC 1986), hand out whole
+quantities to customers (LC 1655), or enumerate only the legal row-seatings inside <code>ok[r]</code> in LC 1349.
+Precompute <code>cost(sub)</code>/validity for all 2ⁿ subsets first, then run the 3ⁿ loop.</p>
+
+<div class="callout trap">
+  <span class="label">Trap — <code>sub &gt;= 0</code> loops forever</span>
+  When <code>sub</code> reaches 0, the next step computes <code>(0 − 1) &amp; mask = mask</code> — you're back at the start.
+  The <code>sub &gt; 0</code> condition is what terminates the loop, which also means the <strong>empty submask is never
+  visited</strong>: if ∅ is a legal choice (e.g. an empty row seating in 1349), handle it explicitly outside the loop.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul><li><strong>LC 1986 · Minimum Number of Work Sessions to Finish the Tasks</strong> (Medium) — the cleanest drill: precompute which submasks fit in one session, then <code>dp[mask] = 1 + min over fitting sub of dp[mask ^ sub]</code>.</li>
+<li><strong>LC 1655 · Distribute Repeating Integers</strong> (Hard) — per distinct value, peel off a submask of customers it can fully satisfy; submask enumeration inside a value-by-value DP.</li>
+<li><strong>LC 698 · Partition to K Equal Sum Subsets</strong> (Medium) — <strong>re-solve with this method</strong>: precompute submasks summing exactly to <code>target</code>, then peel buckets one at a time; compare with the bucket-rolling version above.</li></ul>
+
+<h3>Worked example — dry run</h3>
+<p>TSP on 4 cities. Distance matrix (symmetric): <code>d[0][1]=10, d[0][2]=15, d[0][3]=20, d[1][2]=35, d[1][3]=25, d[2][3]=30</code>. Masks written as <code>3210</code> bits.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 300 215" role="img" aria-label="Four cities as a square: 0 top-left, 1 top-right, 3 bottom-right, 2 bottom-left, with edge weights. The optimal tour 0-1-3-2-0 is highlighted.">
+  <line class="edge hl" x1="60"  y1="50"  x2="240" y2="50"/>
+  <line class="edge hl" x1="240" y1="50"  x2="240" y2="160"/>
+  <line class="edge hl" x1="240" y1="160" x2="60"  y2="160"/>
+  <line class="edge hl" x1="60"  y1="160" x2="60"  y2="50"/>
+  <line class="edge" x1="60"  y1="50"  x2="240" y2="160"/>
+  <line class="edge" x1="240" y1="50"  x2="60"  y2="160"/>
+  <circle class="node cur" cx="60"  cy="50"  r="18"/><text class="lbl inv" x="60"  y="50">0</text>
+  <circle class="node" cx="240" cy="50"  r="18"/><text class="lbl" x="240" y="50">1</text>
+  <circle class="node" cx="60"  cy="160" r="18"/><text class="lbl" x="60"  y="160">2</text>
+  <circle class="node" cx="240" cy="160" r="18"/><text class="lbl" x="240" y="160">3</text>
+  <text class="wt" x="150" y="40">10</text>
+  <text class="wt" x="256" y="105">25</text>
+  <text class="wt" x="150" y="178">30</text>
+  <text class="wt" x="44"  y="105">15</text>
+  <text class="wt" x="122" y="95">20</text>
+  <text class="wt" x="178" y="95">35</text>
+</svg>
+<figcaption>Optimal tour 0 → 1 → 3 → 2 → 0 = 10 + 25 + 30 + 15 = 80 (highlighted). The diagonals (20, 35) are the expensive edges the DP learns to avoid.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">base: dp[0001][0] = <span class="ptr">0</span> — at city 0, only 0 visited</span>
+<span class="step">mask 0001 expands: dp[0011][1]=10 · dp[0101][2]=15 · dp[1001][3]=20</span>
+<span class="step">mask 0011 (end 1): dp[0111][2]=10+35=45 · dp[1011][3]=10+25=<span class="ptr">35</span></span>
+<span class="step">mask 0101 (end 2): dp[0111][1]=15+35=50 · dp[1101][3]=15+30=45</span>
+<span class="step">mask 1001 (end 3): dp[1011][1]=20+25=45 · dp[1101][2]=20+30=50</span>
+<span class="step now">mask 1011 (end 3, path 0→1→3): dp[1111][2] = min(∞, 35+30) = <span class="ptr">65</span></span>
+<span class="step">also dp[1111][1]=70 (via 1101 end 3) · dp[1111][3]=75 (via 0111)</span>
+<span class="step">close tour: min(70+10, 65+15, 75+20) = min(80, 80, 95) = <span class="ptr">80</span></span>
+</div>
+
+<h2>6 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Seed the right base:</strong> TSP starts at <code>dp[1][0] = 0</code> (city 0 already visited), not <code>dp[0]</code>. Off-by-one masks are the classic bug.</li>
+  <li><strong>Infinity discipline:</strong> fill with <code>Integer.MAX_VALUE / 2</code> (or check-before-add) so <code>INF + dist</code> doesn't overflow into a "great" negative value.</li>
+  <li><strong>Skip unreachable states</strong> (<code>dp[mask] == INF</code> / <code>-1</code>) before expanding — correctness in 698, speed everywhere.</li>
+  <li><strong>Mask the smaller side.</strong> 2⁴⁰ hats is impossible; 2¹⁰ people is trivial (1434, 1125).</li>
+  <li><strong>Memory before time:</strong> <code>dp[2²⁰][20]</code> ints ≈ 80 MB — may exceed limits. Consider <code>dp[mask]</code>-only formulations, or n ≤ 16 problems.</li>
+  <li><strong>1 &lt;&lt; i with i ≥ 31:</strong> <code>1 &lt;&lt; 31</code> is negative and Java shifts by <code>i % 32</code> with no warning — shift a <code>1L</code> when the mask lives in a <code>long</code> (1125's team mask over up to 60 people).</li>
+  <li><strong>Submask loop and the empty set:</strong> <code>sub = (sub-1) &amp; mask</code> stops at 0 — handle the empty submask separately if it's a legal choice.</li>
+</ul>
+
+<h2>7 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why can bitmask DP fill <code>dp[]</code> with one simple ascending loop <code>for (mask = 0 .. 2ⁿ−1)</code>?</div>
+  <button class="opt">Because XOR-ing out any bit produces a mask with the same popcount, keeping states in lockstep</button>
+  <button class="opt">Because Java evaluates array writes left to right, so later masks can't be touched early</button>
+  <button class="opt">Because removing any element clears a bit, and clearing a bit always yields a numerically smaller mask — every predecessor is already computed</button>
+  <div class="fb" data-correct="A proper submask has a subset of the bits, hence a smaller integer value. Ascending order is therefore a valid topological order of the state DAG — no extra bookkeeping." data-wrong="The key fact is numeric: any state you transition FROM has strictly fewer bits, i.e. a smaller number. So plain ascending iteration visits every predecessor before its successors."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">LC 1434: 40 hats, up to 10 people, each person must wear a distinct liked hat. The feasible DP is:</div>
+  <button class="opt">Iterate hats 1..40 as the sequence; state = bitmask of <em>people</em> already assigned (2¹⁰ states)</button>
+  <button class="opt">Iterate people as the sequence; state = bitmask of <em>hats</em> already worn (2⁴⁰ states)</button>
+  <button class="opt">A 40×10 grid DP, since two dimensions always beat one exponential dimension</button>
+  <div class="fb" data-correct="Mask the smaller side: 2¹⁰·40 ≈ 41K states is trivial, while 2⁴⁰ is a trillion. Walking hat-by-hat and tracking which people are satisfied makes the exponential dimension the 10-person side." data-wrong="2⁴⁰ hat-masks can never fit in memory. Flip the roles: treat the 40 hats as the linear sequence and keep the exponential mask over the ≤10 people — 2¹⁰ = 1024 states."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Running <code>for (sub = mask; sub &gt; 0; sub = (sub−1) &amp; mask)</code> inside a loop over <em>all</em> masks costs in total:</div>
+  <button class="opt">O(4ⁿ) — 2ⁿ masks times 2ⁿ submasks each</button>
+  <button class="opt">O(3ⁿ) — each element is independently: out of mask, in mask but not sub, or in both</button>
+  <button class="opt">O(2ⁿ · n) — the same as ordinary one-element bitmask transitions</button>
+  <div class="fb" data-correct="Σ over masks of 2^popcount(mask) = Σ C(n,k)·2^k = 3ⁿ by the binomial theorem — each element independently picks one of three roles. Noticeably cheaper than the naive 4ⁿ bound." data-wrong="Count per element: it's either outside mask, inside mask but outside sub, or inside both — 3 choices each, 3ⁿ pairs total. That beats the lazy 2ⁿ × 2ⁿ = 4ⁿ estimate."></div>
+</div>
+
+<h2>8 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (read):</strong> <a href="https://cp-algorithms.com/algebra/all-submasks.html">CP-Algorithms — Submask Enumeration</a> (the 3ⁿ proof) and <a href="https://cp-algorithms.com/dynamic_programming/profile-dynamics.html">CP-Algorithms — DP on broken profiles</a> (the 1349 family). Video backup: <a href="https://neetcode.io/problems/partition-to-k-equal-sum-subsets">NeetCode — Partition to K Equal Sum Subsets</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 1947 (Compatibility Score — gentlest assignment) → LC 698 (K Equal Sum Subsets) → LC 1879 (Min XOR Sum — the clean assignment drill) → <strong>LC 1125 (Smallest Sufficient Team — Google-reported)</strong> → LC 847 (Shortest Path Visiting All Nodes — BFS on masks) → LC 943 (Find the Shortest Superstring — the real dp[mask][last] drill) → LC 1434 (Hats) → LC 1986 (Work Sessions — submask enumeration) → LC 1349 (Max Students — stretch). Then write the TSP template once from a blank file.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0012-digit-dp-and-cheat-sheet.html">DP Lesson 12 — Digit DP &amp; the cheat sheet</a>.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to expand more TSP masks step by step, explain why <code>bitCount</code> can stand in for a
+  person index, or dry-run 698's bucket-rolling trick on a small array? Ask in the chat. When you can
+  state the assignment and TSP recurrences — and their Big-O — from memory, say <strong>"next"</strong>
+  for the final lesson: digit DP plus the whole-track cheat sheet.
+</div>
+
+<div class="nav">
+  <span><a href="0010-tree-dp.html">← DP on Trees</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0012-digit-dp-and-cheat-sheet.html">Digit DP &amp; Cheat Sheet →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

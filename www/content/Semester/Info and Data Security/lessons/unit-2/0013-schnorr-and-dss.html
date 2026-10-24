@@ -1,0 +1,348 @@
+<title>Schnorr and DSS</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit II &middot; Lesson 13 of 14</p>
+<h1>Schnorr and the Digital Signature Standard</h1>
+<p class="deck">The two schemes that shrink ElGamal by working in a small subgroup of order q &mdash; Schnorr with its precomputation trick, DSA with its two-modulus structure &mdash; each worked end to end with numbers.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>DSS is the more likely of the two to appear as a full 10-mark numerical</strong>; Schnorr is usually 5 marks or a comparison. For DSA, memorise the <strong>five signing values (p, q, g, x, y) and the two-line signature (r, s)</strong>, and above all the <strong>verification chain w &rarr; u<sub>1</sub> &rarr; u<sub>2</sub> &rarr; v</strong>. The examiner&rsquo;s favourite one-liner is <strong>&ldquo;why are r and s reduced mod q?&rdquo;</strong> &mdash; because it makes the signature 320 bits instead of 2048.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Schnorr Digital Signature Scheme</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=kuiVid1G8E8" target="_blank">ElGamal Scheme vs Schnorr Scheme &middot; Comparison and Optimization</a>
+    <span class="v-meta">Chirag Bhalodia &middot; 11:09</span>
+    <div class="v-why">Clear comparison showing why Schnorr restricts operations to prime subgroup $q$, reducing signature size from $|p|$ to $|q|$ and accelerating signing with precomputed commitments.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Digital Signature Standard (DSS / DSA) Solved Numerical</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=6nRFkrvQC2I" target="_blank">Digital Signature Standard (DSA) Algorithm with Solved Example</a>
+    <span class="v-meta">Quick Trixx &middot; 14:20</span>
+    <div class="v-why">Step-by-step examination numerical calculating prime $p$, subgroup $q$, generator $g$, signature pair $(r, s)$, and verifying $v = r$ using auxiliary terms $w, u_1, u_2$.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: DSA VERIFICATION PIPELINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Digital Signature Algorithm (DSA &middot; FIPS 186)</span>
+  <div class="flow-col">
+    <div class="flow-box warn" style="min-width:22rem;">
+      <strong>Signing Equations &middot; Signature $(r, s)$</strong>
+      <span class="sub">$r = (g^k \bmod p) \bmod q$<br>$s = [k^{-1}(H(M) + x \cdot r)] \bmod q$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Verifier receives $M$, $r$, $s$</span>
+    
+    <div class="flow-box highlight" style="min-width:24rem;">
+      <strong>Verification Intermediate Terms</strong>
+      <span class="sub">$w = s^{-1} \bmod q$<br>$u_1 = [H(M) \cdot w] \bmod q$ &nbsp;|&nbsp; $u_2 = (r \cdot w) \bmod q$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Two-Modulus Test</span>
+    
+    <div class="flow-box ok" style="min-width:22rem;">
+      <strong>Acceptance Check: $v \stackrel{?}{=} r$</strong>
+      <span class="sub">$v = [(g^{u_1} \cdot y^{u_2}) \bmod p] \bmod q$</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>The idea both schemes share</h2>
+
+<p>ElGamal works in the whole group Z<sub>p</sub><sup>*</sup>, so both halves of its signature are the size of p &mdash; 2048 bits each today. <strong>Schnorr and DSA instead work in a small subgroup of prime order q</strong> inside that group. Exponent arithmetic then happens mod q, so the signature values are the size of <strong>q</strong> (160&ndash;256 bits), while the security still rests on the discrete logarithm in the large group mod p.</p>
+
+<div class="box win">
+  <span class="lbl">One sentence that answers half the questions in this lesson</span>
+  <p><strong>p is large for security; q is small for efficiency.</strong> Everything exponent-sized is reduced mod q, everything group-sized mod p. That is why a DSA signature is <strong>320 bits</strong> where an RSA signature of the same strength is <strong>2048</strong>.</p>
+</div>
+
+<h2>Part 1 &mdash; The Schnorr signature scheme</h2>
+
+<div class="formula">
+  <span class="name">The scheme</span>
+  <strong>Global parameters:</strong> a prime <strong>p</strong>; a prime <strong>q</strong> dividing p &minus; 1;<br>
+  and <strong>&alpha;</strong> with <strong>&alpha;<sup>q</sup> &equiv; 1 mod p, &alpha; &ne; 1</strong> &mdash; a generator of the subgroup of order q.<br><br>
+  <strong>Keys:</strong> private <strong>s</strong> (0 &lt; s &lt; q); public <strong>v = &alpha;<sup>&minus;s</sup> mod p</strong>.<br><br>
+  <strong>Sign M:</strong> pick a random <strong>r</strong> (0 &lt; r &lt; q), compute<br>
+  <strong>x = &alpha;<sup>r</sup> mod p</strong>, &nbsp; <strong>e = H(M &#8214; x)</strong>, &nbsp; <strong>y = (r + s&middot;e) mod q</strong><br>
+  The signature is the pair <strong>(e, y)</strong>.<br><br>
+  <strong>Verify:</strong> compute <strong>x&prime; = &alpha;<sup>y</sup>v<sup>e</sup> mod p</strong> and accept if <strong>H(M &#8214; x&prime;) = e</strong>.
+</div>
+
+<div class="box">
+  <span class="lbl">The two features that define Schnorr</span>
+  <p><strong>(i) The public key is &alpha;<sup>&minus;s</sup>, not &alpha;<sup>s</sup></strong> &mdash; the negative exponent is what makes &alpha;<sup>y</sup>v<sup>e</sup> collapse back to &alpha;<sup>r</sup>. <strong>(ii) The hash binds the message to the commitment x</strong>, so e = H(M &#8214; x) &mdash; the message enters through the hash rather than through the arithmetic. Both are commonly missed.</p>
+</div>
+
+<h3>Why verification works</h3>
+
+<div class="formula">
+  <span class="name">The one-line proof</span>
+  &alpha;<sup>y</sup>v<sup>e</sup> = &alpha;<sup>r + se</sup> &middot; (&alpha;<sup>&minus;s</sup>)<sup>e</sup> = &alpha;<sup>r + se &minus; se</sup> = <strong>&alpha;<sup>r</sup> = x</strong> &nbsp;(mod p)<br>
+  so the verifier rebuilds x and the hash check must succeed.
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 1 &mdash; Schnorr, worked in full</span>
+  <p><strong>Q. Take p = 23, q = 11 and &alpha; = 4. Alice&rsquo;s private key is s = 7. She signs a message with r = 3, and the hash gives e = H(M &#8214; x) = 5. Find the signature and verify it.</strong></p>
+  <p><strong>Step 0 &mdash; check the parameters.</strong> q = 11 divides p &minus; 1 = 22 &check;. And &alpha; = 4 has order 11: its powers are 4, 16, 18, 3, 12, 2, 8, 9, 13, 6, <strong>1</strong> &mdash; returning to 1 exactly at the eleventh, so &alpha;<sup>q</sup> &equiv; 1 &check;.</p>
+  <p><em>(&alpha; is normally built as &alpha; = h<sup>(p&minus;1)/q</sup> mod p; here h = 2 gives 2<sup>2</sup> = 4.)</em></p>
+  <p><strong>Step 1 &mdash; the public key.</strong> v = &alpha;<sup>&minus;s</sup> mod p = (4<sup>7</sup>)<sup>&minus;1</sup> mod 23.<br>
+  4<sup>7</sup>: 4<sup>2</sup> = 16, 4<sup>3</sup> = 64 &equiv; 18, 4<sup>6</sup> = 18<sup>2</sup> = 324 &equiv; <strong>2</strong>, so 4<sup>7</sup> = 2 &times; 4 = <strong>8</strong>.<br>
+  Now invert: 8 &times; 3 = 24 &equiv; 1 mod 23, so <strong>v = 3</strong>.</p>
+  <p><strong>Step 2 &mdash; the commitment.</strong> x = &alpha;<sup>r</sup> mod p = 4<sup>3</sup> = 64 &equiv; <strong>18</strong></p>
+  <p><strong>Step 3 &mdash; the hash.</strong> e = H(M &#8214; x) = <strong>5</strong> (given).</p>
+  <p><strong>Step 4 &mdash; the response.</strong> y = (r + s&middot;e) mod q = (3 + 7 &times; 5) mod 11 = 38 mod 11 = <strong>5</strong></p>
+  <p><strong>Signature = (e, y) = (5, 5).</strong></p>
+  <p><strong>Step 5 &mdash; verify.</strong> x&prime; = &alpha;<sup>y</sup>v<sup>e</sup> mod p = 4<sup>5</sup> &times; 3<sup>5</sup> mod 23.<br>
+  4<sup>5</sup> = 1024 &equiv; 1024 &minus; 1012 = <strong>12</strong> &nbsp;(23 &times; 44 = 1012)<br>
+  3<sup>5</sup> = 243 &equiv; 243 &minus; 230 = <strong>13</strong><br>
+  x&prime; = 12 &times; 13 = 156 &equiv; 156 &minus; 138 = <strong>18</strong></p>
+  <p><strong>x&prime; = 18 = x</strong>, so H(M &#8214; x&prime;) = H(M &#8214; x) = 5 = e. <strong>Signature valid. &check;</strong></p>
+</div>
+
+<h3>Why Schnorr is efficient &mdash; the precomputation argument</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Stage</th><th>Work</th><th>Comment</th></tr></thead>
+<tbody>
+<tr><td><strong>Before the message arrives</strong></td><td>Pick r, compute x = &alpha;<sup>r</sup> mod p</td><td>The <strong>only</strong> exponentiation, and it does not involve M &mdash; so it can be done in idle time and stored</td></tr>
+<tr><td><strong>When the message arrives</strong></td><td>Hash M &#8214; x, then <strong>one multiplication and one addition mod q</strong></td><td><strong>Almost free</strong> &mdash; this is Schnorr&rsquo;s selling point for smart cards</td></tr>
+<tr><td><strong>Signature size</strong></td><td>|e| + |q| &mdash; about <strong>160 + 160 bits</strong></td><td>Short, because both halves are subgroup-sized</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Two more marks-worthy facts: Schnorr&rsquo;s scheme is <strong>provably secure in the random oracle model</strong> (Unit I, Lesson 3), and it was <strong>patented until 2008</strong> &mdash; which is precisely why NIST built DSA on ElGamal instead, and why Schnorr signatures only reached wide deployment recently, in Bitcoin&rsquo;s Taproot upgrade.</p>
+
+<h2>Part 2 &mdash; DSS and the DSA algorithm</h2>
+
+<p>Terminology first, because examiners test it: <strong>DSS (Digital Signature Standard) is the FIPS 186 standard; DSA (Digital Signature Algorithm) is the algorithm inside it.</strong> DSA was designed by NIST/NSA in 1991, is based on ElGamal and Schnorr, and &mdash; unlike RSA &mdash; <strong>cannot be used for encryption or key exchange, only for signing</strong>.</p>
+
+<div class="formula">
+  <span class="name">DSA parameters and keys</span>
+  <strong>Global public parameters, shared by a group of users:</strong><br>
+  <strong>p</strong> &mdash; a prime, 1024 to 3072 bits &nbsp;&middot;&nbsp; <strong>q</strong> &mdash; a prime divisor of p &minus; 1, 160 to 256 bits<br>
+  <strong>g = h<sup>(p&minus;1)/q</sup> mod p</strong> for some h, with g &gt; 1 &mdash; so g has order q<br><br>
+  <strong>Per user:</strong> private <strong>x</strong> (0 &lt; x &lt; q), public <strong>y = g<sup>x</sup> mod p</strong><br>
+  <strong>Per signature:</strong> a fresh random secret <strong>k</strong> (0 &lt; k &lt; q)
+</div>
+
+<div class="formula">
+  <span class="name">Signing and verification</span>
+  <strong>SIGN:</strong> &nbsp; <strong>r = (g<sup>k</sup> mod p) mod q</strong> &nbsp;&nbsp; <strong>s = k<sup>&minus;1</sup>[H(M) + x&middot;r] mod q</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;Signature = <strong>(r, s)</strong><br><br>
+  <strong>VERIFY:</strong> &nbsp; <strong>w = s<sup>&minus;1</sup> mod q</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>u<sub>1</sub> = [H(M) &middot; w] mod q</strong> &nbsp;&nbsp; <strong>u<sub>2</sub> = (r &middot; w) mod q</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>v = [(g<sup>u<sub>1</sub></sup> &middot; y<sup>u<sub>2</sub></sup>) mod p] mod q</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>Accept if v = r.</strong>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The two double reductions</span>
+  <p>Both <strong>r</strong> and <strong>v</strong> are computed <strong>mod p first, then mod q</strong>. Students routinely drop the second reduction and get v &ne; r on a perfectly good signature. Write the nested brackets exactly as above.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2 &mdash; DSA, worked in full</span>
+  <p><strong>Q. Take p = 23 and q = 11. With h = 2, find g. Alice&rsquo;s private key is x = 2 and she signs a message whose digest is H(M) = 5, using k = 3. Find the signature and verify it.</strong></p>
+  <p><strong>Step 1 &mdash; check q | p &minus; 1.</strong> p &minus; 1 = 22 = 2 &times; 11 &check;</p>
+  <p><strong>Step 2 &mdash; compute g.</strong> g = h<sup>(p&minus;1)/q</sup> mod p = 2<sup>22/11</sup> = 2<sup>2</sup> = <strong>4</strong> &nbsp;(g &gt; 1 &check;, and 4 has order 11 mod 23)</p>
+  <p><strong>Step 3 &mdash; the public key.</strong> y = g<sup>x</sup> mod p = 4<sup>2</sup> = <strong>16</strong><br>
+  Public: (p, q, g, y) = <strong>(23, 11, 4, 16)</strong>; private: x = 2.</p>
+  <p><strong>Step 4 &mdash; compute r.</strong> &nbsp; r = (g<sup>k</sup> mod p) mod q = (4<sup>3</sup> mod 23) mod 11<br>
+  4<sup>3</sup> = 64; 64 mod 23 = 64 &minus; 46 = <strong>18</strong>; then 18 mod 11 = <strong>7</strong>. &nbsp; <strong>r = 7</strong></p>
+  <p><strong>Step 5 &mdash; compute k<sup>&minus;1</sup> mod q.</strong> 3 &times; 4 = 12 &equiv; 1 mod 11, so <strong>k<sup>&minus;1</sup> = 4</strong></p>
+  <p><strong>Step 6 &mdash; compute s.</strong><br>
+  s = k<sup>&minus;1</sup>[H(M) + x&middot;r] mod q = 4 &times; [5 + 2 &times; 7] mod 11 = 4 &times; 19 mod 11<br>
+  19 mod 11 = 8, so s = 4 &times; 8 = 32 mod 11 = <strong>10</strong></p>
+  <p><strong>Signature = (r, s) = (7, 10).</strong></p>
+  <p><strong>Step 7 &mdash; verification. Compute w = s<sup>&minus;1</sup> mod q.</strong> 10 &times; 10 = 100 = 99 + 1 &equiv; 1 mod 11, so <strong>w = 10</strong></p>
+  <p><strong>Step 8 &mdash; u<sub>1</sub> and u<sub>2</sub>.</strong><br>
+  u<sub>1</sub> = H(M)&middot;w mod q = 5 &times; 10 = 50 mod 11 = <strong>6</strong><br>
+  u<sub>2</sub> = r&middot;w mod q = 7 &times; 10 = 70 mod 11 = <strong>4</strong></p>
+  <p><strong>Step 9 &mdash; compute v.</strong><br>
+  g<sup>u<sub>1</sub></sup> = 4<sup>6</sup> mod 23: 4<sup>3</sup> &equiv; 18, so 4<sup>6</sup> = 18<sup>2</sup> = 324 &equiv; 324 &minus; 322 = <strong>2</strong><br>
+  y<sup>u<sub>2</sub></sup> = 16<sup>4</sup> mod 23: 16<sup>2</sup> = 256 &equiv; <strong>3</strong>, so 16<sup>4</sup> = 3<sup>2</sup> = <strong>9</strong><br>
+  Product mod p: 2 &times; 9 = <strong>18</strong>; then <strong>mod q</strong>: 18 mod 11 = <strong>7</strong></p>
+  <p><strong>v = 7 = r, so the signature is valid. &check;</strong></p>
+  <p><em>Sanity checks:</em> both r and s must lie in <strong>0 &lt; value &lt; q</strong> &mdash; if either comes out 0, the standard says <strong>discard k and start again</strong>. And v is compared with r, never with s.</p>
+</div>
+
+<h3>Why DSA verification works</h3>
+
+<div class="formula">
+  <span class="name">The derivation</span>
+  From s = k<sup>&minus;1</sup>(H + xr) mod q we get <strong>k &equiv; s<sup>&minus;1</sup>(H + xr) = wH + wxr = u<sub>1</sub> + xu<sub>2</sub> (mod q)</strong>.<br>
+  Therefore &nbsp; g<sup>u<sub>1</sub></sup>y<sup>u<sub>2</sub></sup> = g<sup>u<sub>1</sub></sup>g<sup>xu<sub>2</sub></sup> = g<sup>u<sub>1</sub> + xu<sub>2</sub></sup> = <strong>g<sup>k</sup> (mod p)</strong><br>
+  Reducing both sides mod q gives <strong>v = r</strong>.
+</div>
+
+<h3>DSS features worth listing</h3>
+
+<ul>
+<li><strong>Signature is only 2q bits</strong> &mdash; 320 bits with a 160-bit q, against 1024+ for RSA at comparable strength.</li>
+<li><strong>Signature only:</strong> DSA cannot encrypt or exchange keys. RSA can do all three.</li>
+<li><strong>Randomised:</strong> the same message signs differently every time, because k is fresh.</li>
+<li><strong>Signing is faster than verification</strong> &mdash; the reverse of RSA, and useful when a low-power device signs and a server verifies.</li>
+<li><strong>Global parameters are shared</strong> across a user community, so only y need be certified per user.</li>
+<li><strong>k must be random, secret and never reused</strong> &mdash; the same total break as ElGamal (Lesson 12): from two signatures sharing r, k = (H<sub>1</sub> &minus; H<sub>2</sub>)(s<sub>1</sub> &minus; s<sub>2</sub>)<sup>&minus;1</sup> mod q and then x = (sk &minus; H)r<sup>&minus;1</sup> mod q.</li>
+<li>Later editions of FIPS 186 admit <strong>RSA and ECDSA</strong> alongside DSA.</li>
+</ul>
+
+<h2>The comparison tables</h2>
+
+<h3>Schnorr versus ElGamal versus DSA</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>ElGamal</th><th>Schnorr</th><th>DSA</th></tr></thead>
+<tbody>
+<tr><td><strong>Works in</strong></td><td>Full group mod p</td><td>Subgroup of order q</td><td>Subgroup of order q</td></tr>
+<tr><td><strong>Public key</strong></td><td>y = &alpha;<sup>x</sup></td><td><strong>v = &alpha;<sup>&minus;s</sup></strong></td><td>y = g<sup>x</sup></td></tr>
+<tr><td><strong>Signature</strong></td><td>(r, s), each &asymp; |p|</td><td><strong>(e, y)</strong>, each &asymp; |q|</td><td><strong>(r, s)</strong>, each &asymp; |q|</td></tr>
+<tr><td><strong>Message enters via</strong></td><td>The exponent arithmetic</td><td><strong>The hash, e = H(M &#8214; x)</strong></td><td>The hash, inside s</td></tr>
+<tr><td><strong>Precomputation</strong></td><td>Partial</td><td><strong>Yes &mdash; x = &alpha;<sup>r</sup> before M is known</strong></td><td>Partial (r can be precomputed)</td></tr>
+<tr><td><strong>Verification test</strong></td><td>&alpha;<sup>M</sup> &equiv; y<sup>r</sup>r<sup>s</sup></td><td>H(M &#8214; &alpha;<sup>y</sup>v<sup>e</sup>) = e</td><td><strong>v = r</strong></td></tr>
+<tr><td><strong>Size at 1024-bit p</strong></td><td class="num">2048 bits</td><td class="num"><strong>320 bits</strong></td><td class="num"><strong>320 bits</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>DSA versus RSA</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>RSA</th><th>DSA</th></tr></thead>
+<tbody>
+<tr><td><strong>Based on</strong></td><td>Factoring</td><td>Discrete logarithm</td></tr>
+<tr><td><strong>Uses</strong></td><td>Encryption, key exchange <strong>and</strong> signatures</td><td><strong>Signatures only</strong></td></tr>
+<tr><td><strong>Signature size</strong></td><td>Size of n &mdash; 2048 bits</td><td><strong>2|q| &mdash; 320 bits</strong></td></tr>
+<tr><td><strong>Signing / verifying</strong></td><td>Slow / <strong>fast</strong></td><td><strong>Fast</strong> / slow</td></tr>
+<tr><td><strong>Randomness needed</strong></td><td>None</td><td><strong>A fresh k per signature</strong></td></tr>
+<tr><td><strong>Verification recovers digest?</strong></td><td><strong>Yes</strong></td><td>No &mdash; it only tests v = r</td></tr>
+<tr><td><strong>Standard</strong></td><td>PKCS #1, RSA-PSS</td><td>FIPS 186 (DSS)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In the Schnorr scheme, the public key is:</p>
+  <div class="opts">
+    <button class="opt">v = H(s ‖ α) mod p, a hash of the private key and generator</button>
+    <button class="opt">v = s^α mod q, with the roles of base and exponent exchanged</button>
+    <button class="opt" data-ok="1">v = α^(−s) mod p, the inverse power, so that α^y v^e collapses to α^r</button>
+    <button class="opt">v = α^s mod p, exactly as in the ElGamal signature scheme</button>
+  </div>
+  <p class="why">The negative exponent is the whole trick: α^y v^e = α^{r+se}·α^{−se} = α^r = x, which the verifier then hashes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Schnorr signing is fast once the message arrives because:</p>
+  <div class="opts">
+    <button class="opt">Verification is performed by the signer before the message is sent</button>
+    <button class="opt" data-ok="1">The only exponentiation, x = α^r, does not involve M and can be precomputed</button>
+    <button class="opt">Its exponents are shorter than the message digest being signed</button>
+    <button class="opt">The hash function is applied to the private key rather than the message</button>
+  </div>
+  <p class="why">After the hash, signing costs one multiplication and one addition mod q — which is why Schnorr suits smart cards.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In DSA with p = 23, q = 11, g = 4 and k = 3, the value r is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">7, from (4³ mod 23) mod 11 = 18 mod 11</button>
+    <button class="opt">9, from 4³ mod 11 taken directly modulo q</button>
+    <button class="opt">64, the value of 4³ before any reduction at all</button>
+    <button class="opt">18, from 4³ mod 23, with no further reduction</button>
+  </div>
+  <p class="why">Reduce mod p first, then mod q. Dropping the second reduction (option two) or the first (option four) are the two standard errors.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. DSA verification concludes by testing whether:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">v = r, where v = [(g^u1 · y^u2) mod p] mod q</button>
+    <button class="opt">The recovered digest equals the hash of the received message</button>
+    <button class="opt">w = k⁻¹ mod q, confirming that the nonce was correctly chosen</button>
+    <button class="opt">v = s, where v is computed from the two exponents u1 and u2</button>
+  </div>
+  <p class="why">DSA never recovers the digest — that is the RSA approach. It rebuilds g^k in the subgroup and compares its reduction with r.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. DSA signatures are short because:</p>
+  <div class="opts">
+    <button class="opt">The signature contains only one value rather than a pair of values</button>
+    <button class="opt">The global parameters p, q and g are transmitted with each signature</button>
+    <button class="opt" data-ok="1">Both r and s are reduced modulo the small prime q, not the large prime p</button>
+    <button class="opt">The message digest is truncated to 160 bits before it is signed</button>
+  </div>
+  <p class="why">Security comes from the size of p; compactness from working in the subgroup of order q. With a 160-bit q the signature is 320 bits.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which statement about DSA is correct?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">It can only sign; it cannot encrypt or perform key exchange</button>
+    <button class="opt">It can sign and encrypt, but not perform key exchange</button>
+    <button class="opt">Verification is faster than signing, as it is in RSA</button>
+    <button class="opt">It is deterministic, so a message always signs the same way</button>
+  </div>
+  <p class="why">DSS is a signature standard only. It is randomised through k, and unlike RSA its signing is faster than its verification.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the Schnorr signature scheme.</summary>
+    <p class="ans">Global: prime p, prime q dividing p − 1, and α with α^q ≡ 1 mod p. Private key s, public key v = α^(−s) mod p. To sign: pick random r, compute x = α^r mod p, e = H(M ‖ x), and y = (r + se) mod q; the signature is (e, y). Verify by computing x′ = α^y v^e mod p and checking H(M ‖ x′) = e.</p></details>
+  <details class="card"><summary>Work the Schnorr example for p = 23, q = 11, α = 4, s = 7, r = 3, e = 5.</summary>
+    <p class="ans">v = (4⁷)⁻¹ = 8⁻¹ = 3 mod 23. x = 4³ = 64 ≡ 18. y = (3 + 7×5) mod 11 = 38 mod 11 = 5, so the signature is (5, 5). Verify: α^y v^e = 4⁵ × 3⁵ = 12 × 13 = 156 ≡ 18 = x, so the hash check succeeds.</p></details>
+  <details class="card"><summary>Why is Schnorr efficient, and what limited its adoption?</summary>
+    <p class="ans">Its single exponentiation x = α^r is independent of the message and can be precomputed, leaving only a hash, one multiplication and one addition mod q at signing time; the signature is only about 2|q| bits. It is provably secure in the random oracle model, but was patented until 2008, which is why NIST based DSA on ElGamal instead.</p></details>
+  <details class="card"><summary>Give the DSA parameters, keys and signing equations.</summary>
+    <p class="ans">Global: prime p of 1024–3072 bits, prime q of 160–256 bits dividing p − 1, and g = h^((p−1)/q) mod p with g > 1. Private x with 0 &lt; x &lt; q, public y = gˣ mod p. To sign with a fresh random k: r = (g^k mod p) mod q and s = k⁻¹[H(M) + xr] mod q, giving the signature (r, s).</p></details>
+  <details class="card"><summary>Give the DSA verification steps.</summary>
+    <p class="ans">Compute w = s⁻¹ mod q, u₁ = H(M)·w mod q, u₂ = r·w mod q, and v = [(g^u1 · y^u2) mod p] mod q. Accept the signature if v = r. Note the double reduction — mod p and then mod q — in both r and v.</p></details>
+  <details class="card"><summary>Work the DSA example for p = 23, q = 11, h = 2, x = 2, k = 3, H(M) = 5.</summary>
+    <p class="ans">g = 2² = 4; y = 4² = 16. r = (4³ mod 23) mod 11 = 18 mod 11 = 7. k⁻¹ = 4 mod 11, so s = 4(5 + 14) mod 11 = 4 × 8 = 10. Signature (7, 10). Verify: w = 10, u₁ = 50 mod 11 = 6, u₂ = 70 mod 11 = 4, g^6 = 2 and y⁴ = 9 mod 23, product 18, and 18 mod 11 = 7 = r.</p></details>
+  <details class="card"><summary>Prove DSA verification.</summary>
+    <p class="ans">From s = k⁻¹(H + xr) mod q, k ≡ s⁻¹(H + xr) = wH + wxr = u₁ + xu₂ mod q. Hence g^{u₁}y^{u₂} = g^{u₁+xu₂} = g^k mod p, and reducing both sides mod q gives v = r.</p></details>
+  <details class="card"><summary>Give six differences between RSA and DSA.</summary>
+    <p class="ans">Factoring versus discrete logarithm; RSA does encryption, key exchange and signing while DSA signs only; 2048-bit versus 320-bit signatures; RSA signs slowly and verifies fast while DSA is the reverse; RSA is deterministic while DSA needs a fresh k; and RSA verification recovers the digest while DSA only tests v = r.</p></details>
+</div>
+
+<p class="ask">Last in this unit: ECDSA &mdash; DSA moved onto an elliptic curve &mdash; plus the variations (blind, proxy, group, ring signatures) and the applications.</p>
+
+<div class="nav">
+  <a href="0012-rsa-and-elgamal-signatures.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0014-ecdsa-variations-and-applications.html">Next: ECDSA, Variations and Applications &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

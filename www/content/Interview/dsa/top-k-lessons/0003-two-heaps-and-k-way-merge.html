@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top-K Lesson 03 — Two Heaps &amp; K-way Merge</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Top-K / Heap Track · Lesson 3 of 3 · 295 · 23 · 373 · 502 · cheat sheet</div>
+<h1>Two Heaps &amp; K-way Merge</h1>
+<p class="subtitle">Two heaps leaning against each other hold a streaming median at their seam; one min-heap of k "next candidates" zips k sorted sources into one. These are the boss-level heap shapes — and the last two you need.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> LC 295 and LC 23 are both marked Hard and both appear constantly in big-tech onsites — yet each is ~15 lines once you know the shape.
+  This is Lesson 3 of the 3-lesson Top-K / Heap track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<strong>Two heaps:</strong> split a stream into a lower half and an upper half. A <strong>MAX-heap holds the lower
+half</strong> (its top = biggest small number) and a <strong>MIN-heap holds the upper half</strong> (its top =
+smallest big number). The median lives at the seam between the two tops — O(1) to read — provided you
+<strong>rebalance</strong> so the sizes never differ by more than 1.
+<strong>K-way merge:</strong> to merge k sorted sources, keep a min-heap of just the k <em>current heads</em>.
+Pop the global smallest, push its successor from the same source. Every element passes through a heap of size k
+→ O(N log k) total.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  Two heaps: "median of a stream", "balance two halves", or greedy problems where you repeatedly want the max of
+  one pool and the min of another (IPO). K-way merge: "merge k sorted lists/arrays", "kth smallest across sorted
+  rows", "k pairs with smallest sums" — any time k sorted sources must be consumed in global order.
+</div>
+
+<h2>2 · Core template A — Find Median from Data Stream (LC 295)</h2>
+<p>
+Invariant: <code>lo</code> (max-heap) holds the smaller half, <code>hi</code> (min-heap) the larger half,
+<code>lo.size()</code> is either equal to or exactly one more than <code>hi.size()</code>, and
+<strong>every element of <code>lo</code> ≤ every element of <code>hi</code></strong>. The safe insertion dance:
+always push into <code>lo</code>, hand its max across to <code>hi</code> (this guarantees the ordering invariant),
+then pull back if <code>hi</code> grew too big.
+</p>
+<pre><code>class MedianFinder {
+    private final PriorityQueue&lt;Integer&gt; lo =            <span class="cmt">// MAX-heap: lower half, top = its largest</span>
+        new PriorityQueue&lt;&gt;(Comparator.reverseOrder());
+    private final PriorityQueue&lt;Integer&gt; hi =            <span class="cmt">// MIN-heap: upper half, top = its smallest</span>
+        new PriorityQueue&lt;&gt;();
+
+    public void addNum(int num) {
+        lo.offer(num);                <span class="cmt">// 1. drop into the lower half…</span>
+        hi.offer(lo.poll());          <span class="cmt">// 2. …but pass lo's max across — now every lo ≤ every hi</span>
+        if (hi.size() &gt; lo.size())
+            lo.offer(hi.poll());      <span class="cmt">// 3. rebalance: lo may equal or exceed hi by exactly 1</span>
+    }
+    public double findMedian() {
+        return lo.size() &gt; hi.size()
+            ? lo.peek()                          <span class="cmt">// odd count → lo's top IS the median</span>
+            : (lo.peek() + hi.peek()) / 2.0;     <span class="cmt">// even → average of the two seam values</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(log n) per <code>addNum</code>, O(1) per <code>findMedian</code> · <strong>Space</strong> O(n). A sorted list gives O(n) inserts; re-sorting gives O(n log n) per query — the two heaps beat both.</p>
+
+<h3>Worked example — dry run</h3>
+<p>Stream: 5, 2, 8, 1</p>
+<div class="trace">
+<span class="step now">add 5 → lo{5}→hi gets 5→hi bigger→pull back → lo{<span class="ptr">5</span>} hi{} · median 5</span>
+<span class="step now">add 2 → lo{2,5}→pass max 5 to hi → lo{<span class="ptr">2</span>} hi{<span class="ptr">5</span>} · median (2+5)/2 = 3.5</span>
+<span class="step now">add 8 → lo{2,8}→pass 8→hi{5,8} bigger→pull 5 back → lo{<span class="ptr">5</span>,2} hi{<span class="ptr">8</span>} · median 5</span>
+<span class="step now">add 1 → lo{1,2,5}→pass 5→ lo{<span class="ptr">2</span>,1} hi{<span class="ptr">5</span>,8} · median (2+5)/2 = 3.5</span>
+<span class="step">invariant held every step: max(lo) ≤ min(hi), sizes differ ≤ 1, median read off the seam in O(1)</span>
+</div>
+
+<div class="callout trap">
+  <span class="label">The shortcut that breaks 295</span>
+  "If num &lt; lo.peek() push to lo, else push to hi" without the pass-across step lets an element land on the wrong
+  side (and NPEs on the first insert). The offer–pass–rebalance dance above costs one extra O(log n) move and is
+  <em>unconditionally correct</em>. Follow-up they love: sliding-window median (LC 480) — same two heaps plus lazy
+  deletion.
+</div>
+
+<h2>3 · Core template B — K-way merge: Merge k Sorted Lists (LC 23)</h2>
+<p>
+Don't compare all k heads each step (O(Nk)) — keep the k heads in a min-heap. Seed one node per list; each pop
+emits the global minimum and pushes that node's successor, so the heap always holds exactly one candidate per
+unfinished list.
+</p>
+<pre><code>ListNode mergeKLists(ListNode[] lists) {
+    PriorityQueue&lt;ListNode&gt; heap =                        <span class="cmt">// min-heap of current heads, size ≤ k</span>
+        new PriorityQueue&lt;&gt;((a, b) -&gt; Integer.compare(a.val, b.val));
+    for (ListNode head : lists)
+        if (head != null) heap.offer(head);               <span class="cmt">// seed: skip EMPTY lists (null heads)</span>
+
+    ListNode dummy = new ListNode(0), tail = dummy;
+    while (!heap.isEmpty()) {
+        ListNode node = heap.poll();                      <span class="cmt">// global smallest of all k fronts</span>
+        tail.next = node; tail = node;                    <span class="cmt">// stitch it onto the output</span>
+        if (node.next != null) heap.offer(node.next);     <span class="cmt">// its successor becomes that list's candidate</span>
+    }
+    return dummy.next;
+}</code></pre>
+<p><strong>Time</strong> O(N log k), N = total nodes — each node enters and leaves a size-k heap once. <strong>Space</strong> O(k). (Alternative: pairwise divide-and-conquer merging, also O(N log k), no heap.)</p>
+
+<h2>4 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Streaming median</td><td>LC 295</td><td>Core A verbatim. Max-heap lower + min-heap upper, rebalance to sizes ≤1 apart.</td></tr>
+    <tr><td>Merge k sorted lists</td><td>LC 23</td><td>Core B verbatim. Heap of ≤ k list heads.</td></tr>
+    <tr><td>K smallest pairs</td><td>LC 373</td><td>K-way merge over <em>implicit</em> sorted lists — row i is (nums1[i]+nums2[j]) for j=0,1,2… Push successor (i, j+1) only.</td></tr>
+    <tr><td>Two-heap greedy</td><td>LC 502 (IPO)</td><td>Min-heap of locked projects by capital; max-heap of unlocked profits. Move projects across as capital grows.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Find K Pairs with Smallest Sums (LC 373)</h3>
+<p>
+See the hidden k-way merge: fixing index <code>i</code> in <code>nums1</code> gives a sorted "virtual list" of sums
+<code>nums1[i]+nums2[0], nums1[i]+nums2[1], …</code>. Merge those lists but stop after k pops. Seed only the first
+(up to) k rows, and on popping <code>(i, j)</code> push only <code>(i, j+1)</code> — never <code>(i+1, j)</code>,
+which is already covered by row i+1's seed. That discipline visits each cell once, no visited-set needed.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; kSmallestPairs(int[] nums1, int[] nums2, int k) {
+    PriorityQueue&lt;int[]&gt; heap = new PriorityQueue&lt;&gt;(     <span class="cmt">// {i, j}, min-heap by pair sum</span>
+        (a, b) -&gt; Integer.compare(nums1[a[0]] + nums2[a[1]],
+                                  nums1[b[0]] + nums2[b[1]]));
+    for (int i = 0; i &lt; Math.min(k, nums1.length); i++)
+        heap.offer(new int[]{i, 0});                      <span class="cmt">// seed row heads: (i, 0) — at most k rows matter</span>
+
+    List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+    while (k-- &gt; 0 &amp;&amp; !heap.isEmpty()) {
+        int[] cur = heap.poll();                          <span class="cmt">// smallest remaining sum overall</span>
+        int i = cur[0], j = cur[1];
+        res.add(List.of(nums1[i], nums2[j]));
+        if (j + 1 &lt; nums2.length)
+            heap.offer(new int[]{i, j + 1});              <span class="cmt">// ONLY the same-row successor → no duplicates</span>
+    }
+    return res;   <span class="cmt">// O(k log k) time, O(k) space — never materialize all n·m pairs</span>
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Same skeleton, more problems</span>
+  Kth Smallest in a Sorted Matrix (LC 378) and Smallest Range Covering k Lists (LC 632) are this exact template —
+  rows are the sorted sources, the heap holds one index-tuple per row. Recognize it and you get three Hards for one.
+</div>
+
+<h3>Case: IPO — two heaps as a greedy pump (LC 502)</h3>
+<p>
+Different two-heap shape: not halves of one set, but a <strong>pipeline</strong>. Projects you can't afford wait in
+a min-heap keyed by capital requirement; every round, unlock all now-affordable projects into a max-heap keyed by
+profit, then greedily take the single most profitable. Repeat k times.
+</p>
+<pre><code>int findMaximizedCapital(int k, int w, int[] profits, int[] capital) {
+    int n = profits.length;
+    PriorityQueue&lt;int[]&gt; locked = new PriorityQueue&lt;&gt;(   <span class="cmt">// min-heap by required capital</span>
+        (a, b) -&gt; Integer.compare(a[0], b[0]));
+    for (int i = 0; i &lt; n; i++) locked.offer(new int[]{capital[i], profits[i]});
+
+    PriorityQueue&lt;Integer&gt; unlocked =                    <span class="cmt">// max-heap of affordable profits</span>
+        new PriorityQueue&lt;&gt;(Comparator.reverseOrder());
+
+    for (int round = 0; round &lt; k; round++) {
+        while (!locked.isEmpty() &amp;&amp; locked.peek()[0] &lt;= w)
+            unlocked.offer(locked.poll()[1]);            <span class="cmt">// everything affordable moves across (once, ever)</span>
+        if (unlocked.isEmpty()) break;                    <span class="cmt">// can't afford anything → stop early</span>
+        w += unlocked.poll();                             <span class="cmt">// greedy: bank the best available profit</span>
+    }
+    return w;   <span class="cmt">// O(n log n + k log n): each project crosses the seam at most once</span>
+}</code></pre>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>295 — never peek an empty heap.</strong> The offer–pass–rebalance dance makes the first insert safe automatically; conditional-insert versions NPE on it. Median of an odd count comes from <code>lo</code> only if you rebalanced toward <code>lo</code> — be consistent.</li>
+  <li><strong>295 — integer overflow on the even median:</strong> <code>(lo.peek() + hi.peek()) / 2.0</code> can overflow int before dividing when values near ±2³¹; use <code>((long) lo.peek() + hi.peek()) / 2.0</code> if constraints allow it.</li>
+  <li><strong>23 — null heads.</strong> <code>lists</code> may contain empty lists, or be empty entirely — skip nulls at seed time and the loop handles the rest (returns null naturally).</li>
+  <li><strong>23 — comparator on node values,</strong> not nodes: <code>ListNode</code> isn't Comparable; forgetting the comparator throws <code>ClassCastException</code> at the second offer.</li>
+  <li><strong>373 — duplicate states.</strong> Pushing both (i+1, j) and (i, j+1) per pop double-visits cells; either use a visited set or (cleaner) seed column 0 and push only (i, j+1). Also cap seeds at min(k, nums1.length) and stop when the heap empties before k pairs exist.</li>
+  <li><strong>502 — move projects across once, ever.</strong> Re-scanning the full project list each round is O(kn); the locked min-heap makes each project cross exactly once. Also: a taken project is <em>consumed</em> — poll it, don't peek.</li>
+  <li><strong>Everywhere:</strong> heap size in Big-O is the heap's <em>cap</em> (k, or n/2), not n by reflex. Saying "O(N log k), the heap never exceeds k" earns explicit credit.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the two-heap median (LC 295), why does the lower half live in a MAX-heap and the upper half in a MIN-heap?</div>
+  <button class="opt">Because Java's PriorityQueue is faster when the two heaps use opposite comparators</button>
+  <button class="opt">Because the median sits at the seam — you need the largest of the small half and the smallest of the large half, each in O(1)</button>
+  <button class="opt">Because the max-heap keeps its half sorted while the min-heap absorbs new arrivals</button>
+  <div class="fb" data-correct="Each heap exposes exactly its seam-facing element at the top: max of the lows, min of the highs. The median is one (or the average) of those two peeks — O(1) reads after O(log n) inserts." data-wrong="Heaps aren't sorted internally and comparator choice doesn't change speed — the polarity is about WHICH element each half must expose: the two values touching the median seam."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Merging k sorted lists with N total nodes via the heap approach costs:</div>
+  <button class="opt">O(N log N) — every node passes through a heap that can hold all N nodes</button>
+  <button class="opt">O(Nk) — each emitted node is compared against all k current heads</button>
+  <button class="opt">O(N log k) — every node enters and leaves a heap that never holds more than k nodes</button>
+  <div class="fb" data-correct="The heap holds at most one head per list — size ≤ k — so each of the N offer/poll pairs costs O(log k). That bound is the whole reason to use the heap over naive head-scanning." data-wrong="The heap only ever contains the k current heads (one candidate per unfinished list), so each of N passes costs log k, not log N — and the heap replaces the O(k) head scan entirely."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In LC 373, after popping pair (i, j) you push only (i, j+1) — never (i+1, j). Why is nothing missed?</div>
+  <button class="opt">Row i+1's chain was seeded at (i+1, 0), so (i+1, j) is reached by walking that row — every cell has exactly one path in</button>
+  <button class="opt">(i+1, j) always has a larger sum than (i, j+1), so it can be skipped safely</button>
+  <button class="opt">The heap deduplicates equal index pairs automatically, so extra pushes are merely wasted work</button>
+  <div class="fb" data-correct="Each row is an independent sorted list entered only at column 0, and (i, j+1) advances within the row. One entry path per cell = complete coverage AND no duplicates, with no visited set." data-wrong="Sums across rows aren't ordered that way, and PriorityQueue happily stores duplicates. The real reason: each row was seeded at column 0, so cell (i+1, j) is reached by advancing along row i+1 — exactly one path per cell."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/find-median-in-a-data-stream">NeetCode — Find Median from Data Stream</a> and <a href="https://neetcode.io/problems/merge-k-sorted-linked-lists">NeetCode — Merge K Sorted Linked Lists</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 295 (write the offer–pass–rebalance dance from memory) → LC 23 (heap version, then the divide-and-conquer follow-up) → LC 373 (derive the "push (i, j+1) only" rule yourself before peeking) → LC 502 (two-heap greedy) → stretch: LC 378 (sorted matrix = same merge) and LC 480 (sliding-window median = 295 + lazy deletion).</li>
+</ul>
+
+<h2>8 · Top-K / Heap cheat sheet</h2>
+<p>The whole track on one card. Print it; recite the trigger column before every heap problem.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Kth / k largest</td><td>"k largest", "kth largest"</td><td>MIN-heap of size k; offer, poll when &gt; k; peek = kth</td><td>O(n log k) · O(k)</td><td>215</td></tr>
+    <tr><td>K smallest / closest</td><td>"k smallest", "k closest"</td><td>MAX-heap of size k (reversed comparator); evict the max</td><td>O(n log k) · O(k)</td><td>973</td></tr>
+    <tr><td>Kth largest, O(n) one-shot</td><td>"can you beat n log k?", array in hand</td><td>Quickselect: partition, recurse into the side holding index n−k</td><td>O(n) avg · O(1)</td><td>215</td></tr>
+    <tr><td>Top k by frequency</td><td>"k most frequent"</td><td>HashMap count → size-k min-heap by freq; or bucket[freq] swept high→low</td><td>O(n log k) / O(n) bucket</td><td>347</td></tr>
+    <tr><td>Sort by frequency</td><td>"reorder by count"</td><td>Count → max-heap by count → drain, appending c × cnt[c]</td><td>O(n + d log d)</td><td>451</td></tr>
+    <tr><td>Kth largest in a stream</td><td>"design", "add() then query"</td><td>Size-k min-heap as a field; add = offer + trim; peek answers</td><td>O(log k)/add · O(k)</td><td>703</td></tr>
+    <tr><td>Streaming median</td><td>"median of a stream"</td><td>MAX-heap lower + MIN-heap upper; offer→pass across→rebalance; median at the seam</td><td>O(log n)/add, O(1) query</td><td>295</td></tr>
+    <tr><td>Merge k sorted sources</td><td>"merge k sorted"</td><td>Min-heap of k heads; pop global min, push its successor</td><td>O(N log k) · O(k)</td><td>23</td></tr>
+    <tr><td>K smallest pairs / matrix kth</td><td>"k smallest sums", sorted rows</td><td>Merge implicit rows: seed (i, 0) × min(k, rows), pop (i,j) → push (i, j+1)</td><td>O(k log k) · O(k)</td><td>373</td></tr>
+    <tr><td>Two-heap greedy</td><td>afford → unlock → take best</td><td>Min-heap locked by cost feeds max-heap by value; take max, k times</td><td>O(n log n + k log n)</td><td>502</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">The three sentences that solve the track</span>
+  1) <em>The heap's top is the eviction door — its polarity is the opposite of what you keep.</em>
+  2) <em>Two heaps expose the seam between two halves.</em>
+  3) <em>K sorted sources need only their k heads in a heap.</em>
+</div>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the 295 dance dry-run on your own numbers, a proof sketch that 373 misses nothing, or the LC 480 lazy-deletion
+  extension? Ask in the chat. When you can reproduce the cheat sheet's template column from the trigger column alone,
+  the heap track is done — say <strong>"next"</strong> to start the Prefix Sum track.
+</div>
+
+<div class="nav">
+  <span><a href="0002-top-k-family.html">← The Top-K Family</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../prefix-sum-lessons/0001-prefix-basics-and-hashmap.html">Prefix Sum basics →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

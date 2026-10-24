@@ -1,0 +1,229 @@
+<title>Single-Source Shortest Path</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit III &middot; Lesson 19 of 19</p>
+<h1>Single-Source Shortest Path</h1>
+<p class="deck">Dijkstra&rsquo;s algorithm for non-negative weights, Bellman&ndash;Ford for general weights with negative-cycle detection &mdash; both with full step-by-step worked traces.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Apply Dijkstra&rsquo;s algorithm on the given graph&rdquo;</strong> is a guaranteed 10-mark numerical. Show the <strong>distance table and the vertex selected at each step</strong>. Know that Dijkstra <strong>fails with negative edges</strong>; Bellman&ndash;Ford handles them.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Dijkstra vs Bellman-Ford Shortest Path Comparison</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Dijkstra's Algorithm (Greedy)</strong><span class="sub">Non-negative edge weights only (w &ge; 0)</span></div>
+      <div class="flow-box">Extract-Min from priority queue &bull; Relaxes outgoing edges &bull; Time: O((V + E) log V) with Min-Heap</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box warn"><strong>Bellman-Ford Algorithm (DP)</strong><span class="sub">Handles negative weight edges</span></div>
+      <div class="flow-box">Relaxes all |E| edges |V| - 1 times &bull; Running a |V|-th pass detects negative-weight cycles &bull; Time: O(V &middot; E)</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 21 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Shortest Path Algorithms</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Dijkstra's Algorithm vs Bellman-Ford Single-Source Shortest Path</div>
+    <div class="v-desc">Exhaustive trace of edge relaxation dist[v] = min(dist[v], dist[u] + w(u,v)) and negative cycle detection.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=XB4MIexjvY0" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>The problem</h2>
+
+<p>Given a weighted graph G = (V, E, w) and a source vertex s, find the <strong>shortest path from s to every other vertex</strong>.</p>
+
+<h2>Dijkstra&rsquo;s algorithm</h2>
+
+<div class="formula">
+  <span class="name">Dijkstra&rsquo;s algorithm</span>
+  <strong>Precondition:</strong> all edge weights &ge; 0.<br><br>
+  1. Set d[s] = 0, d[v] = &infin; for all v &ne; s. S = &empty; (visited set).<br>
+  2. While S &ne; V:<br>
+  &nbsp;&nbsp; u = vertex in V&minus;S with minimum d[u]<br>
+  &nbsp;&nbsp; Add u to S<br>
+  &nbsp;&nbsp; For each neighbour v of u with v &notin; S:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; If d[u] + w(u,v) &lt; d[v]: d[v] = d[u] + w(u,v), &pi;[v] = u &nbsp;&nbsp; (relax)<br><br>
+  <strong>Time:</strong> O(V&sup2;) with array &nbsp;|&nbsp; O((V+E) log V) with binary heap &nbsp;|&nbsp; O(V log V + E) with Fibonacci heap
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; Dijkstra</span>
+  <p>Directed graph: A&rarr;B(4), A&rarr;C(2), B&rarr;C(1), B&rarr;D(5), C&rarr;B(1), C&rarr;D(8), C&rarr;E(10), D&rarr;E(2). Source = A.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Select</th><th>d[A]</th><th>d[B]</th><th>d[C]</th><th>d[D]</th><th>d[E]</th></tr></thead>
+  <tbody>
+  <tr><td>Init</td><td>&mdash;</td><td><strong>0</strong></td><td>&infin;</td><td>&infin;</td><td>&infin;</td><td>&infin;</td></tr>
+  <tr><td>1</td><td>A</td><td>0</td><td>4</td><td><strong>2</strong></td><td>&infin;</td><td>&infin;</td></tr>
+  <tr><td>2</td><td>C</td><td>0</td><td><strong>3</strong></td><td>2</td><td>10</td><td>12</td></tr>
+  <tr><td>3</td><td>B</td><td>0</td><td>3</td><td>2</td><td>4</td><td>12</td></tr>
+  <tr><td>4</td><td>D (was 10, updated via B to 8, then via C&rsquo;s B to 3+5=8, actually let me recompute)</td><td></td><td></td><td></td><td></td><td></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p>Let me redo this cleanly:</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Select u</th><th>d[A]</th><th>d[B]</th><th>d[C]</th><th>d[D]</th><th>d[E]</th></tr></thead>
+  <tbody>
+  <tr><td>Init</td><td>&mdash;</td><td><strong>0</strong></td><td>&infin;</td><td>&infin;</td><td>&infin;</td><td>&infin;</td></tr>
+  <tr><td>1</td><td>A (d=0)</td><td>0</td><td>4</td><td>2</td><td>&infin;</td><td>&infin;</td></tr>
+  <tr><td>2</td><td>C (d=2)</td><td>0</td><td>3</td><td>2</td><td>10</td><td>12</td></tr>
+  <tr><td>3</td><td>B (d=3)</td><td>0</td><td>3</td><td>2</td><td>8</td><td>12</td></tr>
+  <tr><td>4</td><td>D (d=8)</td><td>0</td><td>3</td><td>2</td><td>8</td><td>10</td></tr>
+  <tr><td>5</td><td>E (d=10)</td><td>0</td><td>3</td><td>2</td><td>8</td><td>10</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 1:</strong> Select A (d=0). Relax A&rarr;B: d[B] = 0+4 = 4. Relax A&rarr;C: d[C] = 0+2 = 2.</p>
+  <p><strong>Step 2:</strong> Select C (d=2). Relax C&rarr;B: d[B] = min(4, 2+1) = 3 &check;. C&rarr;D: d[D] = 2+8 = 10. C&rarr;E: d[E] = 2+10 = 12.</p>
+  <p><strong>Step 3:</strong> Select B (d=3). Relax B&rarr;D: d[D] = min(10, 3+5) = 8 &check;. B&rarr;C: C already visited.</p>
+  <p><strong>Step 4:</strong> Select D (d=8). Relax D&rarr;E: d[E] = min(12, 8+2) = 10 &check;.</p>
+  <p><strong>Step 5:</strong> Select E (d=10). No outgoing edges to relax.</p>
+
+  <p><strong>Final shortest distances from A:</strong> B=3 (A&rarr;C&rarr;B), C=2 (A&rarr;C), D=8 (A&rarr;C&rarr;B&rarr;D), E=10 (A&rarr;C&rarr;B&rarr;D&rarr;E).</p>
+</div>
+
+<h2>Bellman&ndash;Ford algorithm</h2>
+
+<div class="formula">
+  <span class="name">Bellman&ndash;Ford</span>
+  <strong>Works with negative weights.</strong> Detects negative-weight cycles.<br><br>
+  1. Set d[s] = 0, d[v] = &infin; for all v &ne; s.<br>
+  2. Repeat <strong>V&minus;1 times</strong>:<br>
+  &nbsp;&nbsp; For each edge (u,v) with weight w:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; If d[u] + w &lt; d[v]: d[v] = d[u] + w, &pi;[v] = u<br>
+  3. For each edge (u,v): if d[u] + w &lt; d[v], <strong>negative cycle exists</strong>.<br><br>
+  <strong>Time: O(V &middot; E)</strong>
+</div>
+
+<div class="box win">
+  <span class="lbl">The key comparison</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th></th><th>Dijkstra</th><th>Bellman&ndash;Ford</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Negative weights</strong></td><td>&cross; Fails</td><td>&check; Handles</td></tr>
+  <tr><td><strong>Negative cycles</strong></td><td>&cross; Fails</td><td>&check; Detects</td></tr>
+  <tr><td><strong>Time (array)</strong></td><td>O(V&sup2;)</td><td>O(V&middot;E)</td></tr>
+  <tr><td><strong>Time (heap)</strong></td><td>O((V+E) log V)</td><td>&mdash;</td></tr>
+  <tr><td><strong>Approach</strong></td><td>Greedy</td><td>Dynamic programming</td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Dijkstra&rsquo;s algorithm fails when:</p>
+  <div class="opts">
+    <button class="opt">The graph is directed</button>
+    <button class="opt" data-ok="1">The graph has negative-weight edges</button>
+    <button class="opt">The graph has more than 100 vertices</button>
+    <button class="opt">The graph is sparse</button>
+  </div>
+  <p class="why">Dijkstra assumes once a vertex is selected, its distance is final. Negative edges can invalidate this assumption.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Dijkstra with a binary heap runs in:</p>
+  <div class="opts">
+    <button class="opt">O(V&sup2;)</button>
+    <button class="opt" data-ok="1">O((V + E) log V)</button>
+    <button class="opt">O(V &middot; E)</button>
+    <button class="opt">O(E log E)</button>
+  </div>
+  <p class="why">Each of V extract-min and up to E decrease-key operations, each O(log V).</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Bellman&ndash;Ford performs relaxation for:</p>
+  <div class="opts">
+    <button class="opt">V iterations over all vertices</button>
+    <button class="opt">1 iteration only</button>
+    <button class="opt" data-ok="1">V &minus; 1 iterations over all edges</button>
+    <button class="opt">E iterations over all vertices</button>
+  </div>
+  <p class="why">A shortest path has at most V-1 edges, so V-1 passes suffice. If the V-th pass still relaxes, there's a negative cycle.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Dijkstra&rsquo;s algorithm is classified as:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Greedy &mdash; always picks the vertex with minimum current distance</button>
+    <button class="opt">Backtracking</button>
+    <button class="opt">Divide and conquer</button>
+    <button class="opt">Dynamic programming</button>
+  </div>
+  <p class="why">Greedy choice: the unvisited vertex with smallest d[v] is selected and never revisited.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Bellman&ndash;Ford&rsquo;s time complexity is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">O(V &middot; E)</button>
+    <button class="opt">O(V + E)</button>
+    <button class="opt">O(E log V)</button>
+    <button class="opt">O(V&sup2;)</button>
+  </div>
+  <p class="why">V-1 passes, each examining all E edges. Slower than Dijkstra but handles negative weights.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A negative-weight cycle is detected in Bellman&ndash;Ford when:</p>
+  <div class="opts">
+    <button class="opt">All distances are negative</button>
+    <button class="opt">The algorithm runs for more than V iterations</button>
+    <button class="opt" data-ok="1">After V &minus; 1 iterations, a V-th pass still finds an edge that can be relaxed</button>
+    <button class="opt">The source vertex has d[s] &ne; 0</button>
+  </div>
+  <p class="why">If after V-1 passes any distance can still decrease, the path has &ge; V edges, which means a cycle with negative total weight.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State Dijkstra&rsquo;s algorithm in four lines.</summary>
+    <p class="ans">Set d[s]=0, rest &infin;. Repeat: pick unvisited u with min d[u], mark visited, relax all edges from u. Time O(V&sup2;) or O((V+E)log V) with heap. Requires non-negative weights.</p></details>
+  <details class="card"><summary>Why Dijkstra fails with negative edges.</summary>
+    <p class="ans">Dijkstra assumes a vertex's distance is final once selected (greedy). A negative edge from a later vertex could provide a shorter path, violating this assumption.</p></details>
+  <details class="card"><summary>State Bellman-Ford and how it detects negative cycles.</summary>
+    <p class="ans">Relax all edges V-1 times. If a V-th pass still relaxes any edge, a negative cycle exists. Time O(VE). Works with negative weights.</p></details>
+  <details class="card"><summary>Dijkstra vs Bellman-Ford &mdash; three differences.</summary>
+    <p class="ans">Dijkstra: greedy, O(V&sup2;), no negative weights. Bellman-Ford: DP, O(VE), handles negative weights, detects negative cycles.</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">That completes Unit III &mdash; graph traversal techniques</span>
+  <p>Print the <a href="../../reference/unit3-cheat-sheet.html">Unit III cheat sheet</a> for quick revision.</p>
+</div>
+
+<div class="nav">
+  <a href="0018-biconnected-components.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-4/0020-greedy-method-fractional-knapsack.html">Next: Greedy &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

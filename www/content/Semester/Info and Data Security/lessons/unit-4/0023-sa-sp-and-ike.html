@@ -1,0 +1,137 @@
+<title>Security Association, Policy and IKE</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Info and Data Security &middot; Unit IV &middot; Lesson 23 of 23</p>
+<h1>Security Association, Security Policy and IKE</h1>
+<p class="deck">Security Associations (SA) and their parameters, the Security Policy Database (SPD), the Security Association Database (SAD), and Internet Key Exchange (IKE) phases.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>&ldquo;What is a Security Association?&rdquo;</strong> and <strong>&ldquo;Explain IKE&rdquo;</strong> are standard 5-mark questions. Know: SA = one-way, identified by SPI + destination + protocol. IKE has two phases.</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Security Association (SA), SPD &amp; SAD</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLmAmHQ-_5ySx_dXmOwSuGGGyE8XsbYT0n" target="_blank">Security Associations (SA), Security Policy Database (SPD) &amp; SAD</a>
+    <span class="v-meta">Trouble-Free &middot; Video Masterclass</span>
+    <div class="v-why">Step-by-step examination breakdown of Security Association parameters, Security Parameter Index (SPI), destination IP, security protocol (AH/ESP), and policy lookups.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Internet Key Exchange (IKE Phases 1 &amp; 2)</span>
+      <span class="best-tag">Top Exam Theory</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Internet Key Exchange (IKE): Main Mode, Aggressive Mode &amp; Quick Mode</a>
+    <span class="v-meta">Gate Smashers &middot; Cryptography Playlist</span>
+    <div class="v-why">Clear explanation of IKE Phase 1 (establishing secure authenticated IKE SA via Diffie-Hellman) and IKE Phase 2 (negotiating directional child IPSec SAs via Quick Mode).</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: IPSEC PROCESSING ENGINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: IPSec Inbound and Outbound Packet Engine</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Outbound IP Packet Arrival</strong>
+      <span class="sub">Consult Security Policy Database (SPD) using selectors (Src IP, Dst IP, Port, Protocol)</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Three Possible Policy Verdicts</span>
+    
+    <div class="flow-row" style="gap:1rem;">
+      <div class="flow-box warn" style="min-width:9rem;">
+        <strong>1. Discard</strong>
+        <span class="sub">Drop packet immediately</span>
+      </div>
+      <div class="flow-box" style="min-width:9rem;">
+        <strong>2. Bypass</strong>
+        <span class="sub">Forward packet in clear</span>
+      </div>
+      <div class="flow-box ok" style="min-width:12rem;">
+        <strong>3. Apply IPSec</strong>
+        <span class="sub">Lookup Security Association in SAD</span>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Security Association Database (SAD) Parameter Retrieval</span>
+    
+    <div class="flow-box ok" style="min-width:24rem;">
+      <strong>Retrieve SA Parameters via (SPI, Dst IP, AH/ESP)</strong>
+      <span class="sub">Extract Encryption Algorithm &amp; Key, Auth Key, Sequence Counter &rarr; Encapsulate and transmit protected packet!</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>Security Association (SA)</h2>
+<div class="formula"><span class="name">Definition</span>
+An SA is a <strong>one-way</strong> relationship between sender and receiver defining security parameters.<br>
+Identified by the triple: <strong>(SPI, Destination IP, Protocol [AH or ESP])</strong>.<br>
+For two-way communication, <strong>two SAs</strong> are needed (one in each direction).</div>
+
+<p><strong>SA parameters include:</strong> sequence number counter, anti-replay window, AH/ESP info (algorithm, keys, IV, lifetime), mode (transport/tunnel), MTU.</p>
+
+<h2>Security databases</h2>
+<div class="tw"><table>
+<thead><tr><th>Database</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>SAD</strong> (Security Association Database)</td><td>Stores all active SAs and their parameters (keys, algorithms, SPI)</td></tr>
+<tr><td><strong>SPD</strong> (Security Policy Database)</td><td>Determines what to do with each packet: <strong>DISCARD, BYPASS, or PROTECT</strong> (apply IPSec)</td></tr>
+</tbody></table></div>
+
+<h2>Internet Key Exchange (IKE)</h2>
+<p>IKE automates SA establishment &mdash; negotiates algorithms and keys. Uses UDP port 500.</p>
+
+<div class="formula"><span class="name">IKE two phases</span>
+<strong>Phase 1:</strong> Establish an <strong>IKE SA</strong> (secure channel between peers). Uses DH for key agreement. Two modes: <strong>Main mode</strong> (6 messages, identity protected) or <strong>Aggressive mode</strong> (3 messages, faster but identity exposed).<br><br>
+<strong>Phase 2:</strong> Use the IKE SA to negotiate <strong>IPSec SAs</strong> (for AH/ESP). Uses <strong>Quick mode</strong> (3 messages). Can create multiple IPSec SAs over one IKE SA.</div>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. An SA is identified by:</p>
+<div class="opts">
+<button class="opt" data-ok="1">SPI + destination IP + protocol (AH or ESP)</button>
+<button class="opt">Session ID only</button>
+<button class="opt">Source IP + destination IP</button>
+<button class="opt">Port number</button>
+</div><p class="why">The SPI (Security Parameter Index) in the AH/ESP header tells the receiver which SA to use.</p></div>
+<div class="q"><p class="stem">2. SPD decides:</p>
+<div class="opts">
+<button class="opt" data-ok="1">Whether to discard, bypass (no security), or protect (apply IPSec) a packet</button>
+<button class="opt">The route for the packet</button>
+<button class="opt">The session key value</button>
+<button class="opt">Which encryption algorithm to use</button>
+</div><p class="why">SPD = policy: what should happen. SAD = parameters: how it happens.</p></div>
+<div class="q"><p class="stem">3. IKE Phase 1 establishes:</p>
+<div class="opts">
+<button class="opt">DNS resolution</button>
+<button class="opt" data-ok="1">An IKE SA — a secure channel for Phase 2 negotiations</button>
+<button class="opt">IPSec SAs directly</button>
+<button class="opt">The application data connection</button>
+</div><p class="why">Phase 1 creates a secure management channel. Phase 2 uses that channel to negotiate the actual IPSec SAs for data protection.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>What is an SA?</summary><p class="ans">A one-way security relationship: (SPI, dest IP, protocol). Stores keys, algorithms, mode. Two-way needs two SAs.</p></details>
+<details class="card"><summary>IKE two phases.</summary><p class="ans">Phase 1: establish IKE SA (main or aggressive mode, DH). Phase 2: negotiate IPSec SAs (quick mode). Phase 1 protects Phase 2.</p></details>
+<details class="card"><summary>SPD vs SAD.</summary><p class="ans">SPD: policy (discard/bypass/protect). SAD: stores active SAs with all parameters.</p></details>
+</div>
+
+<div class="box win"><span class="lbl">That completes Unit IV — Network Security</span>
+<p>Print the <a href="../../reference/unit4-cheat-sheet.html">Unit IV cheat sheet</a>.</p></div>
+
+<div class="nav">
+<a href="0022-ipsec.html">&larr; Previous: IPSec</a>
+<a href="../../index.html">All lessons</a>
+<a href="../unit-5/0024-system-security-and-threat-models.html">Next: System Security &amp; Threat Models &rarr;</a>
+<a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

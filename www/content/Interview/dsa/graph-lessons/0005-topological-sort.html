@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 05 — Topological Sort</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 05 of 09 · ordering a DAG / detecting cycles</div>
+<h1>Topological Sort</h1>
+<p class="subtitle">Line up the nodes of a directed acyclic graph so every dependency comes before the thing that needs it — and if you can't, you've just proven there's a cycle.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> graphs are ~25% of Google intern questions, and "ordering with prerequisites" is a favorite.
+  This is Lesson 5 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A <strong>topological order</strong> is a linear arrangement of a directed graph's nodes such that for
+<em>every</em> edge <code>u → v</code>, <code>u</code> appears before <code>v</code>. Think "do prerequisites
+first." Such an order exists <strong>if and only if the graph is a DAG</strong> (directed, acyclic). The moment
+a cycle exists — A needs B, B needs C, C needs A — no node can legally go first, so no order exists. That makes
+topological sort the <strong>cleanest directed-cycle detector</strong> you have: try to order it; if you can't
+place everyone, there's a cycle.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Ordering / prerequisites / build order / dependencies / schedule," or "is this a valid DAG?"
+  Anything where <strong>X must come before Y</strong> and you must produce a sequence (or just decide whether one
+  is possible). Edges are <em>directed</em>. If the question is "can you finish / is it possible," you only need the
+  cycle check; if it's "give the order," you emit the sequence.
+</div>
+
+<h2>2 · Two cores</h2>
+<p>
+There are two standard ways to topologically sort. Know both — interviewers ask you to contrast them, and some
+problems (peeling leaves, counting levels) are natural extensions of the first.
+</p>
+
+<h3>Core A — Kahn's algorithm (BFS on indegrees)</h3>
+<p>
+Count how many edges point <em>into</em> each node (its <strong>indegree</strong>). A node with indegree 0 has no
+unmet prerequisites, so it can go next. Emit it, "remove" it by decrementing its neighbors' indegrees, and any
+neighbor that hits 0 joins the queue. If you emit fewer than <code>n</code> nodes, the leftovers are trapped in a
+cycle.
+</p>
+<pre><code><span class="cmt">// Kahn's algorithm: produce a topological order, or detect a cycle.</span>
+int[] kahn(int n, int[][] edges) {       <span class="cmt">// edge {u, v} means u -&gt; v (u before v)</span>
+    List&lt;List&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; n; i++) adj.add(new ArrayList&lt;&gt;());
+    int[] indeg = new int[n];
+    for (int[] e : edges) {
+        adj.get(e[0]).add(e[1]);
+        indeg[e[1]]++;                   <span class="cmt">// v gains one incoming edge</span>
+    }
+    Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+    for (int i = 0; i &lt; n; i++)
+        if (indeg[i] == 0) q.offer(i);   <span class="cmt">// seed EVERY indegree-0 node (handles disconnected DAGs)</span>
+    int[] order = new int[n];
+    int idx = 0;
+    while (!q.isEmpty()) {
+        int u = q.poll();
+        order[idx++] = u;                <span class="cmt">// u has no unmet prereqs → emit it</span>
+        for (int v : adj.get(u))
+            if (--indeg[v] == 0) q.offer(v); <span class="cmt">// removing u frees v</span>
+    }
+    return idx == n ? order : new int[0]; <span class="cmt">// idx &lt; n → some nodes never reached 0 → CYCLE</span>
+}</code></pre>
+<p><strong>Time</strong> O(V + E) — each node enqueued once, each edge relaxed once. <strong>Space</strong> O(V + E) for the adjacency list, indegree array, and queue.</p>
+
+<h3>Worked example — dry run</h3>
+<p>Course Schedule II (LC 210) via Kahn's. Input: <code>numCourses = 4</code>, directed edges
+<code>0→1, 0→2, 1→3, 2→3</code> (take 0 before 1 and 2; take 1 and 2 before 3). Count indegrees,
+seed the queue with every indegree-0 node, then pop-emit-decrement until the queue drains:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 320 210" role="img" aria-label="A directed acyclic graph with four nodes: 0 points to 1 and 2; 1 and 2 both point to 3">
+  <defs><marker id="ahTopo" markerWidth="8" markerHeight="8" refX="26" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" class="arrow"/></marker></defs>
+  <line class="edge" marker-end="url(#ahTopo)" x1="160" y1="40"  x2="80"  y2="120"/>
+  <line class="edge" marker-end="url(#ahTopo)" x1="160" y1="40"  x2="240" y2="120"/>
+  <line class="edge" marker-end="url(#ahTopo)" x1="80"  y1="120" x2="160" y2="195"/>
+  <line class="edge" marker-end="url(#ahTopo)" x1="240" y1="120" x2="160" y2="195"/>
+  <circle class="node done" cx="160" cy="40"  r="20"/><text class="lbl" x="160" y="40">0</text>
+  <circle class="node done" cx="80"  cy="120" r="20"/><text class="lbl" x="80"  y="120">1</text>
+  <circle class="node done" cx="240" cy="120" r="20"/><text class="lbl" x="240" y="120">2</text>
+  <circle class="node done" cx="160" cy="195" r="20"/><text class="lbl" x="160" y="195">3</text>
+</svg>
+<figcaption>A DAG: 0 → {1, 2} → 3. All four nodes get emitted, so the order is valid. If a leftover remained (emitted count &lt; n), those nodes would be trapped in a cycle — no valid order.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">indegree = [0, <span class="ptr">1</span>, <span class="ptr">1</span>, <span class="ptr">2</span>] — 1←0, 2←0, 3←1&amp;2</span>
+<span class="step">seed queue with indegree-0 nodes → q = [0]; output = []</span>
+<span class="step now">pop 0 → output [0]; indeg 1: 1→<span class="ptr">0</span>, indeg 2: 1→<span class="ptr">0</span> → enqueue both → q = [1, 2]</span>
+<span class="step now">pop 1 → output [0, 1]; indeg 3: 2→1 (not 0 yet) → q = [2]</span>
+<span class="step now">pop 2 → output [0, 1, 2]; indeg 3: 1→<span class="ptr">0</span> → enqueue 3 → q = [3]</span>
+<span class="step now">pop 3 → output [0, 1, 2, 3]; no out-edges → q = []</span>
+<span class="step">emitted <span class="ptr">4</span> = numCourses → valid order [0, 1, 2, 3]</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Why Kahn's is usually the interview pick</span>
+  It's iterative (no recursion-depth worry on 10⁵-node chains), the cycle check falls out for free
+  (<code>idx &lt; n</code>), and the level structure (process the queue one frontier at a time) directly answers
+  "how many semesters / rounds?" — see Parallel Courses below.
+</div>
+
+<h3>Core B — DFS post-order + reverse (with a 3-color cycle guard)</h3>
+<p>
+DFS naturally finishes a node only after all its descendants are done. So a node's <strong>post-order</strong>
+finish time is later than everything it points to — reverse the post-order and you get a topological order. To
+catch cycles, color nodes: <strong>white</strong> (unvisited), <strong>gray</strong> (on the current recursion
+stack), <strong>black</strong> (fully done). Hitting a <em>gray</em> node means a back-edge → a cycle.
+</p>
+<pre><code><span class="cmt">// 0 = white (unseen), 1 = gray (in progress), 2 = black (done)</span>
+int[] color;
+List&lt;List&lt;Integer&gt;&gt; adj;
+Deque&lt;Integer&gt; stack;        <span class="cmt">// collects post-order; we pop it to reverse</span>
+boolean hasCycle;
+
+int[] topoDFS(int n, int[][] edges) {
+    adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; n; i++) adj.add(new ArrayList&lt;&gt;());
+    for (int[] e : edges) adj.get(e[0]).add(e[1]);
+    color = new int[n];
+    stack = new ArrayDeque&lt;&gt;();
+    hasCycle = false;
+    for (int i = 0; i &lt; n; i++)
+        if (color[i] == 0) dfs(i);   <span class="cmt">// launch from every component</span>
+    if (hasCycle) return new int[0];
+    int[] order = new int[n];
+    for (int i = 0; i &lt; n; i++) order[i] = stack.pop(); <span class="cmt">// reverse post-order</span>
+    return order;
+}
+void dfs(int u) {
+    color[u] = 1;                <span class="cmt">// mark gray: now on the stack</span>
+    for (int v : adj.get(u)) {
+        if (color[v] == 1) { hasCycle = true; return; } <span class="cmt">// back-edge to a gray node = cycle</span>
+        if (color[v] == 0) dfs(v);
+    }
+    color[u] = 2;                <span class="cmt">// done → black</span>
+    stack.push(u);               <span class="cmt">// record finish order</span>
+}</code></pre>
+<p><strong>Time</strong> O(V + E). <strong>Space</strong> O(V + E), plus O(V) recursion stack — the one caveat versus Kahn's on very deep graphs.</p>
+
+<div class="callout trap">
+  <span class="label">A boolean <code>visited</code> is NOT enough for directed cycle detection</span>
+  With two colors you can't tell "already finished (black, fine)" from "currently on my stack (gray, cycle)." A
+  black node reached again is a harmless cross/forward edge; a gray one is a back-edge. Use three colors (or a
+  separate <code>onStack</code> set) — this is the classic bug that flags a valid DAG as cyclic.
+</div>
+
+<h2>3 · All the cases</h2>
+<p>Every problem below is "build a DAG, then topo-sort it." The work is almost always in the <em>build</em> and what you read off the result.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Cycle check only</td><td>LC 207 <span class="cmt">★Google</span></td><td>Run Kahn's; return <code>emitted == n</code>. Don't even build the order list.</td></tr>
+    <tr><td>Return the order</td><td>LC 210</td><td>Same, but record the emit sequence; empty array on cycle.</td></tr>
+    <tr><td>Build graph from data</td><td>LC 269 <span class="cmt">★Google</span></td><td>Derive edges from adjacent word pairs first; watch the invalid-prefix trap.</td></tr>
+    <tr><td>Peel leaves layer by layer</td><td>LC 310</td><td>Undirected; trim degree-1 nodes repeatedly until ≤ 2 centroids remain.</td></tr>
+    <tr><td>Count levels = min rounds</td><td>LC 1136</td><td>Kahn's, but process the queue one whole frontier per "semester."</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Course Schedule — can you finish? (LC 207) ★Google favorite</h3>
+<pre><code>boolean canFinish(int numCourses, int[][] prerequisites) {
+    List&lt;List&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; numCourses; i++) adj.add(new ArrayList&lt;&gt;());
+    int[] indeg = new int[numCourses];
+    for (int[] p : prerequisites) {      <span class="cmt">// p = {course, prereq} → prereq -&gt; course</span>
+        adj.get(p[1]).add(p[0]);
+        indeg[p[0]]++;
+    }
+    Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+    for (int i = 0; i &lt; numCourses; i++)
+        if (indeg[i] == 0) q.offer(i);
+    int done = 0;
+    while (!q.isEmpty()) {
+        int u = q.poll();
+        done++;
+        for (int v : adj.get(u))
+            if (--indeg[v] == 0) q.offer(v);
+    }
+    return done == numCourses;           <span class="cmt">// all taken ⇒ no cycle ⇒ finishable</span>
+}</code></pre>
+
+<h3>Case: Course Schedule II — return the order (LC 210)</h3>
+<p>Identical to Kahn's core: capture the emit sequence, return empty on a cycle.</p>
+<pre><code>int[] findOrder(int numCourses, int[][] prerequisites) {
+    List&lt;List&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; numCourses; i++) adj.add(new ArrayList&lt;&gt;());
+    int[] indeg = new int[numCourses];
+    for (int[] p : prerequisites) { adj.get(p[1]).add(p[0]); indeg[p[0]]++; }
+    Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+    for (int i = 0; i &lt; numCourses; i++) if (indeg[i] == 0) q.offer(i);
+    int[] order = new int[numCourses];
+    int idx = 0;
+    while (!q.isEmpty()) {
+        int u = q.poll();
+        order[idx++] = u;
+        for (int v : adj.get(u)) if (--indeg[v] == 0) q.offer(v);
+    }
+    return idx == numCourses ? order : new int[0]; <span class="cmt">// cycle ⇒ empty</span>
+}</code></pre>
+
+<h3>Case: Alien Dictionary — BUILD the graph, then topo (LC 269) ★Google favorite</h3>
+<p>
+You're given words sorted in an alien language's lexicographic order. The order between two letters is revealed
+only by the <strong>first differing character</strong> of each <em>adjacent</em> word pair: in <code>"wrt"</code>
+then <code>"wrf"</code>, the first difference is <code>t</code> vs <code>f</code>, so <code>t → f</code>. Collect
+those edges, then topo-sort the letters.
+</p>
+<pre><code>String alienOrder(String[] words) {
+    Map&lt;Character, Set&lt;Character&gt;&gt; adj = new HashMap&lt;&gt;();
+    Map&lt;Character, Integer&gt; indeg = new HashMap&lt;&gt;();
+    for (String w : words)               <span class="cmt">// every letter is a node, even with no edges</span>
+        for (char c : w.toCharArray()) {
+            adj.putIfAbsent(c, new HashSet&lt;&gt;());
+            indeg.putIfAbsent(c, 0);
+        }
+    for (int i = 0; i + 1 &lt; words.length; i++) {
+        String a = words[i], b = words[i + 1];
+        int min = Math.min(a.length(), b.length());
+        <span class="cmt">// TRAP: "abc" before "ab" is impossible — a longer word can't precede its own prefix</span>
+        if (a.length() &gt; b.length() &amp;&amp; a.startsWith(b)) return "";
+        for (int j = 0; j &lt; min; j++) {
+            char x = a.charAt(j), y = b.charAt(j);
+            if (x != y) {                <span class="cmt">// FIRST difference is the only signal</span>
+                if (adj.get(x).add(y)) indeg.merge(y, 1, Integer::sum); <span class="cmt">// dedup: bump indegree only on a NEW edge</span>
+                break;                   <span class="cmt">// stop at the first difference</span>
+            }
+        }
+    }
+    Queue&lt;Character&gt; q = new ArrayDeque&lt;&gt;();
+    for (char c : indeg.keySet()) if (indeg.get(c) == 0) q.offer(c);
+    StringBuilder sb = new StringBuilder();
+    while (!q.isEmpty()) {
+        char u = q.poll();
+        sb.append(u);
+        for (char v : adj.get(u))
+            if (indeg.merge(v, -1, Integer::sum) == 0) q.offer(v);
+    }
+    return sb.length() == indeg.size() ? sb.toString() : ""; <span class="cmt">// leftover ⇒ cycle ⇒ no valid order</span>
+}</code></pre>
+<div class="callout trap">
+  <span class="label">The two Alien-Dictionary traps</span>
+  <strong>(1) Invalid prefix:</strong> if word <code>a</code> is longer than the next word <code>b</code> and
+  <code>a</code> starts with <code>b</code> (e.g. <code>"abc"</code> before <code>"ab"</code>), no ordering of
+  letters can fix it — return <code>""</code> immediately. <strong>(2) Only the first differing char gives an
+  edge</strong> — <code>break</code> after recording it; later characters tell you nothing.
+</div>
+
+<h3>Case: Minimum Height Trees — peel leaves (LC 310)</h3>
+<p>
+A topological-style <em>peeling</em>: the roots that minimize tree height are the graph's center(s). Trim all
+degree-1 leaves simultaneously, then the new leaves, and so on. Whatever survives (1 or 2 nodes) is the answer.
+This is Kahn's idea on an <strong>undirected</strong> graph with degree instead of indegree.
+</p>
+<pre><code>List&lt;Integer&gt; findMinHeightTrees(int n, int[][] edges) {
+    if (n == 1) return List.of(0);
+    List&lt;Set&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; n; i++) adj.add(new HashSet&lt;&gt;());
+    for (int[] e : edges) { adj.get(e[0]).add(e[1]); adj.get(e[1]).add(e[0]); }
+    Queue&lt;Integer&gt; leaves = new ArrayDeque&lt;&gt;();
+    for (int i = 0; i &lt; n; i++) if (adj.get(i).size() == 1) leaves.offer(i);
+    int remaining = n;
+    while (remaining &gt; 2) {               <span class="cmt">// stop at the 1 or 2 central nodes</span>
+        int sz = leaves.size();
+        remaining -= sz;
+        for (int i = 0; i &lt; sz; i++) {   <span class="cmt">// peel one whole layer</span>
+            int leaf = leaves.poll();
+            int nei = adj.get(leaf).iterator().next();
+            adj.get(nei).remove(leaf);
+            if (adj.get(nei).size() == 1) leaves.offer(nei);
+        }
+    }
+    return new ArrayList&lt;&gt;(leaves);       <span class="cmt">// the surviving center(s)</span>
+}</code></pre>
+
+<h3>Case: Parallel Courses — count levels = min semesters (LC 1136)</h3>
+<p>
+Same Kahn's machinery, but you process the queue <strong>one frontier at a time</strong>: each frontier is a set of
+courses with all prereqs met, taken together in one semester. The number of frontiers is the minimum number of
+semesters; if a cycle blocks some course, return <code>-1</code>.
+</p>
+<pre><code>int minimumSemesters(int n, int[][] relations) {
+    List&lt;List&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt;= n; i++) adj.add(new ArrayList&lt;&gt;());  <span class="cmt">// courses are 1..n → size n+1</span>
+    int[] indeg = new int[n + 1];
+    for (int[] r : relations) { adj.get(r[0]).add(r[1]); indeg[r[1]]++; }
+    Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+    for (int i = 1; i &lt;= n; i++) if (indeg[i] == 0) q.offer(i);
+    int semesters = 0, taken = 0;
+    while (!q.isEmpty()) {
+        int sz = q.size();               <span class="cmt">// one full layer = one semester</span>
+        semesters++;
+        for (int i = 0; i &lt; sz; i++) {
+            int u = q.poll();
+            taken++;
+            for (int v : adj.get(u))
+                if (--indeg[v] == 0) q.offer(v);
+        }
+    }
+    return taken == n ? semesters : -1;  <span class="cmt">// cycle ⇒ -1</span>
+}</code></pre>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Cycle ⇒ empty/impossible result.</strong> Always compare emitted count to <code>n</code> (Kahn's) or check the gray-node guard (DFS). Decide what "impossible" returns: <code>false</code>, <code>new int[0]</code>, <code>""</code>, or <code>-1</code>.</li>
+  <li><strong>Build the implicit graph correctly.</strong> Most failures here are in graph construction, not the sort. For Alien Dictionary, edges come only from the <em>first differing char</em> of adjacent words — and the longer-prefix case (<code>"abc"</code> before <code>"ab"</code>) is an immediate <code>""</code>.</li>
+  <li><strong>Duplicate edges inflate indegree.</strong> If the same edge can appear twice, a node's indegree never drops to 0 and you falsely report a cycle. Dedup with a <code>Set</code> per node, and bump indegree only when the edge is genuinely new.</li>
+  <li><strong>Disconnected DAG.</strong> Seed <em>every</em> indegree-0 node before the loop, not just node 0 — separate components each need a starting point.</li>
+  <li><strong>Edge direction.</strong> Pin down which way the edge points. "prereq → course" vs "course → prereq" flips your whole indegree array. In LC 207/210 the input is <code>{course, prereq}</code>, so the edge is <code>prereq → course</code>.</li>
+  <li><strong>1-indexed nodes</strong> (LC 1136 courses are 1..n) → size arrays <code>n+1</code> and iterate from 1.</li>
+  <li><strong>Recursion depth (DFS variant).</strong> A 10⁵-node chain can StackOverflow — prefer Kahn's, or convert to an explicit stack.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">After running Kahn's algorithm, you've emitted only 5 of 7 nodes and the queue is empty. What does that mean?</div>
+  <button class="opt">The graph is disconnected, so you must restart BFS from another node</button>
+  <button class="opt">The two missing nodes are isolated (indegree 0) and were skipped</button>
+  <button class="opt">The remaining nodes form a cycle, so no topological order exists</button>
+  <div class="fb" data-correct="Nodes still stuck above indegree 0 can never be freed because they depend on each other in a loop — that's a cycle, so no valid order exists." data-wrong="Isolated indegree-0 nodes are seeded up front and would have been emitted. Leftover nodes that never reach indegree 0 are trapped in a cycle."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why is a plain boolean <code>visited</code> array insufficient for detecting a cycle in a <em>directed</em> graph via DFS?</div>
+  <button class="opt">It can't distinguish a node still on the current recursion stack from one already fully finished</button>
+  <button class="opt">Boolean arrays can't be resized when the graph is large</button>
+  <button class="opt">Directed graphs have no cycles, so the check is unnecessary</button>
+  <div class="fb" data-correct="A cycle is a back-edge to a node still on the stack (gray). A finished node (black) reached again is harmless. Two states can't tell these apart — you need three colors or an onStack set." data-wrong="The issue is state granularity: 'on the current path' (gray) signals a cycle, but 'already done' (black) does not. A single boolean conflates them."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Alien Dictionary, adjacent words are <code>"wrt"</code> then <code>"wrf"</code>. What edge do you add?</div>
+  <button class="opt">Edges <code>w→w</code>, <code>r→r</code>, and <code>t→f</code>, since all positions differ</button>
+  <button class="opt">Only <code>t→f</code>, from the first position where the two words differ</button>
+  <button class="opt">Edge <code>f→t</code>, because the second word comes later in the list</button>
+  <div class="fb" data-correct="Only the first differing character is ordered: t before f. Equal leading characters give no information, and you stop after the first difference." data-wrong="Equal characters say nothing about order, and the earlier word's char is the smaller one. The single edge is t→f, then break."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/course-schedule">NeetCode — Course Schedule (Topological Sort)</a>. Cleanest walkthrough of Kahn's indegree BFS and the cycle check. Backup: <a href="https://neetcode.io/problems/foreign-dictionary">NeetCode — Alien (Foreign) Dictionary</a> for the build-the-graph variant.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 207 (can-finish) → LC 210 (return order) → LC 1136 (count semesters) → LC 310 (peel leaves) → LC 269 (Alien Dictionary — build then sort) → LC 444 (Sequence Reconstruction, unique-order check). Code each from a blank file; if you stall on the build, dry-run the edges by hand first.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure which edge direction to use, want me to dry-run Kahn's on a sample, fuzzy on the gray/black cycle guard,
+  or stuck deriving edges in Alien Dictionary? Ask in the chat. When you can write Kahn's and the DFS cycle guard
+  from memory and explain why <code>emitted &lt; n</code> means a cycle, say <strong>"next"</strong> and we move to
+  Lesson 06: Union-Find.
+</div>
+
+<div class="nav">
+  <span><a href="0004-grid-graphs.html">← Grid Graphs</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0006-union-find.html">Union-Find →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

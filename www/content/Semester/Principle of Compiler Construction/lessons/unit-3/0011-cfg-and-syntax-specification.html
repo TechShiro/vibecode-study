@@ -1,0 +1,282 @@
+<title>Context-Free Grammars and Syntax Specification</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit III &middot; Lesson 11 of 17</p>
+<h1>Context-Free Grammars and Syntax Specification</h1>
+<p class="deck">Formal definition of CFGs, derivations and parse trees, proving grammar ambiguity, eliminating immediate and indirect left recursion, and left factoring for predictive parsing.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Prove that the given grammar is ambiguous&rdquo;</strong> is a guaranteed 5-mark university question: draw <strong>two distinct parse trees</strong> (or provide two different leftmost derivations) for the exact same input string. <strong>&ldquo;Eliminate left recursion&rdquo;</strong> is another guaranteed 5&ndash;10 marker &mdash; know both <em>immediate left recursion</em> and the <em>systematic algorithm for indirect left recursion</em>. <strong>&ldquo;Left factor the grammar&rdquo;</strong> is required to prepare grammars for top-down LL(1) predictive parsing.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; CFG Definition &amp; Ambiguity</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Context-Free Grammar &amp; Ambiguity in Compiler Design</a>
+    <span class="v-meta">Gate Smashers &middot; 9:55</span>
+    <div class="v-why">Varun Singla explains the 4 components of a CFG (V, T, P, S), leftmost/rightmost derivations, and proving ambiguity via dual parse trees.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Elimination of Left Recursion</span>
+      <span class="best-tag">Top Exam Algorithm</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Elimination of Left Recursion with Solved Examples</a>
+    <span class="v-meta">Gate Smashers &middot; 13:40</span>
+    <div class="v-why">Step-by-step mathematical conversion formulas for both direct left recursion and general indirect left recursion.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 3 &middot; Left Factoring Algorithm</span>
+      <span class="best-tag">Top Exam Technique</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Left Factoring in Compiler Design with Examples</a>
+    <span class="v-meta">Gate Smashers &middot; 8:15</span>
+    <div class="v-why">How to isolate common grammar prefixes so top-down predictive parsers can make deterministic decisions.</div>
+  </div>
+</div>
+
+<h2>1. Context-Free Grammars (CFG)</h2>
+
+<div class="formula">
+  <span class="name">Formal Definition of a CFG</span>
+  A <strong>Context-Free Grammar</strong> $G$ is formally defined as a 4-tuple:<br><br>
+  <div style="font-size:1.1rem; text-align:center; font-weight:700;">G = (V, T, P, S)</div><br>
+  &bull; <strong>V (or N):</strong> A finite set of <strong>non-terminal characters (variables)</strong> that represent syntactic categories.<br>
+  &bull; <strong>T (or &Sigma;):</strong> A finite set of <strong>terminals (tokens)</strong> emitted by the lexical analyser.<br>
+  &bull; <strong>P:</strong> A finite set of <strong>production rules</strong> of the form $A \to \alpha$, where $A \in V$ and $\alpha \in (V \cup T)^*$.<br>
+  &bull; <strong>S:</strong> The designated <strong>start symbol</strong> ($S \in V$).
+</div>
+
+<h3>Standard Arithmetic Expression Grammar</h3>
+<div class="formula" style="text-align:left;">
+  <span class="name">Unambiguous Precedence Grammar</span>
+  <code>E &rarr; E + T | T</code> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>(Addition: Lowest precedence, Left-associative)</em><br>
+  <code>T &rarr; T * F | F</code> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>(Multiplication: Higher precedence, Left-associative)</em><br>
+  <code>F &rarr; ( E ) | id</code> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>(Primary: Highest precedence &mdash; brackets and identifiers)</em>
+</div>
+
+<h2>2. Derivations and Parse Trees</h2>
+<p>A <strong>derivation</strong> is a sequence of production rule applications replacing non-terminals with right-hand sides, starting from $S$ and terminating in a sentence of terminals:</p>
+<ul>
+  <li><strong>Leftmost Derivation (LMD):</strong> The leftmost non-terminal is replaced at every single step ($S \Rightarrow_{lm}^* w$).</li>
+  <li><strong>Rightmost Derivation (RMD):</strong> The rightmost non-terminal is replaced at every step ($S \Rightarrow_{rm}^* w$). A rightmost derivation in reverse is called a <strong>canonical parse</strong>.</li>
+</ul>
+
+<h2>3. Grammar Ambiguity</h2>
+
+<div class="formula">
+  <span class="name">Definition of Ambiguity</span>
+  A context-free grammar $G$ is <strong>ambiguous</strong> if there exists at least one string $w \in L(G)$ for which there are <strong>two or more distinct parse trees</strong> (or equivalently, two distinct leftmost derivations).
+</div>
+
+<!-- FLOWCHART: AMBIGUITY DUAL PARSE TREES -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Proof of Ambiguity: Dual Parse Trees for <code>id + id * id</code></span>
+  
+  <p style="text-align:center; font-size:.84rem; color:var(--ink-soft); margin-top:0;">
+    Under ambiguous grammar: <code>E &rarr; E + E | E * E | id</code>
+  </p>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem; margin-top:1rem;">
+    <!-- Tree 1 -->
+    <div style="border:1.5px solid var(--accent); border-radius:6px; padding:1rem; background:var(--panel); text-align:center;">
+      <strong style="color:var(--accent); font-size:.88rem; display:block; margin-bottom:.5rem;">
+        Parse Tree 1 &middot; Left-Heavy (+ first)
+      </strong>
+      <div style="font-family:ui-monospace,monospace; font-size:.82rem; line-height:1.6; text-align:left; display:inline-block;">
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>E</strong><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;|&nbsp;\<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<strong>E</strong>&nbsp;&nbsp;&nbsp;*&nbsp;&nbsp;<strong>E</strong><br>
+        &nbsp;&nbsp;/&nbsp;|&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+        <strong>E</strong>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;<strong>E</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>id</strong><br>
+        |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+        <strong>id</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>id</strong>
+      </div>
+      <p style="font-size:.76rem; color:var(--ink-soft); margin:.6rem 0 0;">Evaluates: <code>(id + id) * id</code> &mdash; Violates standard arithmetic precedence!</p>
+    </div>
+
+    <!-- Tree 2 -->
+    <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--panel); text-align:center;">
+      <strong style="color:var(--ok); font-size:.88rem; display:block; margin-bottom:.5rem;">
+        Parse Tree 2 &middot; Right-Heavy (* first)
+      </strong>
+      <div style="font-family:ui-monospace,monospace; font-size:.82rem; line-height:1.6; text-align:left; display:inline-block;">
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>E</strong><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;|&nbsp;\<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<strong>E</strong>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;<strong>E</strong><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;|&nbsp;\<br>
+        &nbsp;&nbsp;&nbsp;<strong>id</strong>&nbsp;&nbsp;&nbsp;<strong>E</strong>&nbsp;&nbsp;&nbsp;*&nbsp;&nbsp;<strong>E</strong><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>id</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>id</strong>
+      </div>
+      <p style="font-size:.76rem; color:var(--ink-soft); margin:.6rem 0 0;">Evaluates: <code>id + (id * id)</code> &mdash; Standard arithmetic precedence.</p>
+    </div>
+  </div>
+  
+  <p style="text-align:center; font-size:.82rem; color:var(--accent); font-weight:700; margin:.8rem 0 0;">
+    Conclusion: The existence of two valid parse trees proves that <code>E &rarr; E + E | E * E | id</code> is ambiguous.
+  </p>
+</div>
+
+<h3>The Classic "Dangling-Else" Ambiguity</h3>
+<p>Consider the conditional statement grammar:</p>
+<div class="formula" style="text-align:left;">
+  <code>stmt &rarr; if expr then stmt | if expr then stmt else stmt | other</code>
+</div>
+<p>The nested statement: <code>if E1 then if E2 then S1 else S2</code> is ambiguous because the <code>else</code> can bind to either the inner <code>if</code> or the outer <code>if</code>. Compilers resolve this using the rule: <strong>match each <code>else</code> with the closest preceding unmatched <code>then</code></strong>.</p>
+
+<h2>4. Left Recursion Elimination</h2>
+
+<p>A production of the form <strong>$A \to A\alpha$</strong> is directly <strong>left-recursive</strong>. Top-down parsers (recursive descent and LL(1)) enter an <strong>infinite loop</strong> when encountering left recursion because they repeatedly try to expand $A$ without consuming any input tokens.</p>
+
+<!-- FLOWCHART: LEFT RECURSION FORMULA -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Mathematical Formula: Immediate Left Recursion Elimination</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:1.2rem; flex-wrap:wrap;">
+    <div class="flow-box warn" style="min-width:14rem;">
+      <strong style="color:var(--warn);">Left-Recursive Form</strong>
+      <div style="font-family:ui-monospace,monospace; font-size:.9rem; margin-top:.3rem;">
+        A &rarr; A&alpha;<sub>1</sub> | A&alpha;<sub>2</sub> | &hellip; | &beta;<sub>1</sub> | &beta;<sub>2</sub> | &hellip;
+      </div>
+      <span class="sub">(where no &beta; begins with A)</span>
+    </div>
+
+    <span class="flow-arrow-right" style="font-size:1.6rem;">&rArr;</span>
+
+    <div class="flow-box ok" style="min-width:16rem;">
+      <strong style="color:var(--ok);">Equivalent Right-Recursive Form</strong>
+      <div style="font-family:ui-monospace,monospace; font-size:.9rem; margin-top:.3rem;">
+        A &rarr; &beta;<sub>1</sub>A' | &beta;<sub>2</sub>A' | &hellip;<br>
+        A' &rarr; &alpha;<sub>1</sub>A' | &alpha;<sub>2</sub>A' | &hellip; | &epsilon;
+      </div>
+      <span class="sub">(Completely safe for top-down parsing)</span>
+    </div>
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked Problem &middot; Eliminate Left Recursion from Arithmetic Grammar</span>
+  <p><strong>Original Grammar:</strong></p>
+  <code>E &rarr; E + T | T</code><br>
+  <code>T &rarr; T * F | F</code><br>
+  <code>F &rarr; ( E ) | id</code>
+
+  <p><strong>Applying formula to E:</strong> $A = E, \alpha = + T, \beta = T$</p>
+  <code>E &rarr; T E'</code><br>
+  <code>E' &rarr; + T E' | &epsilon;</code>
+
+  <p><strong>Applying formula to T:</strong> $A = T, \alpha = * F, \beta = F$</p>
+  <code>T &rarr; F T'</code><br>
+  <code>T' &rarr; * F T' | &epsilon;</code>
+
+  <p><strong>Production for F has no left recursion:</strong></p>
+  <code>F &rarr; ( E ) | id</code>
+  
+  <p style="color:var(--ok); font-weight:700;">Final transformed grammar is ready for LL(1) parsing!</p>
+</div>
+
+<h3>Algorithm for General (Indirect) Left Recursion Elimination</h3>
+<div class="formula" style="text-align:left;">
+  <span class="name">Systematic Algorithm for Indirect Cycles ($A \to B \to \dots \to A$)</span>
+  1. Arrange non-terminals in some arbitrary order: $A_1, A_2, \dots, A_n$.<br>
+  2. <strong>for</strong> $i = 1$ to $n$ <strong>do</strong>:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>for</strong> $j = 1$ to $i-1$ <strong>do</strong>:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;replace each production $A_i \to A_j\gamma$ with $A_i \to \delta_1\gamma \mid \delta_2\gamma \mid \dots$, where $A_j \to \delta_1 \mid \delta_2 \mid \dots$<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;eliminate immediate left recursion among the $A_i$ productions using the standard formula.
+</div>
+
+<h2>5. Left Factoring</h2>
+<p>When two or more production alternatives for a non-terminal share a common prefix, a top-down parser cannot determine which alternative to select based on a single lookahead token. <strong>Left factoring</strong> defers the decision until enough of the input has been observed.</p>
+
+<div class="formula">
+  <span class="name">Left Factoring Transformation Rule</span>
+  Given production: <strong>$A \to \alpha\beta_1 \mid \alpha\beta_2 \mid \dots \mid \gamma$</strong><br><br>
+  Factor out common prefix $\alpha$:<br>
+  <div style="font-weight:700; margin-top:.4rem; text-align:center;">
+    A &rarr; &alpha;A' | &gamma;<br>
+    A' &rarr; &beta;<sub>1</sub> | &beta;<sub>2</sub> | &hellip;
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked Example &middot; Left Factoring Conditional Statements</span>
+  <p><code>S &rarr; i E t S | i E t S e S | a</code></p>
+  <p>Both first alternatives share common prefix: $\alpha = \text{iEtS}$</p>
+  <p><strong>Transformed Grammar:</strong></p>
+  <code>S &rarr; i E t S S' | a</code><br>
+  <code>S' &rarr; e S | &epsilon;</code>
+</div>
+
+<div class="quiz">
+<h3>Check Yourself</h3>
+
+<div class="q">
+  <p class="stem">1. A context-free grammar is classified as ambiguous if:</p>
+  <div class="opts">
+    <button class="opt">It contains both left and right recursion</button>
+    <button class="opt">The parser table has empty error entries</button>
+    <button class="opt" data-ok="1">At least one string has two or more distinct parse trees</button>
+    <button class="opt">It contains &epsilon;-productions</button>
+  </div>
+  <p class="why">Ambiguity implies that a sentence possesses multiple grammatical interpretations, creating non-deterministic parsing paths.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Left recursion must be eliminated because:</p>
+  <div class="opts">
+    <button class="opt">Bottom-up parsers cannot handle shift operations</button>
+    <button class="opt">It violates the von Neumann architecture</button>
+    <button class="opt">It makes lexical analysis impossible</button>
+    <button class="opt" data-ok="1">Top-down parsers enter an infinite loop when repeatedly expanding A &rarr; A&alpha;</button>
+  </div>
+  <p class="why">Top-down parsers expand non-terminals from left to right; a rule A &rarr; A&alpha; triggers unbounded recursive calls without advancing the input lookahead pointer.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The left-factored form of <code>A &rarr; abB | abC</code> is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A &rarr; abA', A' &rarr; B | C</button>
+    <button class="opt">A &rarr; B | C, A' &rarr; ab</button>
+    <button class="opt">A &rarr; abBC</button>
+    <button class="opt">A &rarr; abB | &epsilon;</button>
+  </div>
+  <p class="why">The common prefix 'ab' is factored out, delaying the decision between B and C until after 'ab' is consumed.</p>
+</div>
+
+</div>
+
+<h2>Recall Without Looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define the 4-tuple of a Context-Free Grammar.</summary>
+    <p class="ans">G = (V, T, P, S) where V is non-terminals (variables), T is terminals (tokens), P is production rules (A &rarr; &alpha; where A &isin; V and &alpha; &isin; (V &cup; T)*), and S is the start symbol (S &isin; V).</p></details>
+  <details class="card"><summary>How do you prove that a grammar is ambiguous on an exam?</summary>
+    <p class="ans">Select a specific input string generated by the grammar and draw two distinctly structured parse trees (or write two different leftmost derivations) for that exact string.</p></details>
+  <details class="card"><summary>State the formula to eliminate immediate left recursion.</summary>
+    <p class="ans">For A &rarr; A&alpha; | &beta; (where &beta; does not begin with A): replace with A &rarr; &beta;A' and A' &rarr; &alpha;A' | &epsilon;.</p></details>
+  <details class="card"><summary>What is left factoring and why is it needed?</summary>
+    <p class="ans">When productions share a common prefix (A &rarr; &alpha;&beta;1 | &alpha;&beta;2), it is factored into A &rarr; &alpha;A' and A' &rarr; &beta;1 | &beta;2. It is needed so predictive parsers can choose the correct rule based on one lookahead symbol.</p></details>
+</div>
+
+<p class="ask">Next: Recursive Descent Parsing and eliminating trial-and-error backtracking.</p>
+
+<div class="nav">
+  <a href="../unit-2/0010-lexical-analyzer-generator.html">&larr; Lex Tool</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0012-recursive-descent-parsing.html">Next: Recursive Descent Parsing &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

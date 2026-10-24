@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 09 - Java Memory Model &amp; Garbage Collection | OOPS Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">OOPS · Advanced Foundations · Lesson 9 of 15 · Heap Generations, G1GC, Reference Types</div>
+  
+  <h1>Java Memory Model, Object Lifecycle &amp; Garbage Collection</h1>
+  <p class="subtitle">Where objects actually live in physical RAM, how the JVM reclaims memory, and preventing memory leaks.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Advanced OOP Internals</span>
+  </div>
+
+  <div class="yt-embed">
+    <div class="yt-title">📺 Recommended Lecture</div>
+    <a href="https://www.youtube.com/watch?v=Z4hMFBvCDV4" target="_blank">Java Memory Model in 10 Minutes — Defog Tech</a>
+    <span class="yt-desc">Visual explanation of the JVM Stack, Heap, CPU caches, and memory barriers.</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In languages like C and C++, you manually allocate memory with <code>malloc()</code> and must manually free it with <code>free()</code> or <code>delete</code>. Forgetting causes memory leaks; freeing twice causes crashes. In Java, objects are created on the <strong>JVM Heap</strong>, and the <strong>Garbage Collector (GC)</strong> automatically scans and frees objects that are no longer reachable from any active <strong>GC Root</strong> (thread stack frames, static variables, JNI references).</p>
+
+  <h2>2 · Stack vs Heap Memory</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Aspect</th>
+        <th>Thread Call Stack</th>
+        <th>JVM Heap Memory</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>What is stored</strong></td>
+        <td>Primitive local variables (<code>int x = 5</code>), method parameters, and <strong>references (pointers)</strong> to heap objects.</td>
+        <td>All actual object instances (<code>new User()</code>, <code>new String()</code>, arrays).</td>
+      </tr>
+      <tr>
+        <td><strong>Thread Access</strong></td>
+        <td>Private to each thread. Thread-safe by default.</td>
+        <td>Shared across all threads. Requires synchronization for mutable state!</td>
+      </tr>
+      <tr>
+        <td><strong>Lifecycle</strong></td>
+        <td>Push and popped instantaneously with method execution (zero GC overhead).</td>
+        <td>Managed and cleaned asynchronously by the Garbage Collector.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Generational Garbage Collection: Why Most Objects Die Young</h2>
+  <p>JVM engineers discovered the <strong>Weak Generational Hypothesis</strong>: <em>Over 95% of all objects allocated in a software program become unreachable within milliseconds of creation</em> (e.g. temporary loop variables, short-lived DTOs).</p>
+
+  <div class="arch-flow">
+    <div class="box">Young Gen: Eden Space</div>
+    <div class="arrow-right"></div>
+    <div class="box">Survivor S0 / S1</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Old / Tenured Generation</div>
+  </div>
+
+  <ul>
+    <li><strong>Eden Space:</strong> Where brand-new objects are born. When full, a blazing fast <strong>Minor GC</strong> runs, copying surviving objects into Survivor space.</li>
+    <li><strong>Survivor Spaces (S0 / S1):</strong> Surviving objects bounce between S0 and S1 with an age counter.</li>
+    <li><strong>Old (Tenured) Generation:</strong> Objects that survive 15 Minor GC cycles (tenuring threshold) are promoted here (e.g. database connection pools, Spring singleton beans). Cleaned by <strong>Major / Full GC</strong> (more expensive).</li>
+  </ul>
+
+  <h2>4 · The 4 Reference Types in Java</h2>
+  <ul>
+    <li><strong>Strong Reference (Default):</strong> <code>User u = new User();</code>. As long as <code>u</code> is reachable, GC will NEVER collect it, throwing <code>OutOfMemoryError</code> instead.</li>
+    <li><strong>Soft Reference (<code>SoftReference&lt;T&gt;</code>):</strong> GC only reclaims these when the JVM is desperately running out of memory. Ideal for memory-sensitive in-memory image caches.</li>
+    <li><strong>Weak Reference (<code>WeakReference&lt;T&gt;</code>):</strong> GC reclaims these on the very next GC cycle, regardless of memory availability! Powers <code>WeakHashMap</code> (keys automatically disappear when no longer referenced elsewhere).</li>
+    <li><strong>Phantom Reference (<code>PhantomReference&lt;T&gt;</code>):</strong> Enqueued when an object is physically finalized; used for custom native cleanup instead of deprecated <code>finalize()</code>.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do you build thread-safe domain objects that can never be corrupted? Next: Immutability, Records &amp; Value Objects.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0008-solid-and-interview-drill.html">← Previous: SOLID &amp; Interview Drill</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0010-immutability-records-value-objects.html">Next: Immutability &amp; Records →</a>
+  </div>
+</body>
+</html>

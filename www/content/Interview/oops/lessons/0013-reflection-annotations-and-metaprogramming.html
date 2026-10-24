@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 13 - Reflection &amp; Annotations | OOPS Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">OOPS · Advanced Foundations · Lesson 13 of 15 · Reflection API, Annotations, Mini-Spring DI</div>
+  
+  <h1>Reflection, Annotations &amp; Metaprogramming</h1>
+  <p class="subtitle">Looking behind the magic of Spring Boot, Hibernate, and Jackson JSON deserializers.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Advanced OOP Internals</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Normally, software code operates on data (numbers, strings). <strong>Metaprogramming</strong> is software code that operates on <em>other code</em>. Through the Java <strong>Reflection API</strong>, a program can inspect its own classes, constructors, methods, and annotations at runtime, instantiate objects without using <code>new</code>, and even modify <code>private</code> variables! This is the engine behind modern frameworks like Spring, JUnit, and Jackson.</p>
+
+  <h2>2 · Building a Mini Dependency Injection Container</h2>
+  <pre><code>import java.lang.annotation.*;
+import java.lang.reflect.Field;
+
+<span class="cmt">// 1. Custom Annotation</span>
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface AutoInject {}
+
+<span class="cmt">// 2. Mini DI Injector</span>
+public class MiniInjector {
+    public static void inject(Object target, Object dependency) throws Exception {
+        Class&lt;?&gt; clazz = target.getClass();
+        for (Field field : clazz.getDeclaredFields()) {
+            if (field.isAnnotationPresent(AutoInject.class)) {
+                field.setAccessible(true); <span class="cmt">// Bypass private access!</span>
+                field.set(target, dependency); <span class="cmt">// Injects the instance!</span>
+            }
+        }
+    }
+}</code></pre>
+
+  <h2>3 · The Cost of Reflection</h2>
+  <ul>
+    <li><strong>Performance Overhead:</strong> Reflective calls bypass JIT compiler inlining and type checks; roughly 2–10x slower than direct invocations.</li>
+    <li><strong>Loss of Compile-Time Safety:</strong> Refactoring (renaming a method) breaks string-based reflective lookups silently until runtime crashes happen.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Let's see how professional OOP patterns assemble into a complete production system: Lesson 14: Practical OOP Case Study (Notification Engine).</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0012-exception-architecture-and-antipatterns.html">← Previous: Exception Architecture</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0014-oop-case-study-notification-system.html">Next: OOP Case Study →</a>
+  </div>
+</body>
+</html>

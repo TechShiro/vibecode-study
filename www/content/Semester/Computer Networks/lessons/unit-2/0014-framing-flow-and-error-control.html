@@ -1,0 +1,407 @@
+<title>Framing, Flow and Error Control</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 14 of 27</p>
+<h1>Framing, Flow and Error Control</h1>
+<p class="deck">Byte stuffing and bit stuffing, then the three sliding-window protocols &mdash; Stop-and-Wait ARQ, Go-Back-N and Selective Repeat &mdash; with the efficiency formulas and the window-size rules that the numericals are built from.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three questions come from here. (1) <strong>Bit stuffing</strong> &mdash; a 3-mark "apply bit stuffing to this bit stream", pure mechanics. (2) <strong>Compare the three ARQ protocols</strong> &mdash; a table, 5&ndash;10 marks; keep a row for window sizes, it is the most-asked single fact. (3) <strong>An efficiency numerical</strong> &mdash; compute <em>a</em>, then apply the formula. Learn <strong>a = T<sub>p</sub>/T<sub>t</sub></strong> first; every efficiency formula in this lesson is built on it.</p>
+</div>
+
+<h2>Framing</h2>
+
+<p>The data link layer packs bits into <strong>frames</strong>, so that each frame is distinguishable from the next. Framing adds a sender address and a destination address, and separates one message from another.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Approach</th><th>How it works</th><th>Problem</th></tr></thead>
+<tbody>
+<tr><td><strong>Fixed-size framing</strong></td><td>Every frame is the same size, so the size itself acts as the delimiter. No boundary marking is needed.</td><td>Inflexible; wasteful when messages are short. Used in <strong>ATM</strong> (53-byte cells).</td></tr>
+<tr><td><strong>Variable-size framing</strong></td><td>Needs an explicit way to mark where a frame ends and the next begins &mdash; by <strong>character-oriented</strong> or <strong>bit-oriented</strong> framing.</td><td>The delimiter pattern may appear inside the data, which is exactly what stuffing solves.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Character-oriented (byte) framing and byte stuffing</h3>
+
+<p>Data is carried as <strong>8-bit characters</strong>. A <strong>flag</strong> byte is added at the start and end of the frame to mark its boundaries.</p>
+
+<p><strong>The problem:</strong> if the data is not text but an image or a program, a byte identical to the flag may occur inside the data, and the receiver will think the frame ended early.</p>
+
+<div class="formula">
+  <span class="name">Byte stuffing (character stuffing)</span>
+  <strong>Sender:</strong> whenever a byte equal to the <strong>flag</strong> or to the <strong>escape (ESC)</strong> character appears in the data, insert an extra <strong>ESC</strong> byte immediately before it.<br>
+  <strong>Receiver:</strong> on seeing an ESC, discard it and treat the <em>next</em> byte as data, not as a delimiter.
+</div>
+
+<p>Note the second half of the rule: <strong>ESC itself must also be stuffed</strong>, otherwise a genuine ESC in the data would be swallowed. Students routinely forget this case, and it is often the point of the question.</p>
+
+<h3>Bit-oriented framing and bit stuffing</h3>
+
+<p>The frame is treated as a <strong>sequence of bits</strong>, delimited by the flag <strong><code>01111110</code></strong> (a 0, six 1s, a 0). The data must never contain six consecutive 1s, or the receiver would read a false flag.</p>
+
+<div class="formula">
+  <span class="name">Bit stuffing &mdash; the rule</span>
+  <strong>Sender:</strong> after <strong>five consecutive 1s</strong> in the data, insert a <strong>0</strong>.<br>
+  <strong>Receiver:</strong> after five consecutive 1s, <strong>remove the following 0</strong>.
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; bit stuffing</span>
+  <p><strong>Q.</strong> Apply bit stuffing to the data <code>0111111111100011</code>.</p>
+
+  <p>Scan left to right, counting consecutive 1s and inserting a 0 after every run of five:</p>
+
+  <p>Original: &nbsp;<code>0 11111 11111 00011</code></p>
+  <p>After the first five 1s &rarr; insert 0. After the next five 1s &rarr; insert 0.</p>
+  <p><strong>Stuffed: <code>0 11111 0 11111 0 00011</code> = <code>011111011111000011</code></strong></p>
+
+  <p><em>Two rules that decide the marks:</em></p>
+  <ul>
+    <li>The stuffed 0 is inserted <strong>after exactly five 1s</strong>, not after six. Counting to six is the standard error.</li>
+    <li>The count <strong>restarts from zero</strong> after each inserted 0 &mdash; the stuffed 0 breaks the run.</li>
+  </ul>
+  <p><em>Sanity check:</em> read your answer back and confirm that <strong>nowhere does it contain six consecutive 1s</strong>. If it does, you missed an insertion.</p>
+</div>
+
+<h2>Flow control and error control</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Definition</th></tr></thead>
+<tbody>
+<tr><td><strong>Flow control</strong></td><td>A set of procedures that restricts the amount of data a sender may send <strong>before waiting for acknowledgement</strong>, so that a fast sender does not overwhelm a slow receiver.</td></tr>
+<tr><td><strong>Error control</strong></td><td>Detection and retransmission of damaged or lost frames. In the data link layer it is based on <strong>Automatic Repeat Request (ARQ)</strong> &mdash; retransmission of a frame whenever an error is detected.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Protocols split into two families: those for <strong>noiseless channels</strong> (idealised, taught as a stepping stone) and those for <strong>noisy channels</strong> (the real ones).</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Channel</th><th>Protocols</th></tr></thead>
+<tbody>
+<tr><td><strong>Noiseless</strong></td><td>Simplest Protocol (no flow or error control at all); Stop-and-Wait Protocol (flow control only)</td></tr>
+<tr><td><strong>Noisy</strong></td><td><strong>Stop-and-Wait ARQ</strong>; <strong>Go-Back-N ARQ</strong>; <strong>Selective Repeat ARQ</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The efficiency framework &mdash; learn this first</h2>
+
+<div class="formula">
+  <span class="name">The three quantities everything is built on</span>
+  T<sub>t</sub> = transmission time = frame size &divide; bandwidth<br>
+  T<sub>p</sub> = propagation time = distance &divide; propagation speed<br>
+  <strong>a = T<sub>p</sub> / T<sub>t</sub></strong>
+</div>
+
+<div class="formula">
+  <span class="name">Efficiency of the three protocols</span>
+  Stop-and-Wait: &nbsp; &eta; = 1 / (1 + 2a)<br>
+  Go-Back-N: &nbsp; &eta; = N / (1 + 2a)&nbsp;&nbsp;(capped at 1)<br>
+  Selective Repeat: &nbsp; &eta; = N / (1 + 2a)&nbsp;&nbsp;(capped at 1)<br>
+  <strong>Throughput = &eta; &times; bandwidth</strong><br>
+  <strong>Optimal window size N = 1 + 2a</strong> &nbsp;(the N that makes efficiency 100%)
+</div>
+
+<p>Why <strong>1 + 2a</strong>? The sender spends 1 unit of time transmitting the frame, then waits <em>a</em> units for it to propagate, plus <em>a</em> units for the acknowledgement to come back. Total cycle = 1 + 2a units, of which only 1 was useful. (Strictly there is also the acknowledgement's own transmission time, but it is normally neglected unless the question gives it.)</p>
+
+<h2>1. Stop-and-Wait ARQ</h2>
+
+<ul>
+<li>The sender sends <strong>one frame</strong>, then <strong>stops and waits</strong> for its acknowledgement before sending the next.</li>
+<li>Frames and acknowledgements are numbered <strong>alternately 0 and 1</strong> &mdash; a <strong>1-bit sequence number</strong> is enough.</li>
+<li>The sender keeps a <strong>copy</strong> of the last frame sent and starts a <strong>timer</strong>. If the timer expires before the ACK arrives, the frame is resent.</li>
+<li><strong>Sender window = 1, receiver window = 1.</strong></li>
+<li><strong>Handles:</strong> lost frames (timer expires, resend), damaged frames (receiver discards, timer expires), and lost acknowledgements (timer expires, resend; the receiver detects the duplicate by its sequence number and discards it).</li>
+<li><strong>Weakness:</strong> the link sits idle for the whole round trip. On a long or fast link this is catastrophic &mdash; see the numerical below.</li>
+</ul>
+
+<h3>Piggybacking</h3>
+
+<p><em class="term">Piggybacking</em> is a technique used in bidirectional data communication to improve link efficiency by attaching an outgoing acknowledgement (ACK) to an outgoing data frame, rather than sending a separate, dedicated ACK frame.</p>
+
+<div class="box win">
+  <span class="lbl">Why Piggybacking Saves Massive Bandwidth</span>
+  <p>In two-way communication (Node A &harr; Node B), if Node B needs to send an ACK to Node A, sending a separate control frame wastes an entire frame header, preamble, and channel time. With piggybacking, Node B waits briefly: when its upper layer produces a data packet for Node A, it writes Node A's ACK number directly into the data frame's header. To avoid indefinite delays if Node B has no outgoing data, an <strong>acknowledgement timer</strong> is used &mdash; if the timer expires before outgoing data is ready, a standalone ACK is dispatched immediately.</p>
+</div>
+
+<h3>Sliding Window Control Variables &middot; $S_f$, $S_n$, $R_n$</h3>
+
+<p>To implement sliding window flow control reliably, the sender and receiver maintain precise pointer variables tracking outstanding, unacknowledged frames:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Variable</th><th>Full Name</th><th>Maintained by</th><th>Function in the Protocol</th></tr></thead>
+<tbody>
+<tr><td><strong>$S_f$</strong></td><td>Send window, <strong>first</strong></td><td>Sender</td><td>Holds the sequence number of the <strong>oldest outstanding (unacknowledged) frame</strong>. Points to the left edge of the sender window.</td></tr>
+<tr><td><strong>$S_n$</strong></td><td>Send window, <strong>next</strong></td><td>Sender</td><td>Holds the sequence number of the <strong>next frame to be sent</strong>. As each frame is transmitted, $S_n$ advances by 1.</td></tr>
+<tr><td><strong>$S_{	ext{size}}$</strong></td><td>Send window size</td><td>Sender</td><td>The maximum number of unacknowledged frames allowed: $S_{	ext{size}} = 2^m - 1$ (Go-Back-N) or $2^{m-1}$ (Selective Repeat). Window constraint: $S_n - S_f &lt; S_{	ext{size}}$.</td></tr>
+<tr><td><strong>$R_n$</strong></td><td>Receive window, <strong>next</strong></td><td>Receiver</td><td>Holds the sequence number of the <strong>next expected frame</strong>. When frame $R_n$ arrives intact, the receiver accepts it and increments $R_n \leftarrow (R_n + 1) \pmod{2^m}$.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Window Dynamics Formula</span>
+  $$	ext{Frames in flight (sent but unacknowledged)} = (S_n - S_f) \pmod{2^m}$$
+  $$	ext{Window is completely full when: } S_n - S_f = S_{	ext{size}}$$
+  $$	ext{When a valid ACK arrives for frame } k: S_f \leftarrow (k + 1) \pmod{2^m} 	ext{ (window slides forward!)}$$
+</div>
+
+<h2>2. Go-Back-N ARQ</h2>
+
+<ul>
+<li>The sender may transmit <strong>several frames before receiving acknowledgements</strong> &mdash; it keeps a window of outstanding frames.</li>
+<li>The receiver window is <strong>1</strong>: it accepts frames <strong>only in order</strong> and <strong>silently discards any out-of-order frame</strong>.</li>
+<li>Acknowledgements are <strong>cumulative</strong> &mdash; an ACK for frame n means "all frames up to and including n received".</li>
+<li>If a frame is lost or damaged, <strong>that frame and every frame sent after it are retransmitted</strong>. Hence the name.</li>
+<li><strong>Sender window = 2<sup>m</sup> &minus; 1</strong> (m = number of sequence-number bits); <strong>receiver window = 1</strong>.</li>
+</ul>
+
+<div class="box exam">
+  <span class="lbl">Why the Go-Back-N window is 2<sup>m</sup> &minus; 1, not 2<sup>m</sup></span>
+  <p>If the window were the full 2<sup>m</sup>, then after all acknowledgements were lost the receiver could not tell a retransmitted frame 0 from a brand-new frame 0 &mdash; the sequence numbers would have wrapped exactly. <strong>Leaving one number unused makes the two cases distinguishable.</strong> This "why" is asked directly and is worth two marks.</p>
+</div>
+
+<h2>3. Selective Repeat ARQ</h2>
+
+<ul>
+<li>The receiver keeps a window too, and <strong>accepts and buffers out-of-order frames</strong>.</li>
+<li>Only the <strong>specific damaged or lost frame is retransmitted</strong>, not everything after it.</li>
+<li>Uses <strong>NAK (negative acknowledgement)</strong> to request a particular frame, alongside ACKs.</li>
+<li><strong>Sender window = receiver window = 2<sup>m&minus;1</sup></strong> &mdash; both are <strong>half</strong> the sequence-number space.</li>
+<li><strong>Cost:</strong> the receiver needs buffering and must <strong>sort frames back into order</strong>, so it is more complex than Go-Back-N. That complexity is why Go-Back-N remained common despite being less efficient.</li>
+</ul>
+
+<h2>The comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Stop-and-Wait ARQ</th><th>Go-Back-N ARQ</th><th>Selective Repeat ARQ</th></tr></thead>
+<tbody>
+<tr><td><strong>Sender window</strong></td><td class="num">1</td><td class="num"><strong>2<sup>m</sup> &minus; 1</strong></td><td class="num"><strong>2<sup>m&minus;1</sup></strong></td></tr>
+<tr><td><strong>Receiver window</strong></td><td class="num">1</td><td class="num"><strong>1</strong></td><td class="num"><strong>2<sup>m&minus;1</sup></strong></td></tr>
+<tr><td><strong>Efficiency</strong></td><td>1/(1+2a)</td><td>N/(1+2a)</td><td>N/(1+2a)</td></tr>
+<tr><td><strong>Out-of-order frames</strong></td><td>Not applicable</td><td><strong>Discarded</strong></td><td><strong>Buffered and stored</strong></td></tr>
+<tr><td><strong>On an error, retransmits</strong></td><td>The one frame</td><td>The frame <strong>and all frames after it</strong></td><td><strong>Only that frame</strong></td></tr>
+<tr><td><strong>Acknowledgement</strong></td><td>Individual</td><td><strong>Cumulative</strong></td><td>Individual, plus <strong>NAK</strong></td></tr>
+<tr><td><strong>Sorting at receiver</strong></td><td>Not needed</td><td>Not needed</td><td><strong>Required</strong></td></tr>
+<tr><td><strong>Receiver buffering</strong></td><td>1 frame</td><td>1 frame</td><td><strong>N frames</strong></td></tr>
+<tr><td><strong>Complexity</strong></td><td>Simplest</td><td>Moderate</td><td><strong>Highest</strong></td></tr>
+<tr><td><strong>Bandwidth use</strong></td><td>Worst</td><td>Moderate &mdash; wasted on re-sending good frames</td><td><strong>Best</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 1 &mdash; Stop-and-Wait efficiency</span>
+  <p><strong>Q.</strong> A 1 Mbps link carries frames of 1000 bits. The one-way propagation delay is 20 ms. Find the efficiency and the throughput of Stop-and-Wait ARQ.</p>
+
+  <p><strong>T<sub>t</sub></strong> = 1000 bits &divide; 10<sup>6</sup> bps = <strong>1 ms</strong></p>
+  <p><strong>T<sub>p</sub></strong> = <strong>20 ms</strong> (given)</p>
+  <p><strong>a</strong> = T<sub>p</sub>/T<sub>t</sub> = 20/1 = <strong>20</strong></p>
+
+  <p><strong>Efficiency</strong> &eta; = 1/(1 + 2a) = 1/(1 + 40) = 1/41 = <strong>0.0244 = 2.44%</strong></p>
+  <p><strong>Throughput</strong> = 0.0244 &times; 1 Mbps = <strong>24.4 kbps</strong></p>
+
+  <p><strong>Comment worth writing:</strong> a 1 Mbps link is delivering 24.4 kbps &mdash; <strong>97.5% of the capacity is wasted waiting.</strong> This is precisely why sliding-window protocols exist. Always add this sentence; it converts a calculation into an answer.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 2 &mdash; the window size needed for 100% efficiency</span>
+  <p><strong>Q.</strong> For the same link, what sender window size would give full utilisation, and how many bits are needed for the sequence number under Go-Back-N?</p>
+
+  <p><strong>Optimal N</strong> = 1 + 2a = 1 + 40 = <strong>41 frames</strong></p>
+
+  <p><strong>Sequence-number bits under Go-Back-N:</strong> the window is 2<sup>m</sup> &minus; 1, so we need<br>
+  2<sup>m</sup> &minus; 1 &ge; 41 &nbsp;&rarr;&nbsp; 2<sup>m</sup> &ge; 42 &nbsp;&rarr;&nbsp; <strong>m = 6</strong> (since 2<sup>6</sup> = 64, giving a window of 63)</p>
+
+  <p><strong>Under Selective Repeat</strong> the window is 2<sup>m&minus;1</sup>, so<br>
+  2<sup>m&minus;1</sup> &ge; 41 &nbsp;&rarr;&nbsp; 2<sup>m&minus;1</sup> &ge; 41 &nbsp;&rarr;&nbsp; m &minus; 1 = 6 &nbsp;&rarr;&nbsp; <strong>m = 7</strong> (giving a window of 64)</p>
+
+  <p><em>The comparison to state:</em> Selective Repeat needs <strong>one more sequence-number bit</strong> than Go-Back-N for the same window, because it spends half its sequence space on the receiver window. That is part of the price of its higher efficiency.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 3 &mdash; Go-Back-N efficiency with a given window</span>
+  <p><strong>Q.</strong> On the same link (a = 20), Go-Back-N is used with a sender window of 15. Find the efficiency and throughput.</p>
+
+  <p>&eta; = N/(1 + 2a) = 15/41 = <strong>0.366 = 36.6%</strong></p>
+  <p>Throughput = 0.366 &times; 1 Mbps = <strong>366 kbps</strong></p>
+
+  <p><em>Sanity check:</em> N = 15 is less than the optimal 41, so efficiency must be below 100% &mdash; 36.6% is consistent. <strong>If a formula ever gives you an efficiency above 1, cap it at 100%</strong>: the window is larger than needed and the link is simply saturated.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Sliding Window ARQ Protocols Taxonomy</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>Stop-and-Wait ARQ</strong><span class="sub">W<sub>S</sub> = 1, W<sub>R</sub> = 1<br>Efficiency &eta; = 1 / (1 + 2a)<br>Poor utilization on high-latency links</span></div>
+    <div class="flow-box highlight"><strong>Go-Back-N (GBN) ARQ</strong><span class="sub">W<sub>S</sub> = 2<sup>m</sup> - 1, W<sub>R</sub> = 1<br>Cumulative ACKs; error forces retransmission of lost frame + all N subsequent frames</span></div>
+    <div class="flow-box ok"><strong>Selective Repeat (SR) ARQ</strong><span class="sub">W<sub>S</sub> = 2<sup>m-1</sup>, W<sub>R</sub> = 2<sup>m-1</sup><br>Independent ACKs + receiver buffer; retransmits ONLY corrupted frames</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 20 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">ARQ Sliding Window Protocols</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-23: Stop and Wait ARQ, Go-Back-N, and Selective Repeat</div>
+    <div class="v-desc">The classic masterclass detailing window sizes, sequence number bits, efficiency formulas, and timer operations across all three ARQ protocols.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=YIX1NfaUpsU" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>High-Yield Exam Numericals from University Papers</h2>
+
+<div class="box exam">
+  <span class="lbl">Worked Problem 1 &middot; Stop-and-Wait Minimum Frame Size for 50% Efficiency (Mam's Material)</span>
+  <p><strong>Question:</strong> A link operates at a bit rate of $4	ext{ kbps}$ with a one-way propagation delay of $20	ext{ ms}$. Calculate the minimum frame size required to achieve at least 50% channel efficiency using the Stop-and-Wait protocol.</p>
+  <div style="background:var(--bg); padding:.8rem 1rem; border-radius:4px; font-family:monospace; margin-top:.5rem;">
+    Given: Bit rate $B = 4	ext{ kbps} = 4000	ext{ bps}$, Propagation delay $T_p = 20	ext{ ms} = 20 	imes 10^{-3}	ext{ s}$<br>
+    Target Efficiency $\eta = 0.50$ (50%)<br><br>
+    Formula: $\eta = rac{T_t}{T_t + 2 T_p}$<br>
+    $0.50 = rac{T_t}{T_t + 2(20 	imes 10^{-3})} = rac{T_t}{T_t + 40 	imes 10^{-3}}$<br>
+    $0.50 	imes (T_t + 0.040) = T_t \implies 0.020 = 0.50 T_t \implies T_t = 0.040	ext{ s} = 40	ext{ ms}$<br><br>
+    Since $T_t = rac{	ext{Frame Size } L}{	ext{Bit Rate } B}$:<br>
+    $	ext{Minimum Frame Size } L = T_t 	imes B = (40 	imes 10^{-3}	ext{ s}) 	imes (4000	ext{ bps}) = \mathbf{160	ext{ bits (or 20 bytes)}}.$
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Worked Problem 2 &middot; Network Throughput Calculation (Mam's Material)</span>
+  <p><strong>Question:</strong> A network with a transmission bandwidth of $10	ext{ Mbps}$ passes an average of 12,000 frames per minute, with each frame carrying an average of 10,000 bits. Calculate the throughput of this network and the channel utilization.</p>
+  <div style="background:var(--bg); padding:.8rem 1rem; border-radius:4px; font-family:monospace; margin-top:.5rem;">
+    Data transferred per minute = $12,000	ext{ frames} 	imes 10,000	ext{ bits/frame} = 1.2 	imes 10^8	ext{ bits}$<br>
+    Data transferred per second (Throughput) = $rac{1.2 	imes 10^8	ext{ bits}}{60	ext{ s}} = 2 	imes 10^6	ext{ bps} = \mathbf{2	ext{ Mbps}}$<br><br>
+    Channel Utilization = $rac{	ext{Throughput}}{	ext{Bandwidth}} = rac{2	ext{ Mbps}}{10	ext{ Mbps}} = 0.20 = \mathbf{20\%}.$
+  </div>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Worked Problem 3 &middot; Selective Repeat Frame Loss Action (Mam's Material)</span>
+  <p><strong>Question:</strong> In a Selective Repeat ARQ system with 3-bit sequence numbers, the sender transmits frames 0, 1, 2, 3, and 4. Frame 2 is lost due to channel noise, while frames 0, 1, 3, and 4 arrive uncorrupted. Detail the exact actions taken by the receiver and sender.</p>
+  <div style="background:var(--bg); padding:.8rem 1rem; border-radius:4px; font-size:.85rem; line-height:1.5; margin-top:.5rem;">
+    <strong>1. Receiver Action:</strong><br>
+    &bull; Frames 0 and 1 arrive in order: Receiver accepts them, delivers them to the network layer, sends ACK 1 and ACK 2, and advances its receive window.<br>
+    &bull; Frame 2 is missing. Next, Frame 3 arrives: The receiver recognizes Frame 2 was skipped. It immediately transmits a <strong>negative acknowledgement NAK 2</strong>. It <em>does not discard</em> Frame 3; it stores Frame 3 in its buffer.<br>
+    &bull; Frame 4 arrives: Stored in the receiver buffer alongside Frame 3.<br><br>
+    <strong>2. Sender Action:</strong><br>
+    &bull; Upon receiving NAK 2 (or upon expiration of Frame 2's dedicated timer), the sender retransmits <strong>only Frame 2</strong>.<br>
+    &bull; Unlike Go-Back-N, the sender <em>does not</em> retransmit frames 3 or 4.<br><br>
+    <strong>3. Recovery:</strong> When the retransmitted Frame 2 arrives safely, the receiver takes Frame 2, pulls buffered frames 3 and 4 out of memory, delivers frames 2, 3, and 4 in correct order to the network layer, and advances its window past frame 4!
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In bit stuffing, the sender inserts a 0 after:</p>
+  <div class="opts">
+    <button class="opt">Every occurrence of the flag byte 01111110</button>
+    <button class="opt" data-ok="1">Five consecutive 1s in the data</button>
+    <button class="opt">Each escape character present in the data</button>
+    <button class="opt">Six consecutive 1s in the data</button>
+  </div>
+  <p class="why">The flag is 01111110 — six 1s. Stuffing after five 1s guarantees six can never occur in the data. Waiting for six would already have created the false flag. The escape-character rule belongs to byte stuffing, not bit stuffing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In Go-Back-N ARQ, an out-of-order frame arriving at the receiver is:</p>
+  <div class="opts">
+    <button class="opt">Answered with a NAK naming that frame number</button>
+    <button class="opt">Buffered until the missing frames arrive</button>
+    <button class="opt">Acknowledged individually with its own ACK</button>
+    <button class="opt" data-ok="1">Discarded, because the receiver window is 1</button>
+  </div>
+  <p class="why">Receiver window = 1 means frames are accepted only in strict order; anything else is dropped. Buffering out-of-order frames and using NAKs is Selective Repeat — that is the whole difference between the two.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. With m = 4 sequence-number bits, the sender window sizes for Go-Back-N and Selective Repeat are:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">15 and 8 respectively</button>
+    <button class="opt">15 and 15 respectively</button>
+    <button class="opt">16 and 8 respectively</button>
+    <button class="opt">8 and 15 respectively</button>
+  </div>
+  <p class="why">Go-Back-N: 2^m − 1 = 15. Selective Repeat: 2^(m−1) = 8. Selective Repeat's sender window is smaller for the same m, because half the sequence space is reserved for the receiver window.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A link has T<sub>t</sub> = 2 ms and T<sub>p</sub> = 8 ms. The efficiency of Stop-and-Wait is:</p>
+  <div class="opts">
+    <button class="opt">About 50.0%, since a = 4 and η = 1/2</button>
+    <button class="opt">About 20.0%, since a = 4 and η = 1/5</button>
+    <button class="opt" data-ok="1">About 11.8%, since a = 4 and η = 1/9</button>
+    <button class="opt">About 25.0%, since a = 4 and η = 1/4</button>
+  </div>
+  <p class="why">a = T<sub>p</sub>/T<sub>t</sub> = 8/2 = 4. η = 1/(1 + 2a) = 1/(1 + 8) = 1/9 ≈ 11.8%. Forgetting to double <em>a</em> — the acknowledgement has to travel back too — is the usual slip.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Why is the Go-Back-N sender window limited to 2<sup>m</sup> − 1 rather than 2<sup>m</sup>?</p>
+  <div class="opts">
+    <button class="opt">Because one sequence number is reserved for the NAK</button>
+    <button class="opt" data-ok="1">So a retransmitted frame cannot be mistaken for a new one</button>
+    <button class="opt">Because the receiver needs one buffer slot kept free</button>
+    <button class="opt">Because the last number is used as an end-of-frame flag</button>
+  </div>
+  <p class="why">With a full 2^m window, losing all acknowledgements would leave the receiver unable to distinguish a resent frame 0 from a new frame 0 — the numbering wraps exactly. Leaving one number unused breaks that ambiguity.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Byte stuffing must also escape the ESC character itself because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Otherwise a genuine ESC in the data would be removed by the receiver</button>
+    <button class="opt">Otherwise the frame length field would be computed wrongly</button>
+    <button class="opt">Otherwise the flag byte could not be placed at the frame end</button>
+    <button class="opt">Otherwise the receiver could not compute the frame's checksum</button>
+  </div>
+  <p class="why">The receiver's rule is "on seeing ESC, drop it and take the next byte literally". An unescaped data ESC would therefore be silently deleted and the byte after it misread. Forgetting this case is the standard mistake on byte-stuffing questions.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define framing, and name the two approaches to variable-size framing.</summary>
+    <p class="ans">Framing packs bits into frames so each is distinguishable from the next, adding sender and destination addresses. Variable-size framing is done either character-oriented (byte stuffing with flag and ESC bytes) or bit-oriented (bit stuffing with the flag 01111110).</p></details>
+  <details class="card"><summary>State the byte stuffing and bit stuffing rules.</summary>
+    <p class="ans">Byte stuffing: the sender inserts an extra ESC before any data byte equal to the flag or to ESC; the receiver discards an ESC and treats the next byte as data. Bit stuffing: the sender inserts a 0 after five consecutive 1s; the receiver removes the 0 that follows five 1s.</p></details>
+  <details class="card"><summary>Define flow control and error control.</summary>
+    <p class="ans">Flow control restricts how much data a sender may transmit before waiting for acknowledgement, so a fast sender does not overwhelm a slow receiver. Error control detects and retransmits damaged or lost frames; in the data link layer it is based on Automatic Repeat Request (ARQ).</p></details>
+  <details class="card"><summary>Write the efficiency formulas and the definition of a.</summary>
+    <p class="ans">a = T<sub>p</sub>/T<sub>t</sub>, where T<sub>t</sub> = frame size/bandwidth and T<sub>p</sub> = distance/propagation speed. Stop-and-Wait: η = 1/(1 + 2a). Go-Back-N and Selective Repeat: η = N/(1 + 2a), capped at 1. Throughput = η × bandwidth. Optimal window N = 1 + 2a.</p></details>
+  <details class="card"><summary>Give the sender and receiver window sizes for all three protocols.</summary>
+    <p class="ans">Stop-and-Wait: sender 1, receiver 1. Go-Back-N: sender 2^m − 1, receiver 1. Selective Repeat: sender 2^(m−1), receiver 2^(m−1).</p></details>
+  <details class="card"><summary>Go-Back-N vs Selective Repeat — four differences.</summary>
+    <p class="ans">Receiver window 1 vs 2^(m−1); out-of-order frames discarded vs buffered; on error, retransmits the frame and all after it vs only that frame; cumulative ACKs vs individual ACKs plus NAKs. Selective Repeat also needs sorting and buffering at the receiver, so it is more complex but uses bandwidth better.</p></details>
+  <details class="card"><summary>Why is the Go-Back-N window 2^m − 1?</summary>
+    <p class="ans">With a full 2^m window, if every acknowledgement were lost the receiver could not distinguish a retransmitted frame 0 from a new frame 0, since the sequence numbers wrap exactly. Leaving one number unused removes the ambiguity.</p></details>
+</div>
+
+<p class="ask">Want ten efficiency numericals mixing all three protocols, with the window-size sub-parts included? Ask &mdash; this is the highest-yield drill in Unit II after CRC and Hamming.</p>
+
+<div class="nav">
+  <a href="0013-error-detection-and-correction.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0015-hdlc-and-ppp.html">Next: HDLC and PPP &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

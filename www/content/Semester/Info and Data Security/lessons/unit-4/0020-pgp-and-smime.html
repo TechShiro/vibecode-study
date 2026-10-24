@@ -1,0 +1,146 @@
+<title>Email Security — PGP and S/MIME</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Info and Data Security &middot; Unit IV &middot; Lesson 20 of 23</p>
+<h1>Email Security &mdash; PGP and S/MIME</h1>
+<p class="deck">Why email needs security, Pretty Good Privacy (PGP) services and message format, the web of trust, S/MIME and its use of certificates, and how PGP and S/MIME compare.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>&ldquo;Explain PGP services and message format&rdquo;</strong> is a guaranteed question. Know the five services (confidentiality, authentication, compression, compatibility, segmentation) and the order of operations. <strong>PGP vs S/MIME comparison</strong> is a common short-note.</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; PGP Services &amp; Message Format</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=Z3FwixsBE90" target="_blank">PGP (Pretty Good Privacy) in Cryptography &amp; Network Security</a>
+    <span class="v-meta">Gate Smashers &middot; 13:40</span>
+    <div class="v-why">High-scoring exam walkthrough detailing the four PGP core services: Digital Signature (authentication), Symmetric Encryption (confidentiality via one-time session key), ZIP compression, and Radix-64 conversion.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; PGP Web of Trust vs S/MIME X.509</span>
+      <span class="best-tag">Top Exam Contrast</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLmAmHQ-_5ySx_dXmOwSuGGGyE8XsbYT0n" target="_blank">PGP Web of Trust vs S/MIME Centralized CA Certificate Hierarchy</a>
+    <span class="v-meta">Trouble-Free &middot; Security Masterclass</span>
+    <div class="v-why">Clear contrast of decentralized peer-to-peer signature rings (Web of Trust) against centralized corporate X.509 Certificate Authorities in S/MIME.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: PGP TRANSMISSION PIPELINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Complete PGP Secure Email Lifecycle</span>
+  <div class="flow-col">
+    <!-- Step 1 Signing -->
+    <div class="flow-box highlight" style="min-width:24rem;">
+      <strong>Step 1 &middot; Digital Signature Generation</strong>
+      <span class="sub">$H(M) \to \text{Encrypt with } PR_A \to \text{Signature } S$ &middot; Append to plaintext message $M$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Step 2: Lossless Compression (ZIP / Deflate)</span>
+    
+    <!-- Step 2 Compression -->
+    <div class="flow-box" style="min-width:22rem;">
+      <strong>Step 2 &middot; Data Compression</strong>
+      <span class="sub">Compress signed bundle to save network bandwidth and flatten cryptographic redundancy</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Step 3: Symmetric Envelope Encryption</span>
+    
+    <!-- Step 3 Hybrid Encryption -->
+    <div class="flow-box warn" style="min-width:24rem;">
+      <strong>Step 3 &middot; Hybrid Envelope Encryption</strong>
+      <span class="sub">Generate random session key $K_s$ &middot; Encrypt compressed payload with $K_s$ (AES/CAST-128)<br>Encrypt $K_s$ with Bob's public key $PU_B$ &middot; Prepend encrypted key</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Step 4: ASCII Armoring</span>
+    
+    <!-- Step 4 Base64 -->
+    <div class="flow-box ok" style="min-width:24rem;">
+      <strong>Step 4 &middot; Radix-64 (Base64) ASCII Conversion</strong>
+      <span class="sub">Transforms raw binary ciphertext into 7-bit ASCII safe for legacy email gateways (SMTP)</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>PGP services</h2>
+<div class="tw"><table>
+<thead><tr><th>Service</th><th>How</th></tr></thead>
+<tbody>
+<tr><td><strong>Authentication</strong></td><td>Hash message (SHA), encrypt hash with sender&rsquo;s private key (RSA/DSS) = digital signature</td></tr>
+<tr><td><strong>Confidentiality</strong></td><td>Encrypt message with one-time session key (AES/3DES), encrypt session key with receiver&rsquo;s public key (RSA/ElGamal)</td></tr>
+<tr><td><strong>Compression</strong></td><td>ZIP after signing, before encryption (signature on uncompressed, encryption on compressed)</td></tr>
+<tr><td><strong>Compatibility</strong></td><td>Radix-64 (Base64) conversion for email transport</td></tr>
+<tr><td><strong>Segmentation</strong></td><td>Split large messages to fit email size limits</td></tr>
+</tbody></table></div>
+
+<div class="formula"><span class="name">PGP message creation order</span>
+1. Hash &rarr; sign with sender&rsquo;s private key (authentication).<br>
+2. Compress the signed message.<br>
+3. Encrypt with session key, encrypt session key with receiver&rsquo;s public key.<br>
+4. Base64 encode for email transport.</div>
+
+<h2>PGP trust model &mdash; Web of Trust</h2>
+<p>No central CA. Users sign each other&rsquo;s public keys. Trust is decentralised &mdash; you trust a key if enough people you trust have signed it.</p>
+
+<h2>S/MIME</h2>
+<p><strong>Secure/Multipurpose Internet Mail Extensions.</strong> Uses <strong>X.509 certificates</strong> from a CA hierarchy (not web of trust). Provides the same services as PGP but integrated into email clients (Outlook, Thunderbird).</p>
+
+<div class="tw"><table>
+<thead><tr><th></th><th>PGP</th><th>S/MIME</th></tr></thead>
+<tbody>
+<tr><td><strong>Trust model</strong></td><td>Web of trust (decentralised)</td><td>CA hierarchy (centralised)</td></tr>
+<tr><td><strong>Certificate</strong></td><td>PGP key ring</td><td>X.509 certificate</td></tr>
+<tr><td><strong>Availability</strong></td><td>Standalone software</td><td>Built into email clients</td></tr>
+<tr><td><strong>Best for</strong></td><td>Personal / community use</td><td>Corporate / enterprise</td></tr>
+</tbody></table></div>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. PGP achieves confidentiality by:</p>
+<div class="opts">
+<button class="opt" data-ok="1">Encrypting with a session key (symmetric), then encrypting the session key with receiver&rsquo;s public key</button>
+<button class="opt">Using only hashing</button>
+<button class="opt">Encrypting the entire message with the sender&rsquo;s private key</button>
+<button class="opt">Using the receiver&rsquo;s private key directly</button>
+</div><p class="why">Hybrid encryption: fast symmetric for the message, slow asymmetric only for the small session key.</p></div>
+<div class="q"><p class="stem">2. In PGP, compression is done:</p>
+<div class="opts">
+<button class="opt" data-ok="1">After signing but before encryption</button>
+<button class="opt">After encryption</button>
+<button class="opt">Not at all</button>
+<button class="opt">Before signing</button>
+</div><p class="why">Sign on original (so verifier doesn't need same compressor). Compress before encryption (encrypted data is random, uncompressible).</p></div>
+<div class="q"><p class="stem">3. S/MIME uses:</p>
+<div class="opts">
+<button class="opt">Web of trust</button>
+<button class="opt" data-ok="1">X.509 certificates from a CA hierarchy</button>
+<button class="opt">No certificates</button>
+<button class="opt">Kerberos tickets</button>
+</div><p class="why">S/MIME relies on the PKI with CAs, suitable for corporate environments.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>PGP five services.</summary><p class="ans">Authentication (sign with private key), confidentiality (session key + public key), compression (ZIP), compatibility (Base64), segmentation.</p></details>
+<details class="card"><summary>PGP vs S/MIME — two key differences.</summary><p class="ans">PGP: web of trust, standalone. S/MIME: CA hierarchy (X.509), built into email clients.</p></details>
+</div>
+
+<div class="nav">
+<a href="../unit-3/0019-public-key-distribution-and-hijacking.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0021-ssl-and-tls.html">Next: SSL/TLS &rarr;</a>
+<a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

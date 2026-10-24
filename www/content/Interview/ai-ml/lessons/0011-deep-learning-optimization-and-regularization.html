@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 11 – Optimization & Regularization</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module C · Lesson 11 of 17 · Deep Learning Tuning</div>
+  <h1>Deep Learning Optimization & Regularization</h1>
+  <p class="subtitle">AdamW, learning rate schedules, BatchNorm vs LayerNorm, and fighting the battle against overfitting.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Deep Learning Foundations</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Vanilla Stochastic Gradient Descent (SGD) struggles with saddle points, noisy gradients, and ravine-like loss surfaces. Modern deep learning relies on <strong>Adaptive Optimizers</strong> (Adam, AdamW) that maintain per-parameter learning rates using exponential moving averages of first (momentum) and second (variance) moments. Concurrently, deep networks have millions of parameters capable of memorizing noise; <strong>Regularization techniques</strong> (Dropout, LayerNorm, Weight Decay) ensure networks generalize to unseen real-world data.</p>
+
+  <h2>2 · Evolution of Optimizers</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Optimizer</th><th>Core Mechanism</th><th>Advantage & Industry Verdict</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>SGD with Momentum</strong></td>
+        <td><code>v = &beta;v + &alpha;&nabla;L</code>; acts like a heavy ball rolling downhill.</td>
+        <td>Dampens oscillations across ravines; great asymptotic generalization for Vision.</td>
+      </tr>
+      <tr>
+        <td><strong>RMSprop</strong></td>
+        <td>Divides gradient by running root-mean-square of recent gradients: <code>&radic;(v + &epsilon;)</code>.</td>
+        <td>Adapts learning rate per parameter; stabilizes training in RNNs.</td>
+      </tr>
+      <tr>
+        <td><strong>Adam</strong></td>
+        <td>Combines Momentum (1st moment) + RMSprop (2nd moment) with bias correction.</td>
+        <td>Fast initial convergence; robust default across diverse architectures.</td>
+      </tr>
+      <tr>
+        <td><strong>AdamW</strong></td>
+        <td><strong>Decouples Weight Decay from gradient updates</strong> (L2 regularization bugfix in Adam).</td>
+        <td><strong>The universal default</strong> for Transformers, LLMs, and modern vision models.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Normalization: BatchNorm vs LayerNorm</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">BN</div>
+      <h3>Batch Normalization (BatchNorm)</h3>
+      <p>Normalizes activations across the <strong>mini-batch dimension</strong> for each individual channel independently. Highly effective in <strong>Convolutional Neural Networks</strong>. Fails when batch size is small (&lt; 8) or in sequential data with variable lengths.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">LN</div>
+      <h3>Layer Normalization (LayerNorm)</h3>
+      <p>Normalizes across all <strong>features/channels for a single training example</strong> independently. Independent of batch size. <strong>The undisputed standard for NLP, Transformers, and Large Language Models</strong>.</p>
+    </div>
+  </div>
+
+  <h2>4 · Overfitting Defenses in Deep Networks</h2>
+  <ul>
+    <li><strong>Dropout</strong>: Randomly zeroes out a fraction (e.g. 20%–50%) of neuron activations during training. Prevents complex co-adaptations between neurons, forcing the network to learn robust redundant features.</li>
+    <li><strong>Weight Decay</strong>: Penalizes large weights, preventing individual inputs from exerting disproportionate influence.</li>
+    <li><strong>Gradient Clipping (<code>clip_grad_norm_</code>)</strong>: Caps gradient norms at a maximum threshold (e.g. 1.0) to prevent <strong>Exploding Gradients</strong> from destabilizing training.</li>
+    <li><strong>Learning Rate Warmup & Cosine Annealing</strong>: Linearly ramps learning rate up during the first few epochs (preventing divergence), then smoothly anneals down following a cosine curve.</li>
+  </ul>
+
+  <h2>5 · Complete PyTorch Setup</h2>
+  <pre><code>import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
+model = MyDeepModel()
+
+# 1. AdamW with decoupled weight decay
+optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
+
+# 2. Cosine Annealing Scheduler with 50 epochs
+scheduler = CosineAnnealingLR(optimizer, T_max=50, eta_min=1e-6)
+
+# Inside training loop:
+for epoch in range(50):
+    for inputs, targets in train_loader:
+        optimizer.zero_grad()
+        loss = criterion(model(inputs), targets)
+        loss.backward()
+        
+        # Gradient clipping prevents exploding gradients
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        
+    scheduler.step()  # Updates learning rate per epoch</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0010-pytorch-foundations-autograd-and-training-loop.html">← Lesson 10: PyTorch Training Loop</a>
+    <a href="0012-convolutional-neural-networks-and-modern-architectures.html">Lesson 12: CNNs & Modern Architectures →</a>
+  </nav>
+</body>
+</html>

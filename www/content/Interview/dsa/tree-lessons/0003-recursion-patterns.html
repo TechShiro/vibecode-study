@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree Lesson 03 — Recursion Patterns</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Tree Track · Lesson 3 of 6 · the "compute from children" template</div>
+<h1>Recursion Patterns on Trees</h1>
+<p class="subtitle">Eight famous problems, one template: ask each child a question, combine their answers with the current node, return the result upward.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Max Depth, Invert, Same Tree, Symmetric, and Path Sum are the most-assigned easy/medium
+  tree questions in big-tech OAs — this single template solves all of them. Lesson 3 of 6.
+  <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1 traversed trees to <em>collect</em> nodes. This lesson <em>computes</em> with them. The pattern:
+define what your function <strong>returns for any subtree</strong>, trust recursion to produce that answer for
+<code>left</code> and <code>right</code> (the leap of faith), then combine the two child answers with the current
+node in O(1). Because children are consumed before the parent, this is structurally <strong>post-order</strong> —
+and it's why post-order is the workhorse of tree interviews. Naively you might recompute subtree facts repeatedly
+(e.g. calling a separate <code>height()</code> inside every node's check — O(n²)); the fix is always the same:
+make the recursion return <em>everything the parent needs</em> in one pass — O(n).
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The question asks for a <strong>single fact about the whole tree</strong>: its depth, diameter, whether it's
+  balanced / symmetric / equal to another tree, whether a path with some property exists. Formula:
+  <em>"answer(tree) = f(answer(left), answer(right), root)"</em>. If you can fill in <code>f</code>, the problem
+  is finished.
+</div>
+
+<h2>2 · Core template</h2>
+<pre><code><span class="cmt">// The compute-from-children skeleton. Time O(n) — each node does O(1) work</span>
+<span class="cmt">// on top of its children's answers. Space O(h) recursion stack.</span>
+ReturnType solve(TreeNode node) {
+    if (node == null) return BASE;          <span class="cmt">// 1. what is the answer for an empty tree?</span>
+    ReturnType left  = solve(node.left);    <span class="cmt">// 2. trust recursion for the left subtree</span>
+    ReturnType right = solve(node.right);   <span class="cmt">// 3. …and the right subtree</span>
+    return combine(left, right, node);      <span class="cmt">// 4. O(1) merge — the only creative step</span>
+}</code></pre>
+
+<p>Instantiated for <strong>Maximum Depth (LC 104)</strong>, the "hello world" of the pattern:</p>
+<pre><code>int maxDepth(TreeNode node) {
+    if (node == null) return 0;             <span class="cmt">// empty tree has depth 0</span>
+    int left  = maxDepth(node.left);
+    int right = maxDepth(node.right);
+    return 1 + Math.max(left, right);       <span class="cmt">// me + my taller child</span>
+}</code></pre>
+<p><strong>Time</strong> O(n). <strong>Space</strong> O(h).</p>
+
+<h3>Worked example — dry run</h3>
+<div class="trace">
+<span class="step">tree: 3 / (9, 20), 20 / (15, 7)</span>
+<span class="step now">maxDepth(9): children null → return 1 + max(<span class="ptr">0</span>, <span class="ptr">0</span>) = <span class="ptr">1</span></span>
+<span class="step now">maxDepth(15) = 1, maxDepth(7) = 1 (leaves)</span>
+<span class="step now">maxDepth(20) = 1 + max(1, 1) = <span class="ptr">2</span></span>
+<span class="step now">maxDepth(3) = 1 + max(1, 2) = <span class="ptr">3</span> ✓</span>
+<span class="step">answers flow UP: leaves resolve first, root last — post-order</span>
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes (the combine step)</th></tr></thead>
+  <tbody>
+    <tr><td>Max depth</td><td>LC 104</td><td><code>1 + max(L, R)</code></td></tr>
+    <tr><td>Diameter</td><td>LC 543</td><td>Return height up; update a global <code>L + R</code> best.</td></tr>
+    <tr><td>Balanced?</td><td>LC 110</td><td>Return height, or −1 as a "not balanced" poison value.</td></tr>
+    <tr><td>Invert</td><td>LC 226</td><td>Swap the two child results before returning.</td></tr>
+    <tr><td>Same tree?</td><td>LC 100</td><td>Recurse on TWO trees in lock-step.</td></tr>
+    <tr><td>Symmetric?</td><td>LC 101</td><td>Same-tree on mirrored children: (a.left, b.right).</td></tr>
+    <tr><td>Path sum exists?</td><td>LC 112</td><td>Pass remaining sum DOWN; decide at leaves.</td></tr>
+    <tr><td>All root-to-leaf paths</td><td>LC 113</td><td>112 + a path list with backtracking (add / recurse / remove).</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Diameter (LC 543) — return one thing, track another</h3>
+<p>
+Diameter = longest path between any two nodes, measured in edges. Through any node, the best path is
+<code>height(left) + height(right)</code>. The subtlety: the value a node <em>returns upward</em> (its height —
+a path can't fork) differs from the value it <em>contributes to the answer</em> (L + R). Keep a global best.
+This "value up vs answer global" idiom stars again in Max Path Sum (Lesson 4).
+</p>
+<pre><code>int best = 0;
+int diameterOfBinaryTree(TreeNode root) {
+    height(root);
+    return best;
+}
+int height(TreeNode n) {
+    if (n == null) return 0;
+    int l = height(n.left), r = height(n.right);
+    best = Math.max(best, l + r);       <span class="cmt">// full path THROUGH n (edges) — answer candidate</span>
+    return 1 + Math.max(l, r);          <span class="cmt">// but only one arm continues upward</span>
+}</code></pre>
+
+<h3>Case: Balanced Binary Tree (LC 110) — the poison value</h3>
+<p>
+Naive: at every node call a separate <code>height()</code> — O(n²) on a skewed tree. One-pass fix: the recursion
+returns height, but <strong>−1 means "already unbalanced below me"</strong> and propagates straight up.
+</p>
+<pre><code>boolean isBalanced(TreeNode root) {
+    return check(root) != -1;
+}
+int check(TreeNode n) {                  <span class="cmt">// returns height, or -1 = poison</span>
+    if (n == null) return 0;
+    int l = check(n.left);
+    if (l == -1) return -1;              <span class="cmt">// short-circuit: no need to look further</span>
+    int r = check(n.right);
+    if (r == -1) return -1;
+    if (Math.abs(l - r) &gt; 1) return -1;  <span class="cmt">// unbalanced HERE → poison upward</span>
+    return 1 + Math.max(l, r);
+}</code></pre>
+
+<h3>Case: Invert Binary Tree (LC 226)</h3>
+<pre><code>TreeNode invertTree(TreeNode root) {
+    if (root == null) return null;
+    TreeNode left  = invertTree(root.left);   <span class="cmt">// inverted left subtree</span>
+    TreeNode right = invertTree(root.right);  <span class="cmt">// inverted right subtree</span>
+    root.left = right;                        <span class="cmt">// swap them under me</span>
+    root.right = left;
+    return root;
+}</code></pre>
+
+<h3>Case: Same Tree (LC 100) — lock-step recursion on two trees</h3>
+<pre><code>boolean isSameTree(TreeNode p, TreeNode q) {
+    if (p == null &amp;&amp; q == null) return true;   <span class="cmt">// both empty: match</span>
+    if (p == null || q == null) return false;  <span class="cmt">// one empty: shape differs</span>
+    return p.val == q.val
+        &amp;&amp; isSameTree(p.left, q.left)          <span class="cmt">// corresponding children in lock-step</span>
+        &amp;&amp; isSameTree(p.right, q.right);
+}</code></pre>
+
+<h3>Case: Symmetric Tree (LC 101) — Same Tree, mirrored</h3>
+<p>A tree is symmetric iff its left subtree mirrors its right. "Mirror" = same-tree with the child comparison crossed.</p>
+<pre><code>boolean isSymmetric(TreeNode root) {
+    return root == null || mirror(root.left, root.right);
+}
+boolean mirror(TreeNode a, TreeNode b) {
+    if (a == null &amp;&amp; b == null) return true;
+    if (a == null || b == null) return false;
+    return a.val == b.val
+        &amp;&amp; mirror(a.left, b.right)             <span class="cmt">// outer pair ↔ outer pair</span>
+        &amp;&amp; mirror(a.right, b.left);            <span class="cmt">// inner pair ↔ inner pair — the crossing</span>
+}</code></pre>
+
+<h3>Case: Path Sum (LC 112) — information flows DOWN</h3>
+<p>
+A twist on the template: instead of combining child answers, you pass the <em>remaining target</em> down and decide
+at a leaf. Down-flowing parameters + up-flowing booleans is a very common hybrid.
+</p>
+<pre><code>boolean hasPathSum(TreeNode n, int target) {
+    if (n == null) return false;                     <span class="cmt">// empty path can't hit target</span>
+    if (n.left == null &amp;&amp; n.right == null)           <span class="cmt">// LEAF: the decision point</span>
+        return target == n.val;
+    return hasPathSum(n.left,  target - n.val)       <span class="cmt">// subtract me, ask the kids</span>
+        || hasPathSum(n.right, target - n.val);
+}</code></pre>
+
+<h3>Case: Path Sum II (LC 113) — collect the paths (backtracking)</h3>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; pathSum(TreeNode root, int target) {
+    List&lt;List&lt;Integer&gt;&gt; out = new ArrayList&lt;&gt;();
+    dfs(root, target, new ArrayList&lt;&gt;(), out);
+    return out;
+}
+void dfs(TreeNode n, int target, List&lt;Integer&gt; path, List&lt;List&lt;Integer&gt;&gt; out) {
+    if (n == null) return;
+    path.add(n.val);                                 <span class="cmt">// choose</span>
+    if (n.left == null &amp;&amp; n.right == null &amp;&amp; target == n.val)
+        out.add(new ArrayList&lt;&gt;(path));              <span class="cmt">// COPY — path keeps mutating</span>
+    else {
+        dfs(n.left,  target - n.val, path, out);     <span class="cmt">// explore</span>
+        dfs(n.right, target - n.val, path, out);
+    }
+    path.remove(path.size() - 1);                    <span class="cmt">// un-choose (backtrack)</span>
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Two classic Path Sum traps</span>
+  <strong>(1)</strong> Checking <code>target == 0</code> at a <em>null</em> node counts one-child nodes as path
+  ends — the check must live at a <strong>leaf</strong> (both children null). Values can be negative, so you can't
+  prune early either. <strong>(2)</strong> In 113, adding <code>path</code> itself (not a copy) to the output means
+  every stored "path" later mutates into an empty list.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Base case = empty tree, chosen so combine works unmodified.</strong> Depth 0, <code>true</code> for equality checks, <code>false</code> for path existence.</li>
+  <li><strong>Leaf vs. null:</strong> "root-to-leaf" problems must test <code>left == null &amp;&amp; right == null</code> — a null child is NOT a leaf.</li>
+  <li><strong>Negative values</strong> kill "stop when sum exceeds target" pruning — traverse fully.</li>
+  <li><strong>Diameter counts edges, not nodes</strong> — hence <code>l + r</code> with heights, no +1. Re-derive on a 3-node tree if unsure.</li>
+  <li><strong>O(n²) smell:</strong> a helper like <code>height()</code> called inside another recursion. Fold both facts into one return (poison value or small tuple class).</li>
+  <li><strong>Global fields need resetting</strong> if the judge reuses your object across tests — or wrap state in a one-element array passed down.</li>
+  <li><strong>Two-tree recursion:</strong> handle the (null, null) and (null, non-null) cases before touching <code>.val</code>.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Diameter (LC 543), a node has left-height 3 and right-height 4. What does it return upward, and why?</div>
+  <button class="opt">7 — the parent needs to know the longest path through this node</button>
+  <button class="opt">5 — a path continuing through the parent can extend only ONE of this node's arms</button>
+  <button class="opt">4 — heights propagate unchanged; only leaves add 1</button>
+  <div class="fb" data-correct="Return 1 + max(3,4) = 5. The 3+4 = 7 path already bends through this node — a path can't fork, so the parent can only extend one straight arm. 7 goes into the global best instead." data-wrong="Two different quantities: l + r = 7 is a completed-path candidate (record it globally); the upward return is a height, 1 + max(l, r) = 5, because the parent can extend only one arm."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why is "call <code>height()</code> at every node" O(n²) for Balanced (LC 110), and what fixes it?</div>
+  <button class="opt">Each height() call rescans a whole subtree, so nodes are recounted once per ancestor; fix: one recursion returning height with −1 as an "unbalanced" signal</button>
+  <button class="opt">height() allocates a new list per call, and garbage collection dominates; fix: reuse one shared list</button>
+  <button class="opt">It isn't O(n²) — height() memoizes internally, so the naive version is already optimal</button>
+  <div class="fb" data-correct="A node at depth d is rescanned by all d ancestors' height() calls — Θ(n²) on a skewed tree. Returning height-or-poison(-1) from a single post-order pass computes and checks in O(n)." data-wrong="No lists and no memoization are involved. The cost is repeated subtree scans: every ancestor re-measures the same nodes. Fuse measure + check into one recursion that returns height or −1."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Symmetric Tree (LC 101) reduces to a two-node helper <code>mirror(a, b)</code>. Which pair of recursive calls is correct?</div>
+  <button class="opt"><code>mirror(a.left, b.left)</code> and <code>mirror(a.right, b.right)</code></button>
+  <button class="opt"><code>mirror(a.left, a.right)</code> and <code>mirror(b.left, b.right)</code></button>
+  <button class="opt"><code>mirror(a.left, b.right)</code> and <code>mirror(a.right, b.left)</code></button>
+  <div class="fb" data-correct="Mirroring pairs outsides with outsides and insides with insides: a's left ↔ b's right, a's right ↔ b's left. Uncrossed calls test equality (LC 100), not symmetry." data-wrong="Think of a reflection: the outer edge of one side matches the outer edge of the other. The calls must CROSS — (a.left, b.right) and (a.right, b.left)."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/depth-of-binary-tree">NeetCode — Maximum Depth</a>, then <a href="https://neetcode.io/problems/binary-tree-diameter">NeetCode — Diameter of Binary Tree</a> for the return-vs-global distinction.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 104 (depth) → LC 226 (invert) → LC 100 (same) → LC 101 (symmetric) → LC 110 (balanced, one pass) → LC 543 (diameter) → LC 112 (path sum) → LC 113 (path sum II) → LC 111 (min depth — watch the one-child trap!). For each: write the base case and combine step on paper before typing.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Stuck picking a base case, unsure when you need a global variable versus a richer return type, or want me to
+  dry-run diameter on your own example? Ask in the chat. When you can state "answer(tree) = f(left, right, root)"
+  for all eight problems from memory, say <strong>"next"</strong> — LCA and Max Path Sum, where this template
+  earns hard-question money.
+</div>
+
+<div class="nav">
+  <span><a href="0002-iterative-traversals-and-level-order.html">← Iterative &amp; Level Order</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0004-lca-and-path-problems.html">LCA &amp; Path Problems →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<title>Symmetric-Key Distribution and Kerberos</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit III &middot; Lesson 18 of 19</p>
+<h1>Symmetric-Key Distribution and Kerberos</h1>
+<p class="deck">The key distribution problem, KDCs, the Needham&ndash;Schroeder protocol, Kerberos v5 with its three exchanges, and Diffie&ndash;Hellman key agreement &mdash; the two ways to establish a shared key.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Kerberos</strong> is a guaranteed 10-marker &mdash; draw the three exchanges (AS, TGS, application), label every message, and name the tickets. <strong>Diffie&ndash;Hellman</strong> may appear here or in Unit IV. Know the man-in-the-middle attack on DH.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Symmetric Key Distribution &amp; KDC Architecture</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLmAmHQ-_5ySx_dXmOwSuGGGyE8XsbYT0n" target="_blank">Symmetric Key Distribution: Key Distribution Center (KDC) &amp; Needham-Schroeder</a>
+    <span class="v-meta">Trouble-Free &middot; Videos #47&ndash;#49</span>
+    <div class="v-why">Explains why $N$ users require $\frac{N(N-1)}{2}$ pairwise keys without a KDC, how a KDC reduces this to $N$ keys, and the classic Needham-Schroeder protocol.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Kerberos v5 Protocol (AS, TGS, Service Server)</span>
+      <span class="best-tag">Top Exam Architecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=04ELM6ikuVE" target="_blank">What is Kerberos? Kerberos v4 vs Kerberos v5 Architecture</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 9:15</span>
+    <div class="v-why">High-scoring exam walkthrough of the three two-way exchanges: Authentication Service (Ticket Granting Ticket), Ticket Granting Service (Service Ticket), and Client-to-Server mutual authentication.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: KERBEROS 3-PHASE DANCE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Complete Kerberos Authentication Dance</span>
+  <div class="flow-col">
+    <!-- Phase 1 AS -->
+    <div class="flow-box highlight" style="min-width:24rem;">
+      <strong>Exchange 1 &middot; Authentication Server (AS) Exchange</strong>
+      <span class="sub">Client requests login &rarr; AS returns Ticket Granting Ticket (TGT) encrypted with TGS key, plus session key $K_{C, TGS}$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Client uses TGT to request application access</span>
+    
+    <!-- Phase 2 TGS -->
+    <div class="flow-box warn" style="min-width:24rem;">
+      <strong>Exchange 2 &middot; Ticket-Granting Server (TGS) Exchange</strong>
+      <span class="sub">Client sends TGT + Authenticator &rarr; TGS issues Service Ticket (ST) encrypted with Application Server key, plus $K_{C, V}$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Client presents Service Ticket to Server</span>
+    
+    <!-- Phase 3 Server -->
+    <div class="flow-box ok" style="min-width:24rem;">
+      <strong>Exchange 3 &middot; Client-to-Application Server Exchange</strong>
+      <span class="sub">Client sends Service Ticket + Authenticator &rarr; Server validates, decrypts, and confirms mutual identity</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>The key distribution problem</h2>
+
+<p>If two parties want to communicate with a symmetric cipher, they need a <strong>shared secret key</strong>. But how do they agree on one securely? The options are:</p>
+
+<ol>
+<li><strong>Physical delivery</strong> &mdash; meet in person or use a courier. Does not scale.</li>
+<li><strong>Key Distribution Centre (KDC)</strong> &mdash; a trusted third party that shares a master key with every user and generates session keys on demand.</li>
+<li><strong>Key agreement protocol</strong> (Diffie&ndash;Hellman) &mdash; the two parties negotiate a key over an insecure channel.</li>
+<li><strong>Public-key cryptography</strong> &mdash; encrypt the session key with the recipient&rsquo;s public key (Lesson&nbsp;19).</li>
+</ol>
+
+<h2>Key Distribution Centre (KDC)</h2>
+
+<p>Every user U shares a long-term master key K<sub>U</sub> with the KDC. When Alice wants to talk to Bob:</p>
+
+<div class="formula">
+  <span class="name">Basic KDC protocol</span>
+  1. Alice &rarr; KDC: &nbsp; &ldquo;I want to talk to Bob&rdquo; + nonce N<sub>1</sub><br>
+  2. KDC &rarr; Alice: &nbsp; E<sub>K<sub>A</sub></sub>( K<sub>s</sub> &Verbar; ID<sub>B</sub> &Verbar; N<sub>1</sub> &Verbar; E<sub>K<sub>B</sub></sub>(K<sub>s</sub> &Verbar; ID<sub>A</sub>) )<br>
+  3. Alice &rarr; Bob: &nbsp; E<sub>K<sub>B</sub></sub>(K<sub>s</sub> &Verbar; ID<sub>A</sub>) &nbsp; &larr; this is the <strong>ticket</strong><br>
+  4. Bob decrypts with K<sub>B</sub>, obtains K<sub>s</sub> and knows he is talking to Alice.
+</div>
+
+<h3>Needham&ndash;Schroeder protocol</h3>
+
+<p>An extension of the above with <strong>mutual authentication</strong> using nonces. Its weakness: if an old session key K<sub>s</sub> is compromised, an attacker can replay the ticket (step 3) and impersonate Alice. <strong>Fix: add timestamps</strong> (Denning&ndash;Sacco modification) or use Kerberos.</p>
+
+<h2>Kerberos (v5)</h2>
+
+<p>Kerberos is a <strong>network authentication protocol</strong> based on symmetric-key cryptography and a trusted third party. It uses <strong>tickets</strong> to prove identity without sending passwords over the network.</p>
+
+<h3>Components</h3>
+
+<ul>
+<li><strong>AS</strong> (Authentication Server) &mdash; verifies identity, issues a Ticket-Granting Ticket (TGT).</li>
+<li><strong>TGS</strong> (Ticket-Granting Server) &mdash; issues service tickets based on TGT.</li>
+<li><strong>Client</strong> &mdash; the user wanting access.</li>
+<li><strong>Application Server</strong> &mdash; the service being accessed.</li>
+</ul>
+
+<h3>The three exchanges</h3>
+
+<div class="formula">
+  <span class="name">Exchange 1 &mdash; Authentication Service (AS) Exchange</span>
+  1. Client &rarr; AS: &nbsp; ID<sub>C</sub> &Verbar; ID<sub>TGS</sub> &Verbar; TS<sub>1</sub><br>
+  2. AS &rarr; Client: &nbsp; E<sub>K<sub>C</sub></sub>( K<sub>C,TGS</sub> &Verbar; ID<sub>TGS</sub> &Verbar; TS<sub>2</sub> &Verbar; Lifetime &Verbar; TGT )<br>
+  &nbsp;&nbsp; where TGT = E<sub>K<sub>TGS</sub></sub>( K<sub>C,TGS</sub> &Verbar; ID<sub>C</sub> &Verbar; AD<sub>C</sub> &Verbar; TS<sub>2</sub> &Verbar; Lifetime )
+</div>
+
+<div class="formula">
+  <span class="name">Exchange 2 &mdash; Ticket-Granting Service (TGS) Exchange</span>
+  3. Client &rarr; TGS: &nbsp; ID<sub>V</sub> &Verbar; TGT &Verbar; Authenticator<sub>C</sub><br>
+  &nbsp;&nbsp; Authenticator<sub>C</sub> = E<sub>K<sub>C,TGS</sub></sub>( ID<sub>C</sub> &Verbar; AD<sub>C</sub> &Verbar; TS<sub>3</sub> )<br>
+  4. TGS &rarr; Client: &nbsp; E<sub>K<sub>C,TGS</sub></sub>( K<sub>C,V</sub> &Verbar; ID<sub>V</sub> &Verbar; TS<sub>4</sub> &Verbar; Ticket<sub>V</sub> )<br>
+  &nbsp;&nbsp; Ticket<sub>V</sub> = E<sub>K<sub>V</sub></sub>( K<sub>C,V</sub> &Verbar; ID<sub>C</sub> &Verbar; AD<sub>C</sub> &Verbar; TS<sub>4</sub> &Verbar; Lifetime )
+</div>
+
+<div class="formula">
+  <span class="name">Exchange 3 &mdash; Client/Server Authentication</span>
+  5. Client &rarr; V: &nbsp; Ticket<sub>V</sub> &Verbar; Authenticator<sub>C</sub>&prime;<br>
+  &nbsp;&nbsp; Authenticator<sub>C</sub>&prime; = E<sub>K<sub>C,V</sub></sub>( ID<sub>C</sub> &Verbar; AD<sub>C</sub> &Verbar; TS<sub>5</sub> )<br>
+  6. V &rarr; Client: &nbsp; E<sub>K<sub>C,V</sub></sub>( TS<sub>5</sub> + 1 ) &nbsp; (for mutual authentication)
+</div>
+
+<div class="box win">
+  <span class="lbl">What to remember for the exam</span>
+  <p><strong>The password is never sent over the network.</strong> The AS encrypts the response with K<sub>C</sub> = h(password). The TGT lets the client get service tickets without re-entering the password (single sign-on). <strong>Timestamps</strong> prevent replay attacks. <strong>Authenticators</strong> prove the client possesses K<sub>C,TGS</sub> or K<sub>C,V</sub>.</p>
+</div>
+
+<h2>Symmetric-key agreement &mdash; Diffie&ndash;Hellman</h2>
+
+<div class="formula">
+  <span class="name">Diffie&ndash;Hellman Key Exchange</span>
+  Public: prime p, generator g.<br>
+  Alice picks private a, sends A = g<sup>a</sup> mod p.<br>
+  Bob picks private b, sends B = g<sup>b</sup> mod p.<br>
+  Shared secret: K = B<sup>a</sup> mod p = A<sup>b</sup> mod p = g<sup>ab</sup> mod p.
+</div>
+
+<p><strong>Security rests on:</strong> the Discrete Logarithm Problem (DLP) &mdash; given g<sup>a</sup> mod p, finding a is computationally infeasible.</p>
+
+<div class="box exam">
+  <span class="lbl">The man-in-the-middle attack on DH</span>
+  <p>Mallory intercepts A and B, performs separate DH with Alice and Bob, establishing K<sub>AM</sub> and K<sub>MB</sub>. Neither Alice nor Bob detects this because <strong>DH provides no authentication</strong>. <strong>Defence:</strong> authenticate the public values with digital signatures or certificates (Station-to-Station protocol).</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In Kerberos, the TGT is encrypted with:</p>
+  <div class="opts">
+    <button class="opt">The client&rsquo;s public key</button>
+    <button class="opt" data-ok="1">The TGS&rsquo;s secret key K<sub>TGS</sub></button>
+    <button class="opt">The client&rsquo;s password</button>
+    <button class="opt">The application server&rsquo;s key</button>
+  </div>
+  <p class="why">The TGT is encrypted with K_TGS so only the TGS can read it. The outer envelope is encrypted with K_C so the client can extract the session key.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Kerberos achieves single sign-on because:</p>
+  <div class="opts">
+    <button class="opt">The password is stored on every server</button>
+    <button class="opt">Biometrics are used after the first login</button>
+    <button class="opt">The client stores all service keys locally</button>
+    <button class="opt" data-ok="1">The TGT lets the client get service tickets without re-entering the password</button>
+  </div>
+  <p class="why">After the initial AS exchange (where the password is used), the TGT serves as proof of identity for all subsequent TGS requests during its lifetime.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The Needham&ndash;Schroeder vulnerability is:</p>
+  <div class="opts">
+    <button class="opt">Nonces are predictable</button>
+    <button class="opt" data-ok="1">Replay of an old ticket if a session key is compromised</button>
+    <button class="opt">The KDC can be bypassed entirely</button>
+    <button class="opt">The protocol uses plaintext passwords</button>
+  </div>
+  <p class="why">If an old K_s is compromised, the ticket E_{K_B}(K_s, ID_A) can be replayed. Adding timestamps (Denning-Sacco) or using Kerberos fixes this.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Diffie&ndash;Hellman is vulnerable to:</p>
+  <div class="opts">
+    <button class="opt">Buffer overflow in the modular arithmetic</button>
+    <button class="opt">Brute-force attack on the shared secret</button>
+    <button class="opt" data-ok="1">Man-in-the-middle attack &mdash; because it provides no authentication</button>
+    <button class="opt">Dictionary attack on the generator</button>
+  </div>
+  <p class="why">DH establishes a shared secret but does NOT authenticate the parties. An active attacker can impersonate both sides.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. In Kerberos, an authenticator proves:</p>
+  <div class="opts">
+    <button class="opt">The client knows the TGS&rsquo;s secret key</button>
+    <button class="opt" data-ok="1">The client possesses the current session key &mdash; it is freshly encrypted with a timestamp</button>
+    <button class="opt">The client&rsquo;s biometric matches</button>
+    <button class="opt">The client has a valid certificate</button>
+  </div>
+  <p class="why">The authenticator = E_{K_session}(ID_C, timestamp). Only someone with K_session can create it, and the timestamp proves it is fresh.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The shared DH secret is computed as:</p>
+  <div class="opts">
+    <button class="opt">g<sup>a+b</sup> mod p</button>
+    <button class="opt">(a + b) mod p</button>
+    <button class="opt" data-ok="1">g<sup>ab</sup> mod p &mdash; both sides can compute it from the other&rsquo;s public value</button>
+    <button class="opt">g<sup>a</sup> &middot; g<sup>b</sup> mod p</button>
+  </div>
+  <p class="why">Alice computes B^a = (g^b)^a = g^{ab}. Bob computes A^b = (g^a)^b = g^{ab}. Same result.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Kerberos uses timestamps to prevent:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Replay attacks &mdash; old messages are rejected as expired</button>
+    <button class="opt">Social engineering</button>
+    <button class="opt">Man-in-the-middle attacks</button>
+    <button class="opt">Dictionary attacks</button>
+  </div>
+  <p class="why">Timestamps ensure freshness. A replayed message has an old timestamp and is rejected. This fixes the Needham-Schroeder vulnerability.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Draw the three Kerberos exchanges.</summary>
+    <p class="ans">1. Client &rarr; AS: ID_C. AS &rarr; Client: E_{K_C}(K_{C,TGS}, TGT). 2. Client &rarr; TGS: TGT + Authenticator. TGS &rarr; Client: E_{K_{C,TGS}}(K_{C,V}, Ticket_V). 3. Client &rarr; V: Ticket_V + Auth. V &rarr; Client: E_{K_{C,V}}(TS+1).</p></details>
+  <details class="card"><summary>Explain the DH man-in-the-middle attack.</summary>
+    <p class="ans">Mallory intercepts g^a and g^b, does DH with each side separately, getting K_AM and K_MB. Neither side knows they are talking to Mallory. Fix: authenticate public values with signatures.</p></details>
+  <details class="card"><summary>What is the Needham-Schroeder flaw?</summary>
+    <p class="ans">Old tickets can be replayed if the session key is compromised, because there are no timestamps to prove freshness. Fix: Denning-Sacco (add timestamps) or Kerberos.</p></details>
+  <details class="card"><summary>Why is the password never sent in Kerberos?</summary>
+    <p class="ans">The AS encrypts the reply with K_C = h(password). Only the real user can decrypt it. The password itself never leaves the client machine.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0017-biometrics.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0019-public-key-distribution-and-hijacking.html">Next: Public-Key Distribution &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtracking Lesson 03 — Grid &amp; Constraint Puzzles</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Backtracking Track · Lesson 3 of 3 · Word Search, N-Queens, Sudoku + cheat sheet</div>
+<h1>Grid &amp; Constraint Puzzles</h1>
+<p class="subtitle">When the state you mutate is the board itself: mark a cell, place a queen, pencil in a digit — explore — then erase. Plus the line between "TLE" and "accepted": pruning, and knowing when backtracking is secretly DP.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Word Search and N-Queens are canonical onsite questions; Sudoku Solver is the classic
+  "can you code under pressure" screen. This is the final lesson of the 3-lesson backtracking track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+So far <code>path</code> was a private list. In puzzles, the shared mutable state is the <strong>input structure
+itself</strong>: choose = write into the board (mark a visited cell, place a <code>'Q'</code>, fill a digit), explore =
+recurse, unchoose = <strong>erase your write</strong>. Two upgrades make these pass instead of TLE:
+(1) <strong>check constraints before recursing</strong>, never generate-then-validate at the leaves; and
+(2) make each check <strong>O(1)</strong> by maintaining occupancy sets/arrays (columns, diagonals, rows/boxes)
+alongside the board instead of rescanning it.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Does this word exist in the grid" (path through adjacent cells, no cell reused), "place n things so none attack /
+  conflict," "fill the board so every row/column/region is valid." The state is 2-D, moves are local, and a placement
+  can invalidate later placements — that feedback loop (place → maybe dead end → undo) is backtracking's home turf.
+</div>
+
+<h2>2 · Core template — Word Search (LC 79)</h2>
+<p>
+DFS from every cell; consume one matching character per step; mark the current cell in-place so the path can't reuse
+it; restore it on the way out. The board <em>is</em> the visited set.
+</p>
+<pre><code>boolean exist(char[][] board, String word) {
+    for (int r = 0; r &lt; board.length; r++)
+        for (int c = 0; c &lt; board[0].length; c++)
+            if (dfs(board, word, r, c, 0)) return true;   <span class="cmt">// try every start cell</span>
+    return false;
+}
+
+boolean dfs(char[][] b, String w, int r, int c, int i) {
+    if (i == w.length()) return true;     <span class="cmt">// consumed the whole word → found</span>
+    if (r &lt; 0 || c &lt; 0 || r &gt;= b.length || c &gt;= b[0].length
+        || b[r][c] != w.charAt(i))        <span class="cmt">// out of bounds, wrong char, or '#' (visited)</span>
+        return false;
+    char saved = b[r][c];
+    b[r][c] = '#';                        <span class="cmt">// CHOOSE: mark in place — no separate visited[][]</span>
+    boolean found = dfs(b, w, r + 1, c, i + 1) || dfs(b, w, r - 1, c, i + 1)
+                 || dfs(b, w, r, c + 1, i + 1) || dfs(b, w, r, c - 1, i + 1);
+    b[r][c] = saved;                      <span class="cmt">// UNCHOOSE: ALWAYS restore, found or not</span>
+    return found;
+}</code></pre>
+<p>
+<strong>Time</strong> O(m·n·3<sup>L</sup>) — m·n starts, and after the first step each cell has at most 3 unvisited
+neighbors (you can't go back where you came from), depth L = word length. <strong>Space</strong> O(L) recursion.
+Note the short-circuit <code>||</code>: the first successful direction stops the rest — free pruning.
+</p>
+
+<div class="callout trap">
+  <span class="label">The unmark bug</span>
+  If you restore the cell only on failure (or forget it inside an early <code>return</code>), later searches see a
+  board littered with <code>'#'</code> and miss real answers. Structure the code so the restore line is
+  <em>unconditionally</em> after the recursive calls — like above — and it can't be skipped.
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Path in a grid</td><td>LC 79</td><td>Core template: in-place mark <code>'#'</code>, 4-direction DFS, restore after.</td></tr>
+    <tr><td>Place n non-attacking pieces</td><td>LC 51</td><td>One queen per row; O(1) safety via <code>cols</code> / <code>r−c</code> / <code>r+c</code> occupancy arrays.</td></tr>
+    <tr><td>Fill a constrained board</td><td>LC 37</td><td>Find next empty cell, try digits 1–9, recurse; <strong>return true to stop at the first solution</strong>.</td></tr>
+    <tr><td>Backtracking that's really DP</td><td>LC 139</td><td>Question asks a boolean, subproblems (suffixes) repeat → memoize = top-down DP.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: N-Queens — column &amp; diagonal sets (LC 51)</h3>
+<p>
+Key modeling move: exactly one queen per row, so recurse <strong>row by row</strong> and only choose the column.
+Geometry fact: cells on the same "\" diagonal share <code>r − c</code>; cells on the same "/" diagonal share
+<code>r + c</code>. Three boolean arrays make "is this square attacked?" O(1) — no board scanning.
+</p>
+<pre><code>List&lt;List&lt;String&gt;&gt; res = new ArrayList&lt;&gt;();
+boolean[] cols, d1, d2;                   <span class="cmt">// d1: r-c (offset by n-1), d2: r+c</span>
+int[] queenCol;                           <span class="cmt">// queenCol[r] = chosen column in row r</span>
+
+List&lt;List&lt;String&gt;&gt; solveNQueens(int n) {
+    cols = new boolean[n];
+    d1 = new boolean[2 * n - 1];
+    d2 = new boolean[2 * n - 1];
+    queenCol = new int[n];
+    bt(0, n);
+    return res;
+}
+void bt(int r, int n) {
+    if (r == n) { res.add(build(n)); return; }        <span class="cmt">// all n rows filled → solution</span>
+    for (int c = 0; c &lt; n; c++) {
+        if (cols[c] || d1[r - c + n - 1] || d2[r + c]) continue; <span class="cmt">// attacked → prune, O(1)</span>
+        cols[c] = d1[r - c + n - 1] = d2[r + c] = true;          <span class="cmt">// CHOOSE: occupy 3 lines</span>
+        queenCol[r] = c;
+        bt(r + 1, n);                                            <span class="cmt">// EXPLORE next row</span>
+        cols[c] = d1[r - c + n - 1] = d2[r + c] = false;         <span class="cmt">// UNCHOOSE: free all 3</span>
+    }
+}
+List&lt;String&gt; build(int n) {               <span class="cmt">// render queenCol[] as the board strings</span>
+    List&lt;String&gt; rows = new ArrayList&lt;&gt;();
+    for (int r = 0; r &lt; n; r++) {
+        char[] row = new char[n];
+        Arrays.fill(row, '.');
+        row[queenCol[r]] = 'Q';
+        rows.add(new String(row));
+    }
+    return rows;
+}</code></pre>
+<p><strong>Time</strong> O(n!) branch bound (row r has ≤ n−r safe columns), each solution rendered in O(n²). <strong>Space</strong> O(n). LC 52 (N-Queens II) is this code with a counter instead of <code>build()</code>.</p>
+
+<h3>Case: Sudoku Solver — find one solution and stop (LC 37)</h3>
+<p>
+New wrinkle: you don't want <em>all</em> solutions, just one. So the recursion returns <code>boolean</code> and
+<strong>success propagates up immediately</strong> — a <code>true</code> from below means "don't undo, don't try more
+digits, we're done."
+</p>
+<pre><code>boolean solve(char[][] b) {
+    for (int r = 0; r &lt; 9; r++)
+        for (int c = 0; c &lt; 9; c++) {
+            if (b[r][c] != '.') continue;             <span class="cmt">// find the next empty cell</span>
+            for (char d = '1'; d &lt;= '9'; d++) {
+                if (!ok(b, r, c, d)) continue;        <span class="cmt">// prune before recursing</span>
+                b[r][c] = d;                          <span class="cmt">// CHOOSE</span>
+                if (solve(b)) return true;            <span class="cmt">// solved below → LEAVE d in place, bubble up</span>
+                b[r][c] = '.';                        <span class="cmt">// UNCHOOSE only on failure</span>
+            }
+            return false;                             <span class="cmt">// empty cell, no digit fits → dead branch</span>
+        }
+    return true;                                      <span class="cmt">// no empty cell left → board solved</span>
+}
+boolean ok(char[][] b, int r, int c, char d) {
+    for (int i = 0; i &lt; 9; i++) {
+        if (b[r][i] == d || b[i][c] == d) return false;          <span class="cmt">// row + column</span>
+        if (b[3 * (r / 3) + i / 3][3 * (c / 3) + i % 3] == d)    <span class="cmt">// 3×3 box</span>
+            return false;
+    }
+    return true;
+}</code></pre>
+<p>
+<strong>Time</strong> O(9<sup>E</sup>) worst case over E empty cells — fine for a fixed 9×9; say "bounded exponential,
+heavily pruned in practice." <strong>Space</strong> O(E) recursion. Speed-up worth mentioning: keep
+<code>boolean[9][9] rowHas/colHas/boxHas</code> (or int bitmasks) so <code>ok()</code> becomes O(1), exactly the
+N-Queens trick.
+</p>
+<div class="callout trap">
+  <span class="label">The two Sudoku bugs everyone writes</span>
+  <strong>(1) Not returning after success:</strong> if you recurse without <code>if (solve(b)) return true;</code>,
+  the unwind erases the solved board. Success must skip the unchoose. <strong>(2) Missing the
+  <code>return false</code> after the digit loop:</strong> an empty cell where nothing fits must fail the branch —
+  falling through to the next cell "solves" an unsolvable board.
+</div>
+
+<h2>4 · Pruning: the difference between TLE and pass</h2>
+<p>
+All three problems above are exponential <em>in theory</em>; they pass because invalid branches die at birth.
+The hierarchy, weakest to strongest:
+</p>
+<ul>
+  <li><strong>Generate-then-validate (never do this):</strong> build every complete candidate, test at the leaf. Generate Parentheses this way is 2<sup>2n</sup> instead of Catalan; N-Queens becomes n<sup>n</sup>.</li>
+  <li><strong>Check before recursing:</strong> the <code>if (!ok(...)) continue;</code> guard. Kills a whole subtree per rejected choice. This is the default you should always write.</li>
+  <li><strong>O(1) checks via auxiliary state:</strong> occupancy arrays (N-Queens <code>cols/d1/d2</code>, Sudoku bitmasks). Same tree, each node 10–100× cheaper.</li>
+  <li><strong>Feasibility bounds:</strong> "can the remainder even work?" — LC 93's remaining-length check, LC 77's <code>n − (k − size) + 1</code> loop bound, LC 39's sorted <code>break</code>. These skip branches that are legal <em>now</em> but doomed <em>later</em>.</li>
+</ul>
+<p>In an interview, narrate the prune as you write it — pruning insight is what's actually being graded on these questions.</p>
+
+<h2>5 · When backtracking is really DP in disguise</h2>
+<p>
+Word Break (LC 139): "can <code>s</code> be split into dictionary words?" The natural code is Palindrome-Partitioning
+backtracking that returns a boolean. It TLEs on inputs like <code>"aaaa…b"</code> — because the subproblem
+"can the suffix starting at <code>start</code> be split?" is recomputed exponentially many times. But that subproblem
+depends only on <code>start</code>: <strong>n distinct states</strong>. Memoize and it collapses to O(n²)-ish:
+</p>
+<pre><code>Boolean[] memo;                           <span class="cmt">// memo[start]: can s[start..] be segmented?</span>
+boolean wordBreak(String s, List&lt;String&gt; dict) {
+    memo = new Boolean[s.length()];
+    return bt(s, 0, new HashSet&lt;&gt;(dict));
+}
+boolean bt(String s, int start, Set&lt;String&gt; dict) {
+    if (start == s.length()) return true;
+    if (memo[start] != null) return memo[start];      <span class="cmt">// seen this suffix → reuse</span>
+    for (int end = start + 1; end &lt;= s.length(); end++)
+        if (dict.contains(s.substring(start, end)) &amp;&amp; bt(s, end, dict))
+            return memo[start] = true;
+    return memo[start] = false;                       <span class="cmt">// cache failures too — that's the speedup</span>
+}</code></pre>
+<p>
+The litmus test: if the question asks for <strong>all solutions</strong>, the output is exponential and backtracking is
+correct as-is (memoizing can't help — LC 131, 46, 51). If it asks for a <strong>boolean, a count, or a best value</strong>,
+and your recursion's state is a small tuple (an index, a remaining amount), the subproblems overlap → memoize →
+you're doing top-down DP. Backtracking explores a tree; DP notices the tree keeps revisiting the same nodes and
+collapses it into a DAG.
+</p>
+
+<h2>6 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Restore in-place marks unconditionally</strong> (LC 79). Put the restore after the recursion block, never inside a conditional or before an early return path.</li>
+  <li><strong>1×1 board, word longer than cell count, first char mismatch everywhere</strong> — the bounds/char guard at the top of <code>dfs</code> handles all of these; keep it as the first lines.</li>
+  <li><strong>Diagonal indexing:</strong> <code>r − c</code> ranges over negative values — offset by <code>n − 1</code>; both diagonal arrays have size <code>2n − 1</code>. An <code>ArrayIndexOutOfBounds</code> here means you forgot the offset.</li>
+  <li><strong>Stop-at-first vs collect-all:</strong> boolean-returning recursion with <code>if (rec()) return true;</code> for one solution (LC 37, 79); void recursion that records and keeps going for all solutions (LC 51). Mixing the two either misses answers or destroys the found one.</li>
+  <li><strong>Sudoku's <code>return false</code></strong> after trying all digits on an empty cell — omitting it silently skips unsolvable cells.</li>
+  <li><strong>n = 1 N-Queens is solvable</strong> (answer <code>["Q"]</code>); n = 2, 3 have zero solutions — an empty result list is valid output, not a bug.</li>
+  <li><strong>Before memoizing, confirm the state is self-contained:</strong> memo keyed by <code>start</code> is only valid if the answer for that suffix doesn't depend on the path taken to reach it. True in Word Break; false in Word Search (the visited cells differ per path) — which is why LC 79 can't be memoized.</li>
+</ul>
+
+<h2>7 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Word Search, why must <code>b[r][c]</code> be restored even when the branch <em>failed</em>?</div>
+  <button class="opt">Because Java strings are immutable, so the board must be rebuilt before returning</button>
+  <button class="opt">Because the same cell can legitimately appear in a different path — from another starting cell or another branch — and a leftover <code>'#'</code> would block it</button>
+  <button class="opt">It doesn't need to be — restoring is only required when the word was found</button>
+  <div class="fb" data-correct="Right. 'Visited' is a property of the CURRENT path only. Once this path abandons the cell, other paths (other starts, other directions) may still need it. Failure to restore corrupts every later search." data-wrong="The mark means 'used by the current path', not 'used forever'. After this branch unwinds — success or failure — other paths may pass through that cell, so the restore is unconditional."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In N-Queens, which quantity is shared by all cells on the same "/" (anti-)diagonal, making an O(1) occupancy check possible?</div>
+  <button class="opt"><code>r + c</code> is constant along a "/" diagonal, and <code>r − c</code> along a "\" diagonal</button>
+  <button class="opt"><code>r × c</code> is constant along both kinds of diagonal</button>
+  <button class="opt"><code>|r − c|</code> is constant along a "/" diagonal, and <code>r + c</code> along a "\" diagonal</button>
+  <div class="fb" data-correct="Yes — moving down-left along '/' adds 1 to r and subtracts 1 from c, so r + c holds. Index d2[r + c], and d1[r − c + n − 1] for the '\' family (offset to stay non-negative)." data-wrong="Walk one step along '/': r increases by 1, c decreases by 1 — the invariant sum is r + c. Along '\' both increase, so the difference r − c is invariant (offset by n − 1 to index an array)."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Your Word Break backtracking solution TLEs. What property of the problem tells you memoization will fix it?</div>
+  <button class="opt">The dictionary is small, so a HashSet lookup makes each branch O(1)</button>
+  <button class="opt">The answer only needs one valid split, so you can return after the first success</button>
+  <button class="opt">The answer for "the suffix starting at index i" is the same no matter which choices produced i, and it's asked for a boolean — overlapping, path-independent subproblems</button>
+  <div class="fb" data-correct="Exactly — the state collapses to a single index with a path-independent answer, and the question wants a boolean, not all splits. n states × O(n) work each ≈ O(n²): backtracking that memoizes IS top-down DP." data-wrong="Early return and fast lookups don't remove the exponential re-exploration of the same suffixes. The fix is that suffix i's answer is path-independent and boolean — cache it once, and the tree collapses to n states."></div>
+</div>
+
+<h2>8 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/search-for-word">NeetCode — Word Search</a> and <a href="https://neetcode.io/problems/n-queens">NeetCode — N-Queens</a>; both draw the tree and the prunes on screen.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 79 (core: mark/unmark) → LC 51 (row-by-row + 3 sets) → LC 52 (same, count only) → LC 37 (boolean propagation) → LC 139 (feel the TLE, then memoize — your bridge to the DP track) → stretch: LC 212 (Word Search II, grid DFS + a Trie, revisit after the Trie track).</li>
+</ul>
+
+<h2>9 · Backtracking cheat sheet</h2>
+<p>The whole track on one card. Print it (the page strips chrome when printed) and rebuild each row from memory before your OA.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Subsets</td><td>"all subsets", n ≤ 20</td><td>record every node; loop from <code>start</code>, recurse <code>i+1</code></td><td>O(n·2ⁿ)</td><td>78</td></tr>
+    <tr><td>Subsets + dups</td><td>input has duplicates</td><td>sort + <code>if (i&gt;start &amp;&amp; a[i]==a[i-1]) continue;</code></td><td>O(n·2ⁿ)</td><td>90</td></tr>
+    <tr><td>Permutations</td><td>"all orderings", n ≤ 10</td><td><code>used[]</code> over all indices; record at full length</td><td>O(n·n!)</td><td>46</td></tr>
+    <tr><td>Permutations + dups</td><td>orderings, dup values</td><td>sort + skip <code>a[i]==a[i-1] &amp;&amp; !used[i-1]</code></td><td>O(n·n!)</td><td>47</td></tr>
+    <tr><td>Combinations</td><td>"choose k of n"</td><td>subsets + record only at <code>size==k</code>; bound the loop</td><td>O(k·C(n,k))</td><td>77</td></tr>
+    <tr><td>Comb. sum, reuse</td><td>sum to target, reuse OK</td><td>recurse with <code>i</code>; sorted <code>break</code> when <code>cand[i]&gt;remain</code></td><td>O(n^(t/min))</td><td>39</td></tr>
+    <tr><td>Comb. sum, use once</td><td>sum to target, no reuse</td><td>recurse <code>i+1</code> + dedup-skip idiom</td><td>O(2ⁿ)</td><td>40</td></tr>
+    <tr><td>Valid parens</td><td>"all valid sequences"</td><td>gate choices: <code>open&lt;n</code>, <code>close&lt;open</code></td><td>O(4ⁿ/√n)</td><td>22</td></tr>
+    <tr><td>Keypad strings</td><td>choice-set per position</td><td>depth = position; loop that digit's letters</td><td>O(n·4ⁿ)</td><td>17</td></tr>
+    <tr><td>Palindrome split</td><td>"partition into valid pieces"</td><td>choice = next chunk; recurse from <code>end+1</code> if palindrome</td><td>O(n·2ⁿ)</td><td>131</td></tr>
+    <tr><td>Restore IPs</td><td>split with strict chunk rules</td><td>chunks len 1–3, ≤255, no leading 0, exactly 4 parts</td><td>O(3⁴)</td><td>93</td></tr>
+    <tr><td>Grid word path</td><td>word in grid, no cell reuse</td><td>mark <code>'#'</code> → 4-dir DFS → restore unconditionally</td><td>O(mn·3ᴸ)</td><td>79</td></tr>
+    <tr><td>N-Queens</td><td>non-attacking placement</td><td>row by row; O(1) check via <code>cols</code>, <code>r−c</code>, <code>r+c</code> sets</td><td>O(n!)</td><td>51</td></tr>
+    <tr><td>Sudoku</td><td>fill board, one solution</td><td>boolean recursion; <code>if (solve()) return true;</code> undo on fail only</td><td>O(9ᴱ)</td><td>37</td></tr>
+    <tr><td>DP in disguise</td><td>boolean/count/best, index state</td><td>same recursion + <code>memo[start]</code> → top-down DP</td><td>~O(n²)</td><td>139</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the Sudoku bitmask version, a dry run of N-Queens on n = 4, or to argue about whether a problem is
+  enumerate-all (backtrack) or count/boolean (memoize)? Ask in the chat. When the cheat sheet rows come out of your
+  head unprompted, say <strong>"next"</strong> — the Monotonic Stack track is up.
+</div>
+
+<div class="nav">
+  <span><a href="0002-combination-sum-and-strings.html">← Combination Sum &amp; Strings</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../monotonic-stack-lessons/0001-next-greater-family.html">Monotonic Stack →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 10 - Immutability, Records &amp; Value Objects | OOPS Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">OOPS · Advanced Foundations · Lesson 10 of 15 · Defensive Copying, Records, Value Objects</div>
+  
+  <h1>Immutability, Java Records &amp; Value Objects</h1>
+  <p class="subtitle">Designing unbreakable thread-safe domain models using mathematical value semantics.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Advanced OOP Internals</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>An <strong>Immutable Object</strong> is an object whose internal state cannot be modified after it is constructed. Immutable objects are inherently <strong>thread-safe</strong>, require zero locking mechanisms, can be shared freely across threads without defensive copying, and can be safely used as HashMap keys without hashing corruption bugs.</p>
+
+  <h2>2 · The 5 Strict Rules to Create an Immutable Class in Java</h2>
+  <ol>
+    <li>Declare the class as <code>final</code> (prevents subclasses from overriding methods and introducing mutable state).</li>
+    <li>Make all fields <code>private</code> and <code>final</code>.</li>
+    <li>Do not provide any <code>setter</code> or mutator methods.</li>
+    <li>If fields reference mutable objects (e.g. <code>Date</code>, <code>List</code>, arrays), perform <strong>Defensive Copying</strong> in the constructor!</li>
+    <li>Perform <strong>Defensive Copying</strong> in getter methods to return fresh cloned copies!</li>
+  </ol>
+
+  <pre><code>import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public final class ImmutableOrder {
+    private final String orderId;
+    private final List&lt;String&gt; items;
+
+    public ImmutableOrder(String orderId, List&lt;String&gt; items) {
+        this.orderId = orderId;
+        <span class="cmt">// Defensive copy: prevents caller from modifying internal list afterward!</span>
+        this.items = new ArrayList&lt;&gt;(items);
+    }
+
+    public String getOrderId() { return orderId; }
+
+    public List&lt;String&gt; getItems() {
+        <span class="cmt">// Return unmodifiable view or fresh clone</span>
+        return Collections.unmodifiableList(items);
+    }
+}</code></pre>
+
+  <h2>3 · Modern Java 14+ Records (First-Class Value Objects)</h2>
+  <p>Java <code>record</code> eliminates 50 lines of boilerplate constructors, getters, <code>equals()</code>, <code>hashCode()</code>, and <code>toString()</code>:</p>
+  <pre><code><span class="cmt">// Entire immutable value class defined in 1 line!</span>
+public record Money(double amount, String currency) {
+    <span class="cmt">// Compact constructor for business invariant validation</span>
+    public Money {
+        if (amount &lt; 0) throw new IllegalArgumentException("Amount cannot be negative");
+        if (currency == null || currency.isBlank()) throw new IllegalArgumentException("Invalid currency");
+    }
+}</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do you write reusable, type-safe collections and classes? Next: Generics, Type Erasure &amp; The PECS Rule.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0009-java-memory-model-and-gc.html">← Previous: Java Memory &amp; GC</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0011-generics-type-erasure-and-pecs.html">Next: Generics &amp; The PECS Rule →</a>
+  </div>
+</body>
+</html>

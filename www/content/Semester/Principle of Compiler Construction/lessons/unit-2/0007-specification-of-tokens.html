@@ -1,0 +1,415 @@
+<title>Specification of Tokens</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit II &middot; Lesson 7 of 10</p>
+<h1>Specification of Tokens</h1>
+<p class="deck">Alphabets, strings and languages with the counting formulas, the four operations on languages, regular expressions with their precedence and algebraic laws, regular definitions for real tokens, and ten worked &ldquo;write the regular expression&rdquo; problems.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three question shapes, all mechanical. <strong>&ldquo;Write a regular expression for &hellip;&rdquo;</strong> &mdash; ten worked below, and the patterns repeat; learn the four templates in the box before them. <strong>&ldquo;Give the regular definition for identifiers and numbers&rdquo;</strong> &mdash; write it exactly as Aho does, since that is what the examiner has in front of him. <strong>&ldquo;Define alphabet, string, language, prefix, suffix, substring&rdquo;</strong> &mdash; a 5-mark definitions question, with the <strong>counting formulas</strong> as a likely objective follow-up. Everything here feeds Lesson 8, where these expressions become automata.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Specification of Tokens &amp; Regular Definitions</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=9DS0FFb18_E" target="_blank">Specification of Tokens || Regular Expression || Language || Strings || Alphabets</a>
+    <span class="v-meta">Sundeep Saradhi Kanthety &middot; 26:24</span>
+    <div class="v-why">Comprehensive coverage of alphabets, prefix/suffix string operations, language counting formulas, and standard regular definitions for identifiers and numbers.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Regular Expressions Formalism (Hindi)</span>
+      <span class="best-tag">Top Exam Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=rjG5LwbqAp4" target="_blank">Lec-29: Regular Expressions in TOC with examples | Formal Definition</a>
+    <span class="v-meta">Gate Smashers &middot; 9:59</span>
+    <div class="v-why">Varun Singla breaks down regular expression algebraic laws, operator precedence (* over &middot; over |), and exam pattern construction.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: LANGUAGE FORMALISM HIERARCHY -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Theoretical Hierarchy: From Alphabets to Token Specifications</span>
+  
+  <div class="flow-col">
+    <div class="flow-box">
+      <strong>1. ALPHABET (&Sigma;)</strong>
+      <span class="sub">Finite set of symbols &middot; e.g. <code>{a, b}</code> or ASCII</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Finite sequences of symbols</span>
+    
+    <div class="flow-box">
+      <strong>2. STRING (s) &amp; LANGUAGE (L)</strong>
+      <span class="sub">Set of strings over &Sigma; &middot; Countable language set</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Defined mathematically using</span>
+    
+    <div class="flow-box highlight">
+      <strong>3. REGULAR EXPRESSIONS (r)</strong>
+      <span class="sub">Concatenation, Alternation (|), Kleene Closure (*)</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Named shorthand definitions</span>
+    
+    <div class="flow-box ok">
+      <strong>4. REGULAR DEFINITIONS &amp; TOKENS</strong>
+      <span class="sub"><code>digit &rarr; [0-9]</code>, <code>id &rarr; letter(letter|digit)*</code></span>
+    </div>
+  </div>
+</div>
+
+<h2>Alphabets, strings and languages</h2>
+
+<div class="formula">
+  <span class="name">The three definitions</span>
+  An <strong>ALPHABET</strong>, written <strong>&Sigma;</strong>, is any <strong>finite set of symbols</strong>. Examples: {0, 1} the binary alphabet; the set of letters; ASCII; Unicode.<br><br>
+  A <strong>STRING</strong> over an alphabet is a <strong>finite sequence of symbols</strong> drawn from that alphabet. Also called a <em>sentence</em> or <em>word</em>. Its <strong>length |s|</strong> is the number of occurrences of symbols in it. The <strong>empty string &epsilon;</strong> has length 0.<br><br>
+  A <strong>LANGUAGE</strong> is any <strong>countable set of strings</strong> over some fixed alphabet. This is a very broad definition: <strong>&empty;</strong> (the empty set) and <strong>{&epsilon;}</strong> (the set containing only the empty string) are both languages &mdash; and they are <strong>different</strong>.
+</div>
+
+<div class="box">
+  <span class="lbl">The distinction that appears in objective questions</span>
+  <p><strong>&empty; &ne; {&epsilon;}.</strong> The empty <em>set</em> contains no strings at all, so |&empty;| = 0. The set <em>containing</em> the empty string contains exactly one string, so |{&epsilon;}| = 1. Similarly <strong>&epsilon; is a string, not a symbol</strong>, and it is never a member of the alphabet.</p>
+</div>
+
+<h3>Parts of a string</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Definition</th><th>Examples for <code>banana</code></th></tr></thead>
+<tbody>
+<tr><td><strong>Prefix</strong></td><td>Any string obtained by <strong>removing zero or more symbols from the END</strong></td><td><code>ban</code>, <code>banana</code>, <code>&epsilon;</code></td></tr>
+<tr><td><strong>Suffix</strong></td><td>Any string obtained by <strong>removing zero or more symbols from the BEGINNING</strong></td><td><code>nana</code>, <code>banana</code>, <code>&epsilon;</code></td></tr>
+<tr><td><strong>Substring</strong></td><td>Obtained by <strong>deleting any prefix and any suffix</strong> &mdash; the symbols must be <strong>contiguous</strong></td><td><code>nan</code>, <code>ban</code>, <code>&epsilon;</code>, <code>banana</code></td></tr>
+<tr><td><strong>Subsequence</strong></td><td>Obtained by <strong>deleting zero or more, not necessarily consecutive, symbols</strong> &mdash; order is kept, contiguity is not required</td><td><code>baan</code>, <code>bnn</code>, <code>aaa</code></td></tr>
+<tr><td><strong>Proper</strong> prefix / suffix / substring</td><td>One that is <strong>neither &epsilon; nor equal to the whole string</strong></td><td><code>ban</code> is proper; <code>banana</code> and <code>&epsilon;</code> are not</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; the counting formulas, for a string of length n.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Quantity</th><th>Formula</th><th>For <code>banana</code>, n = 6</th></tr></thead>
+  <tbody>
+  <tr><td>Prefixes (including &epsilon; and the whole string)</td><td><strong>n + 1</strong></td><td class="num">7</td></tr>
+  <tr><td><strong>Proper</strong> prefixes</td><td><strong>n &minus; 1</strong></td><td class="num">5</td></tr>
+  <tr><td>Suffixes (including &epsilon; and the whole string)</td><td><strong>n + 1</strong></td><td class="num">7</td></tr>
+  <tr><td><strong>Proper</strong> suffixes</td><td><strong>n &minus; 1</strong></td><td class="num">5</td></tr>
+  <tr><td>Non-empty substrings, <strong>counted by position</strong></td><td><strong>n(n + 1) / 2</strong></td><td class="num">21</td></tr>
+  <tr><td>Substrings including &epsilon;, by position</td><td><strong>n(n + 1)/2 + 1</strong></td><td class="num">22</td></tr>
+  <tr><td>Subsequences, by position</td><td><strong>2<sup>n</sup></strong></td><td class="num">64</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>Why n(n+1)/2:</em> a substring is fixed by choosing a start position i and an end position j with i &le; j, and the number of such pairs from n positions is <strong>C(n,2) + n = n(n+1)/2</strong>.</p>
+  <p><strong>The trap:</strong> these count substrings <em>by position</em>, not <em>distinct</em> substrings. <code>banana</code> has 21 substrings by position but only <strong>15 distinct</strong> ones, because <code>a</code>, <code>na</code>, <code>an</code>, <code>ana</code>, <code>nan</code> and others repeat. <strong>Read whether the question says &ldquo;distinct&rdquo;.</strong></p>
+</div>
+
+<h2>Operations on languages</h2>
+
+<div class="formula">
+  <span class="name">The four operations</span>
+  For languages L and M:<br><br>
+  <strong>UNION</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <strong>L &cup; M = { s | s is in L or s is in M }</strong><br>
+  <strong>CONCATENATION</strong> &nbsp; <strong>LM = { st | s is in L and t is in M }</strong><br>
+  <strong>KLEENE CLOSURE</strong> &nbsp;&nbsp; <strong>L* = &cup;<sub>i=0</sub><sup>&infin;</sup> L<sup>i</sup></strong> &mdash; zero or more concatenations of L. <strong>Always contains &epsilon;</strong>, since L<sup>0</sup> = {&epsilon;}<br>
+  <strong>POSITIVE CLOSURE</strong> &nbsp; <strong>L<sup>+</sup> = &cup;<sub>i=1</sub><sup>&infin;</sup> L<sup>i</sup></strong> &mdash; <strong>one</strong> or more. <strong>Excludes &epsilon;</strong> unless &epsilon; is already in L<br><br>
+  <em>Relationships:</em> &nbsp; <strong>L* = L<sup>+</sup> &cup; {&epsilon;}</strong> &nbsp;&nbsp; and &nbsp;&nbsp; <strong>L<sup>+</sup> = L L* = L* L</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked. Let L = {A, B, &hellip;, Z, a, &hellip;, z} (52 letters) and D = {0, 1, &hellip;, 9} (10 digits). Describe each expression and give its size where finite.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Expression</th><th>Meaning</th><th class="num">Size</th></tr></thead>
+  <tbody>
+  <tr><td><strong>L &cup; D</strong></td><td>The set of letters <em>and</em> digits &mdash; 62 single-character strings</td><td class="num">62</td></tr>
+  <tr><td><strong>LD</strong></td><td>Strings of <strong>a letter followed by a digit</strong></td><td class="num">52 &times; 10 = <strong>520</strong></td></tr>
+  <tr><td><strong>L<sup>4</sup></strong></td><td>All <strong>four-letter</strong> strings</td><td class="num">52<sup>4</sup> = <strong>7,311,616</strong></td></tr>
+  <tr><td><strong>L*</strong></td><td>All strings of letters, <strong>including &epsilon;</strong></td><td class="num">Infinite</td></tr>
+  <tr><td><strong>L(L &cup; D)*</strong></td><td>All strings of letters and digits <strong>beginning with a letter</strong> &mdash; <strong>this is exactly the set of identifiers</strong></td><td class="num">Infinite</td></tr>
+  <tr><td><strong>D<sup>+</sup></strong></td><td>All strings of <strong>one or more</strong> digits &mdash; the unsigned integers</td><td class="num">Infinite</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>The fifth row is the whole reason this machinery exists</strong> &mdash; it is the pattern for an identifier, written entirely in terms of set operations.</p>
+</div>
+
+<h2>Regular expressions</h2>
+
+<div class="formula">
+  <span class="name">The inductive definition &mdash; write both parts</span>
+  <strong>BASIS.</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>&epsilon;</strong> is a regular expression, and <strong>L(&epsilon;) = {&epsilon;}</strong>.<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;If <strong>a</strong> is a symbol in &Sigma;, then <strong>a</strong> is a regular expression, and <strong>L(a) = {a}</strong>.<br><br>
+  <strong>INDUCTION.</strong> If r and s are regular expressions denoting L(r) and L(s), then:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>(r) | (s)</strong> is a regular expression denoting <strong>L(r) &cup; L(s)</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>(r)(s)</strong> is a regular expression denoting <strong>L(r) L(s)</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>(r)*</strong> is a regular expression denoting <strong>(L(r))*</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>(r)</strong> is a regular expression denoting <strong>L(r)</strong> &mdash; parentheses do not change the language<br><br>
+  A language denoted by a regular expression is called a <strong>regular set</strong> or a <strong>regular language</strong>.
+</div>
+
+<div class="formula">
+  <span class="name">Precedence &mdash; highest first, all left-associative</span>
+  <strong>1. * &nbsp;(closure) &nbsp;&mdash; highest</strong><br>
+  <strong>2. &nbsp;&nbsp; (concatenation)</strong><br>
+  <strong>3. | &nbsp;(union / alternation) &mdash; lowest</strong><br><br>
+  So <strong>(a)|((b)*(c))</strong> may be written <strong>a | b*c</strong>, and it means <em>&ldquo;a, or else zero-or-more b's followed by c&rdquo;</em> &mdash; <strong>not</strong> (a|b)*c.
+</div>
+
+<h3>The algebraic laws</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Law</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><strong>r | s = s | r</strong></td><td>| is <strong>commutative</strong></td></tr>
+<tr><td><strong>r | (s | t) = (r | s) | t</strong></td><td>| is <strong>associative</strong></td></tr>
+<tr><td><strong>r(st) = (rs)t</strong></td><td>Concatenation is <strong>associative</strong></td></tr>
+<tr><td><strong>r(s | t) = rs | rt</strong> &nbsp;&nbsp; <strong>(s | t)r = sr | tr</strong></td><td>Concatenation <strong>distributes over |</strong></td></tr>
+<tr><td><strong>&epsilon;r = r&epsilon; = r</strong></td><td><strong>&epsilon; is the identity for concatenation</strong></td></tr>
+<tr><td><strong>r* = (r | &epsilon;)*</strong></td><td>&epsilon; is <strong>guaranteed in a closure</strong></td></tr>
+<tr><td><strong>r** = r*</strong></td><td>* is <strong>idempotent</strong></td></tr>
+<tr><td><strong>r | r = r</strong></td><td>| is idempotent</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Concatenation is NOT commutative</strong> &mdash; <code>ab &ne; ba</code>. That is the one law that does <em>not</em> hold, and it is the one objective questions ask about.</p>
+
+<h2>Regular definitions</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>regular definition</strong> is a sequence of definitions of the form<br><br>
+  <strong>d<sub>1</sub> &rarr; r<sub>1</sub>, &nbsp; d<sub>2</sub> &rarr; r<sub>2</sub>, &nbsp; &hellip; &nbsp; d<sub>n</sub> &rarr; r<sub>n</sub></strong><br><br>
+  where each <strong>d<sub>i</sub> is a NEW symbol</strong>, not in &Sigma; and not previously defined, and each <strong>r<sub>i</sub> is a regular expression over &Sigma; &cup; {d<sub>1</sub>, &hellip;, d<sub>i&minus;1</sub>}</strong>.<br><br>
+  <strong>The restriction to earlier definitions is what matters:</strong> it makes the definitions <strong>non-recursive</strong>, so each d<sub>i</sub> can be textually substituted away, and the result is still a plain regular expression. <em>Recursion would take us beyond regular languages.</em>
+</div>
+
+<div class="formula">
+  <span class="name">Identifiers in C &mdash; write it exactly like this</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.9rem; text-align:left; line-height:1.7">
+  <strong>letter_</strong> &rarr; A | B | &hellip; | Z | a | b | &hellip; | z | _<br>
+  <strong>digit</strong>&nbsp;&nbsp;&nbsp; &rarr; 0 | 1 | &hellip; | 9<br>
+  <strong>id</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &rarr; <strong>letter_ ( letter_ | digit )*</strong>
+  </div>
+</div>
+
+<div class="formula">
+  <span class="name">Unsigned numbers such as 5280, 0.01234, 6.336E4, 1.89E&minus;4</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.9rem; text-align:left; line-height:1.7">
+  <strong>digit</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&rarr; 0 | 1 | &hellip; | 9<br>
+  <strong>digits</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&rarr; digit digit*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* one or more */<br>
+  <strong>optFraction</strong> &rarr; . digits | <strong>&epsilon;</strong><br>
+  <strong>optExponent</strong> &rarr; E ( + | &minus; | &epsilon; ) digits | <strong>&epsilon;</strong><br>
+  <strong>number</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&rarr; <strong>digits optFraction optExponent</strong>
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.4rem">The two <strong>&epsilon;</strong> alternatives are what make the fraction and the exponent <em>optional</em> &mdash; which is exactly what the names say, and exactly what students forget to include.</span>
+</div>
+
+<h3>The three notational shorthands</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Shorthand</th><th>Meaning</th><th>Equivalent to</th></tr></thead>
+<tbody>
+<tr><td><strong>r<sup>+</sup></strong> &mdash; one or more</td><td>At least one occurrence of r</td><td><strong>r r*</strong>. Note <strong>r* = r<sup>+</sup> | &epsilon;</strong> and <strong>r<sup>+</sup> = r r*</strong></td></tr>
+<tr><td><strong>r?</strong> &mdash; zero or one</td><td>An <strong>optional</strong> r</td><td><strong>r | &epsilon;</strong></td></tr>
+<tr><td><strong>[abc]</strong> and <strong>[a&ndash;z]</strong> &mdash; character classes</td><td>Any one symbol from the set or range</td><td><strong>a | b | c</strong> &nbsp;and&nbsp; <strong>a | b | &hellip; | z</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>With these, the whole identifier definition compresses to one line: <strong>id &rarr; [A&ndash;Za&ndash;z_][A&ndash;Za&ndash;z_0&ndash;9]*</strong>, and the number to <strong>number &rarr; digits (. digits)? (E [+&minus;]? digits)?</strong>. <strong>These shorthands add no expressive power</strong> &mdash; every one is definable in the basic notation &mdash; they only shorten what you write. Say that; it is a mark.</p>
+
+<h2>Ten worked regular expressions</h2>
+
+<div class="box exam">
+  <span class="lbl">The four templates that solve almost every one</span>
+  <p><strong>&ldquo;Contains at least one x&rdquo;</strong> &rarr; <strong>&Sigma;* x &Sigma;*</strong> &nbsp; &mdash; anything, the thing, anything.</p>
+  <p><strong>&ldquo;Starts with x&rdquo;</strong> &rarr; <strong>x &Sigma;*</strong> &nbsp;&nbsp; <strong>&ldquo;Ends with x&rdquo;</strong> &rarr; <strong>&Sigma;* x</strong></p>
+  <p><strong>&ldquo;Exactly k occurrences of a&rdquo;</strong> &rarr; put a <strong>b*</strong> in every gap: <strong>b* a b* a b* &hellip;</strong> with k a's and k+1 gaps.</p>
+  <p><strong>&ldquo;Length divisible by k&rdquo;</strong> &rarr; <strong>(&Sigma;&Sigma;&hellip;&Sigma;)*</strong> with k copies inside the brackets.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Write a regular expression over &Sigma; = {a, b} for each language.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">#</th><th>Language</th><th>Regular expression</th></tr></thead>
+  <tbody>
+  <tr><td class="num">1</td><td>All strings</td><td><strong>(a | b)*</strong></td></tr>
+  <tr><td class="num">2</td><td>Strings <strong>ending in</strong> <code>ab</code></td><td><strong>(a | b)* a b</strong></td></tr>
+  <tr><td class="num">3</td><td>Strings <strong>beginning with</strong> <code>a</code> and <strong>ending with</strong> <code>b</code></td><td><strong>a (a | b)* b</strong></td></tr>
+  <tr><td class="num">4</td><td>Strings containing <strong>at least one</strong> <code>a</code></td><td><strong>(a | b)* a (a | b)*</strong></td></tr>
+  <tr><td class="num">5</td><td>Strings containing <strong>exactly two</strong> <code>a</code>'s</td><td><strong>b* a b* a b*</strong></td></tr>
+  <tr><td class="num">6</td><td>Strings of <strong>even length</strong></td><td><strong>( (a | b)(a | b) )*</strong></td></tr>
+  <tr><td class="num">7</td><td>Strings whose length is <strong>divisible by 3</strong></td><td><strong>( (a|b)(a|b)(a|b) )*</strong></td></tr>
+  <tr><td class="num">8</td><td>Strings <strong>not containing</strong> the substring <code>ab</code></td><td><strong>b* a*</strong></td></tr>
+  <tr><td class="num">9</td><td>Strings with <strong>an even number</strong> of <code>a</code>'s</td><td><strong>b* (a b* a b*)*</strong></td></tr>
+  <tr><td class="num">10</td><td>Strings where <strong>every</strong> <code>a</code> is <strong>immediately followed by</strong> <code>b</code></td><td><strong>(b | ab)*</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>The two that need justifying:</strong></p>
+  <p><strong>#8, &ldquo;no <code>ab</code>&rdquo; &rarr; b*a*.</strong> If <code>ab</code> never occurs, then <em>once an <code>a</code> appears, no <code>b</code> can ever follow it</em>. So every string is a run of <code>b</code>'s followed by a run of <code>a</code>'s. <em>Check:</em> <code>bbaa</code> &check;, <code>&epsilon;</code> &check;, <code>ba</code> &check;, <code>ab</code> &cross; &mdash; correctly excluded.</p>
+  <p><strong>#5, &ldquo;exactly two <code>a</code>'s&rdquo; &rarr; b*ab*ab*.</strong> Two <code>a</code>'s create <strong>three gaps</strong> &mdash; before, between and after &mdash; and each may hold any number of <code>b</code>'s. <em>Check:</em> <code>aa</code> &check; (all gaps empty), <code>bbabab</code> &check;, <code>aaa</code> &cross;.</p>
+
+  <p><strong>Two more, over the C alphabet:</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Token</th><th>Regular expression</th></tr></thead>
+  <tbody>
+  <tr><td><strong>C identifier</strong></td><td><strong>[A&ndash;Za&ndash;z_] [A&ndash;Za&ndash;z_0&ndash;9]*</strong></td></tr>
+  <tr><td><strong>Signed integer</strong></td><td><strong>( + | &minus; | &epsilon; ) [0&ndash;9]<sup>+</sup></strong>, or with shorthand <strong>[+&minus;]? [0&ndash;9]<sup>+</sup></strong></td></tr>
+  <tr><td><strong>C comment</strong> <code>/* &hellip; */</code></td><td><strong>/ * ( <em>anything but</em> * ) * &hellip; * /</strong> &mdash; genuinely awkward as a single regular expression, which is why real scanners handle comments with a small hand-written state machine rather than a pattern</td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="box">
+  <span class="lbl">What regular expressions cannot do &mdash; worth one line</span>
+  <p><strong>Regular expressions cannot count without bound.</strong> The language of <strong>balanced parentheses</strong>, or of strings <strong>a<sup>n</sup>b<sup>n</sup></strong>, is <strong>not regular</strong> &mdash; a finite automaton has no stack, so it cannot remember how many opening brackets it has seen. That is precisely why <strong>tokens are described by regular expressions but syntax needs a context-free grammar</strong>, and it is the theoretical justification for splitting Phase 1 from Phase 2.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Which statement is true?</p>
+  <div class="opts">
+    <button class="opt">Every language must be finite</button>
+    <button class="opt" data-ok="1">∅ and {ε} are different languages, of size 0 and 1 respectively</button>
+    <button class="opt">ε is a symbol of the alphabet</button>
+    <button class="opt">∅ and {ε} are the same language</button>
+  </div>
+  <p class="why">The empty set contains no strings; the set containing the empty string contains exactly one. And ε is a string of length zero, never a member of Σ.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. For a string of length n, the number of non-empty substrings counted by position is:</p>
+  <div class="opts">
+    <button class="opt">n − 1</button>
+    <button class="opt">2&#8319;</button>
+    <button class="opt" data-ok="1">n(n + 1)/2</button>
+    <button class="opt">n + 1</button>
+  </div>
+  <p class="why">Choose a start and an end with start ≤ end. n + 1 counts prefixes or suffixes; 2&#8319; counts subsequences. Watch for the word &ldquo;distinct&rdquo; — <code>banana</code> has 21 substrings by position but only 15 distinct ones.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. L* differs from L⁺ in that:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">L* always contains ε, whereas L⁺ does not unless ε is already in L</button>
+    <button class="opt">L* is finite and L⁺ infinite</button>
+    <button class="opt">L⁺ always contains ε</button>
+    <button class="opt">They are identical</button>
+  </div>
+  <p class="why">L* = ∪ Lⁱ from i = 0, and L⁰ = {ε}. L⁺ starts from i = 1. So L* = L⁺ ∪ {ε} and L⁺ = LL* = L*L.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In <code>a | b*c</code>, the precedence means it denotes:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">a, or zero-or-more b's followed by c</button>
+    <button class="opt">a followed by b, or c</button>
+    <button class="opt">(a or b or c) repeated</button>
+    <button class="opt">(a or b) repeated, then c</button>
+  </div>
+  <p class="why">Closure binds tightest, then concatenation, then alternation. Writing (a|b)*c would need the parentheses explicitly.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Which algebraic law does NOT hold for regular expressions?</p>
+  <div class="opts">
+    <button class="opt">Concatenation distributes over alternation</button>
+    <button class="opt">Alternation is commutative</button>
+    <button class="opt" data-ok="1">Concatenation is commutative</button>
+    <button class="opt">r** = r*</button>
+  </div>
+  <p class="why"><code>ab ≠ ba</code>. Alternation is commutative, associative and idempotent; concatenation is associative and distributes over alternation, but never commutes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A regular definition requires each rᵢ to use only symbols of Σ and d₁ … dᵢ₋₁ because:</p>
+  <div class="opts">
+    <button class="opt">It makes the definitions shorter</button>
+    <button class="opt">Recursion would be ambiguous</button>
+    <button class="opt">Later symbols are undefined at run time</button>
+    <button class="opt" data-ok="1">It keeps the definitions non-recursive, so each can be substituted away and the result stays regular</button>
+  </div>
+  <p class="why">Recursion would take the notation beyond regular languages and into context-free ones — which is precisely what grammars, not regular expressions, are for.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A regular expression for strings over {a,b} containing exactly two a's is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">b*ab*ab*</button>
+    <button class="opt">(a|b)*aa(a|b)*</button>
+    <button class="opt">aa</button>
+    <button class="opt">(ab)*(ab)*</button>
+  </div>
+  <p class="why">Two a's create three gaps — before, between and after — and each may hold any number of b's. Option two allows more than two a's and forces them adjacent.</p>
+</div>
+
+<div class="q">
+  <p class="stem">8. The language of balanced parentheses is:</p>
+  <div class="opts">
+    <button class="opt">Finite</button>
+    <button class="opt">Regular, expressible as (()​)*</button>
+    <button class="opt">Regular but only over a one-symbol alphabet</button>
+    <button class="opt" data-ok="1">Not regular — a finite automaton has no stack to count with</button>
+  </div>
+  <p class="why">Neither is aⁿbⁿ. This is the theoretical reason tokens are described by regular expressions while syntax needs a context-free grammar — the split between phases 1 and 2.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define alphabet, string and language, and give the counting formulas.</summary>
+    <p class="ans">An alphabet Σ is a finite set of symbols; a string is a finite sequence of symbols from it, with length |s| and empty string ε; a language is any countable set of strings over a fixed alphabet — so ∅ and {ε} are both languages, and they differ. For length n: n + 1 prefixes and n + 1 suffixes including ε and the whole string, n − 1 proper ones of each, n(n+1)/2 non-empty substrings by position, and 2&#8319; subsequences.</p></details>
+  <details class="card"><summary>Distinguish substring from subsequence.</summary>
+    <p class="ans">A substring is obtained by deleting a prefix and a suffix, so its symbols are contiguous. A subsequence is obtained by deleting any symbols, not necessarily consecutive, keeping order. For <code>banana</code>, <code>nan</code> is a substring and <code>bnn</code> is only a subsequence. Proper means neither ε nor the whole string.</p></details>
+  <details class="card"><summary>Give the four operations on languages and the closure relationships.</summary>
+    <p class="ans">Union L ∪ M; concatenation LM = {st}; Kleene closure L* = ∪Lⁱ from i = 0, always containing ε; positive closure L⁺ = ∪Lⁱ from i = 1. L* = L⁺ ∪ {ε} and L⁺ = LL* = L*L.</p></details>
+  <details class="card"><summary>State the inductive definition of a regular expression and the precedence.</summary>
+    <p class="ans">Basis: ε is a regular expression denoting {ε}, and each symbol a in Σ is one denoting {a}. Induction: (r)|(s) denotes L(r) ∪ L(s); (r)(s) denotes L(r)L(s); (r)* denotes (L(r))*; and (r) denotes L(r). Precedence, highest first: closure, then concatenation, then alternation, all left-associative.</p></details>
+  <details class="card"><summary>Give the regular definitions for identifiers and unsigned numbers.</summary>
+    <p class="ans">letter_ → A|…|Z|a|…|z|_ ; digit → 0|…|9 ; id → letter_ (letter_ | digit)*. And: digits → digit digit* ; optFraction → . digits | ε ; optExponent → E (+|−|ε) digits | ε ; number → digits optFraction optExponent. The ε alternatives are what make the fraction and exponent optional.</p></details>
+  <details class="card"><summary>Give the three shorthands and note what they add.</summary>
+    <p class="ans">r⁺ means one or more, equal to r r*; r? means zero or one, equal to r | ε; [abc] and [a–z] are character classes for a|b|c and a|…|z. They add no expressive power — every one is definable in the basic notation — they only shorten what you write.</p></details>
+  <details class="card"><summary>Give the four templates for writing regular expressions.</summary>
+    <p class="ans">Contains at least one x: Σ* x Σ*. Starts with x: x Σ*; ends with x: Σ* x. Exactly k occurrences of a over {a,b}: b* a b* a b* … with k a's and k+1 gaps. Length divisible by k: (Σ…Σ)* with k copies inside.</p></details>
+  <details class="card"><summary>What can regular expressions not describe, and why does it matter?</summary>
+    <p class="ans">They cannot count without bound, so balanced parentheses and aⁿbⁿ are not regular — a finite automaton has no stack. That is exactly why tokens are specified by regular expressions and recognised by finite automata, while syntax needs a context-free grammar and a pushdown automaton, and it is the theoretical justification for separating lexical analysis from parsing.</p></details>
+</div>
+
+<p class="ask">Next: turning those regular expressions into machines &mdash; transition diagrams, Thompson's construction and the subset construction.</p>
+
+<div class="nav">
+  <a href="0006-input-buffering.html">&larr; Input Buffering</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0008-recognition-of-tokens.html">Next: Recognition of Tokens &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

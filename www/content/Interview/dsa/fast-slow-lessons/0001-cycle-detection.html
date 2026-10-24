@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fast &amp; Slow Lesson 01 — Floyd's Cycle Detection</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Fast &amp; Slow Track · Lesson 1 of 2 · the tortoise and the hare</div>
+<h1>Fast &amp; Slow Pointers — Cycle Detection</h1>
+<p class="subtitle">Two runners on the same track: if it loops, the fast one must lap the slow one. Cycles, midpoints, and "does this sequence repeat?" — all in O(1) space.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Linked List Cycle is a classic 10-minute screener, and its follow-up (find the cycle start) filters out everyone who memorized without understanding.
+  This is Lesson 1 of the 2-lesson Fast &amp; Slow track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Run two pointers from the head: <code>slow</code> moves 1 step per tick, <code>fast</code> moves 2. In a straight
+list, <code>fast</code> hits <code>null</code> and you're done — no cycle. In a cyclic list, both eventually orbit
+the loop, and since <code>fast</code> gains on <code>slow</code> by exactly <strong>one node per tick</strong>, the
+gap between them shrinks 1, 0 — they <em>must</em> collide, they can't jump over each other. That's
+<strong>Floyd's tortoise &amp; hare</strong>: cycle detection with two pointers and zero extra memory, where a
+HashSet would cost O(n).
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Does the linked list have a cycle," "find where the cycle begins," "middle of the list," or any process that
+  <strong>repeats deterministically</strong> — like repeatedly applying a function to a number (Happy Number).
+  If each state has exactly one successor and the state space is finite, the trajectory either terminates or
+  cycles — and Floyd's detects which, in O(1) space.
+</div>
+
+<h2>2 · Core template — Floyd's cycle detection (LC 141)</h2>
+<pre><code>boolean hasCycle(ListNode head) {
+    ListNode slow = head, fast = head;       <span class="cmt">// both start at head</span>
+    while (fast != null &amp;&amp; fast.next != null) { <span class="cmt">// fast does the null-checking for both</span>
+        slow = slow.next;                    <span class="cmt">// tortoise: 1 step</span>
+        fast = fast.next.next;               <span class="cmt">// hare: 2 steps</span>
+        if (slow == fast) return true;       <span class="cmt">// collision ⇒ cycle (compare AFTER moving)</span>
+    }
+    return false;                            <span class="cmt">// fast fell off the end ⇒ straight list</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) — slow walks at most n + cycle-length steps before collision. <strong>Space</strong> O(1). Compare with <code>==</code> (same node object), never <code>.val</code> — values can repeat.</p>
+
+<div class="callout tip">
+  <span class="label">Why they MUST meet (the one-liner proof)</span>
+  Once both pointers are inside the cycle, look at the gap from fast to slow measured along the cycle. Each tick,
+  slow moves 1 and fast moves 2, so the gap shrinks by exactly 1 per tick. A gap that shrinks by 1 hits 0 — it can't
+  skip from 1 to −1. Collision guaranteed within one lap.
+</div>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Cycle yes/no</td><td>LC 141</td><td>The bare template: collide ⇒ true, null ⇒ false.</td></tr>
+    <tr><td>Find the cycle START</td><td>LC 142</td><td>Phase 2: after collision, reset one pointer to head; both walk 1 step; they meet at the entrance.</td></tr>
+    <tr><td>Middle of the list</td><td>LC 876</td><td>No cycle at all — when fast reaches the end, slow is at the midpoint.</td></tr>
+    <tr><td>Repeating process</td><td>LC 202</td><td>No list! The "next pointer" is a function (sum of squared digits). Same two-speed race.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Linked List Cycle II — find the entrance (LC 142)</h3>
+<p>
+Phase 1 is the template. Phase 2: reset <code>slow</code> to <code>head</code>, keep <code>fast</code> at the
+collision point, and advance <strong>both one step at a time</strong>. Where they meet is the cycle's first node.
+</p>
+<pre><code>ListNode detectCycle(ListNode head) {
+    ListNode slow = head, fast = head;
+    while (fast != null &amp;&amp; fast.next != null) {  <span class="cmt">// phase 1: find any meeting point</span>
+        slow = slow.next;
+        fast = fast.next.next;
+        if (slow == fast) {                      <span class="cmt">// collided somewhere inside the cycle</span>
+            slow = head;                         <span class="cmt">// phase 2: reset ONE pointer to head</span>
+            while (slow != fast) {               <span class="cmt">// both now walk at speed 1</span>
+                slow = slow.next;
+                fast = fast.next;
+            }
+            return slow;                         <span class="cmt">// meeting point = cycle entrance</span>
+        }
+    }
+    return null;                                 <span class="cmt">// no cycle</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1).</p>
+
+<div class="callout">
+  <span class="label">The reset-to-head proof sketch (interviewers ask)</span>
+  Let <code>a</code> = distance head → cycle entrance, <code>b</code> = entrance → collision point (along the
+  cycle), <code>c</code> = cycle length. At collision, slow has walked <code>a + b</code>; fast has walked
+  <code>2(a + b)</code> and the same path plus whole laps: <code>a + b + k·c</code>. Setting them equal:
+  <code>2(a+b) = a + b + k·c</code> ⇒ <code>a + b = k·c</code> ⇒ <strong><code>a = k·c − b</code></strong>.
+  So walking <code>a</code> steps from the head lands exactly where walking <code>a</code> steps from the collision
+  point does: <code>b + a = k·c</code> ≡ the entrance (whole laps vanish). Hence: reset one pointer to head, step
+  both by 1, and they meet precisely at the entrance.
+</div>
+
+<h3>Case: Middle of the Linked List (LC 876)</h3>
+<p>
+Same race, no cycle: when <code>fast</code> exhausts the list, <code>slow</code> has covered exactly half. This is
+the "find mid" step you'll reuse in Reorder List and Palindrome List (Lesson 2).
+</p>
+<pre><code>ListNode middleNode(ListNode head) {
+    ListNode slow = head, fast = head;
+    while (fast != null &amp;&amp; fast.next != null) {
+        slow = slow.next;
+        fast = fast.next.next;
+    }
+    return slow;   <span class="cmt">// odd n: exact middle; even n: SECOND of the two middles</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1).</p>
+<div class="callout trap">
+  <span class="label">Which middle? The guard decides</span>
+  With an even-length list, <code>while (fast != null &amp;&amp; fast.next != null)</code> leaves slow on the
+  <strong>second</strong> middle (what LC 876 wants), while
+  <code>while (fast.next != null &amp;&amp; fast.next.next != null)</code> leaves slow on the
+  <strong>first</strong> middle (what you want before cutting a list in half, e.g. LC 143/234 — the first half
+  keeps the extra node). Pick deliberately; dry-run on a 4-node list to confirm.
+</div>
+
+<h3>Case: Happy Number (LC 202) — Floyd's without a list</h3>
+<p>
+Repeatedly replace n by the sum of the squares of its digits; n is "happy" if this reaches 1. Since each value has
+exactly one successor and values stay bounded, the sequence either hits 1 or falls into a loop. That's a linked
+list in disguise — <code>next(n)</code> is the pointer. Run the same two-speed race instead of storing seen values
+in a HashSet.
+</p>
+<pre><code>boolean isHappy(int n) {
+    int slow = n, fast = next(n);            <span class="cmt">// fast starts one step ahead (values, not nodes)</span>
+    while (fast != 1 &amp;&amp; slow != fast) {
+        slow = next(slow);                   <span class="cmt">// 1 application</span>
+        fast = next(next(fast));             <span class="cmt">// 2 applications</span>
+    }
+    return fast == 1;                        <span class="cmt">// reached 1 → happy; collided → trapped in a loop</span>
+}
+int next(int n) {                            <span class="cmt">// "the arrow": sum of squared digits</span>
+    int sum = 0;
+    while (n &gt; 0) { int d = n % 10; sum += d * d; n /= 10; }
+    return sum;
+}</code></pre>
+<p><strong>Time</strong> O(log n) per <code>next</code> call, bounded total. <strong>Space</strong> O(1) — the whole point versus the HashSet version.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Null-check via fast only:</strong> <code>fast != null &amp;&amp; fast.next != null</code> covers slow too (slow trails fast). Checking <code>fast.next.next</code> without checking <code>fast.next</code> first NPEs on even-length lists.</li>
+  <li><strong>Compare after moving.</strong> Both start at head, so an at-the-top equality check "detects" a cycle in every non-empty list. Move first, then test <code>slow == fast</code>.</li>
+  <li><strong>Node identity, not value:</strong> <code>slow == fast</code> compares references. Lists can contain duplicate values; <code>.val</code> comparison gives false positives.</li>
+  <li><strong>Empty / 1-node list:</strong> the guard fails immediately → no cycle, and for LC 876 a 1-node list returns itself. The template needs no special cases — but say so.</li>
+  <li><strong>Phase 2 speed (LC 142):</strong> after the reset, BOTH pointers move one step. Leaving fast at double speed breaks the a = k·c − b algebra.</li>
+  <li><strong>Even-length middle:</strong> know which guard gives which middle (see the trap above) — it's the difference between a right answer and an off-by-one in LC 143/234.</li>
+  <li><strong>Collision point ≠ entrance.</strong> Where they first meet is some point inside the cycle, generally not the start — that's exactly why LC 142 needs phase 2.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Both pointers are inside a cycle of length 7, with fast 3 nodes behind slow (measured in fast's direction of gain). When do they meet?</div>
+  <button class="opt">They might never meet — fast can leapfrog over slow if the gap is odd</button>
+  <button class="opt">After exactly 7 ticks, because meetings only happen at whole laps</button>
+  <button class="opt">After 3 ticks — the gap closes by exactly 1 per tick, and 0 gap means collision</button>
+  <div class="fb" data-correct="Fast gains 1 node per tick (moves 2, slow moves 1), so a gap of 3 becomes 2, 1, 0 — collision on tick 3. The gap can't skip 0, which is why they always meet." data-wrong="Leapfrogging is impossible: the relative speed is exactly 1 node per tick, so the gap decreases 3 → 2 → 1 → 0. No dependence on parity or lap boundaries."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In LC 142, after slow and fast collide, why does resetting slow to head and stepping both by 1 find the cycle entrance?</div>
+  <button class="opt">Because head-to-entrance distance <code>a</code> satisfies <code>a = k·c − b</code>, so both arrive at the entrance simultaneously</button>
+  <button class="opt">Because the collision always happens exactly at the entrance, so the walk just confirms it</button>
+  <button class="opt">Because slow, moving from head, must eventually re-enter the cycle where fast is waiting</button>
+  <div class="fb" data-correct="From 2(a+b) = a+b+k·c we get a = k·c − b: walking a steps from head reaches the entrance, and walking a steps from the collision point (b into the cycle) lands b + a = k·c — also the entrance, laps discarded." data-wrong="The collision point is generally NOT the entrance, and fast doesn't wait — both walk. The algebra 2(a+b) = a+b+k·c ⇒ a = k·c − b is what makes both pointers arrive at the entrance on the same step."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does Floyd's idea apply to Happy Number (LC 202), which has no linked list at all?</div>
+  <button class="opt">Because the digits of n form a chain of nodes when written out in order</button>
+  <button class="opt">Because "sum of squared digits" is a deterministic successor function, so the value sequence is a functional graph that must terminate or cycle</button>
+  <button class="opt">Because squaring digits always shrinks n, so the sequence is finite and sorted</button>
+  <div class="fb" data-correct="Each value has exactly one successor — a linked list in disguise. Bounded values + determinism means the trajectory either reaches the fixed point 1 or loops, and two-speed pointers detect the loop in O(1) space." data-wrong="The list-in-disguise is the SEQUENCE of values n, next(n), next(next(n))… Each value has one successor (deterministic), values are bounded (not sorted or shrinking — 89 → 145 grows), so it must cycle or hit 1."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/linked-list-cycle-detection">NeetCode — Linked List Cycle</a>, then <a href="https://neetcode.io/problems/find-duplicate-integer">NeetCode — Find the Duplicate Number</a> to preview Lesson 2's showpiece.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 141 (bare template) → LC 876 (mid — try both guards on a 4-node list) → LC 142 (entrance — re-derive a = k·c − b on paper once, from scratch) → LC 202 (Floyd's on a function) → warm-up for Lesson 2: LC 19 (fixed-gap pointers).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on the a = k·c − b algebra, want a picture of the two middles, or curious why fast starting at
+  <code>head</code> vs <code>head.next</code> changes things? Ask in the chat. When you can write LC 142 and explain
+  the reset step without notes, say <strong>"next"</strong> — Lesson 2 turns an <em>array</em> into a linked list
+  and pulls a duplicate out of it with this exact trick.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-gap-tricks-and-applications.html">Gap Tricks &amp; Applications →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

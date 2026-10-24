@@ -1,0 +1,112 @@
+<title>SC Unit V Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.6rem 0 .4rem;font-size:1.12rem}
+  .formula{padding:.5rem .75rem;margin:.5rem 0;font-size:.95rem}
+  table{font-size:.85rem}
+  th,td{padding:.3rem .45rem}
+  ul,ol{margin:.35rem 0 .35rem 1.1rem}
+  li{margin:.12rem 0}
+  .tag{display:inline-block;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--paper);padding:.12rem .45rem;border-radius:3px;vertical-align:.15em;margin-left:.4rem}
+  @media print{body{font-size:9.2pt}.wrap{max-width:100%}h2{margin:.7rem 0 .25rem}}
+</style>
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Reference</p>
+<h1>Unit V &mdash; Exam Sheet</h1>
+<p class="deck">Optimization Techniques &mdash; Genetic Algorithms, Multi-Objective GA, Particle Swarm, and Ant Colony Optimization on one printable page.</p>
+
+<h2>1. Genetic Algorithm (GA) <span class="tag">guaranteed cycle</span></h2>
+<p><strong>Founders:</strong> John Holland (1975), David Goldberg. Based on Darwin's &ldquo;survival of the fittest&rdquo;.</p>
+<p><strong>Cycle:</strong> Initialize Population P(0) &rarr; Evaluate Fitness &rarr; Termination Test &rarr; Selection &rarr; Crossover (p<sub>c</sub>) &rarr; Mutation (p<sub>m</sub>) &rarr; Next Generation P(t+1).</p>
+<p><strong>Encodings:</strong> Binary (knapsack, bit strings), Real-valued (continuous optimization), Permutation (TSP, job sequencing), Tree (genetic programming).</p>
+
+<h2>2. Selection &amp; Genetic Operators <span class="tag">formulas</span></h2>
+<div class="formula">
+<strong>Roulette Wheel:</strong> P<sub>i</sub> = f<sub>i</sub> / &Sigma;<sub>j=1</sub><sup>N</sup> f<sub>j</sub> &nbsp;|&nbsp; Expected count: e<sub>i</sub> = f<sub>i</sub> / f&#772;<br>
+<strong>Tournament Selection:</strong> Pick k contestants randomly; fittest wins. Fast O(k), no global fitness sum required.<br>
+<strong>Rank Selection:</strong> Probability based on rank order (1 to N) rather than raw score &mdash; prevents premature stagnation.<br>
+<strong>Elitism:</strong> Directly copies top 1&ndash;2 best individuals into next generation without modification.
+</div>
+<ul>
+  <li><strong>Crossover (Exploitation):</strong> Recombines parent schemas. Single-point (cut &amp; swap), Two-point (middle swap), Uniform (bitmask coin toss). Typical <code>p_c = 0.60 &ndash; 0.95</code>.</li>
+  <li><strong>Mutation (Exploration):</strong> Restores lost diversity; avoids local optima. Bit-flip (invert bit), Swap (exchange 2 alleles), Inversion (reverse segment). Typical <code>p_m = 0.001 &ndash; 0.05</code>.</li>
+</ul>
+
+<h2>3. Multi-Objective GA &amp; NSGA-II <span class="tag">definitions</span></h2>
+<p><strong>Pareto Dominance:</strong> <code>u &prec; v</code> iff <code>u</code> is no worse than <code>v</code> in all objectives (<code>f_k(u) &le; f_k(v) &forall;k</code>) AND strictly better in at least one objective (<code>&exist;j: f_j(u) &lt; f_j(v)</code>).</p>
+<p><strong>Pareto Front:</strong> Set of all non-dominated trade-off solutions plotted in objective space.</p>
+<p><strong>NSGA-II (Deb, 2002):</strong> 1. Fast non-dominated sorting into rank fronts (F₁, F₂, ...). 2. Crowding distance to preserve diversity along the front. 3. Crowded-comparison operator (<code>&prec;<sub>n</sub></code>). 4. Elitist (2N &rarr; N) replacement.</p>
+
+<h2>4. Particle Swarm Optimization (PSO) <span class="tag">guaranteed formula</span></h2>
+<p><strong>Founders:</strong> James Kennedy &amp; Russell Eberhart (1995). Inspired by bird flocking &amp; fish schooling.</p>
+<div class="formula">
+<strong>Velocity Update:</strong> v<sub>id</sub><sup>(t+1)</sup> = <strong>w&middot;v<sub>id</sub><sup>(t)</sup></strong> + <strong>c₁&middot;r₁&middot;[pbest<sub>id</sub> &minus; x<sub>id</sub><sup>(t)</sup>]</strong> + <strong>c₂&middot;r₂&middot;[gbest<sub>d</sub> &minus; x<sub>id</sub><sup>(t)</sup>]</strong><br>
+<strong>Position Update:</strong> x<sub>id</sub><sup>(t+1)</sup> = x<sub>id</sub><sup>(t)</sup> + v<sub>id</sub><sup>(t+1)</sup> &nbsp;|&nbsp; Clamping: &minus;V<sub>max</sub> &le; v &le; V<sub>max</sub>
+</div>
+<ul>
+  <li><code>w</code> = <strong>Inertia weight</strong> (momentum; controls exploration vs exploitation). Linearly decreased: <code>0.9 &rarr; 0.4</code>.</li>
+  <li><code>c₁ &middot; r₁ &middot; (pbest &minus; x)</code> = <strong>Cognitive component</strong> (attraction to personal historical best; <code>c₁ &approx; 2.0</code>).</li>
+  <li><code>c₂ &middot; r₂ &middot; (gbest &minus; x)</code> = <strong>Social component</strong> (attraction to swarm global best; <code>c₂ &approx; 2.0</code>).</li>
+  <li><code>r₁, r₂ &sim; U(0, 1)</code> = uniform random numbers injecting stochastic exploration.</li>
+</ul>
+
+<h2>5. Ant Colony Optimization (ACO) <span class="tag">guaranteed formula</span></h2>
+<p><strong>Founder:</strong> Marco Dorigo (1992). Based on stigmergic foraging &amp; chemical pheromone trails.</p>
+<div class="formula">
+<strong>State Transition Rule:</strong> P<sub>ij</sub><sup>k</sup>(t) = <strong>[ &tau;<sub>ij</sub>(t)<sup>&alpha;</sup> &middot; &eta;<sub>ij</sub><sup>&beta;</sup> ] &nbsp;/&nbsp; &Sigma;<sub>l &isin; allowed<sub>k</sub></sub> [ &tau;<sub>il</sub>(t)<sup>&alpha;</sup> &middot; &eta;<sub>il</sub><sup>&beta;</sup> ]</strong><br>
+where heuristic visibility <strong>&eta;<sub>ij</sub> = 1 / d<sub>ij</sub></strong> (inverse of edge distance).<br><br>
+<strong>Pheromone Evaporation &amp; Deposition:</strong> &tau;<sub>ij</sub>(t+1) = <strong>(1 &minus; &rho;)&middot;&tau;<sub>ij</sub>(t) + &Sigma;<sub>k=1</sub><sup>m</sup> &Delta;&tau;<sub>ij</sub><sup>k</sup>(t)</strong><br>
+where &Delta;&tau;<sub>ij</sub><sup>k</sup> = <strong>Q / L<sub>k</sub></strong> (if ant k used edge (i,j)), else <strong>0</strong>. &rho; &isin; (0, 1] is evaporation rate.
+</div>
+<ul>
+  <li><code>&alpha;</code> = pheromone trail weight (memory influence; if 0 &rarr; purely greedy distance search).</li>
+  <li><code>&beta;</code> = heuristic visibility weight (distance influence; if 0 &rarr; purely pheromone-driven, rapid stagnation).</li>
+  <li><code>&rho;</code> = evaporation coefficient (prevents infinite pheromone accumulation on early sub-optimal paths).</li>
+</ul>
+
+<h2>6. Master Tri-Comparison: GA vs PSO vs ACO</h2>
+<div class="tw"><table>
+<thead><tr><th>Feature</th><th>Genetic Algorithm (GA)</th><th>Particle Swarm (PSO)</th><th>Ant Colony (ACO)</th></tr></thead>
+<tbody>
+<tr><td><strong>Analogy</strong></td><td>Natural genetics &amp; Darwinian selection</td><td>Bird flocking / fish schooling</td><td>Ant trail foraging (stigmergy)</td></tr>
+<tr><td><strong>Operators</strong></td><td>Selection, Crossover, Mutation</td><td>Velocity &amp; Position algebraic updates</td><td>State transition rule &amp; pheromone decay</td></tr>
+<tr><td><strong>Memory</strong></td><td>None (prior generations discarded)</td><td>Individual (pbest) &amp; Swarm (gbest)</td><td>Environmental pheromone matrix (&tau;)</td></tr>
+<tr><td><strong>Sharing</strong></td><td>Two-way genetic mixing (crossover)</td><td>Broadcast from global leader (gbest)</td><td>Indirect environmental trail modification</td></tr>
+<tr><td><strong>Domain</strong></td><td>Discrete/binary &amp; continuous spaces</td><td>Continuous real-valued spaces</td><td>Discrete graph paths (combinatorial)</td></tr>
+<tr><td><strong>Benchmark</strong></td><td>Knapsack, multimodal functions</td><td>Function optimization, NN weights</td><td>Traveling Salesman Problem (TSP)</td></tr>
+</tbody></table></div>
+
+<h2>7. Real-World Applications Summary</h2>
+<ul>
+  <li><strong>Routing &amp; Logistics:</strong> Traveling Salesman Problem (TSP), Vehicle Routing Problem (VRP) &mdash; ACO/GA minimize delivery distance &amp; fleet fuel costs.</li>
+  <li><strong>Scheduling:</strong> Job Shop Scheduling (JSS), university exam timetabling &mdash; GA minimizes machine makespan and clashes.</li>
+  <li><strong>Engineering Design:</strong> Truss weight minimization, aerodynamic airfoil shape optimization &mdash; PSO/GA optimize continuous structural parameters under stress constraints.</li>
+  <li><strong>Telecommunications:</strong> Dynamic network packet routing (AntNet) &mdash; ACO deposits artificial pheromones on routers to balance bandwidth and relieve packet bottlenecks.</li>
+  <li><strong>Machine Learning:</strong> Feature selection, neural network topology/weight training without gradient vanishing &mdash; PSO/GA.</li>
+  <li><strong>Finance:</strong> Multi-objective portfolio optimization &mdash; NSGA-II balances maximum return vs minimum risk variance.</li>
+</ul>
+
+<h2>Ten-Minute Exam Final Scan</h2>
+<ol>
+  <li><strong>GA cycle:</strong> Init &rarr; Fitness &rarr; Selection &rarr; Crossover (p<sub>c</sub> &approx; 0.8) &rarr; Mutation (p<sub>m</sub> &approx; 0.01) &rarr; Repeat.</li>
+  <li><strong>Roulette wheel:</strong> P<sub>i</sub> = f<sub>i</sub> / &Sigma;f. Expected copies e<sub>i</sub> = f<sub>i</sub> / f&#772;.</li>
+  <li><strong>Elitism:</strong> Protects the all-time best chromosome from destructive crossover/mutation.</li>
+  <li><strong>Pareto dominance:</strong> u &prec; v iff u is &le; in all objectives and &lt; in at least one.</li>
+  <li><strong>NSGA-II:</strong> Uses fast non-dominated sorting, crowding distance, and (2N &rarr; N) elitist selection.</li>
+  <li><strong>PSO velocity:</strong> v = w&middot;v + c₁r₁(pbest &minus; x) + c₂r₂(gbest &minus; x). Memory of pbest &amp; gbest is unique to PSO.</li>
+  <li><strong>PSO inertia:</strong> High w (&approx;0.9) explores globally; low w (&approx;0.4) exploits locally. Linearly decreased over iterations.</li>
+  <li><strong>ACO transition rule:</strong> P<sub>ij</sub> &prop; &tau;<sub>ij</sub><sup>&alpha;</sup> &middot; &eta;<sub>ij</sub><sup>&beta;</sup>, where visibility &eta;<sub>ij</sub> = 1 / d<sub>ij</sub>.</li>
+  <li><strong>ACO pheromone update:</strong> &tau; &larr; (1 &minus; &rho;)&tau; + &Sigma;(Q / L<sub>k</sub>). Evaporation &rho; prevents premature lock-in.</li>
+  <li><strong>Stigmergy:</strong> Indirect communication via the environment (ACO pheromones).</li>
+</ol>
+
+<div class="nav">
+<a href="../index.html">All lessons</a>
+<a href="../lessons/unit-5/0020-genetic-algorithm-fundamentals.html">Unit V Lesson 20 &rarr;</a>
+<a href="unit4-cheat-sheet.html">&larr; Unit IV sheet</a>
+</div>
+
+</div>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advanced Trees 02 — Fenwick Tree (Binary Indexed Tree)</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Advanced Trees Track · Lesson 2 of 3 · Lowbit Trick, Prefix Sums, O(N) Space</div>
+<h1>Fenwick Tree (Binary Indexed Tree)</h1>
+<p class="subtitle">Peter Fenwick's mathematical marvel: range prefix sums in 12 lines of code and O(N) space.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master advanced competitive structures from 0 level. Lesson 2 of 3 in Advanced Trees.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<div class="yt-embed">
+  <div class="yt-title">📺 Recommended Lecture</div>
+  <a href="https://www.youtube.com/watch?v=RgITNht_f4Q" target="_blank">Fenwick Tree Range Queries &amp; Point Updates — William Fiset</a>
+  <span class="yt-desc">Intuitive visual bit-manipulation explanation of isolation of the lowest set bit.</span>
+</div>
+
+<h2>1 · The One Idea</h2>
+<p>
+A <strong>Fenwick Tree</strong> (or Binary Indexed Tree / BIT) answers prefix sum queries and point updates in <strong>O(log N) time</strong> like a Segment Tree, but uses only <strong>O(N) space</strong> (a simple 1D array of size $N+1$) and requires no tree pointers or recursion. It is based on a beautiful bit manipulation insight: <strong>every positive integer can be decomposed into a unique sum of powers of 2</strong>.
+</p>
+
+<h2>2 · The Magic Lowbit Trick: <code>x &amp; (-x)</code></h2>
+<p>
+In two's complement binary representation, <code>x &amp; (-x)</code> isolates the <strong>lowest set bit (rightmost 1-bit)</strong> of integer $x$!
+</p>
+<ul>
+  <li>$6 = (0110)_2 \implies -6 = (1010)_2 \implies 6 \ \&amp; \ (-6) = (0010)_2 = 2$.</li>
+  <li>To find the parent or next index to update: <code>i += i &amp; (-i)</code>.</li>
+  <li>To find the previous interval for prefix sum: <code>i -= i &amp; (-i)</code>.</li>
+</ul>
+
+<h2>3 · Complete 15-Line Java Implementation</h2>
+<pre><code>public class FenwickTree {
+    private final int[] tree;
+
+    public FenwickTree(int size) {
+        this.tree = new int[size + 1]; <span class="cmt">// 1-based indexing</span>
+    }
+
+    public void add(int i, int delta) {
+        for (; i &lt; tree.length; i += i &amp; (-i)) {
+            tree[i] += delta;
+        }
+    }
+
+    public int queryPrefix(int i) {
+        int sum = 0;
+        for (; i &gt; 0; i -= i &amp; (-i)) {
+            sum += tree[i];
+        }
+        return sum;
+    }
+
+    public int queryRange(int l, int r) {
+        return queryPrefix(r) - queryPrefix(l - 1);
+    }
+}</code></pre>
+
+<h2>Do this next</h2>
+<ul>
+  <li>Next, how do self-balancing trees guarantee $O(\log N)$ search? Lesson 3: Balanced BSTs (AVL &amp; Red-Black Trees).</li>
+</ul>
+
+<div class="nav">
+  <a href="0001-segment-trees.html">← Previous: Segment Trees</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0003-balanced-bst-avl-and-red-black.html">Next: Balanced BSTs (AVL &amp; Red-Black) →</a>
+</div>
+</body>
+</html>

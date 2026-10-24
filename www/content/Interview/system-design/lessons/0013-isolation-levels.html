@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 13 - Isolation Levels | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 13 of 66 · ACID, Dirty Reads, Phantom Reads, MVCC</div>
+  
+  <h1>Database Isolation Levels</h1>
+  <p class="subtitle">How databases prevent concurrent transactions from destroying each other's data.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module C — Consistency &amp; Isolation</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In ACID transactions, the <strong>"I" stands for Isolation</strong>. In an ideal world, every transaction would run in total isolation, as if it were the only transaction executing in the entire database. But achieving perfect isolation requires aggressive locking that grinds database throughput to a halt. Databases therefore provide <strong>Isolation Levels</strong>, allowing engineers to balance data safety against concurrency speed.</p>
+
+  <h2>2 · The 4 Concurrency Anomalies (Nightmares)</h2>
+  <p>To understand isolation levels, you must first meet the four bugs that occur when transactions collide:</p>
+
+  <h3>1. Dirty Read</h3>
+  <p>Transaction A modifies a row but hasn't committed yet. Transaction B reads that uncommitted row. Transaction A then crashes and <strong>rolls back</strong>. Transaction B is now operating on data that never officially existed!</p>
+
+  <h3>2. Non-Repeatable Read (Fuzzy Read)</h3>
+  <p>Transaction A reads a row (e.g., User balance = $100). Meanwhile, Transaction B updates that balance to $50 and commits. Transaction A reads the same row again in the same transaction and gets $50. Reading the exact same row gave two different results!</p>
+
+  <h3>3. Phantom Read</h3>
+  <p>Transaction A queries a range of rows (e.g., <code>SELECT * FROM orders WHERE user_id = 5</code>) and gets 3 rows. Meanwhile, Transaction B inserts a new 4th order for User 5 and commits. Transaction A re-executes the query and suddenly sees a "phantom" 4th row appear out of nowhere.</p>
+
+  <h3>4. Write Skew</h3>
+  <p>Two transactions read overlapping data, verify a business rule independently, and make writes that together violate the rule. Example: A hospital requires at least 1 doctor on call. Doctor A and Doctor B both request leave at the exact same second. Both transactions see 2 doctors active, both approve their respective leave, and the hospital is left with 0 doctors!</p>
+
+  <h2>3 · The 4 Standard SQL Isolation Levels</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Isolation Level</th>
+        <th>Dirty Reads?</th>
+        <th>Non-Repeatable Reads?</th>
+        <th>Phantom Reads?</th>
+        <th>Concurrency Speed</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Read Uncommitted</strong></td>
+        <td>Allowed (Dangerous)</td>
+        <td>Allowed</td>
+        <td>Allowed</td>
+        <td>Fastest (No read locks)</td>
+      </tr>
+      <tr>
+        <td><strong>Read Committed</strong><br><em>(Default in PostgreSQL, Oracle, SQL Server)</em></td>
+        <td>Prevented</td>
+        <td>Allowed</td>
+        <td>Allowed</td>
+        <td>Fast</td>
+      </tr>
+      <tr>
+        <td><strong>Repeatable Read</strong><br><em>(Default in MySQL InnoDB)</em></td>
+        <td>Prevented</td>
+        <td>Prevented</td>
+        <td>Prevented (via gap locks in InnoDB)</td>
+        <td>Moderate</td>
+      </tr>
+      <tr>
+        <td><strong>Serializable</strong></td>
+        <td>Prevented</td>
+        <td>Prevented</td>
+        <td>Prevented</td>
+        <td>Slowest (Strict sequential ordering)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · How Modern Databases Do It Fast: MVCC</h2>
+  <p>In older databases, reading a row locked out writers, and writing a row locked out readers. Modern relational engines use <strong>Multi-Version Concurrency Control (MVCC)</strong>.</p>
+  <ul>
+    <li>Whenever a row is updated, the database does not overwrite the old data in place. Instead, it creates a new version of the row with a transaction timestamp.</li>
+    <li>When a transaction starts, it reads a frozen snapshot of the database matching its start time.</li>
+    <li><strong>The Golden Rule of MVCC:</strong> <em>Readers never block writers, and writers never block readers!</em></li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Production takeaway</span>
+    90% of real-world applications run on <strong>Read Committed</strong> or <strong>Repeatable Read</strong>. Avoid Serializable unless you are handling ledger transactions where write skew would cause direct monetary loss.
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Now that we understand consistency and isolation, we face the fundamental law of distributed computing: The CAP Theorem.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0012-data-consistency-levels.html">← Previous: Consistency Levels</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0014-cap-theorem.html">Next: CAP Theorem →</a>
+  </div>
+</body>
+</html>

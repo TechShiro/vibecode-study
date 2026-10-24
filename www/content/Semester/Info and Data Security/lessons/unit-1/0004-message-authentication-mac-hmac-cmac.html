@@ -1,0 +1,332 @@
+<title>Message Authentication, MAC, HMAC, CMAC</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit I &middot; Lesson 4 of 7</p>
+<h1>Message Authentication: MAC, HMAC and CMAC</h1>
+<p class="deck">Adding a secret key to the digest so it can travel the insecure channel &mdash; the MAC and its security requirements, the nested construction HMAC with its ipad and opad, and the block-cipher construction CMAC with its two subkeys.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>The <strong>highest-yield lesson in Unit I</strong> &mdash; expect a full 10-mark question. The three that recur: <strong>&ldquo;What is a MAC? Explain message authentication with a diagram&rdquo;</strong>, <strong>&ldquo;Explain HMAC with its block diagram&rdquo;</strong> (the ipad/opad formula is the mark-earner), and <strong>&ldquo;Differentiate HMAC and CMAC&rdquo;</strong> or <strong>&ldquo;MAC vs MDC vs digital signature&rdquo;</strong>. Always finish a MAC answer with the sentence <strong>&ldquo;a MAC gives integrity and authentication but not non-repudiation, because the key is shared.&rdquo;</strong></p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Message Authentication Code (MAC) Mechanics</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=Xb_84P8Y7JI" target="_blank">MAC (Message Authentication Code) &mdash; Working and Significance</a>
+    <span class="v-meta">Trouble-Free &middot; 7:13</span>
+    <div class="v-why">Intuitive explanation of symmetric shared keys in MAC, data integrity + source origin authentication, and why a third party cannot forge a MAC tag without the key.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; HMAC (Hash-Based) &amp; CMAC (Cipher-Based)</span>
+      <span class="best-tag">Top Exam Architecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=pqKOOJFOqSI" target="_blank">HMAC Algorithm || Procedure || Block Diagram || RFC 2104</a>
+    <span class="v-meta">T V Nagaraju Technical &middot; 11:14</span>
+    <div class="v-why">Complete architectural breakdown of HMAC's two-pass nested hashing structure using inner pad (0x36) and outer pad (0x5C) to defeat length extension attacks.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: HMAC ARCHITECTURE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: HMAC (Hash-Based MAC &middot; RFC 2104) Pipeline</span>
+  <div class="flow-col">
+    <!-- Step 1 Inner Hash -->
+    <div class="flow-box highlight" style="min-width:24rem;">
+      <strong>Pass 1 &middot; Inner Hashed Pre-Digest</strong>
+      <span class="sub">$H\Big((K \oplus \mathbf{ipad}) \ || \ M\Big)$ &nbsp;|&nbsp; $\mathbf{ipad} = \text{0x3636}\dots$ repeated $B$ bytes</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Prepend Outer Key Pad: $(K \oplus \mathbf{opad})$</span>
+    
+    <!-- Step 2 Outer Hash -->
+    <div class="flow-box ok" style="min-width:24rem;">
+      <strong>Pass 2 &middot; Final HMAC Tag Emission</strong>
+      <span class="sub">$\text{HMAC}(K, M) = H\Big((K \oplus \mathbf{opad}) \ || \ \text{Pass 1 Output}\Big)$ &nbsp;|&nbsp; $\mathbf{opad} = \text{0x5C5C}\dots$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box warn" style="min-width:20rem;">
+      <strong>Security Guarantee</strong>
+      <span class="sub">Immune to length-extension attacks that plague naive $H(K \ || \ M)$.</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>What message authentication adds</h2>
+
+<p>A keyless digest tells the receiver <em>the message did not change</em>. It does not tell them <em>who sent it</em>. <strong>Message authentication assures the receiver of both the integrity of the message and the identity of its source</strong>, and it does so without needing a separate safe channel &mdash; because the digest itself is now protected by a secret key.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Three ways to produce an authenticator</th><th>How</th><th>Comment</th></tr></thead>
+<tbody>
+<tr><td><strong>Message encryption</strong></td><td>The ciphertext of the whole message serves as its authenticator</td><td>Works, but wasteful, and needs redundancy in the plaintext to detect tampering</td></tr>
+<tr><td><strong>MAC</strong></td><td>A fixed-length keyed tag computed from the message</td><td><strong>The subject of this lesson</strong></td></tr>
+<tr><td><strong>Hash function</strong></td><td>A keyless digest, then protected by encryption or a private key</td><td>MDC (Lesson 1), or the basis of a digital signature</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>MAC &mdash; Message Authentication Code</h2>
+
+<div class="formula">
+  <span class="name">Definition and transmission</span>
+  <strong>MAC = C(K, M)</strong> &nbsp;&mdash;&nbsp; a fixed-length tag computed from message M under shared secret key K.<br><br>
+  The sender transmits <strong>M &#8214; MAC</strong> over the insecure channel.<br>
+  The receiver recomputes <strong>MAC&prime; = C(K, M&prime;)</strong> on the message received and compares.<br>
+  <strong>MAC&prime; = MAC &rarr; accept</strong> (unchanged, and from the holder of K); otherwise reject.
+</div>
+
+<p>Also called a <strong>cryptographic checksum</strong> or a <strong>keyed hash function</strong>. Two things to say about it that examiners look for: <strong>the MAC function need not be reversible</strong> &mdash; it is a many-to-one function like a hash, not a cipher &mdash; and <strong>the message itself is sent in the clear</strong> unless confidentiality is separately arranged.</p>
+
+<h3>What the receiver is actually assured of</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Assurance</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td><strong>Integrity</strong></td><td>Any change to M changes the recomputed MAC</td></tr>
+<tr><td><strong>Source authentication</strong></td><td>Only the two parties hold K, so only they could have produced a valid tag</td></tr>
+<tr><td><strong>Sequence assurance</strong> (if a sequence number is inside M)</td><td>Reordering, replay or deletion of messages is detected</td></tr>
+<tr><td><strong>NOT confidentiality</strong></td><td>M travels in the clear; encrypt separately if needed</td></tr>
+<tr><td><strong>NOT non-repudiation</strong></td><td><strong>The key is shared &mdash; either party could have produced the tag</strong>, so the receiver cannot prove authorship to a judge. Only a digital signature can.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three transmission arrangements &mdash; draw whichever the question asks for</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Arrangement</th><th>Sent</th><th>Provides</th></tr></thead>
+<tbody>
+<tr><td><strong>Authentication only</strong></td><td>M &#8214; C(K, M)</td><td>Integrity + authentication</td></tr>
+<tr><td><strong>Authentication tied to the plaintext</strong></td><td>E<sub>K2</sub>[ M &#8214; C(K1, M) ]</td><td>Both; the MAC is computed <strong>before</strong> encryption</td></tr>
+<tr><td><strong>Authentication tied to the ciphertext</strong></td><td>E<sub>K2</sub>[M] &#8214; C(K1, E<sub>K2</sub>[M])</td><td>Both; the MAC is computed <strong>after</strong> encryption</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Security requirements of a MAC function</h3>
+
+<ul>
+<li><strong>Knowing M and C(K, M) must not let an attacker construct a valid pair for any other message</strong> &mdash; the essential forgery requirement.</li>
+<li><strong>MAC values must be uniformly distributed</strong>: for a randomly chosen pair of messages, the chance of equal MACs must be 2<sup>&minus;n</sup> for an n-bit tag.</li>
+<li><strong>The MAC must depend equally on all bits of the message</strong>, so no part can be altered freely.</li>
+<li>The key space must be large enough that <strong>brute-force key search is infeasible</strong>.</li>
+</ul>
+
+<h2>Nested MAC and the road to HMAC</h2>
+
+<p>The obvious keyed hash &mdash; <strong>MAC = H(K &#8214; M)</strong>, prepending the key to the message &mdash; is <strong>insecure</strong>. Because iterated hashes chain block by block, an attacker who sees the digest of K &#8214; M can <strong>extend</strong> the message and compute the digest of K &#8214; M &#8214; extra without knowing K. This is the <strong>length-extension attack</strong>, and it is the reason HMAC exists.</p>
+
+<p>The fix is a <strong>nested MAC</strong>: hash once with the key, then <strong>hash the result again with the key</strong>. The outer hash hides the internal chaining state, so extension is impossible. HMAC is the standardised nested MAC.</p>
+
+<h2>HMAC &mdash; Hash-based MAC</h2>
+
+<p>Defined in <strong>RFC 2104</strong>, adopted by <strong>FIPS 198</strong>, and used inside <strong>IPsec, SSL/TLS and SET</strong>. Its design goal was to reuse an <em>existing</em> hash function as a black box, so that a broken hash can be swapped out without redesigning the MAC.</p>
+
+<div class="formula">
+  <span class="name">The HMAC formula &mdash; memorise this line</span>
+  <strong>HMAC(K, M) = H[ (K<sup>+</sup> &oplus; opad) &#8214; H[ (K<sup>+</sup> &oplus; ipad) &#8214; M ] ]</strong><br><br>
+  <strong>ipad</strong> = 00110110 (<strong>0x36</strong>) repeated to one block &nbsp;&middot;&nbsp;
+  <strong>opad</strong> = 01011100 (<strong>0x5C</strong>) repeated to one block<br>
+  <strong>K<sup>+</sup></strong> = the secret key padded with 0s on the left to the hash&rsquo;s block size b
+</div>
+
+<div class="solve">
+  <span class="lbl">The steps, as the block diagram reads top to bottom</span>
+  <p><strong>1.</strong> Take the secret key K. If it is <strong>shorter</strong> than the block size b, pad it on the left with zeros to get K<sup>+</sup>. If it is <strong>longer</strong> than b, <strong>hash it first</strong> and then pad that digest to b bits.</p>
+  <p><strong>2.</strong> XOR K<sup>+</sup> with <strong>ipad</strong> to produce the b-bit block <strong>S<sub>i</sub></strong>.</p>
+  <p><strong>3.</strong> <strong>Prepend</strong> S<sub>i</sub> to the message M.</p>
+  <p><strong>4.</strong> Hash it: <strong>inner digest = H(S<sub>i</sub> &#8214; M)</strong>, of length n bits.</p>
+  <p><strong>5.</strong> Pad the inner digest out to b bits.</p>
+  <p><strong>6.</strong> XOR K<sup>+</sup> with <strong>opad</strong> to produce <strong>S<sub>o</sub></strong>.</p>
+  <p><strong>7.</strong> Prepend S<sub>o</sub> to the padded inner digest.</p>
+  <p><strong>8.</strong> Hash again: <strong>HMAC = H(S<sub>o</sub> &#8214; inner digest)</strong> &mdash; the n-bit tag.</p>
+</div>
+
+<div class="box">
+  <span class="lbl">Sizes to quote</span>
+  <p><strong>b</strong> is the hash&rsquo;s block size: <strong>512 bits</strong> for MD5, SHA-1 and SHA-256; <strong>1024 bits</strong> for SHA-512. <strong>n</strong> is the digest size: 128, 160, 256 or 512. The tag may be <strong>truncated</strong> to the leftmost bits (HMAC-SHA-1-96 in IPsec, for instance), which shortens the tag without weakening the key.</p>
+</div>
+
+<h3>Why ipad and opad differ</h3>
+
+<p>They differ in <strong>half their bits</strong>. XORing K with two very different constants produces <strong>two pseudorandom keys from one key</strong>, so the inner and outer hashes behave independently. That is the whole reason for the two constants, and it is the standard follow-up question after &ldquo;write the HMAC formula&rdquo;.</p>
+
+<h3>Efficiency and security of HMAC</h3>
+
+<ul>
+<li><strong>Only two extra block computations</strong> beyond hashing the message itself &mdash; one for S<sub>i</sub>, one for S<sub>o</sub>. For long messages HMAC costs essentially the same as a plain hash.</li>
+<li>Those two blocks can be <strong>precomputed</strong> and cached while the key is unchanged.</li>
+<li><strong>The security of HMAC is provably related to the security of the underlying hash</strong>: to forge an HMAC, an attacker must either find collisions in the hash while not knowing the key, or break the compression function used with a secret IV. Even MD5&rsquo;s collision weakness does not directly break HMAC-MD5.</li>
+<li>Any hash can be plugged in &mdash; <strong>HMAC-MD5, HMAC-SHA-1, HMAC-SHA-512</strong>.</li>
+</ul>
+
+<h2>CMAC &mdash; Cipher-based MAC</h2>
+
+<p>Where HMAC reuses a hash, <strong>CMAC reuses a block cipher</strong> &mdash; useful on devices that already implement AES and have no hash hardware. It is standardised in <strong>NIST SP 800-38B</strong> and uses <strong>AES or triple-DES in CBC mode</strong>.</p>
+
+<h3>The problem CMAC fixes</h3>
+
+<p>The older <strong>DAA (Data Authentication Algorithm), also called CBC-MAC</strong>, simply runs the message through CBC mode with an IV of zeros and keeps the <strong>last ciphertext block</strong> as the tag. It is secure only for messages of a <strong>fixed length</strong>. With variable-length messages an attacker who knows the tag of a one-block message X can forge the tag of the two-block message <strong>X &#8214; (X &oplus; T)</strong> without the key. CMAC removes that weakness by <strong>XORing a derived subkey into the final block</strong>.</p>
+
+<div class="solve">
+  <span class="lbl">CMAC, step by step</span>
+  <p><strong>1. Derive the subkeys.</strong> Encrypt an all-zero block: <strong>L = E(K, 0<sup>b</sup>)</strong>. Then derive <strong>K<sub>1</sub></strong> and <strong>K<sub>2</sub> = 2K<sub>1</sub></strong> by multiplication by x in the finite field GF(2<sup>b</sup>) &mdash; in practice a left shift by one bit, with a conditional XOR of a constant (0x87 for the 128-bit AES block) when the bit shifted out is 1.</p>
+  <p><strong>2. Split</strong> the message into b-bit blocks M<sub>1</sub>&hellip;M<sub>n</sub>.</p>
+  <p><strong>3. Treat the last block.</strong> If it is a <strong>complete</strong> block, XOR it with <strong>K<sub>1</sub></strong>. If it is <strong>incomplete</strong>, pad it with a 1 followed by 0s and XOR it with <strong>K<sub>2</sub></strong>.</p>
+  <p><strong>4. Run CBC:</strong> C<sub>i</sub> = E(K, C<sub>i&minus;1</sub> &oplus; M<sub>i</sub>), starting from an all-zero IV.</p>
+  <p><strong>5. Output</strong> the leftmost s bits of the final ciphertext block as the CMAC tag.</p>
+</div>
+
+<p>The single idea to remember: <strong>two subkeys, one for a full final block and one for a padded final block</strong> &mdash; that is what makes the length of the message unforgeable.</p>
+
+<h2>HMAC versus CMAC</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>HMAC</th><th>CMAC</th></tr></thead>
+<tbody>
+<tr><td><strong>Built on</strong></td><td>A cryptographic <strong>hash function</strong> (MD5, SHA-1, SHA-512)</td><td>A <strong>block cipher</strong> (AES, 3DES) in CBC mode</td></tr>
+<tr><td><strong>Standard</strong></td><td>RFC 2104, FIPS 198</td><td>NIST SP 800-38B</td></tr>
+<tr><td><strong>Structure</strong></td><td><strong>Nested</strong> &mdash; hash twice, with ipad and opad</td><td><strong>Chained</strong> &mdash; CBC, with two derived subkeys</td></tr>
+<tr><td><strong>Keys used</strong></td><td>One key, expanded into two by ipad/opad</td><td>One key, from which K<sub>1</sub> and K<sub>2</sub> are derived</td></tr>
+<tr><td><strong>Tag length</strong></td><td>The hash digest size (may be truncated)</td><td>The cipher block size, 128 bits for AES (may be truncated)</td></tr>
+<tr><td><strong>Speed</strong></td><td>Faster in software &mdash; hashing is cheap</td><td>Faster where AES hardware exists; no hash code needed</td></tr>
+<tr><td><strong>Used in</strong></td><td>IPsec, SSL/TLS, SET</td><td>IEEE 802.11i (WPA2), constrained and embedded devices</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>MAC versus MDC versus digital signature</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>MDC (plain hash)</th><th>MAC (HMAC / CMAC)</th><th>Digital signature</th></tr></thead>
+<tbody>
+<tr><td><strong>Key</strong></td><td>None</td><td><strong>Shared secret key</strong></td><td><strong>Sender&rsquo;s private key</strong></td></tr>
+<tr><td><strong>Integrity</strong></td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+<tr><td><strong>Authentication</strong></td><td>No</td><td><strong>Yes</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Non-repudiation</strong></td><td>No</td><td><strong>No</strong> &mdash; the key is shared</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Speed</strong></td><td>Fastest</td><td>Fast (symmetric)</td><td>Slowest (asymmetric)</td></tr>
+<tr><td><strong>Needs a safe channel for the tag</strong></td><td>Yes</td><td>No</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. A MAC does not provide non-repudiation because:</p>
+  <div class="opts">
+    <button class="opt">The MAC is too short to identify a sender uniquely in a dispute</button>
+    <button class="opt">The message travels in the clear alongside the MAC that protects it</button>
+    <button class="opt">MAC functions are one-way and so cannot be verified by a third party</button>
+    <button class="opt" data-ok="1">Both parties hold the same key, so either of them could have produced the tag</button>
+  </div>
+  <p class="why">Shared-key symmetry is the reason. A judge cannot tell sender from receiver, so authorship cannot be proved — that needs the asymmetry of a private key.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In HMAC, the key is XORed with two different constants, ipad and opad, in order to:</p>
+  <div class="opts">
+    <button class="opt">Encrypt the inner digest before it is hashed a second time</button>
+    <button class="opt" data-ok="1">Produce two independent pseudorandom keys from a single shared key</button>
+    <button class="opt">Signal to the receiver which hash function was used inside</button>
+    <button class="opt">Pad the key out to the block size required by the hash function</button>
+  </div>
+  <p class="why">0x36 and 0x5C differ in half their bits, so the inner and outer hashes effectively use different keys. Padding to block size is done separately, by K⁺.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. MAC = H(K ‖ M), with the key simply prepended, is insecure because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">An attacker can extend the message and compute a valid tag without knowing K</button>
+    <button class="opt">The message must then be shorter than one block of the hash function</button>
+    <button class="opt">The hash of a key is reversible, so K can be recovered from the tag</button>
+    <button class="opt">Prepending changes the digest length, which the receiver cannot predict</button>
+  </div>
+  <p class="why">The length-extension attack on Merkle–Damgård hashes. Hashing a second time with the key — the nested construction of HMAC — closes it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. CMAC derives two subkeys K₁ and K₂ so that:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A complete final block and a padded final block are treated differently, preventing length forgery</button>
+    <button class="opt">The cipher can be run in CBC mode without needing an initialisation vector</button>
+    <button class="opt">The tag can be verified even if the receiver holds only one of the two keys</button>
+    <button class="opt">Encryption and MAC generation can proceed in parallel on two cores</button>
+  </div>
+  <p class="why">This is exactly the weakness of plain CBC-MAC (DAA) that CMAC repairs: with variable-length messages, tags could otherwise be forged by concatenation.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. For SHA-512, the block size b used to pad the HMAC key is:</p>
+  <div class="opts">
+    <button class="opt">2048 bits, twice the block size, because HMAC hashes the message twice</button>
+    <button class="opt">128 bits, matching the AES block size used in the padding step</button>
+    <button class="opt">512 bits, matching the length of the digest that it produces</button>
+    <button class="opt" data-ok="1">1024 bits, the block size of SHA-512 rather than its 512-bit digest</button>
+  </div>
+  <p class="why">K⁺, ipad and opad are all one *block* long, and SHA-512 processes 1024-bit blocks. Confusing block size with digest size is the classic slip here.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which pairing of construction and base primitive is correct?</p>
+  <div class="opts">
+    <button class="opt">Both are built on block ciphers, differing only in the mode of operation</button>
+    <button class="opt">HMAC is built on a block cipher; CMAC is built on a hash function</button>
+    <button class="opt">Both are built on hash functions, differing only in the padding constants</button>
+    <button class="opt" data-ok="1">HMAC is built on a hash function; CMAC is built on a block cipher in CBC mode</button>
+  </div>
+  <p class="why">The H in HMAC is Hash; the C in CMAC is Cipher. That mnemonic answers most questions on this pair.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a MAC and describe how sender and receiver use it.</summary>
+    <p class="ans">A MAC is a fixed-length tag MAC = C(K, M) computed from the message under a secret key shared by the two parties. The sender transmits M along with the MAC; the receiver recomputes the MAC on the message received using the same key and compares. A match means the message is unchanged and came from the holder of the key.</p></details>
+  <details class="card"><summary>What does a MAC assure the receiver of, and what does it not?</summary>
+    <p class="ans">It assures integrity, source authentication, and — if a sequence number is included — correct ordering with no replay or deletion. It does not provide confidentiality, since the message travels in the clear, and it does not provide non-repudiation, because the key is shared and either party could have produced the tag.</p></details>
+  <details class="card"><summary>State the security requirements of a MAC function.</summary>
+    <p class="ans">Knowing a message and its MAC must not allow a valid MAC to be constructed for any other message; MAC values must be uniformly distributed, so a random pair collides with probability 2⁻ⁿ; the MAC must depend equally on all bits of the message; and the key space must be large enough to defeat brute-force search.</p></details>
+  <details class="card"><summary>Write the HMAC formula and name its constants.</summary>
+    <p class="ans">HMAC(K, M) = H[(K⁺ ⊕ opad) ‖ H[(K⁺ ⊕ ipad) ‖ M]], where ipad is the byte 0x36 repeated to one block, opad is 0x5C repeated to one block, and K⁺ is the key padded with zeros to the hash&rsquo;s block size b — 512 bits for MD5 and SHA-1, 1024 bits for SHA-512.</p></details>
+  <details class="card"><summary>Give the eight steps of HMAC.</summary>
+    <p class="ans">Pad the key to block size (hashing it first if it is too long); XOR it with ipad to get S_i; prepend S_i to the message; hash to get the inner digest; pad the inner digest to block size; XOR the key with opad to get S_o; prepend S_o to the padded inner digest; hash again to get the tag.</p></details>
+  <details class="card"><summary>Why is HMAC efficient, and why is it secure?</summary>
+    <p class="ans">It costs only two extra block computations beyond hashing the message, and those two can be precomputed for a fixed key. Its security is provably tied to the underlying hash: forging it requires either finding collisions without knowing the key or breaking the compression function with a secret IV, so even a collision-weak hash such as MD5 does not immediately break HMAC.</p></details>
+  <details class="card"><summary>Describe CMAC and the weakness of CBC-MAC that it fixes.</summary>
+    <p class="ans">CMAC runs a block cipher such as AES in CBC mode over the message with a zero IV, and takes the last ciphertext block as the tag; before that, it XORs subkey K₁ into a complete final block or K₂ into a padded final block, the subkeys being derived from L = E(K, 0ᵇ) by multiplication by x in GF(2ᵇ). Plain CBC-MAC (DAA) is secure only for fixed-length messages: for variable-length messages an attacker can forge tags by concatenation, which the subkeys prevent.</p></details>
+  <details class="card"><summary>Give five differences between HMAC and CMAC.</summary>
+    <p class="ans">HMAC is built on a hash, CMAC on a block cipher; HMAC is a nested double hash with ipad and opad, CMAC is a CBC chain with two subkeys; HMAC&rsquo;s tag is the digest size, CMAC&rsquo;s the cipher block size; HMAC is standardised in RFC 2104/FIPS 198, CMAC in NIST SP 800-38B; HMAC is used in IPsec and TLS, CMAC in WPA2 and constrained devices with AES hardware.</p></details>
+</div>
+
+<p class="ask">Next: MD4 &mdash; the first of the three named algorithms, and the design that MD5, SHA and RIPEMD were all descended from.</p>
+
+<div class="nav">
+  <a href="0003-random-oracle-model.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0005-md4.html">Next: MD4 &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

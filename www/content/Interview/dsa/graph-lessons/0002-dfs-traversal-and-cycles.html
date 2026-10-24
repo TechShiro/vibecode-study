@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 02 — DFS (Traversal &amp; Cycles)</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 02 of 09 · go deep, find everything</div>
+<h1>Depth-First Search</h1>
+<p class="subtitle">One recursive idea — dive as deep as you can, then back out — solves connectivity, islands, all-paths, and both flavors of cycle detection. The variations are bookkeeping on top of one template.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> graphs are ~25% of Google intern questions, and DFS is the workhorse —
+  Clone Graph, Number of Islands and Pacific Atlantic are all Google-reported. This is Lesson 2 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+DFS commits to one neighbor, follows it as far as it goes, and only backtracks when it dead-ends —
+"deep before wide." Mechanically it's a <strong>visited set</strong> plus either the call stack
+(recursion) or an explicit <code>Deque</code> used as a stack. The visited set is what makes a
+<em>graph</em> DFS terminate where a tree DFS needs no such guard. The same five lines run on graphs,
+grids (a grid is a graph with 4 implicit neighbors), and trees.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "connected / path exists / all paths / cycle / islands / regions / flood / count groups."
+  If the question is about <em>whether</em> you can reach something, <em>enumerating</em> reachable
+  things, or detecting a loop — and shortest distance is NOT asked — DFS fires. The instant you hear
+  "minimum steps / fewest moves," switch to BFS (Lesson 03).
+</div>
+
+<h2>2 · Core template</h2>
+<p>
+Adjacency as <code>List&lt;List&lt;Integer&gt;&gt;</code> plus a <code>boolean[] visited</code>. Mark on
+entry, recurse into every unvisited neighbor. To make it count components or sweep a disconnected
+graph, wrap it in a loop over all nodes (Lesson 01).
+</p>
+
+<pre><code><span class="cmt">// recursive graph DFS — the move you build everything else on</span>
+void dfs(int node, List&lt;List&lt;Integer&gt;&gt; adj, boolean[] visited) {
+    visited[node] = true;            <span class="cmt">// mark ON ENTRY, before recursing</span>
+    for (int nei : adj.get(node)) {
+        if (!visited[nei])
+            dfs(nei, adj, visited);  <span class="cmt">// go deep into this branch first</span>
+    }
+}
+
+<span class="cmt">// driver: handles a disconnected graph by launching from every unvisited node</span>
+int countComponents(int n, List&lt;List&lt;Integer&gt;&gt; adj) {
+    boolean[] visited = new boolean[n];
+    int components = 0;
+    for (int i = 0; i &lt; n; i++)
+        if (!visited[i]) { components++; dfs(i, adj, visited); }
+    return components;
+}</code></pre>
+<p><strong>Time</strong> O(V + E) — each vertex marked once, each edge inspected once. <strong>Space</strong> O(V) for visited + O(V) worst-case recursion stack (a path graph). On a grid that's O(rows·cols).</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: <code>n = 5</code>, <code>edges = {{0,1},{0,2},{1,3},{2,4}}</code> (undirected, tree-shaped).
+Run <code>dfs(0)</code> and watch the recursion dive deep, hit a leaf, backtrack, then take the next branch:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 320 210" role="img" aria-label="A tree-shaped graph: node 0 at top with children 1 and 2; node 1 has child 3; node 2 has child 4. All nodes end visited.">
+  <line class="edge" x1="160" y1="40"  x2="90"  y2="120"/>
+  <line class="edge" x1="160" y1="40"  x2="230" y2="120"/>
+  <line class="edge" x1="90"  y1="120" x2="90"  y2="190"/>
+  <line class="edge" x1="230" y1="120" x2="230" y2="190"/>
+  <circle class="node done" cx="160" cy="40"  r="20"/><text class="lbl" x="160" y="40">0</text>
+  <circle class="node done" cx="90"  cy="120" r="20"/><text class="lbl" x="90"  y="120">1</text>
+  <circle class="node done" cx="230" cy="120" r="20"/><text class="lbl" x="230" y="120">2</text>
+  <circle class="node done" cx="90"  cy="190" r="20"/><text class="lbl" x="90"  y="190">3</text>
+  <circle class="node done" cx="230" cy="190" r="20"/><text class="lbl" x="230" y="190">4</text>
+</svg>
+<figcaption>One DFS from node 0 reaches all five nodes. Visit order: 0 → 1 → 3 → (back) → 2 → 4.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">dfs(0): mark 0 visited → order = [<span class="ptr">0</span>]</span>
+<span class="step now">0's first unvisited neighbor is 1 → dfs(1): mark 1 → order = [0, <span class="ptr">1</span>]</span>
+<span class="step now">1's first unvisited neighbor is 3 → dfs(3): mark 3 → order = [0, 1, <span class="ptr">3</span>]</span>
+<span class="step">3 has no unvisited neighbors (leaf) → return to dfs(1)</span>
+<span class="step">dfs(1) has no more neighbors → return to dfs(0)</span>
+<span class="step now">0's next unvisited neighbor is 2 → dfs(2): mark 2 → order = [0, 1, 3, <span class="ptr">2</span>]</span>
+<span class="step now">2's first unvisited neighbor is 4 → dfs(4): mark 4 → order = [0, 1, 3, 2, <span class="ptr">4</span>]</span>
+<span class="step">4 is a leaf → unwind all the way out; every node visited</span>
+<span class="step">final visited order → <span class="ptr">[0, 1, 3, 2, 4]</span></span>
+</div>
+
+<h3>Iterative DFS with an explicit stack</h3>
+<p>
+Identical traversal, but the stack is yours instead of the JVM's. Reach for this when the graph can be
+deep enough to blow the call stack (see the trap).
+</p>
+<pre><code><span class="cmt">// same O(V+E); marks on POP. Push-time marking also works and avoids dup stack entries.</span>
+void dfsIterative(int start, List&lt;List&lt;Integer&gt;&gt; adj, boolean[] visited) {
+    Deque&lt;Integer&gt; stack = new ArrayDeque&lt;&gt;();
+    stack.push(start);
+    while (!stack.isEmpty()) {
+        int node = stack.pop();
+        if (visited[node]) continue; <span class="cmt">// a node can be pushed by several neighbors</span>
+        visited[node] = true;
+        for (int nei : adj.get(node))
+            if (!visited[nei]) stack.push(nei);
+    }
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Recursion depth → StackOverflow</span>
+  A path-shaped graph of 10⁵ nodes recurses 10⁵ deep and overflows the JVM call stack
+  (default ~10⁴–10⁵ frames). Competitive inputs and adversarial test cases love this shape.
+  When V can be large and the graph can be a long chain, switch to the <strong>explicit-stack</strong>
+  version above — same complexity, heap-allocated stack, no overflow.
+</div>
+
+<h2>3 · All the cases</h2>
+<p>One template, different "what is a neighbor" and "what do I mark." Master the template and the table below is the whole job.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Grid flood (count islands)</td><td>LC 200 ★</td><td>Neighbors = 4 cells; mark by mutating the grid in place — no separate visited.</td></tr>
+    <tr><td>Clone a graph</td><td>LC 133 ★</td><td><code>Map&lt;Node,Node&gt;</code> is visited <em>and</em> the clone lookup at once.</td></tr>
+    <tr><td>Count components / provinces</td><td>LC 547 / 323</td><td>Count how many times the driver launches a fresh DFS.</td></tr>
+    <tr><td>Cycle — undirected</td><td>generic / LC 261</td><td>Pass the parent; an edge back to parent is not a cycle.</td></tr>
+    <tr><td>Cycle — directed</td><td>LC 207</td><td>3-color or <code>onStack[]</code>: a back-edge to a node still on the recursion stack = cycle.</td></tr>
+    <tr><td>Enumerate all paths</td><td>LC 797</td><td>DFS + backtracking: append on entry, remove on exit. No visited (it's a DAG).</td></tr>
+    <tr><td>Reachability from borders</td><td>LC 417 ★</td><td>DFS inward from two border sets; answer = intersection.</td></tr>
+    <tr><td>Mark survivors from border</td><td>LC 130</td><td>DFS from border seeds to protect them, then flip the rest.</td></tr>
+  </tbody>
+</table>
+<p>★ = Google-reported favorite. Drill these three first.</p>
+
+<h3>Case: Number of Islands — grid DFS, in-place marking (LC 200) ★</h3>
+<p>
+A grid is a graph: each '1' cell's neighbors are its 4 orthogonal '1' neighbors. Instead of a visited
+array, overwrite each visited land cell with '0' — sinking the island as you walk it.
+</p>
+<pre><code>int numIslands(char[][] grid) {
+    int R = grid.length, C = grid[0].length, count = 0;
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++)
+            if (grid[r][c] == '1') { count++; sink(grid, r, c); } <span class="cmt">// each launch = one island</span>
+    return count;
+}
+void sink(char[][] grid, int r, int c) {
+    if (r &lt; 0 || r &gt;= grid.length || c &lt; 0 || c &gt;= grid[0].length || grid[r][c] != '1')
+        return;                      <span class="cmt">// bounds + "is it land" guard rolled into one</span>
+    grid[r][c] = '0';                <span class="cmt">// mark visited by sinking it</span>
+    sink(grid, r + 1, c);
+    sink(grid, r - 1, c);
+    sink(grid, r, c + 1);
+    sink(grid, r, c - 1);
+}</code></pre>
+<p><strong>Time</strong> O(R·C) — each cell visited once. <strong>Space</strong> O(R·C) worst-case recursion depth (one giant island that snakes through the whole grid).</p>
+
+<h3>Case: Clone Graph — the map is visited AND the clone (LC 133) ★</h3>
+<p>
+The classic Google phone-screen question. A <code>Map&lt;Node,Node&gt;</code> from original → copy does
+double duty: "have I cloned this node?" is just "is it a key?", and it returns the existing clone so
+shared neighbors aren't duplicated.
+</p>
+<pre><code><span class="cmt">// class Node { int val; List&lt;Node&gt; neighbors; }</span>
+Map&lt;Node, Node&gt; seen = new HashMap&lt;&gt;();
+Node cloneGraph(Node node) {
+    if (node == null) return null;
+    if (seen.containsKey(node)) return seen.get(node); <span class="cmt">// already cloned → return it (cycle-safe)</span>
+    Node copy = new Node(node.val);
+    seen.put(node, copy);            <span class="cmt">// register BEFORE recursing, or cycles loop forever</span>
+    for (Node nei : node.neighbors)
+        copy.neighbors.add(cloneGraph(nei));
+    return copy;
+}</code></pre>
+<p><strong>Time</strong> O(V + E). <strong>Space</strong> O(V) for the map + recursion stack.</p>
+<div class="callout trap">
+  <span class="label">Register the clone before you recurse</span>
+  If you put <code>seen.put(node, copy)</code> <em>after</em> the neighbor loop, a cycle (A→B→A)
+  re-enters <code>cloneGraph(A)</code> before A is registered, clones A again, and recurses forever.
+  Put it in the map the instant you create it.
+</div>
+
+<h3>Case: Number of Provinces / Connected Components (LC 547 / 323)</h3>
+<p>
+LC 547 hands you an adjacency <em>matrix</em> <code>isConnected[i][j]</code>; LC 323 hands you an edge
+list. Either way the answer is "how many DFS launches cover the graph" — identical to the driver in §2.
+</p>
+<pre><code>int findCircleNum(int[][] isConnected) {
+    int n = isConnected.length;
+    boolean[] visited = new boolean[n];
+    int provinces = 0;
+    for (int i = 0; i &lt; n; i++)
+        if (!visited[i]) { provinces++; dfsMatrix(isConnected, visited, i); }
+    return provinces;
+}
+void dfsMatrix(int[][] g, boolean[] visited, int u) {
+    visited[u] = true;
+    for (int v = 0; v &lt; g.length; v++)
+        if (g[u][v] == 1 && !visited[v]) dfsMatrix(g, visited, v); <span class="cmt">// neighbor = a 1 in row u</span>
+}</code></pre>
+<p><strong>Time</strong> O(V²) here because the matrix forces scanning a full row per node (use an adjacency list for O(V+E) on sparse input). <strong>Space</strong> O(V).</p>
+
+<h3>Case: Cycle detection — UNDIRECTED (pass the parent)</h3>
+<p>
+In an undirected graph every edge u–v shows up in both lists, so DFS always sees the edge straight back
+to where it came from. That is <em>not</em> a cycle — skip it by passing the parent. A visited node that
+is <strong>not</strong> the parent means a real cycle.
+</p>
+<pre><code>boolean hasCycleUndirected(int n, List&lt;List&lt;Integer&gt;&gt; adj) {
+    boolean[] visited = new boolean[n];
+    for (int i = 0; i &lt; n; i++)            <span class="cmt">// disconnected → check every component</span>
+        if (!visited[i] && dfs(i, -1, adj, visited)) return true;
+    return false;
+}
+boolean dfs(int node, int parent, List&lt;List&lt;Integer&gt;&gt; adj, boolean[] visited) {
+    visited[node] = true;
+    for (int nei : adj.get(node)) {
+        if (!visited[nei]) {
+            if (dfs(nei, node, adj, visited)) return true;
+        } else if (nei != parent) {       <span class="cmt">// visited &amp; not where we came from = cycle</span>
+            return true;
+        }
+    }
+    return false;
+}</code></pre>
+<p><strong>Time</strong> O(V + E). <strong>Space</strong> O(V).</p>
+<div class="callout trap">
+  <span class="label">Parent-skip breaks on duplicate edges</span>
+  The <code>nei != parent</code> trick assumes at most one edge between two nodes. If the input can
+  contain a <strong>parallel edge</strong> (u–v listed twice), two distinct edges to the parent <em>are</em>
+  a real 2-cycle — and parent-skip wrongly ignores it. When multi-edges are possible, skip a single edge
+  to the parent by id/count, or use Union-Find (Lesson on DSU) instead.
+</div>
+
+<h3>Case: Cycle detection — DIRECTED (3-color / onStack)</h3>
+<p>
+In a directed graph a plain <code>visited</code> flag is <strong>insufficient</strong>: re-reaching an
+already-finished node is fine (a diamond A→B→D, A→C→D has no cycle), but re-reaching a node that is
+still <em>on the current path</em> is a back-edge = cycle. You must distinguish "done" from "in
+progress." Two equivalent encodings: a 3-color array (0 white / 1 gray-on-stack / 2 black-done), or a
+<code>visited[]</code> plus <code>onStack[]</code>.
+</p>
+<pre><code><span class="cmt">// color: 0 = unvisited, 1 = in current DFS path (gray), 2 = fully explored (black)</span>
+boolean hasCycleDirected(int n, List&lt;List&lt;Integer&gt;&gt; adj) {
+    int[] color = new int[n];
+    for (int i = 0; i &lt; n; i++)
+        if (color[i] == 0 && dfs(i, adj, color)) return true;
+    return false;
+}
+boolean dfs(int node, List&lt;List&lt;Integer&gt;&gt; adj, int[] color) {
+    color[node] = 1;                 <span class="cmt">// gray: entered, still on the stack</span>
+    for (int nei : adj.get(node)) {
+        if (color[nei] == 1) return true;          <span class="cmt">// edge to a gray node = back-edge = cycle</span>
+        if (color[nei] == 0 &amp;&amp; dfs(nei, adj, color)) return true;
+        <span class="cmt">// color[nei] == 2 (black) → safe, already fully explored</span>
+    }
+    color[node] = 2;                 <span class="cmt">// black: leaving — done with this node</span>
+    return false;
+}</code></pre>
+<p><strong>Time</strong> O(V + E). <strong>Space</strong> O(V). This is exactly the cycle check inside <strong>Course Schedule (LC 207)</strong> — "can finish" ⇔ "the prerequisite digraph has no cycle."</p>
+
+<h3>Case: All Paths from Source to Target — DFS + backtracking (LC 797)</h3>
+<p>
+Enumeration, not just reachability: build the current path on entry, recurse, then <strong>undo</strong>
+the choice on exit so siblings start clean. The input is a DAG, so no visited set is needed.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; allPathsSourceTarget(int[][] graph) {
+    List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+    List&lt;Integer&gt; path = new ArrayList&lt;&gt;();
+    path.add(0);                     <span class="cmt">// start node is always on the path</span>
+    dfs(graph, 0, path, res);
+    return res;
+}
+void dfs(int[][] graph, int node, List&lt;Integer&gt; path, List&lt;List&lt;Integer&gt;&gt; res) {
+    if (node == graph.length - 1) {  <span class="cmt">// reached target n-1</span>
+        res.add(new ArrayList&lt;&gt;(path)); <span class="cmt">// COPY — path keeps mutating</span>
+        return;
+    }
+    for (int nei : graph[node]) {
+        path.add(nei);               <span class="cmt">// choose</span>
+        dfs(graph, nei, path, res);  <span class="cmt">// explore</span>
+        path.remove(path.size() - 1);<span class="cmt">// un-choose (backtrack) — restore for the next sibling</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(2<sup>V</sup>·V) worst case — exponentially many paths, each up to length V to copy. <strong>Space</strong> O(V) recursion + path (excluding output).</p>
+
+<h3>Case: Pacific Atlantic Water Flow — DFS inward from both borders (LC 417) ★</h3>
+<p>
+A Google-reported favorite, and the inversion is the trick: don't ask "can this cell flow to both
+oceans?" (DFS from every cell = O((R·C)²)). Instead flood <em>uphill</em> inward from each ocean's
+border, marking every cell that ocean can reach. The answer is the intersection of the two reachable
+sets — one O(R·C) pass per ocean.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; pacificAtlantic(int[][] h) {
+    int R = h.length, C = h[0].length;
+    boolean[][] pac = new boolean[R][C], atl = new boolean[R][C];
+    for (int r = 0; r &lt; R; r++) { flow(h, pac, r, 0); flow(h, atl, r, C - 1); }   <span class="cmt">// left/right edges</span>
+    for (int c = 0; c &lt; C; c++) { flow(h, pac, 0, c); flow(h, atl, R - 1, c); }   <span class="cmt">// top/bottom edges</span>
+    List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++)
+            if (pac[r][c] &amp;&amp; atl[r][c]) res.add(List.of(r, c)); <span class="cmt">// reachable by BOTH</span>
+    return res;
+}
+void flow(int[][] h, boolean[][] seen, int r, int c) {
+    seen[r][c] = true;
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    for (int[] d : dirs) {
+        int nr = r + d[0], nc = c + d[1];
+        if (nr &gt;= 0 &amp;&amp; nr &lt; h.length &amp;&amp; nc &gt;= 0 &amp;&amp; nc &lt; h[0].length
+                &amp;&amp; !seen[nr][nc] &amp;&amp; h[nr][nc] &gt;= h[r][c]) <span class="cmt">// flow uphill: only step to &gt;= height</span>
+            flow(h, seen, nr, nc);
+    }
+}</code></pre>
+<p><strong>Time</strong> O(R·C) — each cell entered at most once per ocean. <strong>Space</strong> O(R·C) for the two boolean grids + recursion.</p>
+
+<h3>Case: Surrounded Regions — DFS from the border to mark survivors (LC 130)</h3>
+<p>
+Same border-seed inversion. An 'O' region survives only if it touches the edge. So DFS from every
+border 'O', temporarily marking the connected survivors; then in one sweep flip the rest to 'X' and
+restore the survivors.
+</p>
+<pre><code>void solve(char[][] board) {
+    int R = board.length, C = board[0].length;
+    for (int r = 0; r &lt; R; r++) { guard(board, r, 0); guard(board, r, C - 1); }
+    for (int c = 0; c &lt; C; c++) { guard(board, 0, c); guard(board, R - 1, c); }
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++) {
+            if (board[r][c] == 'O') board[r][c] = 'X'; <span class="cmt">// not reached from border → captured</span>
+            else if (board[r][c] == 'S') board[r][c] = 'O'; <span class="cmt">// survivor → restore</span>
+        }
+}
+void guard(char[][] board, int r, int c) {
+    if (r &lt; 0 || r &gt;= board.length || c &lt; 0 || c &gt;= board[0].length || board[r][c] != 'O')
+        return;
+    board[r][c] = 'S';               <span class="cmt">// mark border-connected 'O' as a survivor</span>
+    guard(board, r + 1, c); guard(board, r - 1, c);
+    guard(board, r, c + 1); guard(board, r, c - 1);
+}</code></pre>
+<p><strong>Time</strong> O(R·C). <strong>Space</strong> O(R·C) recursion worst case.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Deep / chain-shaped graph → StackOverflow.</strong> A 10⁵-node path overflows recursion. Use the explicit-stack DFS when V is large and the shape can be linear.</li>
+  <li><strong>Undirected cycle: parent-skip with parallel edges.</strong> <code>nei != parent</code> wrongly ignores a real 2-cycle formed by a duplicate edge. Skip one edge by count, or use Union-Find.</li>
+  <li><strong>Directed cycle needs <code>onStack</code>, not just <code>visited</code>.</strong> Re-reaching a finished (black) node is fine; re-reaching a node still on the path (gray) is the cycle. Plain visited can't tell them apart.</li>
+  <li><strong>All-paths: restore the path on exit.</strong> Forgetting <code>path.remove(size-1)</code> leaks earlier choices into sibling branches. And store a <em>copy</em> in the result — the path keeps mutating.</li>
+  <li><strong>Disconnected graph.</strong> One DFS reaches one component. Loop over every node and launch from each unvisited one, or you miss whole components (and cycles in them).</li>
+  <li><strong>Clone Graph: register before recursing.</strong> Put the new node in the map the moment you create it, or cycles recurse forever.</li>
+  <li><strong>Grid in-place marking.</strong> Mutating the grid as your visited set is fine when allowed; if the grid must be preserved, restore it or use a separate <code>boolean[][]</code>.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why is a plain <code>visited</code> array insufficient for cycle detection in a <strong>directed</strong> graph?</div>
+  <button class="opt">Because directed graphs always contain at least one cycle by definition</button>
+  <button class="opt">Because you must record the parent of each node to skip the back-edge</button>
+  <button class="opt">Because re-reaching a finished node is legal, but re-reaching one still on the current path is a cycle</button>
+  <button class="opt">Because visited arrays only work when nodes are labeled 0 to n-1</button>
+  <div class="fb" data-correct="A diamond (A→B→D, A→C→D) revisits D with no cycle. Only an edge to a node still on the recursion stack (gray) is a back-edge. You need onStack / 3-color, not just visited." data-wrong="Think about a diamond A→B→D and A→C→D: D gets revisited but there's no cycle. The distinction that matters is finished vs still-on-the-current-path."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Clone Graph (LC 133), what is the role of the <code>Map&lt;Node, Node&gt;</code>?</div>
+  <button class="opt">It only stores the final answer and is unrelated to detecting revisits</button>
+  <button class="opt">It serves as the visited set and the original→clone lookup, making shared/cyclic neighbors safe</button>
+  <button class="opt">It sorts the neighbors so the clone is built in a deterministic order</button>
+  <button class="opt">It caches edge weights so the cloned graph keeps its costs intact</button>
+  <div class="fb" data-correct="The map does double duty: 'have I cloned this?' is 'is it a key?', and it returns the existing clone so cycles and shared neighbors don't get duplicated — provided you register before recursing." data-wrong="One structure handles two jobs: revisit detection AND mapping each original to its single clone. That's what keeps cycles from looping or duplicating."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Pacific Atlantic Water Flow (LC 417) is efficient because the DFS runs:</div>
+  <button class="opt">Inward from each ocean's border, then intersects the two reachable sets</button>
+  <button class="opt">Outward from every interior cell, testing if water can drain to both oceans</button>
+  <button class="opt">Once from the single highest cell, since water flows from the peak</button>
+  <button class="opt">From the four corners only, since corners touch both oceans at once</button>
+  <div class="fb" data-correct="Flooding uphill inward from each border is one O(R·C) pass per ocean; the answer is cells reachable by both. DFS from every cell would be O((R·C)²)." data-wrong="The trick is inversion: flood inward from the borders (stepping only to equal-or-higher cells) and intersect. Searching from each cell is far too slow."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/count-number-of-islands">NeetCode — Number of Islands</a> (the canonical grid DFS), then <a href="https://neetcode.io/problems/clone-graph">NeetCode — Clone Graph</a> for the map-as-visited pattern.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 200 → LC 133 (★) → LC 547 → LC 417 (★) → LC 130 → LC 207 (directed cycle) → LC 797 (backtracking). Code each from a blank file; if you stall on the directed cycle, re-derive the gray/black colors before peeking.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0003-bfs-and-shortest-paths.html">Graph Lesson 03 — BFS &amp; Shortest Paths</a>, where the queue replaces the stack and "fewest steps" gets a free answer.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure when parent-skip is safe, why directed cycles need <code>onStack</code>, or want me to dry-run
+  the Clone Graph map on a 3-node cycle? Ask in the chat. When you can code Number of Islands, Clone
+  Graph, and both cycle checks from memory, say <strong>"next"</strong> and we move to BFS.
+</div>
+
+<div class="nav">
+  <span><a href="0001-graph-foundations.html">← Graph Foundations</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-bfs-and-shortest-paths.html">BFS &amp; Shortest Paths →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

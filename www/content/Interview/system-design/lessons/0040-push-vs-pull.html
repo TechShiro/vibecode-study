@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 40 - Push vs Pull Architecture | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 40 of 66 · Fan-out on Write, Fan-out on Read, Twitter</div>
+  
+  <h1>Push vs Pull Architecture: The Social Feed Dilemma</h1>
+  <p class="subtitle">How Twitter, Instagram, and LinkedIn architect personalized real-time timelines.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module K — System Design Trade-offs</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>When you open Twitter or Instagram, you see a custom feed built from hundreds of accounts you follow. When an author posts a tweet, when should the system do the heavy work of putting that tweet into their followers' timelines? <strong>Push Architecture (Fan-out on Write)</strong> prepares timelines ahead of time when tweets are posted. <strong>Pull Architecture (Fan-out on Read)</strong> waits until a user opens their app and queries the database on the fly.</p>
+
+  <h2>2 · Push vs Pull Comparison</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Aspect</th>
+        <th>Push Model (Fan-out on Write)</th>
+        <th>Pull Model (Fan-out on Read)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>When work is done</strong></td>
+        <td>At <strong>Write Time</strong>. When Alice posts, her tweet ID is pushed into the Redis timeline lists of all 200 of her followers immediately.</td>
+        <td>At <strong>Read Time</strong>. When Bob opens his app, the system runs: <code>SELECT * FROM tweets WHERE author_id IN (follows) ORDER BY created_at DESC LIMIT 20</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>Read Latency</strong></td>
+        <td>Blazing fast ($O(1)$ read from in-memory Redis list).</td>
+        <td>Slow and expensive (heavy SQL <code>JOIN</code> across hundreds of authors on disk).</td>
+      </tr>
+      <tr>
+        <td><strong>Write Cost</strong></td>
+        <td>High write amplification. 1 tweet requires updating thousands of Redis lists.</td>
+        <td>Minimal. 1 tweet requires exactly 1 database row insert.</td>
+      </tr>
+      <tr>
+        <td><strong>The Killer Bug</strong></td>
+        <td><strong>The Celebrity Problem:</strong> If an account with 100 million followers tweets, the system must write 100,000,000 Redis entries, choking the queue for minutes!</td>
+        <td><strong>Read Load:</strong> If 50 million active users refresh their feeds every minute, database CPU spikes to 100%.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The Real-World Winner: The Hybrid Model</h2>
+  <p>Production systems like Twitter and Instagram use a <strong>Hybrid Architecture</strong>:</p>
+  <ul>
+    <li><strong>For 99% of normal users (&lt; 20,000 followers):</strong> Use <strong>Push (Fan-out on Write)</strong>. Timelines are pre-computed in Redis for instant $O(1)$ loading.</li>
+    <li><strong>For Celebrities (&gt; 20,000 followers):</strong> Do <strong>NOT</strong> fan-out on write! Store their tweets in a separate author table.</li>
+    <li><strong>When Bob opens Twitter:</strong> Bob's app fetches his pre-computed Redis feed AND fetches the latest tweets of the 2 celebrities he follows, merging them in application memory in &lt; 5ms!</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Next, how do distributed databases reconcile conflicting concurrent writes? Lesson 41: Consistency vs Availability &amp; CRDTs.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0039-encryption.html">← Previous: Encryption</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0041-consistency-vs-availability.html">Next: Consistency vs Availability →</a>
+  </div>
+</body>
+</html>

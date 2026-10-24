@@ -1,0 +1,283 @@
+<title>Whirlpool</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit I &middot; Lesson 7 of 7</p>
+<h1>Whirlpool</h1>
+<p class="deck">The 512-bit hash built from a block cipher instead of from scratch &mdash; the Miyaguchi&ndash;Preneel scheme, the AES-like cipher W with its four round transformations, and the three-way comparison that closes Unit I.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Usually a <strong>5-mark short note</strong>: &ldquo;Explain the Whirlpool hash function.&rdquo; The marks are in four facts &mdash; <strong>512-bit digest from a 512-bit block cipher W</strong>, <strong>the Miyaguchi&ndash;Preneel equation</strong>, <strong>10 rounds of four AES-like transformations</strong>, and <strong>designed by Rijmen and Barreto, an ISO standard</strong>. If a longer question asks to <strong>compare MD5, SHA-512 and Whirlpool</strong>, the table at the end of this lesson is the answer in full.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Whirlpool Hash &amp; Miyaguchi-Preneel Architecture</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=p2f7icjk7AQ" target="_blank">Whirlpool Hash Function &amp; Miyaguchi-Preneel Compression</a>
+    <span class="v-meta">Vinayasree CSE &middot; 15:23</span>
+    <div class="v-why">Comprehensive breakdown of the 512-bit state matrix, Rijndael/AES-based block cipher $W$, and the Miyaguchi-Preneel compression equation $H_i = E_{H_{i-1}}(m_i) \oplus H_{i-1} \oplus m_i$.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Whirlpool Round Transformations</span>
+      <span class="best-tag">Top Exam Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLmAmHQ-_5ySx_dXmOwSuGGGyE8XsbYT0n" target="_blank">Whirlpool 10-Round Transformations: SubBytes, ShiftColumns &amp; MixRows</a>
+    <span class="v-meta">Trouble-Free &middot; Video Masterclass</span>
+    <div class="v-why">Detailed walkthrough of the four round transformations operating on the $8 \times 8$ matrix of bytes (SubBytes, ShiftColumns, MixRows, AddRoundKey).</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: MIYAGUCHI-PRENEEL COMPRESSION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Miyaguchi-Preneel Compression in Whirlpool</span>
+  <div class="flow-col">
+    <div class="flow-row" style="gap:1rem;">
+      <div class="flow-box highlight" style="min-width:10rem;">
+        <strong>Prior Hash $H_{i-1}$</strong>
+        <span class="sub">Acts as Cipher Key</span>
+      </div>
+      <div class="flow-box highlight" style="min-width:10rem;">
+        <strong>Block $m_i$ (512 bits)</strong>
+        <span class="sub">Acts as Plaintext</span>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Dedicated Block Cipher Encryption: $E_{H_{i-1}}(m_i)$</span>
+    
+    <div class="flow-box warn" style="min-width:20rem;">
+      <strong>10-Round Modified Rijndael Cipher ($W$)</strong>
+      <span class="sub">$8 \times 8$ byte state &middot; SubBytes &middot; ShiftColumns &middot; MixRows &middot; AddRoundKey</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Triple XOR Combination: $\oplus\ H_{i-1}\ \oplus\ m_i$</span>
+    
+    <div class="flow-box ok" style="min-width:22rem;">
+      <strong>Updated Hash Digest: $H_i$</strong>
+      <span class="sub">$H_i = E_{H_{i-1}}(m_i) \oplus H_{i-1} \oplus m_i$</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>The idea: build the hash out of a cipher</h2>
+
+<p>MD4, MD5 and SHA-512 are <strong>dedicated designs</strong> &mdash; their compression functions exist only to hash. Whirlpool takes the other route from Lesson 2: <strong>reuse a block cipher as the compression function.</strong> The advantage is that decades of cryptanalysis of the cipher carry over; the cost is speed, because a cipher must re-run its key schedule for every message block.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Scheme</th><th>Compression function H<sub>i</sub> =</th></tr></thead>
+<tbody>
+<tr><td>Rabin</td><td>E(M<sub>i</sub>, H<sub>i&minus;1</sub>)</td></tr>
+<tr><td>Davies&ndash;Meyer</td><td>E(M<sub>i</sub>, H<sub>i&minus;1</sub>) &oplus; H<sub>i&minus;1</sub></td></tr>
+<tr><td>Matyas&ndash;Meyer&ndash;Oseas</td><td>E(H<sub>i&minus;1</sub>, M<sub>i</sub>) &oplus; M<sub>i</sub></td></tr>
+<tr><td><strong>Miyaguchi&ndash;Preneel</strong> &mdash; used by Whirlpool</td><td><strong>E(H<sub>i&minus;1</sub>, M<sub>i</sub>) &oplus; M<sub>i</sub> &oplus; H<sub>i&minus;1</sub></strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The Whirlpool compression function &mdash; memorise this line</span>
+  <strong>H<sub>i</sub> = E(H<sub>i&minus;1</sub>, M<sub>i</sub>) &oplus; M<sub>i</sub> &oplus; H<sub>i&minus;1</sub></strong><br><br>
+  The <strong>previous chaining value is the key</strong>; the <strong>message block is the plaintext</strong>;<br>
+  the ciphertext is XORed with <strong>both</strong> inputs. That double XOR is what makes it one-way.
+</div>
+
+<h2>Origin and parameters</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Item</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Designers</strong></td><td><strong>Vincent Rijmen</strong> (co-designer of AES) and <strong>Paulo S. L. M. Barreto</strong>, 2000</td></tr>
+<tr><td><strong>Status</strong></td><td>Endorsed by <strong>NESSIE</strong>; adopted in <strong>ISO/IEC 10118-3</strong>; <strong>free of patents</strong>, public domain</td></tr>
+<tr><td><strong>Message digest</strong></td><td class="num"><strong>512 bits</strong></td></tr>
+<tr><td><strong>Block size</strong></td><td class="num"><strong>512 bits</strong> &mdash; message block and key block are the same size</td></tr>
+<tr><td><strong>Maximum message length</strong></td><td class="num">2<sup>256</sup> &minus; 1 bits</td></tr>
+<tr><td><strong>Rounds</strong></td><td class="num"><strong>10</strong></td></tr>
+<tr><td><strong>Underlying cipher</strong></td><td><strong>W</strong> &mdash; an AES variant with a 512-bit block and a 512-bit key</td></tr>
+<tr><td><strong>State</strong></td><td>An <strong>8 &times; 8 matrix of bytes</strong> (64 bytes = 512 bits)</td></tr>
+<tr><td><strong>Structure</strong></td><td>Merkle&ndash;Damg&aring;rd chain with the <strong>Miyaguchi&ndash;Preneel</strong> compression function</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Padding and length</h2>
+
+<div class="formula">
+  <span class="name">The Whirlpool padding rule &mdash; the same shape as SHA-512, halved</span>
+  Append a <strong>1</strong> followed by <strong>0</strong>s until the length is <strong>congruent to 256 modulo 512</strong>,<br>
+  then append a <strong>256-bit</strong> field holding the original message length in bits.
+</div>
+
+<div class="solve">
+  <span class="lbl">Quick worked check</span>
+  <p><strong>Q. A 1000-bit message is hashed with Whirlpool. Find the padding and the number of blocks.</strong></p>
+  <p>r = 1000 mod 512 = 1000 &minus; 512 = <strong>488</strong>. &nbsp; P = 256 &minus; 488 = &minus;232, negative, so add 512: P = <strong>280 bits</strong>.</p>
+  <p>Total = 1000 + 280 + 256 = <strong>1536 bits = 3 blocks</strong> of 512.</p>
+</div>
+
+<h2>The cipher W &mdash; four transformations per round</h2>
+
+<p>W is AES with a bigger state: an <strong>8 &times; 8 byte matrix</strong> instead of AES&rsquo;s 4 &times; 4. Each of the <strong>10 rounds</strong> applies the same four transformations, and an <strong>initial AddRoundKey</strong> precedes round 1.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Transformation</th><th>What it does</th><th>Purpose</th><th>AES equivalent</th></tr></thead>
+<tbody>
+<tr><td><strong>1. SubBytes (SB)</strong></td><td>Each of the 64 bytes is replaced using a fixed <strong>16 &times; 16 S-box</strong></td><td><strong>Confusion</strong> &mdash; the only non-linear step</td><td>SubBytes</td></tr>
+<tr><td><strong>2. ShiftColumns (SC)</strong></td><td><strong>Column j is rotated downwards by j bytes</strong> (column 0 unchanged, column 1 by one, &hellip; column 7 by seven)</td><td><strong>Diffusion between rows</strong></td><td>ShiftRows (Whirlpool works down the columns instead)</td></tr>
+<tr><td><strong>3. MixRows (MR)</strong></td><td>Each row is multiplied by a fixed <strong>8 &times; 8 MDS matrix</strong> over GF(2<sup>8</sup>)</td><td><strong>Diffusion within a row</strong> &mdash; one changed byte affects all eight</td><td>MixColumns</td></tr>
+<tr><td><strong>4. AddRoundKey (AK)</strong></td><td>The state is XORed with the <strong>512-bit round key</strong></td><td>Mixes in the key &mdash; here, the chaining value</td><td>AddRoundKey</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The key schedule &mdash; the part that surprises students</span>
+  <p><strong>The round keys are produced by running the very same round function on the key itself</strong>, with a <strong>round constant RC[r]</strong> taking the place of the round key at each stage. So W needs no separate key-expansion design: the cipher expands its own key. The round constants are drawn from the S-box, keeping the whole algorithm dependent on a single table.</p>
+</div>
+
+<h3>Putting it together</h3>
+
+<div class="solve">
+  <span class="lbl">Hashing a message with Whirlpool, end to end</span>
+  <p><strong>1.</strong> Pad the message to 256 mod 512 and append the 256-bit length field.</p>
+  <p><strong>2.</strong> Split into 512-bit blocks M<sub>1</sub>&hellip;M<sub>t</sub>; set H<sub>0</sub> = 0 (512 zero bits).</p>
+  <p><strong>3.</strong> For each block: use <strong>H<sub>i&minus;1</sub> as the key</strong> of cipher W, encrypt M<sub>i</sub> through <strong>10 rounds</strong> of SubBytes, ShiftColumns, MixRows and AddRoundKey, then form <strong>H<sub>i</sub> = E(H<sub>i&minus;1</sub>, M<sub>i</sub>) &oplus; M<sub>i</sub> &oplus; H<sub>i&minus;1</sub></strong>.</p>
+  <p><strong>4.</strong> After the last block, <strong>H<sub>t</sub> is the 512-bit digest</strong>.</p>
+</div>
+
+<h2>Strengths and weaknesses</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Strengths</th><th>Weaknesses</th></tr></thead>
+<tbody>
+<tr><td><strong>512-bit digest &rarr; 2<sup>256</sup> collision resistance</strong>; no attack on the full function is known</td><td><strong>Slower than SHA-512 in software</strong> &mdash; the key schedule must be recomputed for every block</td></tr>
+<tr><td>Built on the <strong>well-analysed AES design</strong>, so its security argument is inherited</td><td>Attacks exist on <strong>reduced-round versions</strong> (rebound attacks on 7 of the 10 rounds of the compression function)</td></tr>
+<tr><td><strong>Different design lineage from MD/SHA</strong> &mdash; an attack that breaks SHA would not automatically break it</td><td><strong>Much less deployed</strong> than SHA-2, so far less field-tested and less hardware support</td></tr>
+<tr><td><strong>Patent-free, ISO standard</strong>, and efficient in hardware</td><td>Its large 8 &times; 8 state costs memory on constrained devices</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The Unit I comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>MD4 / MD5</th><th>SHA-512</th><th>Whirlpool</th></tr></thead>
+<tbody>
+<tr><td><strong>Digest</strong></td><td class="num">128 bits</td><td class="num">512 bits</td><td class="num">512 bits</td></tr>
+<tr><td><strong>Block</strong></td><td class="num">512 bits</td><td class="num">1024 bits</td><td class="num">512 bits</td></tr>
+<tr><td><strong>Word / state</strong></td><td>32-bit words, 4 registers</td><td>64-bit words, 8 registers</td><td><strong>8 &times; 8 byte matrix</strong></td></tr>
+<tr><td><strong>Rounds</strong></td><td class="num">48 / 64 steps</td><td class="num">80 rounds</td><td class="num"><strong>10 rounds</strong></td></tr>
+<tr><td><strong>Length field</strong></td><td class="num">64 bits</td><td class="num">128 bits</td><td class="num">256 bits</td></tr>
+<tr><td><strong>Padding congruence</strong></td><td class="num">448 mod 512</td><td class="num">896 mod 1024</td><td class="num">256 mod 512</td></tr>
+<tr><td><strong>Compression function</strong></td><td><strong>Dedicated</strong> (from scratch)</td><td><strong>Dedicated</strong></td><td><strong>Block cipher W, Miyaguchi&ndash;Preneel</strong></td></tr>
+<tr><td><strong>Endianness</strong></td><td>Little-endian</td><td>Big-endian</td><td>Big-endian</td></tr>
+<tr><td><strong>Designer</strong></td><td>Rivest, 1990/91</td><td>NIST/NSA, 2001</td><td>Rijmen &amp; Barreto, 2000</td></tr>
+<tr><td><strong>Security</strong></td><td><strong>Broken</strong> (2<sup>64</sup> collisions)</td><td>Secure (2<sup>256</sup>)</td><td>Secure (2<sup>256</sup>)</td></tr>
+<tr><td><strong>Speed</strong></td><td>Fastest</td><td>Fast on 64-bit CPUs</td><td>Slowest in software</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Whirlpool's compression function is expressed as:</p>
+  <div class="opts">
+    <button class="opt">H_i = E(M_i, H_{i−1}) ⊕ H_{i−1}, the Davies–Meyer scheme</button>
+    <button class="opt">H_i = E(H_{i−1}, M_i) ⊕ M_i, the Matyas–Meyer–Oseas scheme</button>
+    <button class="opt" data-ok="1">H_i = E(H_{i−1}, M_i) ⊕ M_i ⊕ H_{i−1}, the Miyaguchi–Preneel scheme</button>
+    <button class="opt">H_i = E(M_i, H_{i−1}), the plain Rabin scheme with no feed-forward</button>
+  </div>
+  <p class="why">The chaining value is the key, the block is the plaintext, and the ciphertext is XORed with both inputs — the double XOR is the mark of Miyaguchi–Preneel.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The cipher W differs from AES chiefly in that it:</p>
+  <div class="opts">
+    <button class="opt">Replaces the S-box substitution with a purely linear transformation</button>
+    <button class="opt" data-ok="1">Uses a 512-bit block held as an 8 × 8 byte matrix, with 10 rounds</button>
+    <button class="opt">Requires a separately designed key schedule rather than its own rounds</button>
+    <button class="opt">Uses a Feistel structure instead of a substitution-permutation network</button>
+  </div>
+  <p class="why">AES holds a 4 × 4 matrix; W holds 8 × 8. It is still a substitution-permutation network, and its key schedule reuses the round function with round constants.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In Whirlpool, ShiftColumns and MixRows respectively provide:</p>
+  <div class="opts">
+    <button class="opt">Key mixing and non-linear substitution of bytes</button>
+    <button class="opt">Padding alignment and the final feed-forward addition</button>
+    <button class="opt">Confusion between bytes and diffusion between blocks</button>
+    <button class="opt" data-ok="1">Diffusion between rows and diffusion within a row</button>
+  </div>
+  <p class="why">SubBytes is the only confusion step. ShiftColumns moves bytes across rows; MixRows spreads each byte across its whole row through the MDS matrix.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The main practical drawback of Whirlpool compared with SHA-512 is that it:</p>
+  <div class="opts">
+    <button class="opt">Produces a shorter digest and so offers less collision resistance</button>
+    <button class="opt">Has been broken by collision attacks on its full ten rounds</button>
+    <button class="opt" data-ok="1">Is slower in software, because the key schedule is recomputed for every block</button>
+    <button class="opt">Cannot process messages longer than 2⁶⁴ bits in length</button>
+  </div>
+  <p class="why">Both give 512-bit digests and neither is broken in full. Whirlpool's cost is speed and its limited deployment, not its security margin.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Whirlpool pads a message until its length is congruent to:</p>
+  <div class="opts">
+    <button class="opt">448 modulo 512, leaving room for a 64-bit length field</button>
+    <button class="opt" data-ok="1">256 modulo 512, leaving room for a 256-bit length field</button>
+    <button class="opt">896 modulo 1024, leaving room for a 128-bit length field</button>
+    <button class="opt">512 modulo 512, since the length field occupies a whole block</button>
+  </div>
+  <p class="why">Each algorithm reserves exactly its length-field width at the end of the final block: 64 for MD5, 128 for SHA-512, 256 for Whirlpool.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the parameters of Whirlpool.</summary>
+    <p class="ans">512-bit digest, 512-bit blocks, messages up to 2²⁵⁶ − 1 bits, 10 rounds, an 8 × 8 byte state, and the underlying block cipher W with a 512-bit block and 512-bit key. Designed by Vincent Rijmen and Paulo Barreto in 2000, endorsed by NESSIE and standardised in ISO/IEC 10118-3.</p></details>
+  <details class="card"><summary>Write the Miyaguchi–Preneel equation and explain each term.</summary>
+    <p class="ans">H_i = E(H_{i−1}, M_i) ⊕ M_i ⊕ H_{i−1}. The previous chaining value H_{i−1} acts as the encryption key, the message block M_i is the plaintext, and the ciphertext is XORed with both the block and the chaining value — the double feed-forward that makes the compression function one-way.</p></details>
+  <details class="card"><summary>Name the four round transformations of cipher W and what each does.</summary>
+    <p class="ans">SubBytes substitutes each byte through a 16 × 16 S-box, providing the only non-linearity. ShiftColumns rotates column j downwards by j bytes, diffusing across rows. MixRows multiplies each row by a fixed 8 × 8 MDS matrix over GF(2⁸), diffusing within a row. AddRoundKey XORs the 512-bit round key into the state.</p></details>
+  <details class="card"><summary>How are Whirlpool's round keys generated?</summary>
+    <p class="ans">By running the same round function on the key itself, with a round constant RC[r] used in place of the round key at each stage. The round constants are derived from the S-box, so the whole algorithm depends on a single table and needs no separate key-expansion design.</p></details>
+  <details class="card"><summary>State Whirlpool's padding rule.</summary>
+    <p class="ans">Append a 1 bit followed by zeros until the length is congruent to 256 modulo 512, then append a 256-bit field giving the original message length in bits, so the padded message is an exact multiple of 512 bits.</p></details>
+  <details class="card"><summary>Give the strengths and weaknesses of Whirlpool.</summary>
+    <p class="ans">Strengths: a 512-bit digest giving 2²⁵⁶ collision resistance with no attack on the full function; a design inherited from the well-analysed AES; an independent lineage from MD/SHA; patent-free, an ISO standard and efficient in hardware. Weaknesses: slower in software because the key schedule runs for every block; rebound attacks exist on reduced rounds; far less deployed and field-tested than SHA-2; and its large state costs memory on small devices.</p></details>
+  <details class="card"><summary>Compare MD5, SHA-512 and Whirlpool in one table.</summary>
+    <p class="ans">Digests 128 / 512 / 512 bits; blocks 512 / 1024 / 512; 64 steps / 80 rounds / 10 rounds; length fields 64 / 128 / 256 bits; padding to 448 mod 512, 896 mod 1024 and 256 mod 512; dedicated compression functions for the first two, a block cipher under Miyaguchi–Preneel for Whirlpool; MD5 broken at 2⁶⁴, the other two secure at 2²⁵⁶; MD5 fastest, Whirlpool slowest in software.</p></details>
+</div>
+
+<p class="ask">That completes Unit I. The <a href="../../reference/unit1-cheat-sheet.html">Unit I exam sheet</a> puts every table, formula and rule from these seven lessons on printable pages &mdash; use it for the last revision pass, not for first learning.</p>
+
+<div class="nav">
+  <a href="0006-sha-512.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

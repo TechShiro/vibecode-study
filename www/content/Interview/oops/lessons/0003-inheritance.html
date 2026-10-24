@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 03 — Inheritance</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 3 of 8 · extends, super, overriding, inheritance types, is-a vs has-a</div>
+<h1>Inheritance</h1>
+<p class="subtitle">Write the common stuff once in a parent class, and let child classes get it for free — plus the rules Java enforces when parents and children disagree.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero. This is Lesson 3 of 8.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<strong>Inheritance lets a class acquire the fields and methods of another class.</strong>
+The child (<em>subclass</em>) gets everything reusable from the parent (<em>superclass</em>), then adds or
+adjusts what makes it special. Analogy: you inherit your family surname, house rules, and property —
+you didn't write them, but they're yours — and you still add your own personality on top.
+The relationship it models is <strong>"is-a"</strong>: a Dog <em>is an</em> Animal.
+</p>
+
+<h2>2 · <code>extends</code> — code reuse in action</h2>
+<p>
+Suppose you're building a payroll system. Every employee has a name and base salary; managers additionally
+have a bonus. Without inheritance you'd copy-paste the shared fields into both classes — and every future
+fix would need doing twice. With inheritance, write the common part once:
+</p>
+
+<pre><code>class Employee {                          <span class="cmt">// PARENT (superclass / base class)</span>
+    protected String name;                <span class="cmt">// protected: children may use it (Lesson 2)</span>
+    protected double baseSalary;
+
+    Employee(String name, double baseSalary) {
+        this.name = name;
+        this.baseSalary = baseSalary;
+    }
+    double salary() { return baseSalary; }
+    void introduce() { System.out.println("I am " + name); }
+}
+
+class Manager extends Employee {          <span class="cmt">// CHILD: gets name, baseSalary, introduce() FREE</span>
+    private double bonus;                 <span class="cmt">// ...and adds its own extras</span>
+
+    Manager(String name, double baseSalary, double bonus) {
+        super(name, baseSalary);          <span class="cmt">// hand the shared setup to the parent</span>
+        this.bonus = bonus;
+    }
+    @Override
+    double salary() { return baseSalary + bonus; }  <span class="cmt">// ...and adjusts behaviour</span>
+}
+
+Manager m = new Manager("Krish", 50000, 10000);
+m.introduce();                            <span class="cmt">// inherited — never written in Manager</span>
+System.out.println(m.salary());           <span class="cmt">// 60000 — the overridden version</span></code></pre>
+
+<p>
+That's the whole sales pitch: <strong>common code lives in one place</strong>. Fix a bug in
+<code>introduce()</code> once, and every subclass is fixed.
+</p>
+
+<div class="callout trap">
+  <span class="label">One thing children never inherit access to</span>
+  <code>private</code> members of the parent. A private field technically exists inside the child object,
+  but the child's code cannot touch it directly — it must go through the parent's getters/setters or
+  <code>protected</code> members. Encapsulation still applies inside a family.
+</div>
+
+<h2>3 · <code>super</code> and constructor chaining — parent runs first</h2>
+<p>
+When a child object is born, Java builds it <strong>inside-out: parent part first, then child part</strong>.
+Analogy: you can't build the first floor of a house before the ground floor exists.
+So every child constructor begins — explicitly or invisibly — by running a parent constructor.
+</p>
+<p>The keyword <code>super</code> means "my parent." It has two jobs:</p>
+<ul>
+  <li><code>super(...)</code> — call a parent constructor. Must be the <em>first line</em> of the child constructor.</li>
+  <li><code>super.method()</code> / <code>super.field</code> — reach the parent's version when the child has overridden or shadowed it.</li>
+</ul>
+
+<pre><code>class A {
+    A() { System.out.println("A constructor"); }
+}
+class B extends A {
+    B() {
+        <span class="cmt">// invisible super(); inserted here by the compiler</span>
+        System.out.println("B constructor");
+    }
+}
+class C extends B {
+    C() { System.out.println("C constructor"); }
+}
+
+new C();</code></pre>
+
+<p>Trace what actually happens — this exact "what gets printed?" question is an interview staple:</p>
+
+<div class="trace">
+<span class="step">new C() → C's constructor starts, but first line is an implicit <span class="ptr">super()</span> → jump to B</span>
+<span class="step">B's constructor starts, first line is an implicit <span class="ptr">super()</span> → jump to A</span>
+<span class="step now">A has no parent to wait for (except Object) → prints <span class="ptr">"A constructor"</span></span>
+<span class="step now">back in B → prints <span class="ptr">"B constructor"</span></span>
+<span class="step now">back in C → prints <span class="ptr">"C constructor"</span></span>
+<span class="step">Output order: A, B, C — top of the family tree finishes first</span>
+</div>
+
+<div class="callout trap">
+  <span class="label">The no-arg-constructor trap</span>
+  The invisible <code>super()</code> calls the parent's <em>no-argument</em> constructor. If the parent only has
+  a parameterized constructor (like <code>Employee(String, double)</code>), the child <strong>must</strong> call
+  <code>super(args...)</code> explicitly on line one — otherwise it won't compile. This is why <code>Manager</code>
+  above starts with <code>super(name, baseSalary)</code>.
+</div>
+
+<h2>4 · Method overriding and <code>@Override</code></h2>
+<p>
+<strong>Overriding</strong> = the child re-defines a method it inherited, with the <em>same name and same
+parameters</em>, to change the behaviour. <code>Manager.salary()</code> above overrides
+<code>Employee.salary()</code>. Analogy: the family recipe book says how to make chai; you keep the recipe's
+name but brew it your own way.
+</p>
+<p>
+The <code>@Override</code> annotation is optional but always write it: it asks the compiler to <em>verify</em>
+you're really overriding. Typo the name (<code>salery()</code>) or the parameters, and instead of silently
+creating a useless new method, the compiler shouts. Free bug insurance.
+</p>
+<p>Rules the compiler enforces on an override (know these — they get quizzed):</p>
+<ul>
+  <li>Same method name and parameter list as the parent's version.</li>
+  <li>Access can widen, never narrow: a <code>protected</code> parent method can become <code>public</code>, not <code>private</code>.</li>
+  <li><code>final</code> methods cannot be overridden (Lesson 2's <code>final</code> at work); <code>private</code> and constructors are never inherited, so never overridden.</li>
+</ul>
+
+<h2>5 · Method hiding vs overriding — the static twist</h2>
+<p>
+What if the method is <code>static</code>? Static members belong to the <em>class</em>, not to objects
+(Lesson 1) — and only instance methods get the "child version wins" treatment. If a child declares a static
+method with the same signature as the parent's static method, it doesn't override it — it <strong>hides</strong>
+it. Which one runs is decided by the <em>type of the reference variable</em>, at compile time — not by the actual object.
+</p>
+
+<pre><code>class Parent {
+    static void greet()   { System.out.println("static: Parent"); }
+    void speak()          { System.out.println("instance: Parent"); }
+}
+class Child extends Parent {
+    static void greet()   { System.out.println("static: Child"); }   <span class="cmt">// HIDES</span>
+    @Override
+    void speak()          { System.out.println("instance: Child"); } <span class="cmt">// OVERRIDES</span>
+}
+
+Parent p = new Child();     <span class="cmt">// reference type: Parent, actual object: Child</span>
+p.speak();                  <span class="cmt">// "instance: Child"  — object decides (overriding)</span>
+p.greet();                  <span class="cmt">// "static: Parent"   — reference type decides (hiding)</span></code></pre>
+
+<table>
+  <thead><tr><th></th><th>Overriding (instance methods)</th><th>Hiding (static methods)</th></tr></thead>
+  <tbody>
+    <tr><td>Which version runs?</td><td>Decided by the <strong>actual object</strong>, at runtime</td><td>Decided by the <strong>reference type</strong>, at compile time</td></tr>
+    <tr><td>Polymorphic?</td><td>Yes — this powers Lesson 4</td><td>No — it just shadows the name</td></tr>
+    <tr><td><code>@Override</code> allowed?</td><td>Yes</td><td>No — compile error on a static method</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Memory hook</span>
+  <strong>Objects override, classes hide.</strong> Static methods never "belong" to an object, so the object can
+  never get a vote — the variable's declared type picks the method. (Lesson 4 explains the runtime machinery that
+  makes instance methods different.)
+</div>
+
+<h2>6 · Types of inheritance — and the one Java bans</h2>
+<p>Interviewers expect the five shapes by name. Picture family trees:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 640 190" role="img" aria-label="Four inheritance shapes: single A to B; multilevel A to B to C; hierarchical A to both B and C; multiple A and B both into C, crossed out">
+  <defs><marker id="ahInh" markerWidth="8" markerHeight="8" refX="22" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" class="arrow"/></marker></defs>
+  <text class="wt" x="70" y="20">single</text>
+  <circle class="node" cx="70" cy="55" r="16"/><text class="lbl" x="70" y="55">A</text>
+  <circle class="node" cx="70" cy="125" r="16"/><text class="lbl" x="70" y="125">B</text>
+  <line class="edge" marker-end="url(#ahInh)" x1="70" y1="125" x2="70" y2="55"/>
+  <text class="wt" x="210" y="20">multilevel</text>
+  <circle class="node" cx="210" cy="45" r="16"/><text class="lbl" x="210" y="45">A</text>
+  <circle class="node" cx="210" cy="105" r="16"/><text class="lbl" x="210" y="105">B</text>
+  <circle class="node" cx="210" cy="165" r="16"/><text class="lbl" x="210" y="165">C</text>
+  <line class="edge" marker-end="url(#ahInh)" x1="210" y1="105" x2="210" y2="45"/>
+  <line class="edge" marker-end="url(#ahInh)" x1="210" y1="165" x2="210" y2="105"/>
+  <text class="wt" x="390" y="20">hierarchical</text>
+  <circle class="node" cx="390" cy="55" r="16"/><text class="lbl" x="390" y="55">A</text>
+  <circle class="node" cx="345" cy="125" r="16"/><text class="lbl" x="345" y="125">B</text>
+  <circle class="node" cx="435" cy="125" r="16"/><text class="lbl" x="435" y="125">C</text>
+  <line class="edge" marker-end="url(#ahInh)" x1="345" y1="125" x2="390" y2="55"/>
+  <line class="edge" marker-end="url(#ahInh)" x1="435" y1="125" x2="390" y2="55"/>
+  <text class="wt" x="560" y="20">multiple (banned)</text>
+  <circle class="node" cx="515" cy="55" r="16"/><text class="lbl" x="515" y="55">A</text>
+  <circle class="node" cx="605" cy="55" r="16"/><text class="lbl" x="605" y="55">B</text>
+  <circle class="node" cx="560" cy="125" r="16"/><text class="lbl" x="560" y="125">C</text>
+  <line class="edge" marker-end="url(#ahInh)" x1="560" y1="125" x2="515" y2="55"/>
+  <line class="edge" marker-end="url(#ahInh)" x1="560" y1="125" x2="605" y2="55"/>
+  <line class="edge hl" x1="530" y1="150" x2="590" y2="100"/>
+  <line class="edge hl" x1="530" y1="100" x2="590" y2="150"/>
+</svg>
+<figcaption>Arrows point child → parent ("extends"). Java allows the first three for classes; multiple class inheritance is banned.</figcaption>
+</figure>
+
+<table>
+  <thead><tr><th>Type</th><th>Shape</th><th>In Java?</th></tr></thead>
+  <tbody>
+    <tr><td>Single</td><td>B extends A</td><td>Yes</td></tr>
+    <tr><td>Multilevel</td><td>C extends B extends A (grandchild chain)</td><td>Yes</td></tr>
+    <tr><td>Hierarchical</td><td>B and C both extend A (one parent, many children)</td><td>Yes</td></tr>
+    <tr><td>Multiple</td><td>C extends A <em>and</em> B (two parents)</td><td><strong>No for classes</strong> — yes via interfaces</td></tr>
+    <tr><td>Hybrid</td><td>Any mix of the above (often contains a multiple part)</td><td>Only with interfaces in the mix</td></tr>
+  </tbody>
+</table>
+
+<p>
+<strong>Why does Java ban multiple class inheritance?</strong> The <em>diamond problem</em>, in one breath:
+if class <code>C</code> extends both <code>A</code> and <code>B</code>, and both define a method
+<code>show()</code>, which one does <code>C</code> inherit? The ambiguity has no clean answer, so Java's
+designers banned two parents for classes outright: <code>extends</code> takes exactly one class. Interfaces
+escape the problem (they carry contracts, not state) — the full story, including Java 8 default methods,
+comes in Lesson 7.
+</p>
+
+<h2>7 · is-a vs has-a — when to inherit at all</h2>
+<p>
+Two ways for classes to relate, and interviewers love asking you to tell them apart:
+</p>
+<ul>
+  <li><strong>is-a (inheritance).</strong> A Dog <em>is an</em> Animal → <code>class Dog extends Animal</code>. The child is a specialised kind of the parent.</li>
+  <li><strong>has-a (composition).</strong> A Car <em>has an</em> Engine → the Car keeps an Engine as a field. One object is built out of others.</li>
+</ul>
+
+<pre><code>class Engine { void start() { } }
+
+class Car {
+    private Engine engine = new Engine();  <span class="cmt">// HAS-A: Engine is a field, not a parent</span>
+    void start() { engine.start(); }       <span class="cmt">// Car delegates work to its part</span>
+}
+<span class="cmt">// class Car extends Engine { }  ← wrong! A car is NOT a kind of engine</span></code></pre>
+
+<p><strong>How to choose</strong> — apply the sentence test, then the substitution test:</p>
+<ul>
+  <li>Say it out loud. "Car is an Engine" sounds absurd; "Car has an Engine" sounds right. Trust the grammar.</li>
+  <li>Substitution: anywhere the parent is expected, could you honestly hand over the child? A Dog can stand in wherever an Animal is wanted — genuine is-a. An Engine can't stand in for a Car.</li>
+  <li>Do you want <em>reuse of behaviour only</em>? Prefer has-a. Inheritance couples you to the parent's internals forever; composition lets you swap the part (a new Engine) without touching Car's family tree.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">The design mantra</span>
+  "<strong>Favour composition over inheritance</strong>" — use is-a only when the relationship is truly
+  "specialised kind of," and reach for has-a for mere code reuse. Dropping this line (with the Car/Engine example)
+  is an easy interview win. Related follow-up — composition vs aggregation (Q15) — is covered in Lesson 6.
+</div>
+
+<h2>8 · Interview questions this lesson answers</h2>
+<p>From your senior's Top-25 list:</p>
+<ul>
+  <li><strong>Q1. "What are the main principles of OOPS?"</strong> (the Inheritance part)<br>
+  Inheritance lets a subclass acquire the fields and methods of a superclass via <code>extends</code>, modelling
+  an is-a relationship. It gives code reuse (shared code lives once in the parent) and enables polymorphism through overriding.</li>
+  <li><strong>Q9. "What is method hiding vs method overriding?"</strong><br>
+  Overriding applies to instance methods: the actual object's version runs, chosen at runtime.
+  Hiding applies to static methods with the same signature: the reference type's version runs, chosen at compile time — no polymorphism.</li>
+  <li><strong>Q11. "What are the different types of inheritance (single, multiple, multilevel, hybrid, hierarchical)?"</strong><br>
+  Single (one parent), multilevel (grandparent chain), hierarchical (one parent, many children),
+  multiple (two+ parents — banned for Java classes due to the diamond problem, allowed via interfaces),
+  and hybrid (a combination, possible in Java only using interfaces).</li>
+  <li><strong>Q14. "Difference between is-a and has-a relationship."</strong><br>
+  is-a = inheritance (<code>Dog extends Animal</code>): the child is a kind of the parent and can substitute for it.
+  has-a = composition (Car holds an Engine field): one object is built from others. Prefer has-a for plain reuse — composition over inheritance.</li>
+</ul>
+
+<h2>9 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q"><code>class B extends A</code>. Both have constructors that print their own name. What does <code>new B()</code> print, and why?</div>
+  <button class="opt">"B" then "A" — the child's constructor body runs before it calls up to the parent</button>
+  <button class="opt">"A" then "B" — an implicit super() runs the parent's constructor before the child's body</button>
+  <button class="opt">Only "B" — parent constructors run only when you write super() yourself</button>
+  <div class="fb" data-correct="Every child constructor starts with super() — written by you or inserted invisibly. The parent part of the object is fully built first, like a ground floor before the first floor." data-wrong="Construction is inside-out: the compiler inserts super() as the first line if you don't, so the parent constructor always finishes before the child's body runs."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Parent and Child both define <code>static void greet()</code>. You run <code>Parent p = new Child(); p.greet();</code>. Which version executes?</div>
+  <button class="opt">Parent's — static methods are hidden, not overridden, so the reference type decides</button>
+  <button class="opt">Child's — the actual object is a Child, and the object always picks the method</button>
+  <button class="opt">Neither — declaring the same static method in a subclass is a compile error</button>
+  <div class="fb" data-correct="Static methods belong to the class, so the object gets no vote: the compiler binds p.greet() to Parent because p is declared as Parent. Objects override, classes hide." data-wrong="The 'actual object wins' rule is only for INSTANCE methods (overriding). Same-signature static methods are legal but merely hide the parent's — the declared reference type picks the version."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You want <code>Stack</code> to reuse <code>ArrayList</code>'s storage code. Should <code>Stack extends ArrayList</code>?</div>
+  <button class="opt">Yes — inheritance exists exactly for reusing another class's tested code</button>
+  <button class="opt">Yes, but only if you override every ArrayList method to keep encapsulation intact</button>
+  <button class="opt">No — a stack is not a kind of list; hold the ArrayList as a private field instead (has-a)</button>
+  <div class="fb" data-correct="Extending would falsely promise 'Stack is-an ArrayList' and expose list operations (add at index 0!) that break the stack's rules. Composition reuses the storage while exposing only push/pop." data-wrong="Reuse alone never justifies is-a. Ask: can a Stack substitute anywhere an ArrayList is expected, with all its methods making sense? No — so compose: keep the list as a private field."></div>
+</div>
+
+<h2>10 · Do this next</h2>
+<ul>
+  <li>Build a three-level chain: <code>Vehicle</code> (field <code>wheels</code>, method <code>describe()</code>) → <code>Car extends Vehicle</code> → <code>SportsCar extends Car</code>. Give each a constructor that prints its name; predict the output of <code>new SportsCar()</code> <em>before</em> running it.</li>
+  <li>Override <code>describe()</code> in <code>SportsCar</code> and call <code>super.describe()</code> inside it. Then add a <code>static</code> method with the same signature to two levels and reproduce the hiding demo with a <code>Vehicle v = new SportsCar();</code> reference.</li>
+  <li>Finally, write one sentence each for five class pairs (Dog/Animal, Car/Engine, Square/Rectangle, Team/Player, Manager/Employee): is-a or has-a, and why.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Confused about when <code>super(...)</code> is mandatory, why static methods dodge overriding, or whether a
+  relationship is is-a or has-a? Ask in the chat. When you can trace A-B-C constructor order cold and name all
+  five inheritance types with Java's yes/no for each, say <strong>"next"</strong> — Lesson 4: Polymorphism is
+  where everything from this lesson pays off.
+</div>
+
+<div class="nav">
+  <span><a href="0002-encapsulation-and-access-modifiers.html">← Encapsulation</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0004-polymorphism.html">Polymorphism →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

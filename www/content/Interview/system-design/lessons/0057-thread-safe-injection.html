@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 57 - Thread-Safe Injection &amp; Scopes | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · LLD · Lesson 57 of 66 · Singleton Scope, ThreadLocal, Memory Leaks</div>
+  
+  <h1>Thread-Safe Injection &amp; Scoped Instances</h1>
+  <p class="subtitle">Managing shared dependencies and state safety across multi-threaded web servers.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module N — Concurrency &amp; Thread Safety</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In web frameworks like Spring Boot, NestJS, and ASP.NET Core, services are managed by a <strong>Dependency Injection (DI) Container</strong>. By default, almost all beans and services are created with <strong>Singleton Scope</strong>: a single shared instance handles requests from 500 concurrent worker threads simultaneously! If your singleton service holds even one mutable instance variable (e.g. <code>private String currentUserId;</code>), concurrent threads will overwrite each other's data, causing catastrophic security leaks.</p>
+
+  <h2>2 · The Golden Rule of Singleton Services</h2>
+  <div class="callout tip">
+    <span class="label">Rule of Thumb</span>
+    Singleton services <strong>MUST BE 100% STATELESS OR IMMUTABLE</strong>!
+    Never store user-specific request state in an instance variable of a singleton service.
+  </div>
+
+  <pre><code><span class="cmt">// DANGEROUS DISASTER: Singleton holding mutable user state</span>
+@Service
+public class OrderService {
+    private String currentUserId; <span class="cmt">// THREAD SAFETY BUG! Shared across all threads!</span>
+
+    public void processOrder(Order order, String userId) {
+        this.currentUserId = userId;
+        paymentGateway.charge(this.currentUserId, order.getAmount()); <span class="cmt">// Might charge wrong user!</span>
+    }
+}
+
+<span class="cmt">// CORRECT &amp; THREAD-SAFE: State kept strictly on thread call-stack (local variables)</span>
+@Service
+public class OrderService {
+    public void processOrder(Order order, String userId) {
+        paymentGateway.charge(userId, order.getAmount()); <span class="cmt">// Local parameter = private to thread</span>
+    }
+}</code></pre>
+
+  <h2>3 · ThreadLocal &amp; The Thread Pool Memory Leak Trap</h2>
+  <p><code>ThreadLocal&lt;T&gt;</code> gives each thread its own independent copy of a variable (useful for tracking current Security Context or Trace ID). However, web servers reuse worker threads from a <strong>Thread Pool</strong>. If you set a value in <code>ThreadLocal</code> and forget to call <code>threadLocal.remove()</code> in a <code>finally</code> block, that data leaks into the next unrelated HTTP request handled by that worker thread (or causes a JVM memory leak)!</p>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>When multiple threads must mutate shared memory, how do you prevent corruption? Lesson 58: Locking Mechanisms.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0056-behavioral-patterns.html">← Previous: Behavioral Patterns</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0058-locking-mechanisms.html">Next: Locking Mechanisms →</a>
+  </div>
+</body>
+</html>

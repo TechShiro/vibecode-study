@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monotonic Stack Lesson 1 — The Next-Greater Family</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Monotonic Stack Track · Lesson 1 of 2 · next/previous greater &amp; smaller in O(n)</div>
+<h1>The Next-Greater Family</h1>
+<p class="subtitle">Every "for each element, find the nearest bigger/smaller one" question looks O(n²) — a stack that stays sorted answers all of them in one pass.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Daily Temperatures and Next Greater Element are among the most common OA warm-ups at Amazon and Google — and Lesson 2's histogram problems (a genuine hard-question staple) are built entirely on this one.
+  This is Lesson 1 of the 2-lesson monotonic-stack track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Take Daily Temperatures: for each day, how many days until a warmer one? The naive answer scans right from every index —
+O(n²), and on a descending array it really does n²/2 work. Now flip the question: instead of each day <em>searching forward</em>
+for its answer, let each new day <em>deliver answers backward</em>. Keep a stack of days still waiting for a warmer day. When a new
+temperature arrives, it resolves — pops — every waiting day it beats. Colder days pile up; one hot day pays off the whole pile.
+</p>
+<p>
+Because a day is pushed once and popped at most once, the total work is ~2n stack operations — <strong>O(n)</strong>, even though
+one arrival may pop many items. That amortized push-once/pop-once argument <em>is</em> the pattern. And notice what the stack looks
+like between arrivals: every element that survives is smaller-or-equal below the newcomer's victims — the stack stays
+<strong>sorted (decreasing from bottom to top)</strong>. Hence the name: monotonic stack.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "<strong>Next / previous greater / smaller</strong> element", "days until a <strong>warmer</strong> temperature",
+  "<strong>span</strong> of consecutive smaller values", histograms and skyline shapes, "remove digits to make it smallest".
+  Any per-element question about the <em>nearest dominating neighbor</em> to the left or right. If your first idea is a
+  nested scan from each index — this pattern deletes the inner loop.
+</div>
+
+<h2>2 · Core template — next greater to the right (Daily Temperatures, LC 739)</h2>
+<pre><code>int[] dailyTemperatures(int[] t) {
+    int n = t.length;
+    int[] ans = new int[n];                <span class="cmt">// 0 = "no warmer day" (default)</span>
+    Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();<span class="cmt">// stack of INDICES; temps decreasing bottom→top</span>
+    for (int i = 0; i &lt; n; i++) {
+        while (!st.isEmpty() &amp;&amp; t[i] &gt; t[st.peek()]) {
+            int j = st.pop();              <span class="cmt">// day j just found its answer: it's day i</span>
+            ans[j] = i - j;                <span class="cmt">// distance — possible only because we stored indices</span>
+        }
+        st.push(i);                        <span class="cmt">// i now waits for ITS next-greater</span>
+    }
+    return ans;                            <span class="cmt">// whatever's left on the stack keeps ans = 0</span>
+}</code></pre>
+<p>
+<strong>Time</strong> O(n) — each index pushed once, popped at most once, so the while-loop's total cost across the whole run is ≤ n pops. <strong>Space</strong> O(n) worst case (strictly decreasing input keeps everything stacked). Use <code>Deque</code>/<code>ArrayDeque</code>, not the legacy <code>java.util.Stack</code>.
+</p>
+
+<div class="trace">
+<span class="step">t = [73, 74, 75, 71, 69, 72, 76], stack holds indices (shown as temps)</span>
+<span class="step now">i=0 (73): stack empty → push. st = [73]</span>
+<span class="step now">i=1 (74): 74 &gt; 73 → pop, ans[0]=<span class="ptr">1</span>; push. st = [74]</span>
+<span class="step now">i=2 (75): 75 &gt; 74 → pop, ans[1]=<span class="ptr">1</span>; push. st = [75]</span>
+<span class="step now">i=3 (71): 71 &lt; 75 → just push. st = [75, 71]</span>
+<span class="step now">i=4 (69): push. st = [75, 71, 69]  ← decreasing, the "waiting pile"</span>
+<span class="step now">i=5 (72): pops 69 (ans[4]=<span class="ptr">1</span>) and 71 (ans[3]=<span class="ptr">2</span>); push. st = [75, 72]</span>
+<span class="step now">i=6 (76): pops 72 (ans[5]=<span class="ptr">1</span>) and 75 (ans[2]=<span class="ptr">4</span>); push. st = [76]</span>
+<span class="step">76 never popped → ans[6] = 0. Total pushes 7, pops 6 → O(n).</span>
+</div>
+
+<h3>The two dials: direction of monotonicity, and what you store</h3>
+<ul>
+  <li><strong>Looking for next GREATER → keep the stack DECREASING</strong> (pop while <code>new &gt; top</code>). Looking for next SMALLER → keep it INCREASING (pop while <code>new &lt; top</code>). Rule of thumb: the stack holds elements <em>still waiting</em>, so it's sorted in the direction that keeps them unresolved — you pop exactly the ones the newcomer resolves.</li>
+  <li><strong>Equal elements:</strong> decide whether ties resolve. "Strictly warmer" → pop only on <code>&gt;</code>, equal values stack up. In Lesson 2's LC 907, the strict/non-strict choice on each side is what prevents double-counting.</li>
+  <li><strong>Store INDICES, not values,</strong> whenever the answer involves distance (739), position, or width (all of Lesson 2). Store values only when a value-keyed map is the output (496) or you compress runs (901 stores value+count pairs). Indices are the safe default — <code>t[st.peek()]</code> recovers the value for free; a value can't recover its index.</li>
+</ul>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Next greater, cross-array</td><td>LC 496</td><td>Run the template on <code>nums2</code>, record answers in a value→NGE map, then look up <code>nums1</code>.</td></tr>
+    <tr><td>Next greater, circular</td><td>LC 503</td><td>Loop <code>i</code> from 0 to 2n−1, index with <code>i % n</code>; push each index only in the first lap.</td></tr>
+    <tr><td>Distance to next greater</td><td>LC 739</td><td>The core template — store indices, answer is <code>i − j</code>.</td></tr>
+    <tr><td>Span of ≤ current, streaming</td><td>LC 901</td><td>Online: pop ≤ prices, but <em>absorb</em> their spans into yours; stack holds (price, span) pairs.</td></tr>
+    <tr><td>Previous smaller (generic)</td><td>—</td><td>Increasing stack; the answer is what <em>remains on top after popping</em>, not what you pop. Lesson 2's engine.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Next Greater Element I (LC 496) — values into a map</h3>
+<p><code>nums1</code> is a subset of <code>nums2</code> (all values distinct). Solve NGE once over <code>nums2</code>; because values are unique, a value→answer map is enough — no indices needed.</p>
+<pre><code>int[] nextGreaterElement(int[] nums1, int[] nums2) {
+    Map&lt;Integer, Integer&gt; nge = new HashMap&lt;&gt;();
+    Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();     <span class="cmt">// stack of VALUES — distinct, and output is by value</span>
+    for (int x : nums2) {
+        while (!st.isEmpty() &amp;&amp; x &gt; st.peek())
+            nge.put(st.pop(), x);               <span class="cmt">// x is the next greater for everything it pops</span>
+        st.push(x);
+    }
+    int[] ans = new int[nums1.length];
+    for (int i = 0; i &lt; nums1.length; i++)
+        ans[i] = nge.getOrDefault(nums1[i], -1); <span class="cmt">// never popped → no greater → -1</span>
+    return ans;
+}</code></pre>
+
+<h3>Case: Next Greater Element II — circular (LC 503)</h3>
+<p>
+In a circular array, an element's next greater may sit <em>behind</em> it. Standard trick: pretend the array is laid out twice and sweep <code>2n</code> steps with <code>i % n</code>. The second lap only <em>resolves</em> leftovers — don't push again, or you'd answer an element with itself's neighborhood twice.
+</p>
+<pre><code>int[] nextGreaterElements(int[] a) {
+    int n = a.length;
+    int[] ans = new int[n];
+    Arrays.fill(ans, -1);                       <span class="cmt">// a max element never finds a greater</span>
+    Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();     <span class="cmt">// indices</span>
+    for (int i = 0; i &lt; 2 * n; i++) {
+        int x = a[i % n];                       <span class="cmt">// virtual second copy of the array</span>
+        while (!st.isEmpty() &amp;&amp; x &gt; a[st.peek()])
+            ans[st.pop()] = x;
+        if (i &lt; n) st.push(i);                  <span class="cmt">// push each index ONCE — lap 2 only resolves</span>
+    }
+    return ans;
+}</code></pre>
+
+<h3>Case: Online Stock Span (LC 901) — streaming, compress with counts</h3>
+<p>
+Span = 1 + how many consecutive previous prices were ≤ today's. That's a "previous <em>strictly greater</em>" question in disguise — pop everything ≤ today. Since prices arrive one at a time and popped days can never matter again (today dominates them for all future queries too), store <code>(price, span)</code> pairs and let today absorb the spans it pops.
+</p>
+<pre><code>class StockSpanner {
+    private final Deque&lt;int[]&gt; st = new ArrayDeque&lt;&gt;(); <span class="cmt">// {price, span} — prices strictly decreasing</span>
+    public int next(int price) {
+        int span = 1;                           <span class="cmt">// today itself</span>
+        while (!st.isEmpty() &amp;&amp; st.peek()[0] &lt;= price)
+            span += st.pop()[1];                <span class="cmt">// absorb the popped run — its days are ≤ mine too</span>
+        st.push(new int[]{price, span});
+        return span;
+    }
+}</code></pre>
+<p><strong>Time</strong> amortized O(1) per <code>next</code> call — same push-once/pop-once argument, spread over the stream.</p>
+
+<h3>Case: previous smaller element (generic template)</h3>
+<p>
+Mirror image, and the key that unlocks Lesson 2: sweep left→right with an <strong>increasing</strong> stack. Here the answer isn't found by popping — it's whoever <em>survives on top</em> after the pops: everything ≥ me is popped (useless as a "previous smaller"), so the survivor is the nearest smaller one.
+</p>
+<pre><code>int[] prevSmaller(int[] a) {                    <span class="cmt">// prevSmaller[i] = index of nearest smaller to the left, else -1</span>
+    int n = a.length;
+    int[] ans = new int[n];
+    Deque&lt;Integer&gt; st = new ArrayDeque&lt;&gt;();     <span class="cmt">// indices; values increasing bottom→top</span>
+    for (int i = 0; i &lt; n; i++) {
+        while (!st.isEmpty() &amp;&amp; a[st.peek()] &gt;= a[i])
+            st.pop();                           <span class="cmt">// ≥ me can never be anyone's "previous smaller" past me</span>
+        ans[i] = st.isEmpty() ? -1 : st.peek(); <span class="cmt">// the SURVIVOR is my answer (contrast: 739 answers on pop)</span>
+        st.push(i);
+    }
+    return ans;
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">One template, two read-out modes</span>
+  <strong>Answer-on-pop</strong> (739, 496, 503): the newcomer is the popped element's answer — "next X" problems.
+  <strong>Answer-on-peek</strong> (previous smaller, and both bounds in Lesson 2): after popping, the top of the stack is the
+  <em>newcomer's</em> answer — "previous X" problems. Same loop; you just read the answer at a different moment.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Wrong monotonic direction</strong> — popping on <code>&lt;</code> when hunting next-greater silently returns garbage. Re-derive: "who does the newcomer resolve?"</li>
+  <li><strong>Strict vs non-strict comparison with duplicates:</strong> <code>[3, 3]</code> — does the second 3 pop the first? For "strictly warmer" no; for stock span yes (<code>&lt;=</code>). Read the problem statement's tie rule.</li>
+  <li><strong>Values when you needed indices:</strong> if the answer mentions distance, width, or position, store indices. LC 496 gets away with values only because they're distinct.</li>
+  <li><strong>Circular arrays:</strong> 2n sweep with <code>i % n</code>, push only on the first lap; forgetting the push-guard duplicates entries.</li>
+  <li><strong>Leftovers on the stack</strong> at the end have no next-greater — make sure your default (0, −1) is prefilled, not left as accidental garbage.</li>
+  <li><strong>Empty-stack peeks:</strong> every <code>peek</code>/<code>pop</code> sits behind an <code>isEmpty()</code> guard (or a sentinel — Lesson 2 uses those).</li>
+  <li><strong>Use <code>ArrayDeque</code>,</strong> not <code>java.util.Stack</code> (legacy, synchronized, slower) — interviewers notice.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">The inner while-loop of the template can pop many elements on one arrival. Why is the whole algorithm still O(n)?</div>
+  <button class="opt">The stack's depth is bounded by O(log n), so each while-loop is cheap</button>
+  <button class="opt">Each index is pushed exactly once and popped at most once, so all pops across the entire run total at most n</button>
+  <button class="opt">The while-loop runs at most a constant number of times because the input is bounded</button>
+  <div class="fb" data-correct="Amortized analysis: charge each pop to the earlier push that created it. n pushes fund at most n pops, so total stack operations ≤ 2n regardless of how bursty individual iterations are." data-wrong="The stack can grow to depth n (strictly decreasing input), and one arrival can pop n−1 items. The bound is global, not per-iteration: every pop consumes a one-time push, so pops ≤ pushes = n."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You want, for each element, the nearest SMALLER element to its left. Which setup is correct?</div>
+  <button class="opt">Increasing stack; pop while top ≥ current; the answer is the surviving top after the pops</button>
+  <button class="opt">Increasing stack; pop while top ≥ current; the answer is given to each popped element</button>
+  <button class="opt">Decreasing stack; pop while top &lt; current; the answer is the surviving top after the pops</button>
+  <div class="fb" data-correct="Previous-X problems are answer-on-peek: pop everything ≥ me (they're blocked by me forever as 'previous smaller' candidates), and whoever survives on top is my nearest smaller neighbor." data-wrong="Answer-on-pop is for NEXT-X problems, where the newcomer resolves the waiters. For PREVIOUS smaller, popping removes the useless ≥ elements and the survivor on top — smaller and nearest — is the current element's own answer."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 503 (circular next greater), why does the loop run to 2n but push only while i &lt; n?</div>
+  <button class="opt">The second lap pushes would overflow the stack beyond O(n) memory</button>
+  <button class="opt">Indices beyond n−1 don't exist, so pushing i % n twice would corrupt the answer array</button>
+  <button class="opt">Lap 1 both resolves and enqueues; lap 2 exists only to let early elements see the values behind them — re-pushing would leave duplicates that overwrite answers</button>
+  <div class="fb" data-correct="After one full lap every element has been pushed. The virtual second lap replays the values so leftovers (whose next-greater lies to their left) can be resolved. Pushing again would put each index on the stack twice and assign answers twice." data-wrong="Memory stays O(n) either way and i % n is a valid index — the real issue is correctness: each index must wait on the stack exactly once. Lap 2 only replays values to resolve the leftovers."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/daily-temperatures">NeetCode — Daily Temperatures</a>. Best visual of the waiting-pile intuition. Backup: <a href="https://neetcode.io/problems/online-stock-span">NeetCode — Online Stock Span</a> for the streaming/absorb-spans variant.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 496 (values + map) → LC 739 (indices + distance, from memory) → LC 503 (circular 2n trick) → LC 901 (streaming pairs) → write <code>prevSmaller</code> generic from scratch — Lesson 2 assumes you can. Stretch: LC 1019 (Next Greater Node in Linked List).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure which direction the stack should be sorted for a given problem, want another dry-run trace, or fuzzy on
+  answer-on-pop vs answer-on-peek? Ask in the chat. When you can write LC 739 blind and state the push-once/pop-once
+  argument in one sentence, say <strong>"next"</strong> for Lesson 2: histograms, rain water, and contribution counting.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-histograms-and-hard-applications.html">Histograms &amp; Hard Applications →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

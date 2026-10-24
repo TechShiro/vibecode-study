@@ -1,0 +1,268 @@
+<title>OS Unit II Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul,ol{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Reference &middot; print this one</p>
+<h1>Unit II &mdash; Exam Sheet</h1>
+<p class="deck">CPU scheduling and process synchronisation. Every formula, every worked answer from the twelve numericals, and every code fragment &mdash; use the answer key at the end to check your own attempts.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>The scheduling numerical is guaranteed &mdash; 10 to 15 marks.</strong> After it: <strong>critical-section three conditions</strong> &middot; <strong>Peterson's solution with proof</strong> &middot; <strong>semaphore wait/signal + binary vs counting</strong> &middot; <strong>producer&ndash;consumer, readers&ndash;writers, dining philosophers</strong> &middot; <strong>monitor vs semaphore</strong> &middot; multilevel feedback queue &middot; priority inversion. Practise the numericals with a pen; read nothing.</p>
+</div>
+
+<hr class="rule">
+
+<h2>The formulas <span class="tag">everything depends on these</span></h2>
+
+<div class="formula">
+  <span class="name">The four scheduling formulas</span>
+  <strong>TAT = CT &minus; AT</strong> &nbsp;&nbsp;&nbsp; <strong>WT = TAT &minus; BT</strong> &nbsp;&nbsp;&nbsp; <strong>RT = first CPU time &minus; AT</strong> &nbsp;&nbsp;&nbsp; <strong>Average = sum &divide; n</strong><br>
+  <strong>Throughput</strong> = processes completed &divide; total time. &nbsp; <strong>CPU utilisation</strong> = busy time &divide; total time.
+</div>
+
+<p><strong>Four traps:</strong> forgetting to subtract AT &middot; confusing WT with RT &middot; ignoring CPU idle gaps &middot; not stating the tie-breaking rule.</p>
+<p><strong>Answer format:</strong> name the algorithm &rarr; Gantt chart with time markers &rarr; table (P, AT, BT, CT, TAT, WT) &rarr; averages <em>shown as a division</em> &rarr; one sentence of comment.</p>
+
+<h2>Scheduling basics</h2>
+
+<p><strong>Four situations for a scheduling decision:</strong> (1) running &rarr; waiting, (2) running &rarr; ready, (3) waiting &rarr; ready, (4) terminates. <strong>Only 1 and 4 &rarr; non-preemptive; otherwise preemptive.</strong></p>
+
+<p><strong>Dispatcher's three steps:</strong> switch context &middot; switch to user mode &middot; jump to the proper location in the user program. Time taken = <strong>dispatch latency</strong>.</p>
+
+<p><strong>Five criteria:</strong> CPU utilisation (max, 40&ndash;90 %) &middot; throughput (max) &middot; turnaround time (min) &middot; waiting time (min) &middot; response time (min). <strong>Scheduling affects only waiting time directly.</strong></p>
+
+<p><strong>Burst distribution:</strong> exponential &mdash; very many short bursts, few long ones. That is why SJF works.</p>
+
+<h2>The algorithms <span class="tag">master table</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Preempt</th><th>Selects on</th><th>Strength</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td><strong>FCFS</strong></td><td>No</td><td>Arrival</td><td>Simplest; no starvation</td><td><strong>Convoy effect</strong></td></tr>
+<tr><td><strong>SJF</strong></td><td>No</td><td>Shortest next burst</td><td><strong>Optimal average WT</strong></td><td>Burst unknowable; starves long jobs</td></tr>
+<tr><td><strong>SRTF</strong></td><td>Yes</td><td>Shortest remaining</td><td>Beats SJF</td><td>More switches; worse starvation</td></tr>
+<tr><td><strong>Priority</strong></td><td>Either</td><td>Priority number</td><td>Expresses real importance</td><td><strong>Starvation</strong> &rarr; fix with <strong>ageing</strong></td></tr>
+<tr><td><strong>Round Robin</strong></td><td>Yes</td><td>Arrival + quantum</td><td><strong>Fair, bounded response</strong></td><td>Higher TAT; switch overhead</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Convoy effect:</strong> in FCFS one CPU-bound process holds the CPU while short I/O-bound processes queue behind it &mdash; both CPU and devices end up under-utilised.</p>
+
+<div class="formula">
+  <span class="name">Exponential averaging &mdash; predicting the next burst</span>
+  <strong>&tau;<sub>n+1</sub> = &alpha; t<sub>n</sub> + (1 &minus; &alpha;) &tau;<sub>n</sub></strong><br>
+  &alpha; = 0 &rarr; recent history ignored &nbsp;&middot;&nbsp; &alpha; = 1 &rarr; only the last burst counts &nbsp;&middot;&nbsp; &alpha; = &frac12; is usual.
+</div>
+
+<div class="formula">
+  <span class="name">Round Robin rules</span>
+  <strong>Queue rule:</strong> on preemption, processes that <strong>arrived during the quantum join the queue first</strong>, then the preempted process.<br>
+  <strong>Waiting bound:</strong> no process waits more than <strong>(n &minus; 1) &times; q</strong> for its next turn.<br>
+  <strong>q too large &rarr; FCFS. q too small &rarr; processor sharing drowned in context-switch overhead.</strong> Rule of thumb: 80 % of bursts shorter than q.
+</div>
+
+<p><strong>Ageing:</strong> gradually raise the priority of long-waiting processes. Priorities 127 (low) to 0 (high), +1 every 15 min &rarr; a priority-127 process reaches 0 within 32 hours.</p>
+
+<h2>Answer key &mdash; every numerical in Lessons 9 and 10 <span class="tag">check your work here</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Problem</th><th>Gantt chart</th><th class="num">Avg TAT</th><th class="num">Avg WT</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td>FCFS &mdash; P1=24, P2=3, P3=3, all AT 0</td><td>P1 0&ndash;24, P2 24&ndash;27, P3 27&ndash;30</td><td class="num">27.00</td><td class="num">17.00</td></tr>
+<tr><td class="num">2</td><td>FCFS &mdash; (0,8) (1,4) (2,9) (3,5)</td><td>P1 0&ndash;8, P2 8&ndash;12, P3 12&ndash;21, P4 21&ndash;26</td><td class="num">15.25</td><td class="num">8.75</td></tr>
+<tr><td class="num">3</td><td><strong>SJF</strong> &mdash; same data</td><td>P1 0&ndash;8, P2 8&ndash;12, P4 12&ndash;17, P3 17&ndash;26</td><td class="num">14.25</td><td class="num">7.75</td></tr>
+<tr><td class="num">4</td><td><strong>SRTF</strong> &mdash; same data</td><td>P1 0&ndash;1, P2 1&ndash;5, P4 5&ndash;10, P1 10&ndash;17, P3 17&ndash;26</td><td class="num"><strong>13.00</strong></td><td class="num"><strong>6.50</strong></td></tr>
+<tr><td class="num">5</td><td>Priority non-preemptive &mdash; BT 10,1,2,1,5 / Pr 3,1,4,5,2</td><td>P2 0&ndash;1, P5 1&ndash;6, P1 6&ndash;16, P3 16&ndash;18, P4 18&ndash;19</td><td class="num">12.00</td><td class="num">8.20</td></tr>
+<tr><td class="num">6</td><td>Priority preemptive &mdash; (0,4,2) (1,2,1) (2,3,3) (3,5,5) (4,1,4)</td><td>P1 0&ndash;1, P2 1&ndash;3, P1 3&ndash;6, P3 6&ndash;9, P5 9&ndash;10, P4 10&ndash;15</td><td class="num">6.60</td><td class="num">3.60</td></tr>
+<tr><td class="num">7</td><td>RR q=4 &mdash; P1=24, P2=3, P3=3</td><td>P1 0&ndash;4, P2 4&ndash;7, P3 7&ndash;10, P1 10&ndash;30</td><td class="num">15.67</td><td class="num">5.67</td></tr>
+<tr><td class="num">8</td><td><strong>RR q=2</strong> &mdash; (0,5) (1,4) (2,2) (3,1)</td><td>P1 0&ndash;2, P2 2&ndash;4, P3 4&ndash;6, P1 6&ndash;8, P4 8&ndash;9, P2 9&ndash;11, P1 11&ndash;12</td><td class="num">8.00</td><td class="num">5.00</td></tr>
+<tr><td class="num">9</td><td><strong>RR q=4</strong> &mdash; same data</td><td>P1 0&ndash;4, P2 4&ndash;8, P3 8&ndash;10, P4 10&ndash;11, P1 11&ndash;12</td><td class="num">8.75</td><td class="num">5.75</td></tr>
+<tr><td class="num">10</td><td><strong>RR q=1</strong> &mdash; same data</td><td>P1,P2,P1,P3,P2,P4,P1,P3,P2,P1,P2,P1 (one unit each)</td><td class="num">7.75</td><td class="num">4.75</td></tr>
+<tr><td class="num">11</td><td>FCFS &mdash; same data</td><td>P1 0&ndash;5, P2 5&ndash;9, P3 9&ndash;11, P4 11&ndash;12</td><td class="num">7.75</td><td class="num">4.75</td></tr>
+<tr><td class="num">12</td><td><strong>SJF</strong> &mdash; same data</td><td>P1 0&ndash;5, P4 5&ndash;6, P3 6&ndash;8, P2 8&ndash;12</td><td class="num"><strong>6.25</strong></td><td class="num"><strong>3.25</strong></td></tr>
+<tr><td class="num">13</td><td><strong>Multilevel queue</strong> &mdash; Q1 RR q=2 [(0,4) (1,3)], Q2 FCFS [(2,5) (3,2)]</td><td>P1 0&ndash;2, P2 2&ndash;4, P1 4&ndash;6, P2 6&ndash;7, P3 7&ndash;12, P4 12&ndash;14</td><td class="num">8.25</td><td class="num">4.75</td></tr>
+<tr><td class="num">14</td><td><strong>MLFQ</strong> &mdash; Q0 RR4, Q1 RR8, Q2 FCFS; (0,10) (2,6) (4,12)</td><td>P1 0&ndash;4, P2 4&ndash;8, P3 8&ndash;12, P1 12&ndash;18, P2 18&ndash;20, P3 20&ndash;28</td><td class="num">20.00</td><td class="num">10.67</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Self-check rule:</strong> on identical data, <strong>SRTF &le; SJF &le; FCFS</strong> for average waiting time, always. If your numbers break that ordering, the Gantt chart is wrong.</p>
+
+<h2>Multilevel and multiprocessor</h2>
+
+<p><strong>Multilevel queue:</strong> permanent assignment to one queue; between queues either fixed-priority preemptive (risks starvation) or a fixed time slice each (80 % foreground / 20 % background).</p>
+
+<p><strong>Multilevel feedback queue &mdash; the distinction:</strong> <strong>a process CAN move between queues.</strong> Demotion punishes CPU hogs; promotion is ageing and prevents starvation. <strong>Five parameters:</strong> number of queues &middot; algorithm per queue &middot; when to upgrade &middot; when to demote &middot; which queue a process enters. It is the <strong>most general and most complex</strong> algorithm.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Asymmetric (AMP)</th><th>Symmetric (SMP)</th></tr></thead>
+<tbody>
+<tr><td><strong>Scheduling</strong></td><td>One <strong>master</strong> does everything</td><td>Each processor is <strong>self-scheduling</strong></td></tr>
+<tr><td><strong>Races</strong></td><td>None &mdash; one processor touches the data</td><td>Must be carefully programmed</td></tr>
+<tr><td><strong>Weakness / use</strong></td><td>Master is a bottleneck; older systems</td><td>No bottleneck; <strong>all modern systems</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Processor affinity:</strong> keep a process on the same CPU so its cache stays warm. <strong>Soft</strong> = attempted, not guaranteed; <strong>hard</strong> = the process names its allowed CPUs (<code>sched_setaffinity()</code>). <strong>Affinity works against load balancing.</strong></p>
+
+<p><strong>Load balancing:</strong> needed only with private per-CPU queues. <strong>Push migration</strong> = a periodic task moves work off a busy CPU; <strong>pull migration</strong> = an idle CPU takes work from a busy one.</p>
+
+<p><strong>Memory stall:</strong> a core can spend up to half its time waiting on memory &rarr; <strong>multithreaded multicore</strong> (hyper-threading / chip multithreading). Two scheduling levels: the OS picks the software thread for each hardware thread; the hardware picks which hardware thread runs on the core. <strong>Coarse-grained</strong> switching costs a pipeline flush; <strong>fine-grained</strong> switches at instruction-cycle boundaries.</p>
+
+<p><strong>Real time:</strong> <strong>rate-monotonic</strong> = static priority, inversely proportional to period. <strong>EDF</strong> = dynamic priority by nearest deadline. Minimise <strong>interrupt latency</strong> and <strong>dispatch latency</strong>.</p>
+
+<h2>Synchronisation <span class="tag">high yield</span></h2>
+
+<p><strong>Race condition:</strong> with count = 5, a concurrent <code>count++</code> and <code>count--</code> can leave <strong>4, 5 or 6</strong>, because each compiles to load&ndash;modify&ndash;store and whichever store is last wins.</p>
+
+<div class="formula">
+  <span class="name">The three conditions &mdash; M P B</span>
+  <strong>Mutual exclusion</strong> &mdash; if P<sub>i</sub> is in its critical section, no other process is. <em>Prevents corruption.</em><br>
+  <strong>Progress</strong> &mdash; if no process is in its critical section, only processes not in their remainder section decide who enters next, and the choice is not postponed indefinitely. <em>Prevents deadlock.</em><br>
+  <strong>Bounded waiting</strong> &mdash; a bound exists on how many times others may enter after a process requests and before it is granted. <em>Prevents starvation.</em>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attempt</th><th>Fails</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Turn variable</strong></td><td>Progress</td><td>Strict alternation &mdash; a process in its remainder section blocks the other</td></tr>
+<tr><td><strong>Flag array</strong></td><td>Progress</td><td>Deadlock &mdash; both set their flags, then both spin</td></tr>
+<tr><td><strong>Peterson's</strong></td><td>None (in theory)</td><td>Works for <strong>two processes</strong>; busy-waits; may break on reordering CPUs</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Peterson's solution &mdash; process P<sub>i</sub>, j = 1 &minus; i</span>
+  <strong>flag[i] = true;</strong> &nbsp; <strong>turn = j;</strong> &nbsp; <strong>while (flag[j] &amp;&amp; turn == j) ;</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<em>critical section</em><br>
+  <strong>flag[i] = false;</strong><br><br>
+  <em>Mutual exclusion:</em> if both were inside, both flags are true, so both need <code>turn</code> equal to their own index &mdash; impossible.<br>
+  <em>Progress:</em> if P<sub>j</sub> is in its remainder, <code>flag[j]</code> is false and P<sub>i</sub> enters at once.<br>
+  <em>Bounded waiting:</em> P<sub>i</sub> waits <strong>at most one turn</strong>.
+</div>
+
+<p><strong>Hardware:</strong> <code>test_and_set(&amp;t)</code> saves the old value, sets <code>t = true</code>, returns the old &mdash; <strong>atomically</strong>. Loop: <code>while (test_and_set(&amp;lock)) ;</code> &hellip; <code>lock = false;</code>. Satisfies mutual exclusion but <strong>not bounded waiting</strong> without a <code>waiting[]</code> array. <code>compare_and_swap</code> swaps only if the value matches the expected one.</p>
+
+<p><strong>Disabling interrupts</strong> fails because it does not work on a multiprocessor, a looping user process would hang the machine, and the clock is missed.</p>
+
+<p><strong>Mutex lock:</strong> <code>acquire()</code> spins until <code>available</code> then clears it; <code>release()</code> sets it. Busy-waiting version = <strong>spinlock</strong>, justified on a multiprocessor with short critical sections.</p>
+
+<h2>Semaphores</h2>
+
+<div class="formula">
+  <span class="name">wait and signal &mdash; both atomic</span>
+  <strong>wait(S)</strong> &nbsp;<em>(P, down)</em>: &nbsp; <code>while (S &lt;= 0) ; S--;</code><br>
+  <strong>signal(S)</strong> <em>(V, up)</em>: &nbsp; <code>S++;</code><br><br>
+  <strong>Block&ndash;wakeup version:</strong> <code>wait</code> decrements, and if S &lt; 0 adds the process to the list and calls <code>block()</code>. <code>signal</code> increments, and if S &le; 0 removes a process and calls <code>wakeup()</code>.<br>
+  <strong>A negative value's magnitude = the number of blocked processes.</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Question</th><th>Working</th><th>Answer</th></tr></thead>
+<tbody>
+<tr><td>Init 10, 6 P, 4 V</td><td>10 &minus; 6 + 4</td><td class="num"><strong>8</strong>, nobody blocked</td></tr>
+<tr><td>Init 5, 12 P, 3 V</td><td>5 &minus; 12 + 3</td><td class="num"><strong>&minus;4</strong>, 4 blocked</td></tr>
+<tr><td>Init 3, 20 processes all call wait</td><td>3 &minus; 20</td><td class="num"><strong>&minus;17</strong>: 3 inside, 17 blocked</td></tr>
+<tr><td>Binary sem, value now &minus;3</td><td>1 &minus; n = &minus;3</td><td class="num">4 waits done: 1 inside, <strong>3 blocked</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Binary vs counting:</strong> 0/1 vs any integer &middot; mutex lock vs general &middot; init 1 vs init N &middot; mutual exclusion vs resource counting &middot; one process vs up to N.</p>
+
+<p><strong>Ordering:</strong> to make S<sub>2</sub> follow S<sub>1</sub>, use <code>synch = 0</code>; P<sub>1</sub> does S<sub>1</sub> then <code>signal(synch)</code>, P<sub>2</sub> does <code>wait(synch)</code> then S<sub>2</sub>. <strong>Precedence graph: one semaphore per edge, all 0, signal at the tail and wait at the head.</strong></p>
+
+<p><strong>Priority inversion:</strong> a high-priority process waits because a low-priority one holds a lock, and a medium-priority process preempts the holder. <strong>Fix: priority inheritance</strong> &mdash; the holder temporarily inherits the waiter's priority. <strong>Mars Pathfinder, 1997.</strong></p>
+
+<p><strong>Four misuses:</strong> swapping wait and signal &rarr; several processes inside; wait instead of signal &rarr; deadlock; omitting wait &rarr; no mutual exclusion; omitting signal &rarr; deadlock.</p>
+
+<h2>The classic problems <span class="tag">state initial values</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Problem</th><th>Semaphores</th><th>Key point</th></tr></thead>
+<tbody>
+<tr><td><strong>Bounded buffer</strong></td><td><code>mutex = 1, full = 0, empty = n</code></td><td>Producer: wait(empty), wait(mutex), add, signal(mutex), signal(full). Consumer mirrors it. <strong>Counting semaphore before the mutex, or deadlock.</strong></td></tr>
+<tr><td><strong>Readers&ndash;writers</strong></td><td><code>rw_mutex = 1, mutex = 1, read_count = 0</code></td><td><strong>Only the first reader locks and the last unlocks.</strong> First variant starves writers; second starves readers; neither is starvation-free.</td></tr>
+<tr><td><strong>Dining philosophers</strong></td><td><code>chopstick[5]</code>, all = 1</td><td>All five take the left chopstick &rarr; <strong>deadlock</strong>. Fixes: at most 4 at the table &middot; take both or neither &middot; <strong>odd take left first, even take right first</strong> &middot; monitor with three states.</td></tr>
+<tr><td><strong>Sleeping barber</strong></td><td><code>customers = 0, barbers = 0, mutex = 1</code></td><td>Customer wakes the barber; leaves if all n chairs are full.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Always close with:</strong> &ldquo;A deadlock-free solution does not automatically eliminate the possibility of starvation.&rdquo;</p>
+
+<h2>Monitors</h2>
+
+<p><strong>Definition:</strong> an abstract data type encapsulating shared data with the procedures that operate on it, guaranteeing <strong>only one active process inside at a time</strong> &mdash; the compiler inserts the mutual exclusion.</p>
+
+<p><strong>Condition variables:</strong> <code>x.wait()</code> suspends and <strong>releases the monitor</strong>; <code>x.signal()</code> resumes exactly one process, and <strong>has no effect at all if nobody is waiting</strong>.</p>
+
+<p><strong>Signal and wait</strong> (Hoare) &mdash; the signalled process runs, the signaller waits; the condition is known to hold. <strong>Signal and continue</strong> (Java, C#, Pthreads) &mdash; the signaller runs on, so the waiter must <strong>re-test in a <code>while</code> loop</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Semaphore</th><th>Monitor</th></tr></thead>
+<tbody>
+<tr><td><strong>What</strong></td><td>Integer + two atomic ops</td><td>Abstract data type / language construct</td></tr>
+<tr><td><strong>Mutual exclusion</strong></td><td><strong>Programmer writes it</strong></td><td><strong>Automatic</strong></td></tr>
+<tr><td><strong>Encapsulation</strong></td><td>None</td><td>Yes</td></tr>
+<tr><td><strong>signal on empty queue</strong></td><td><strong>Remembered</strong> (counter)</td><td><strong>Ignored</strong></td></tr>
+<tr><td><strong>Holds a value</strong></td><td>Yes</td><td>No &mdash; only a queue</td></tr>
+<tr><td><strong>Errors</strong></td><td>Silent and timing-dependent</td><td>Unwritable</td></tr>
+<tr><td><strong>Found in</strong></td><td>POSIX, kernels</td><td>Java <code>synchronized</code>/<code>wait</code>/<code>notify</code>, C#</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Dining philosophers monitor:</strong> <code>state[5]</code> of THINKING/HUNGRY/EATING plus <code>condition self[5]</code>. <code>pickup(i)</code>: set HUNGRY, <code>test(i)</code>, wait if not EATING. <code>putdown(i)</code>: set THINKING, <code>test((i+4)%5)</code> and <code>test((i+1)%5)</code>. <code>test(i)</code>: set EATING and signal only if i is HUNGRY and neither neighbour is EATING. <strong>Deadlock-free (no hold-and-wait) but not starvation-free.</strong></p>
+
+<p><strong>Conditional wait</strong> <code>x.wait(c)</code>: the process with the <strong>smallest</strong> priority number c is resumed first; without it the default is FCFS.</p>
+
+<hr class="rule">
+
+<h2>The ten most likely questions</h2>
+
+<ol>
+<li>Given AT and BT, apply FCFS / SJF / SRTF / Priority / RR; draw Gantt charts and compute averages. <span class="tag">L9 &mdash; guaranteed</span></li>
+<li>Differentiate preemptive and non-preemptive scheduling; define the criteria. <span class="tag">L8</span></li>
+<li>What is the convoy effect? Why is SJF optimal but unimplementable? <span class="tag">L9</span></li>
+<li>Explain multilevel queue and multilevel feedback queue scheduling. <span class="tag">L10</span></li>
+<li>Explain multiple-processor scheduling, affinity and load balancing. <span class="tag">L10</span></li>
+<li>State the critical-section problem and its three conditions. <span class="tag">L11</span></li>
+<li>Write Peterson's solution and prove it satisfies all three conditions. <span class="tag">L11</span></li>
+<li>Define a semaphore; differentiate binary and counting; solve a value numerical. <span class="tag">L12</span></li>
+<li>Solve the producer&ndash;consumer / readers&ndash;writers / dining-philosophers problem using semaphores. <span class="tag">L13</span></li>
+<li>What is a monitor? How does it differ from a semaphore? <span class="tag">L14</span></li>
+</ol>
+
+<div class="nav">
+  <a href="unit1-cheat-sheet.html">&larr; Unit I sheet</a>
+  <a href="../index.html">All lessons</a>
+</div>
+
+</div>

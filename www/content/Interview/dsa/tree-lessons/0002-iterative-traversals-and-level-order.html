@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree Lesson 02 — Iterative Traversals &amp; Level Order</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Tree Track · Lesson 2 of 6 · explicit stack, Morris, BFS level order</div>
+<h1>Iterative Traversals &amp; Level Order</h1>
+<p class="subtitle">Recursion's call stack is just a stack — so build it yourself. Then swap the stack for a queue and the traversal flips from depth-first to level-by-level.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "print the tree level by level" and its variants (zigzag, right side view) are
+  OA staples, and interviewers love asking for the iterative version to test if you understand the machinery.
+  Lesson 2 of 6. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Recursive traversal works because the <strong>call stack</strong> remembers every node you must come back to.
+Replace it with an explicit <code>Deque&lt;TreeNode&gt;</code> and you get the same traversal with no recursion —
+immune to stack overflow, pausable mid-stream (crucial for Kth Smallest, Lesson 5). And here's the deeper insight:
+the <em>container</em> decides the order. A <strong>stack</strong> (LIFO) dives deep — DFS. A
+<strong>queue</strong> (FIFO) sweeps wide — BFS, i.e. level order. Same loop, different container, completely
+different traversal.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  <strong>Queue/BFS:</strong> "level by level", "level averages", "zigzag", "right side view", "deepest/widest
+  level", "minimum depth". <strong>Explicit stack:</strong> "iterative", "without recursion", tree too deep for the
+  call stack, or you need to <em>pause</em> a traversal (kth element, BST iterator LC 173).
+  <strong>Morris:</strong> the rare "O(1) space" follow-up.
+</div>
+
+<h2>2 · Core template</h2>
+
+<h3>Core A — iterative in-order (the "slide left, pop, go right" loop)</h3>
+<p>
+The naive attempt — push root, pop, push children — gives pre-order-ish output, not in-order, because in-order must
+<em>defer</em> a node until its whole left spine is consumed. So the loop does exactly what recursion did: slide
+down the left spine pushing everything, pop (that's the visit), then step into the popped node's right subtree.
+</p>
+<pre><code><span class="cmt">// Iterative in-order. Time O(n), Space O(h) for the stack.</span>
+List&lt;Integer&gt; inorderTraversal(TreeNode root) {
+    List&lt;Integer&gt; out = new ArrayList&lt;&gt;();
+    Deque&lt;TreeNode&gt; stack = new ArrayDeque&lt;&gt;();
+    TreeNode cur = root;
+    while (cur != null || !stack.isEmpty()) {
+        while (cur != null) {          <span class="cmt">// slide down the LEFT spine…</span>
+            stack.push(cur);           <span class="cmt">// …remembering every node passed</span>
+            cur = cur.left;
+        }
+        cur = stack.pop();             <span class="cmt">// leftmost unvisited node</span>
+        out.add(cur.val);              <span class="cmt">// VISIT — this is the in-order moment</span>
+        cur = cur.right;               <span class="cmt">// now do its right subtree the same way</span>
+    }
+    return out;
+}</code></pre>
+<p><strong>Time</strong> O(n) — each node pushed and popped once. <strong>Space</strong> O(h).</p>
+
+<h3>Core B — level order with the level-size loop (LC 102)</h3>
+<p>
+A queue alone gives you nodes in breadth-first order, but mixed across levels. The
+<strong>level-size idiom</strong> separates them: snapshot <code>q.size()</code> at the top of each round —
+that count is <em>exactly</em> the current level — and drain only that many before starting the next round.
+This idiom is the backbone of every level-order variant.
+</p>
+<pre><code><span class="cmt">// BFS level order. Time O(n), Space O(w) where w = max level width (up to n/2).</span>
+List&lt;List&lt;Integer&gt;&gt; levelOrder(TreeNode root) {
+    List&lt;List&lt;Integer&gt;&gt; out = new ArrayList&lt;&gt;();
+    if (root == null) return out;
+    Queue&lt;TreeNode&gt; q = new ArrayDeque&lt;&gt;();
+    q.offer(root);
+    while (!q.isEmpty()) {
+        int size = q.size();           <span class="cmt">// ★ freeze the level size BEFORE draining</span>
+        List&lt;Integer&gt; level = new ArrayList&lt;&gt;();
+        for (int i = 0; i &lt; size; i++) {
+            TreeNode n = q.poll();
+            level.add(n.val);
+            if (n.left  != null) q.offer(n.left);   <span class="cmt">// children join the NEXT level</span>
+            if (n.right != null) q.offer(n.right);
+        }
+        out.add(level);
+    }
+    return out;
+}</code></pre>
+
+<h3>Worked example — dry run (level order)</h3>
+<div class="trace">
+<span class="step">tree: 3 / (9, 20) / (20 → 15, 7) — q = [3]</span>
+<span class="step now">size=<span class="ptr">1</span>: poll 3 → level [3]; offer 9, 20 → q = [9, 20]</span>
+<span class="step now">size=<span class="ptr">2</span>: poll 9 (no kids), poll 20 → level [9, 20]; offer 15, 7 → q = [15, 7]</span>
+<span class="step now">size=<span class="ptr">2</span>: poll 15, poll 7 → level [15, 7]; q empty → stop</span>
+<span class="step">output: [[3], [9, 20], [15, 7]]</span>
+</div>
+
+<div class="callout trap">
+  <span class="label">The level-size bug</span>
+  Writing <code>for (int i = 0; i &lt; q.size(); i++)</code> re-reads the size <em>while you're adding children</em>,
+  smearing levels together. Always snapshot: <code>int size = q.size();</code> first, then loop to
+  <code>size</code>. This is the #1 BFS bug in interviews.
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Iterative in-order</td><td>LC 94</td><td>Core A: left-spine push, pop = visit, step right.</td></tr>
+    <tr><td>Iterative pre-order</td><td>LC 144</td><td>Simpler: pop = visit, push right THEN left.</td></tr>
+    <tr><td>Level order</td><td>LC 102</td><td>Core B verbatim.</td></tr>
+    <tr><td>Zigzag level order</td><td>LC 103</td><td>Core B + a boolean; reverse alternate levels (or addFirst).</td></tr>
+    <tr><td>Right side view</td><td>LC 199</td><td>Core B; keep only the LAST node of each level.</td></tr>
+    <tr><td>O(1)-space in-order</td><td>Morris</td><td>Thread temporary links to predecessors instead of a stack.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: iterative pre-order (LC 144)</h3>
+<p>Pre-order is the easy one: visiting happens <em>at pop time</em>, so just push children after visiting — right first, so left pops first (LIFO).</p>
+<pre><code>List&lt;Integer&gt; preorderTraversal(TreeNode root) {
+    List&lt;Integer&gt; out = new ArrayList&lt;&gt;();
+    if (root == null) return out;
+    Deque&lt;TreeNode&gt; stack = new ArrayDeque&lt;&gt;();
+    stack.push(root);
+    while (!stack.isEmpty()) {
+        TreeNode n = stack.pop();
+        out.add(n.val);                          <span class="cmt">// visit on pop</span>
+        if (n.right != null) stack.push(n.right); <span class="cmt">// right pushed FIRST…</span>
+        if (n.left  != null) stack.push(n.left);  <span class="cmt">// …so left pops first</span>
+    }
+    return out;
+}</code></pre>
+
+<h3>Case: Zigzag level order (LC 103)</h3>
+<p>Exactly Core B plus a direction flag. Cleanest trick: build each level in a <code>LinkedList</code> and <code>addFirst</code> on right-to-left levels — no reversing pass.</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; zigzagLevelOrder(TreeNode root) {
+    List&lt;List&lt;Integer&gt;&gt; out = new ArrayList&lt;&gt;();
+    if (root == null) return out;
+    Queue&lt;TreeNode&gt; q = new ArrayDeque&lt;&gt;();
+    q.offer(root);
+    boolean leftToRight = true;
+    while (!q.isEmpty()) {
+        int size = q.size();
+        LinkedList&lt;Integer&gt; level = new LinkedList&lt;&gt;();
+        for (int i = 0; i &lt; size; i++) {
+            TreeNode n = q.poll();
+            if (leftToRight) level.addLast(n.val);
+            else             level.addFirst(n.val); <span class="cmt">// reversed insertion, O(1)</span>
+            if (n.left  != null) q.offer(n.left);   <span class="cmt">// queue order NEVER changes —</span>
+            if (n.right != null) q.offer(n.right);  <span class="cmt">// only the output direction does</span>
+        }
+        out.add(level);
+        leftToRight = !leftToRight;
+    }
+    return out;
+}</code></pre>
+
+<h3>Case: Right Side View (LC 199)</h3>
+<p>Standing to the tree's right, you see one node per level: the level's <em>last</em> node. Run Core B and record the value only when <code>i == size - 1</code>.</p>
+<pre><code>List&lt;Integer&gt; rightSideView(TreeNode root) {
+    List&lt;Integer&gt; out = new ArrayList&lt;&gt;();
+    if (root == null) return out;
+    Queue&lt;TreeNode&gt; q = new ArrayDeque&lt;&gt;();
+    q.offer(root);
+    while (!q.isEmpty()) {
+        int size = q.size();
+        for (int i = 0; i &lt; size; i++) {
+            TreeNode n = q.poll();
+            if (i == size - 1) out.add(n.val);   <span class="cmt">// rightmost of THIS level</span>
+            if (n.left  != null) q.offer(n.left);
+            if (n.right != null) q.offer(n.right);
+        }
+    }
+    return out;
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Not just the right children</span>
+  A deep left subtree "peeks out" past a shallow right subtree, so the view can include left-side nodes. That's why
+  you take the last node <em>per level</em>, not just follow <code>right</code> pointers down.
+</div>
+
+<h3>Case: Morris in-order — O(1) space (know the idea)</h3>
+<p>
+Both stack and recursion cost O(h). Morris gets O(1) by <em>temporarily rewiring the tree</em>: before diving into
+a left subtree, find the current node's in-order predecessor (rightmost node of that left subtree) and point its
+null <code>right</code> at the current node — a return "thread". When traversal later climbs back up that thread,
+it removes it and visits. Every edge is walked at most twice, so still O(n) time.
+</p>
+<pre><code>List&lt;Integer&gt; morrisInorder(TreeNode root) {
+    List&lt;Integer&gt; out = new ArrayList&lt;&gt;();
+    TreeNode cur = root;
+    while (cur != null) {
+        if (cur.left == null) {            <span class="cmt">// no left subtree → visit and go right</span>
+            out.add(cur.val);
+            cur = cur.right;               <span class="cmt">// may follow a thread back up — that's the point</span>
+        } else {
+            TreeNode pred = cur.left;      <span class="cmt">// find in-order predecessor…</span>
+            while (pred.right != null &amp;&amp; pred.right != cur)
+                pred = pred.right;         <span class="cmt">// …rightmost node of left subtree</span>
+            if (pred.right == null) {
+                pred.right = cur;          <span class="cmt">// lay the thread, then dive left</span>
+                cur = cur.left;
+            } else {
+                pred.right = null;         <span class="cmt">// second arrival: remove thread,</span>
+                out.add(cur.val);          <span class="cmt">// visit, and move right</span>
+                cur = cur.right;
+            }
+        }
+    }
+    return out;
+}</code></pre>
+<p>In an interview, describing the threading idea and the O(n)/O(1) bounds is usually enough — code it only if asked.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Empty root</strong> — check <code>root == null</code> before offering to the queue; <code>ArrayDeque</code> throws on null elements.</li>
+  <li><strong>Snapshot <code>q.size()</code></strong> before the inner loop — the #1 level-order bug (see trap above).</li>
+  <li><strong>Iterative pre-order push order</strong> — right before left. Reversed, your output mirrors the tree.</li>
+  <li><strong>Iterative in-order loop condition</strong> — needs <code>cur != null || !stack.isEmpty()</code>. Stack-empty alone quits too early while <code>cur</code> still points into an unexplored right subtree.</li>
+  <li><strong>Zigzag: never reverse the queue</strong> — enqueue left/right normally every level; only the output insertion direction alternates.</li>
+  <li><strong>Right side view ≠ right children</strong> — take the last node per BFS level.</li>
+  <li><strong>Morris mutates the tree mid-flight</strong> — threads are removed by the end, but never run it concurrently or bail out early with threads still planted.</li>
+  <li><strong>BFS space is O(width)</strong>, not O(height) — a complete tree's bottom level holds ~n/2 nodes.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the level-order template, why must you copy <code>q.size()</code> into a variable before the inner loop?</div>
+  <button class="opt">Calling <code>q.size()</code> repeatedly is an O(n) operation on ArrayDeque, so caching it saves time</button>
+  <button class="opt">The loop enqueues children while draining, so a live size read would mix next-level nodes into this level</button>
+  <button class="opt">Java re-evaluates loop conditions lazily, so the size would be read only once anyway</button>
+  <div class="fb" data-correct="The snapshot freezes 'how many nodes belong to THIS level'. Children added during the drain grow the queue, and a live read would bleed them into the current level." data-wrong="size() is O(1) — performance isn't the issue. Correctness is: children enqueued mid-drain would inflate a live size read and merge two levels."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You swap the <code>ArrayDeque</code> used as a stack in iterative pre-order for a FIFO queue, keeping everything else identical. What happens?</div>
+  <button class="opt">Output is unchanged — the container only affects performance, not order</button>
+  <button class="opt">The loop no longer terminates, because a queue can't tell when the tree is done</button>
+  <button class="opt">The traversal becomes breadth-first — nodes come out roughly level by level instead of depth-first</button>
+  <div class="fb" data-correct="LIFO dives into the most recently discovered subtree (DFS); FIFO finishes older discoveries first, sweeping level by level (BFS). The container IS the traversal order." data-wrong="Termination is fine — every node still enters and leaves once. What changes is the order: stack = depth-first, queue = breadth-first. Same loop, different shape."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">How does Morris traversal reach O(1) extra space when both recursion and an explicit stack need O(h)?</div>
+  <button class="opt">It temporarily points each in-order predecessor's null right pointer back at the current node, storing the return path in the tree itself</button>
+  <button class="opt">It revisits the root after each leaf and re-descends, trading O(n²) time for the saved space</button>
+  <button class="opt">It stores the pending nodes in the output list and removes them once visited</button>
+  <div class="fb" data-correct="The 'threads' encode exactly what the stack would have remembered — where to climb back to — inside otherwise-wasted null pointers. Each thread is removed on second arrival, so the tree is restored and time stays O(n)." data-wrong="Morris stays O(n) time — no re-descending from the root, and the output list is never used as working storage. The trick is threading predecessors' null right pointers as temporary return links."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/level-order-traversal-of-binary-tree">NeetCode — Binary Tree Level Order Traversal</a>; then <a href="https://neetcode.io/problems/binary-tree-right-side-view">NeetCode — Right Side View</a> to see the level-size idiom reused.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 102 (level order) → LC 199 (right side view) → LC 103 (zigzag) → LC 94 iterative (stack in-order) → LC 144 iterative → LC 637 (level averages, easy reps) → LC 515 (largest per level). Code the level-size loop until it's muscle memory.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry run of the stack in-order on a specific tree, a picture of Morris threads, or to check your zigzag
+  against edge cases? Ask in the chat. When you can write level order + the size snapshot blind and explain
+  stack-vs-queue in one sentence, say <strong>"next"</strong> for the biggest lesson: recursion patterns —
+  computing answers from children.
+</div>
+
+<div class="nav">
+  <span><a href="0001-tree-foundations-and-recursive-traversals.html">← Foundations &amp; Recursive Traversals</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-recursion-patterns.html">Recursion Patterns →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

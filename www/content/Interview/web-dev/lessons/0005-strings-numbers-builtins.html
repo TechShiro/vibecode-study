@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 05 — Strings, Numbers &amp; Built-ins</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 5 of 24 · strings, numbers, Date, JSON, copies</div>
+<h1>Strings, Numbers &amp; Built-ins</h1>
+<p class="subtitle">The standard library tour — why 0.1 + 0.2 misses 0.3, what JSON silently throws away, and the modern operators (<code>?.</code> <code>??</code>) that make real-world data handling civilized.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 5 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Strings — immutable, method-rich</h2>
+<p>
+Like Java's <code>String</code>, JS strings are <strong>immutable</strong>: no method ever changes a string — every "modification"
+returns a brand-new one. Forget this and you'll write no-op lines all day:
+</p>
+<pre><code>let s = "hello";
+s.toUpperCase();      <span class="cmt">// returns "HELLO"…</span>
+console.log(s);       <span class="cmt">// …but s is still "hello" — the result was thrown away!</span>
+s = s.toUpperCase();  <span class="cmt">// reassign to keep it (same discipline as Java)</span>
+s[0] = "J";           <span class="cmt">// silently ignored — you cannot write into a string</span></code></pre>
+<p>The working vocabulary — grouped the way you'll actually reach for them:</p>
+<pre><code>const str = "  JavaScript is everywhere  ";
+
+<span class="cmt">// CLEAN &amp; CASE</span>
+str.trim()                 <span class="cmt">// "JavaScript is everywhere" — strip edge whitespace</span>
+                           <span class="cmt">// (trimStart / trimEnd for one side)</span>
+"NSUT".toLowerCase()       <span class="cmt">// "nsut"</span>
+"nsut".toUpperCase()       <span class="cmt">// "NSUT"</span>
+
+<span class="cmt">// EXTRACT</span>
+const t = "JavaScript";
+t.slice(0, 4)        <span class="cmt">// "Java" — start, endExclusive; NEGATIVES OK: t.slice(-6) → "Script"</span>
+t.substring(0, 4)    <span class="cmt">// "Java" — older; swaps reversed args, treats negatives as 0.</span>
+                     <span class="cmt">// Just use slice — one rule for arrays AND strings.</span>
+t.at(-1)             <span class="cmt">// "t" — like arrays; t[0] → "J" (bracket read is fine, write is not)</span>
+t.charAt(0)          <span class="cmt">// "J" — the pre-bracket ancient way; know it exists</span>
+
+<span class="cmt">// SEARCH — the same family you met on arrays (deliberate symmetry)</span>
+t.includes("Script")     <span class="cmt">// true</span>
+t.startsWith("Java")     <span class="cmt">// true</span>
+t.endsWith("Script")     <span class="cmt">// true</span>
+t.indexOf("a")           <span class="cmt">// 1 — first hit; lastIndexOf("a") → 3; -1 if absent</span>
+
+<span class="cmt">// SPLIT &amp; JOIN — string ⇄ array round trip</span>
+"a,b,c".split(",")       <span class="cmt">// ["a","b","c"]  (Java's split, minus the regex-only rule)</span>
+"hello".split("")        <span class="cmt">// ["h","e","l","l","o"] — chars; then array methods apply!</span>
+"hello".split("").reverse().join("")   <span class="cmt">// "olleh" — the interview classic</span>
+
+<span class="cmt">// REPLACE</span>
+"a-b-c".replace("-", "+")     <span class="cmt">// "a+b-c" — FIRST occurrence only!</span>
+"a-b-c".replaceAll("-", "+")  <span class="cmt">// "a+b+c" — all (or use a /regex/g — §6)</span>
+
+<span class="cmt">// PAD &amp; REPEAT</span>
+"7".padStart(3, "0")     <span class="cmt">// "007" — invoice numbers, clock digits</span>
+"ab".repeat(3)           <span class="cmt">// "ababab"</span></code></pre>
+<p>Template literals (Lesson 1 recap): backticks, <code>${expr}</code> interpolation, real multi-line strings. Default to them for any string with variables inside.</p>
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Same immutability, same "reassign to keep" habit, same <code>length</code>-ish API — but JS <code>length</code> is a property
+  (<code>s.length</code>), not a method call. No <code>char</code> type: <code>"a"</code> is a 1-char string, and comparing runs
+  <code>===</code> on <em>content</em> for strings (primitives compare by value — no <code>.equals()</code> dance needed).
+  There's no StringBuilder either; for heavy concatenation, push parts into an array and <code>join("")</code>.
+</div>
+
+<h2>2 · Numbers — IEEE 754 and the 0.1 + 0.2 scandal</h2>
+<p>
+Lesson 1 said it: JS has ONE number type — the 64-bit IEEE 754 double, identical to Java's <code>double</code>. No int/long/float.
+That single fact explains the most famous line in JavaScript:
+</p>
+<pre><code>0.1 + 0.2            <span class="cmt">// 0.30000000000000004</span>
+0.1 + 0.2 === 0.3    <span class="cmt">// false ?!</span></code></pre>
+<p>
+<strong>Why:</strong> doubles store numbers in binary. Just as 1/3 has no finite decimal form (0.3333…), 0.1 and 0.2 have no finite
+<em>binary</em> form — the hardware stores the nearest representable value, and the tiny errors add up. This is not a JS bug;
+Java's <code>double</code> does exactly the same (<code>0.1 + 0.2 != 0.3</code> there too — Java just rounds when printing).
+The professional fixes:
+</p>
+<pre><code>Math.abs(a - b) &lt; Number.EPSILON      <span class="cmt">// compare with a tolerance, never ===</span>
+(0.1 + 0.2).toFixed(2)                <span class="cmt">// "0.30" — round for DISPLAY (returns a string!)</span>
+<span class="cmt">// For money: store integer paise/cents (1050, not 10.50) — the industry standard,</span>
+<span class="cmt">// same reason Java uses BigDecimal for currency.</span></code></pre>
+<p>Integer safety has a boundary too — doubles have 53 bits of integer precision:</p>
+<pre><code>Number.MAX_SAFE_INTEGER       <span class="cmt">// 9007199254740991 (2^53 − 1)</span>
+9007199254740992 === 9007199254740993   <span class="cmt">// true?! beyond the limit, integers blur</span>
+
+<span class="cmt">// BIGINT — arbitrary-precision integers (Java's BigInteger, but with operators)</span>
+const big = 9007199254740993n;          <span class="cmt">// the n suffix — a separate primitive type</span>
+big + 1n              <span class="cmt">// 9007199254740994n — exact</span>
+big + 1               <span class="cmt">// TypeError — no mixing BigInt and number; convert explicitly</span>
+<span class="cmt">// Real use: 64-bit database IDs, crypto. Otherwise regular numbers are fine.</span></code></pre>
+<p>Conversion and checking — know the differences:</p>
+<pre><code>Number("42")        <span class="cmt">// 42    — strict: the WHOLE string must be numeric</span>
+Number("42px")      <span class="cmt">// NaN</span>
+Number("")          <span class="cmt">// 0     — classic surprise</span>
+parseInt("42px")    <span class="cmt">// 42    — lenient: reads digits from the front, stops at junk</span>
+parseInt("px42")    <span class="cmt">// NaN   — but the front must start numeric</span>
+parseInt("08", 10)  <span class="cmt">// 8     — always pass radix 10 out of habit</span>
+parseFloat("3.14em")<span class="cmt">// 3.14</span>
++"42"               <span class="cmt">// 42    — unary plus, shorthand for Number()</span>
+
+Number.isInteger(42)      <span class="cmt">// true  (42.0 too — same double!)</span>
+Number.isFinite(1 / 0)    <span class="cmt">// false — Infinity exists: 1/0 is Infinity, not an error</span>
+(1234.5678).toFixed(2)    <span class="cmt">// "1234.57" — string out, remember</span>
+(0.000001234).toPrecision(2) <span class="cmt">// "0.0000012"</span></code></pre>
+<p>And the <code>Math</code> toolbox (all static, like <code>java.lang.Math</code>):</p>
+<pre><code>Math.round(4.5)   <span class="cmt">// 5   — nearest (.5 rounds UP, even for 4.5)</span>
+Math.floor(4.9)   <span class="cmt">// 4   — toward −∞  (Math.floor(-4.1) → -5!)</span>
+Math.ceil(4.1)    <span class="cmt">// 5   — toward +∞</span>
+Math.trunc(-4.9)  <span class="cmt">// -4  — chop the decimals (what Java int-casting does)</span>
+Math.min(3, 1, 2) <span class="cmt">// 1   — varargs; for arrays: Math.min(...arr) (Lesson 4 spread)</span>
+Math.abs(-5); Math.pow(2, 10); 2 ** 10; Math.sqrt(144);  <span class="cmt">// ** is the operator form</span>
+
+Math.random()     <span class="cmt">// float in [0, 1) — never exactly 1</span>
+<span class="cmt">// THE formula — random integer from min to max inclusive (memorize it):</span>
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+randInt(1, 6)     <span class="cmt">// a die roll 🎲</span></code></pre>
+
+<h2>3 · Date — useful, quirky, and month-is-0-indexed</h2>
+<p>JS dates are one object type wrapping a single number: <strong>milliseconds since Jan 1, 1970 UTC</strong> (the Unix epoch — same as Java's <code>System.currentTimeMillis()</code>).</p>
+<pre><code><span class="cmt">// CREATING</span>
+const now = new Date();                    <span class="cmt">// current moment</span>
+const ts  = Date.now();                    <span class="cmt">// just the number, no object — for timing</span>
+new Date(0)                                <span class="cmt">// epoch: Jan 1 1970 UTC</span>
+new Date("2026-07-26T10:30:00")            <span class="cmt">// ISO string — the reliable parse format</span>
+new Date(2026, 6, 26)                      <span class="cmt">// ⚠ July 26! Month is 0-INDEXED: 6 = July.</span>
+                                           <span class="cmt">// Days are 1-indexed. Yes, really. THE date gotcha.</span>
+
+<span class="cmt">// GETTING (local-time versions; each has a getUTC* twin)</span>
+now.getFullYear()   <span class="cmt">// 2026    (never getYear() — that's broken legacy)</span>
+now.getMonth()      <span class="cmt">// 6       — 0-indexed again: 6 means July</span>
+now.getDate()       <span class="cmt">// 26      — day of MONTH</span>
+now.getDay()        <span class="cmt">// 0–6     — day of WEEK, 0 = Sunday (Date vs Day trips everyone)</span>
+now.getHours(); now.getMinutes(); now.getSeconds();
+now.getTime()       <span class="cmt">// the underlying milliseconds — the escape hatch to math</span>
+
+<span class="cmt">// SETTING — mutates the object; overflow rolls over intelligently:</span>
+const d = new Date(2026, 0, 31);
+d.setDate(d.getDate() + 1);       <span class="cmt">// Jan 31 + 1 day → Feb 1 — the "add days" idiom</span>
+d.setMonth(11);                    <span class="cmt">// December</span>
+
+<span class="cmt">// MATH — subtracting dates coerces both to milliseconds:</span>
+const days = (deadline - now) / (1000 * 60 * 60 * 24);
+
+<span class="cmt">// FORMATTING</span>
+now.toISOString()                  <span class="cmt">// "2026-07-26T05:00:00.000Z" — for APIs/DBs (UTC)</span>
+now.toLocaleDateString("en-IN")    <span class="cmt">// "26/7/2026" — for humans</span>
+now.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+                                   <span class="cmt">// "26 Jul 2026, 10:30 am"</span></code></pre>
+<div class="callout tip">
+  <span class="label">Gotcha</span>
+  The 0-indexed month bites everyone once — <code>new Date(2026, 12, 1)</code> is not December, it's <em>January 2027</em>
+  (month 12 overflows). Java repeated this mistake in old <code>java.util.Calendar</code> and fixed it in
+  <code>java.time</code>; JS is still waiting on its fix (the upcoming <code>Temporal</code> API). Until then: store and transmit
+  ISO strings or timestamps, format with <code>toLocale*</code>, and reach for a library (date-fns) for heavy date logic.
+</div>
+
+<h2>4 · JSON — what survives the round trip</h2>
+<p>
+<strong>JSON</strong> (JavaScript Object Notation) is the text format of the web — every API in Modules C–E speaks it.
+It <em>looks</em> like JS object-literal syntax but is stricter: keys must be double-quoted strings, and only strings,
+numbers, booleans, <code>null</code>, arrays, and objects exist. Two methods do everything:
+</p>
+<pre><code>const user = { name: "Krish", year: 3, skills: ["java", "js"] };
+
+<span class="cmt">// STRINGIFY: object → text (to send/store)  — Java parallel: Jackson/Gson serialization</span>
+const text = JSON.stringify(user);
+<span class="cmt">// '{"name":"Krish","year":3,"skills":["java","js"]}'</span>
+
+<span class="cmt">// PARSE: text → object (on receipt)</span>
+const back = JSON.parse(text);
+back.name           <span class="cmt">// "Krish" — a fresh object, structurally equal, not === (new references)</span>
+
+JSON.stringify(user, null, 2)   <span class="cmt">// 3rd arg 'space': pretty-print with 2-space indent</span>
+JSON.stringify(user, ["name"])  <span class="cmt">// 2nd arg 'replacer': keep only listed keys → '{"name":"Krish"}'</span>
+JSON.stringify(user, (k, v) =&gt; k === "year" ? undefined : v)  <span class="cmt">// replacer fn: drop fields</span>
+JSON.parse('{"bad json"')       <span class="cmt">// SyntaxError — ALWAYS try/catch parsing of external input</span></code></pre>
+<p><strong>What does NOT survive</strong> — the interview meat. JSON is a data format, not a JS snapshot:</p>
+<table>
+  <thead><tr><th>Value in your object</th><th>After stringify</th><th>After parse (round trip)</th></tr></thead>
+  <tbody>
+    <tr><td>string / number / boolean / null</td><td>kept</td><td>identical — the survivors</td></tr>
+    <tr><td>nested objects &amp; arrays</td><td>kept</td><td>rebuilt fresh (new references)</td></tr>
+    <tr><td>function (method)</td><td><strong>silently dropped</strong></td><td>gone — behavior can't be serialized</td></tr>
+    <tr><td><code>undefined</code> property</td><td><strong>silently dropped</strong></td><td>gone (in arrays: becomes <code>null</code>)</td></tr>
+    <tr><td><code>Date</code></td><td>becomes an ISO <em>string</em></td><td><strong>stays a string!</strong> — you must re-wrap: <code>new Date(str)</code></td></tr>
+    <tr><td><code>Map</code> / <code>Set</code></td><td>becomes <code>{}</code> — useless</td><td>convert first: <code>[...map]</code></td></tr>
+    <tr><td><code>NaN</code> / <code>Infinity</code></td><td>becomes <code>null</code></td><td>null</td></tr>
+    <tr><td><code>BigInt</code></td><td><strong>TypeError</strong> — refuses outright</td><td>—</td></tr>
+    <tr><td>Circular reference (a.self = a)</td><td><strong>TypeError</strong></td><td>—</td></tr>
+    <tr><td>Prototype / class identity</td><td>lost</td><td>plain object — <code>instanceof</code> is false</td></tr>
+  </tbody>
+</table>
+<p>The "Date becomes a string" row causes real bugs weekly: an API returns a user with <code>createdAt</code>, you call <code>.getFullYear()</code> on it, and it explodes — because after <code>JSON.parse</code> it's a string. Re-hydrate manually.</p>
+
+<h2>5 · Symbol — the third key type, briefly</h2>
+<p>
+Lesson 1 listed <code>symbol</code> among the primitives; Lessons 3–4 used <code>Symbol.iterator</code>. Now the two-minute complete story.
+A Symbol is a <strong>guaranteed-unique identifier</strong>:
+</p>
+<pre><code>const id1 = Symbol("id");     <span class="cmt">// the "id" is just a debug label…</span>
+const id2 = Symbol("id");
+id1 === id2                    <span class="cmt">// false — EVERY Symbol() call is unique, forever</span>
+
+<span class="cmt">// Use: collision-proof object keys (bracket syntax — Lesson 3)</span>
+const ID = Symbol("dbId");
+user[ID] = 12345;
+user[ID]                       <span class="cmt">// 12345 — but invisible to normal inspection:</span>
+Object.keys(user)              <span class="cmt">// no ID here; JSON.stringify skips it; for..in skips it</span></code></pre>
+<p>
+Two facts to retain: (1) object keys are only ever <strong>strings or symbols</strong> — now the Lesson 3 statement is complete;
+(2) <strong>well-known symbols</strong> are hooks the language itself looks for on your objects — <code>Symbol.iterator</code>
+(makes you iterable, Lesson 4) is the star; others like <code>Symbol.asyncIterator</code> exist on the same pattern.
+You'll rarely mint your own symbols, but you now recognize the mechanism libraries use to hide internals.
+</p>
+
+<h2>6 · RegExp — pattern matching essentials</h2>
+<p>
+Java's <code>Pattern</code>/<code>Matcher</code>, but built into the language with literal syntax: <code>/pattern/flags</code>.
+Same regex dialect underneath — your Java regex knowledge transfers almost fully:
+</p>
+<pre><code>const re = /\d+/g;             <span class="cmt">// literal: pattern \d+ , flag g</span>
+new RegExp("\\d+", "g")        <span class="cmt">// constructor form — for building patterns from variables;</span>
+                               <span class="cmt">// note DOUBLE backslash in the string, like Java</span>
+
+<span class="cmt">// FLAGS: g = all matches (not just first) · i = ignore case · m = multiline anchors</span>
+
+<span class="cmt">// TEST — "does it match?" (validation)</span>
+/^\d{6}$/.test("110078")               <span class="cmt">// true — a 6-digit PIN code; ^ $ anchor whole string</span>
+
+<span class="cmt">// MATCH — "what matched?"</span>
+"a1b22c333".match(/\d+/)       <span class="cmt">// ["1", index: 1, …]  — first match + info (no g flag)</span>
+"a1b22c333".match(/\d+/g)      <span class="cmt">// ["1", "22", "333"]  — all matches (g flag)</span>
+
+<span class="cmt">// REPLACE — with patterns and capture groups</span>
+"price: 999".replace(/\d+/, "###")             <span class="cmt">// "price: ###"</span>
+"2026-07-26".replace(/(\d+)-(\d+)-(\d+)/, "$3/$2/$1")  <span class="cmt">// "26/07/2026" — $n = group n</span>
+"a b  c".split(/\s+/)                          <span class="cmt">// ["a","b","c"] — split on any whitespace</span>
+
+<span class="cmt">// The patterns you'll actually use:</span>
+/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(email)   <span class="cmt">// pragmatic email shape-check</span>
+/^\d{10}$/.test(phone)                    <span class="cmt">// 10-digit phone</span>
+/^[a-z0-9-]+$/.test(slug)                 <span class="cmt">// url-slug characters only</span></code></pre>
+<p>Building blocks refresher: <code>\d</code> digit, <code>\w</code> word char, <code>\s</code> whitespace, <code>.</code> anything, <code>+</code> one-or-more, <code>*</code> zero-or-more, <code>?</code> optional, <code>{n,m}</code> counts, <code>[abc]</code> set, <code>(x)</code> capture group, <code>^ $</code> anchors, <code>|</code> or. Enough for 95% of app code — validation, extraction, cleanup.</p>
+
+<h2>7 · The modern operators: <code>?.</code> <code>??</code> and logical assignment</h2>
+<p>
+Real-world data is full of holes — an API user may have no <code>address</code>. Pre-2020 JS guarded with clumsy
+<code>&amp;&amp;</code> chains; these three additions fixed it, and you'll use them in every file from here to the capstone.
+</p>
+<p><strong>Optional chaining <code>?.</code></strong> — "if what's before me is null/undefined, stop and produce undefined instead of throwing":</p>
+<pre><code>const user = { name: "Krish", address: null };
+
+user.address.city        <span class="cmt">// TypeError: Cannot read properties of null 💥</span>
+user.address?.city       <span class="cmt">// undefined — short-circuits calmly at the hole</span>
+user.address?.city?.toUpperCase()  <span class="cmt">// chain as deep as needed</span>
+user.getBio?.()          <span class="cmt">// call the method ONLY if it exists</span>
+scores?.[0]              <span class="cmt">// works for index/bracket access too</span>
+<span class="cmt">// Java flashback: this is the null-check pyramid — if (u != null &amp;&amp; u.getAddress() != null)…</span>
+<span class="cmt">// — collapsed into one character. (Only null/undefined trigger it; 0 and "" pass through.)</span></code></pre>
+<p><strong>Nullish coalescing <code>??</code></strong> — "default only for null/undefined." The crucial contrast is with <code>||</code>, which defaults on <em>any falsy</em> value (Lesson 1's list):</p>
+<pre><code>const settings = { volume: 0, theme: "" };
+
+settings.volume || 50    <span class="cmt">// 50 — WRONG! 0 is falsy, so || stomps a legitimate value</span>
+settings.volume ?? 50    <span class="cmt">// 0  — right: 0 is not null/undefined, keep it</span>
+settings.theme ?? "dark" <span class="cmt">// "" — kept; use || only when "" SHOULD count as missing</span>
+settings.missing ?? "x"  <span class="cmt">// "x" — both operators agree when truly absent</span>
+
+const city = user.address?.city ?? "Unknown";   <span class="cmt">// the idiomatic pair: probe, then default</span></code></pre>
+<p><strong>Logical assignment</strong> — the compound-assignment forms (ES2021):</p>
+<pre><code>config.retries ??= 3;     <span class="cmt">// assign 3 only if retries is null/undefined — "set default"</span>
+cache.user ||= fetchUser(); <span class="cmt">// assign if falsy</span>
+flags.debug &amp;&amp;= verify();   <span class="cmt">// assign only if currently truthy</span>
+<span class="cmt">// You met ??= inside Lesson 4's groupBy: (groups[key] ??= []).push(item)</span></code></pre>
+
+<h2>8 · Shallow vs deep copy — the full story</h2>
+<p>
+Threads from three lessons converge here. Lesson 1: variables hold references. Lesson 4: spread copies one level.
+Now the complete map of "I want a copy" — a topic interviewers adore because every option has a catch.
+</p>
+<pre><code>const original = {
+  name: "Krish",
+  skills: ["java", "js"],
+  joined: new Date("2026-01-01")
+};
+
+<span class="cmt">// LEVEL 0 — assignment: NOT a copy at all (one object, two labels — Lesson 1)</span>
+const alias = original;
+
+<span class="cmt">// LEVEL 1 — SHALLOW copy: new top level, nested objects SHARED</span>
+const shallow = { ...original };            <span class="cmt">// or Object.assign({}, original)</span>
+shallow.name = "K2";                        <span class="cmt">// safe — top-level primitive slot is own</span>
+shallow.skills.push("sql");                 <span class="cmt">// ⚠ original.skills changed too — shared ref!</span>
+
+<span class="cmt">// LEVEL 2 — DEEP copy, the modern way: structuredClone (Node 17+, all browsers)</span>
+const deep = structuredClone(original);
+deep.skills.push("sql");                    <span class="cmt">// original untouched ✓</span>
+deep.joined instanceof Date                 <span class="cmt">// true ✓ — Dates, Maps, Sets, even circular</span>
+                                            <span class="cmt">// references all survive. Limits: functions,</span>
+                                            <span class="cmt">// class identity, DOM nodes → throws/loses.</span>
+
+<span class="cmt">// LEVEL 2 (legacy) — the JSON trick: you'll see it in old code and interviews</span>
+const jsonCopy = JSON.parse(JSON.stringify(original));
+<span class="cmt">// Deep, but inherits EVERY §4 limitation: functions/undefined dropped,</span>
+<span class="cmt">// joined is now a STRING, Map/Set gutted, circular refs throw. Know it; prefer structuredClone.</span></code></pre>
+<table>
+  <thead><tr><th>Technique</th><th>Depth</th><th>Keeps Dates/Map/Set?</th><th>Handles circular?</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr><td><code>b = a</code></td><td>none — same object</td><td>—</td><td>—</td><td>Not a copy</td></tr>
+    <tr><td><code>{...a}</code> / <code>[...a]</code> / <code>Object.assign</code> / <code>slice()</code></td><td>1 level</td><td>shared, not copied</td><td>n/a</td><td>Fine when nesting is shallow or nested parts are treated read-only</td></tr>
+    <tr><td><code>structuredClone(a)</code></td><td>full deep</td><td><strong>Yes</strong></td><td><strong>Yes</strong></td><td><strong>Default choice</strong> (no functions/class instances)</td></tr>
+    <tr><td><code>JSON.parse(JSON.stringify(a))</code></td><td>full deep</td><td>No — Dates→strings, Map/Set→{}</td><td>No — throws</td><td>Legacy; mention its flaws in interviews</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Spread and Object.assign are shallow — they copy the top level and share nested references. For deep copies use
+  <code>structuredClone</code>, which handles Dates, Maps, Sets and circular references. The JSON round-trip trick is the
+  legacy alternative, but it drops functions and <code>undefined</code>, turns Dates into strings, and throws on circular data."
+</div>
+
+<h2>9 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "Why is 0.1 + 0.2 !== 0.3? How do you handle it?"</strong><br>
+  JS numbers are IEEE 754 doubles; 0.1 and 0.2 have no exact binary representation, so their stored approximations sum to
+  0.30000000000000004. Handle with epsilon comparison (<code>Math.abs(a-b) &lt; Number.EPSILON</code>), <code>toFixed</code> for display,
+  or integer paise/cents for money. Java's <code>double</code> behaves identically — hence BigDecimal there.</li>
+  <li><strong>Q. "slice vs substring for strings?"</strong><br>
+  Nearly identical, but <code>slice</code> supports negative (from-the-end) indexes while <code>substring</code> treats negatives as 0 and
+  silently swaps reversed arguments. Use <code>slice</code> — it also matches array semantics.</li>
+  <li><strong>Q. "Number() vs parseInt()?"</strong><br>
+  <code>Number("42px")</code> is NaN — the whole string must be numeric (and <code>Number("")</code> is 0). <code>parseInt("42px")</code> is 42 —
+  it reads leading digits and stops. Pass the radix: <code>parseInt(s, 10)</code>.</li>
+  <li><strong>Q. "What are the quirks of the Date object?"</strong><br>
+  Months are 0-indexed (6 = July) while days are 1-indexed; <code>getDay()</code> is day-of-week (0 = Sunday) vs <code>getDate()</code> day-of-month;
+  setters mutate; overflow rolls over (useful for date math). Store/transmit ISO strings or timestamps; the Temporal API is the future fix.</li>
+  <li><strong>Q. "What does JSON.stringify do with functions, undefined, and Dates?"</strong><br>
+  Functions and <code>undefined</code>-valued properties are silently dropped (undefined in arrays becomes null); Dates are serialized
+  as ISO strings and stay strings after parse; Map/Set become {}; BigInt and circular references throw. Replacer and space
+  arguments allow filtering and pretty-printing.</li>
+  <li><strong>Q. "?? vs || ?"</strong><br>
+  <code>||</code> falls back on any falsy value — so it wrongly replaces valid 0, "", and false. <code>??</code> falls back only on
+  null/undefined. Rule: use <code>??</code> for defaults, and pair it with <code>?.</code> for safe access into possibly-missing data.</li>
+  <li><strong>Q. "How do you deep-copy an object?"</strong><br>
+  <code>structuredClone</code> — deep, preserves Dates/Map/Set, survives circular refs. Spread/assign are shallow (one level).
+  The JSON trick is deep but lossy. For objects with methods/class identity, write a copy method or constructor — cloning can't preserve behavior.</li>
+  <li><strong>Q. "What is a Symbol used for?"</strong><br>
+  A guaranteed-unique primitive used as a collision-proof, non-enumerable object key; object keys are only strings or symbols.
+  Well-known symbols like <code>Symbol.iterator</code> are protocol hooks the language checks for — that's how iterability works.</li>
+</ul>
+
+<h2>10 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why is <code>0.1 + 0.2 === 0.3</code> false?</div>
+  <button class="opt">JavaScript's math engine has a known rounding bug that other languages fixed</button>
+  <button class="opt">The === operator can't compare computed decimals, only literals</button>
+  <button class="opt">0.1 and 0.2 can't be represented exactly in binary floating point, so tiny errors accumulate</button>
+  <div class="fb" data-correct="IEEE 754 doubles store values in binary, and 0.1/0.2 are infinite repeating fractions in binary — like 1/3 in decimal. The stored approximations sum to 0.30000000000000004. Java's double does the same; compare with an epsilon or use integer cents for money." data-wrong="It's not a bug and === works fine — it's faithfully reporting that the operands differ. The cause is binary floating point (IEEE 754): 0.1 and 0.2 have no finite binary form, so their approximations sum slightly off 0.3. Every language using doubles, Java included, behaves this way."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A user sets <code>volume: 0</code>. Which expression correctly applies a default of 50 only when volume is missing?</div>
+  <button class="opt"><code>settings.volume || 50</code></button>
+  <button class="opt"><code>settings.volume ?? 50</code></button>
+  <button class="opt"><code>settings.volume ? settings.volume : 50</code></button>
+  <div class="fb" data-correct="?? falls back only on null/undefined, so the legitimate 0 survives. Both || and the ternary treat 0 as falsy and would wrongly force 50 — the exact bug ?? was invented to fix." data-wrong="0 is falsy (Lesson 1's list), so both || and the truthiness ternary replace the user's deliberate 0 with 50. Nullish coalescing ?? only defaults on null/undefined — settings.volume ?? 50 gives 0, as intended."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">After <code>const u = JSON.parse(JSON.stringify({ joined: new Date(), greet() {} }))</code>, what is <code>u</code>?</div>
+  <button class="opt"><code>{ joined: "2026-07-26T…" }</code> — the Date became a string and the method vanished</button>
+  <button class="opt"><code>{ joined: Date, greet: function }</code> — a faithful deep copy of both</button>
+  <button class="opt">A TypeError — JSON.stringify refuses objects containing functions</button>
+  <div class="fb" data-correct="JSON can only express strings, numbers, booleans, null, arrays, objects. stringify silently drops functions and serializes the Date as an ISO string — and parse has no idea it was ever a Date. This lossiness is exactly why structuredClone is the preferred deep copy (though it too rejects functions — by throwing)." data-wrong="JSON has no representation for functions (silently dropped, no error — BigInt is what throws) or Date objects (serialized to ISO strings that STAY strings after parse). You get { joined: \"2026-…\" } and no greet. structuredClone preserves Dates properly, though functions are beyond any clone."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What date is <code>new Date(2026, 1, 3)</code>?</div>
+  <button class="opt">January 3, 2026 — arguments are year, month, day as humans write them</button>
+  <button class="opt">March 1, 2026 — arguments are year, day, month in JS</button>
+  <button class="opt">February 3, 2026 — months are 0-indexed, so 1 means February</button>
+  <div class="fb" data-correct="Months count from 0 (0 = January, 1 = February, 11 = December) while days count from 1 — the most famous Date gotcha, inherited from old Java Calendar. Related traps: getDate() is day-of-month but getDay() is day-of-week (0 = Sunday)." data-wrong="The order IS year, month, day — but the month argument is 0-indexed: 1 means February, so this is Feb 3, 2026. (And new Date(2026, 12, 1) overflows into January 2027!) Days, mercifully, start at 1."></div>
+</div>
+
+<h2>11 · Do this next</h2>
+<ul>
+  <li>Build <code>slugify(title)</code> for a future blog project: lowercase, trim, strip everything except letters/digits/spaces
+  with one <code>replace(/…/g)</code>, collapse whitespace runs to single hyphens. <code>"  Hello, World! Again  "</code> →
+  <code>"hello-world-again"</code>. Then write <code>formatPrice(paise)</code> returning <code>"₹1,234.50"</code> from integer paise —
+  using integer math plus <code>padStart</code>, and note in a comment why you didn't store 1234.5 as a float.</li>
+  <li>Round-trip experiment: build an object containing a string, a number, <code>undefined</code>, a function, a <code>Date</code>,
+  a <code>Map</code>, and a nested array. Send it through (a) <code>{...obj}</code>, (b) <code>JSON.parse(JSON.stringify(obj))</code>,
+  (c) <code>structuredClone(obj)</code> — logging what survived each trip, and confirming with mutation tests which copies still share nested references.</li>
+  <li>Write <code>daysUntil(isoDateString)</code> returning whole days from today until a deadline (use <code>getTime()</code> math
+  and <code>Math.ceil</code>), then <code>validate(form)</code> that regex-checks <code>{ email, phone, pin }</code> and returns an array
+  of error messages — using <code>?.</code> and <code>??</code> so missing fields report cleanly instead of throwing.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Floating point, JSON's silent data loss, and the copy-depth ladder are the interview magnets here — if any feels
+  shaky, or you want more regex practice patterns, ask me in the chat. When you can explain 0.1 + 0.2 from the binary
+  up, list what JSON drops, and pick the right copy technique on sight, say <strong>"next"</strong> — Module A's language
+  tour is done, and Lesson 6 (The Event Loop, Callbacks &amp; Promises) begins the async story that powers the entire web.
+</div>
+
+<div class="nav">
+  <span><a href="0004-arrays-destructuring-iteration.html">← Arrays &amp; Iteration</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0006-event-loop-callbacks-promises.html">The Event Loop &amp; Promises →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

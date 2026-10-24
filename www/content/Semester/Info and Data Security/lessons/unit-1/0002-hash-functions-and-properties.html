@@ -1,0 +1,312 @@
+<title>Hash Functions and Properties</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit I &middot; Lesson 2 of 7</p>
+<h1>Hash Functions and Their Properties</h1>
+<p class="deck">The three resistance properties, the requirements list, the Merkle&ndash;Damg&aring;rd iterated structure that MD4, SHA-512 and Whirlpool all share, and the applications. The most reliably asked topic in Unit I.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three questions, and one of them is close to certain: <strong>&ldquo;What is a cryptographic hash function? Explain its properties.&rdquo;</strong> Answer it with the <strong>three resistance properties named and defined</strong> &mdash; preimage, second preimage, collision &mdash; not with a vague list of adjectives. The other two: <strong>&ldquo;Explain the iterated (Merkle&ndash;Damg&aring;rd) hash function structure&rdquo;</strong> with the diagram, and <strong>&ldquo;Differentiate hashing from encryption.&rdquo;</strong></p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Cryptographic Hash Function Properties</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=jNoUtbK8hv4" target="_blank">Hash Functions in Cryptography: One-Way Property &amp; Avalanche Effect</a>
+    <span class="v-meta">Abhishek Sharma &middot; 16:58</span>
+    <div class="v-why">Comprehensive coverage of arbitrary input size to fixed output digest, efficiency, one-way pre-image resistance, and strict avalanche effect (&gt;50% bit flip on 1-bit change).</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Collision Resistance &amp; Second Pre-image</span>
+      <span class="best-tag">Top Exam Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=tty5lwlZvYA" target="_blank">Hash Function Properties: Preimage, Second Preimage &amp; Collision Resistance</a>
+    <span class="v-meta">Chirag Bhalodia &middot; 11:59</span>
+    <div class="v-why">Essential exam explanation contrasting weak collision resistance (second pre-image: given $x$, hard to find $x'$) with strong collision resistance (hard to find any $(x, x')$).</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: THE THREE SECURITY PROPERTIES -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Taxonomy: The Three Pillars of Hash Function Security</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+    <div class="flow-box highlight" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--accent);">1. Pre-image Resistance (One-Way)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Given digest $y$, it is computationally infeasible to find any $x$ such that $H(x) = y$. Search complexity: $\mathcal{O}(2^n)$.</span>
+    </div>
+    <div class="flow-box" style="min-width:auto; text-align:left; border-color:var(--rule);">
+      <strong style="color:var(--ink);">2. Second Pre-image Resistance</strong>
+      <span class="sub" style="margin-top:0.3rem;">Given input $x$, it is infeasible to find $x' \ne x$ such that $H(x') = H(x)$. Prevents replacing message with forged duplicate. Complexity: $\mathcal{O}(2^n)$.</span>
+    </div>
+    <div class="flow-box warn" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--warn);">3. Collision Resistance (Strong)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Infeasible to find *any* distinct pair $(x, x')$ with $H(x) = H(x')$. Bounded by Birthday Attack: $\mathcal{O}(2^{n/2})$.</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Definition</h2>
+
+<div class="formula">
+  <span class="name">Cryptographic hash function</span>
+  A function <strong>H</strong> that takes a <strong>variable-length</strong> message M<br>
+  and produces a <strong>fixed-length</strong> output h = H(M), called the hash value or message digest,<br>
+  such that finding anything useful about M from h, or finding two messages with the same h,<br>
+  is <strong>computationally infeasible</strong>.
+</div>
+
+<p>Two words carry the whole meaning. <strong>Fixed-length</strong> makes the digest a practical fingerprint. <strong>Computationally infeasible</strong> means an attack exists in principle but would take longer than the age of the universe on any realistic hardware &mdash; cryptography almost never claims impossibility, only infeasibility.</p>
+
+<h2>The three resistance properties</h2>
+
+<p>These three are the answer to &ldquo;properties of a hash function&rdquo;. Learn the <strong>given/find</strong> shape of each &mdash; that is what distinguishes them, and mixing up the first two is the commonest error in the paper.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Given</th><th>Attacker must find</th><th>Also called</th><th>Effort for an n-bit digest</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Preimage resistance</strong></td><td>A digest <strong>h</strong></td><td>Any message M with H(M) = h</td><td><strong>One-way property</strong></td><td class="num">2<sup>n</sup></td></tr>
+<tr><td><strong>2. Second preimage resistance</strong></td><td>A message <strong>M</strong></td><td>A <em>different</em> M&prime; with H(M&prime;) = H(M)</td><td><strong>Weak collision resistance</strong></td><td class="num">2<sup>n</sup></td></tr>
+<tr><td><strong>3. Collision resistance</strong></td><td><strong>Nothing</strong> &mdash; free choice</td><td><em>Any</em> pair M, M&prime; with H(M) = H(M&prime;)</td><td><strong>Strong collision resistance</strong></td><td class="num">2<sup>n/2</sup></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">How to tell 2 from 3 in one line</span>
+  <p><strong>Second preimage: the message is handed to you and you must match it. Collision: you may pick both messages yourself.</strong> The freedom to pick both is what makes collisions far cheaper &mdash; 2<sup>n/2</sup> instead of 2<sup>n</sup>, by the birthday paradox of Lesson 3. That is why a 128-bit digest like MD5&rsquo;s gives only 64 bits of collision security and is now considered broken.</p>
+</div>
+
+<p>The properties are ordered in strength: <strong>collision resistance implies second preimage resistance</strong>, but not the other way round. A hash used for digital signatures needs all three; a hash used only to store passwords needs mainly preimage resistance.</p>
+
+<h3>Why collisions must exist at all &mdash; the pigeonhole principle</h3>
+
+<p>The input space is infinite (messages of any length); the output space has only 2<sup>n</sup> values. So <strong>infinitely many messages map to each digest &mdash; collisions certainly exist</strong>. Cryptography does not deny this; it only requires that <strong>finding</strong> one is infeasible. Write that sentence in any question that asks whether a hash function is collision-free; the answer &ldquo;no, but they cannot be found&rdquo; earns the mark that &ldquo;yes&rdquo; loses.</p>
+
+<h2>The full requirements list</h2>
+
+<p>If a question asks for &ldquo;requirements&rdquo; or &ldquo;characteristics&rdquo; rather than &ldquo;properties&rdquo;, give this list &mdash; the three resistances plus the practical ones.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Requirement</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Variable input size</strong></td><td>H accepts a message of any length</td></tr>
+<tr><td><strong>Fixed output size</strong></td><td>The digest is always n bits (128, 160, 512&hellip;)</td></tr>
+<tr><td><strong>Efficiency</strong></td><td>H(M) is easy and fast to compute for any M &mdash; hashing must be cheaper than encrypting</td></tr>
+<tr><td><strong>Preimage resistance</strong></td><td>One-way: cannot go back from h to M</td></tr>
+<tr><td><strong>Second preimage resistance</strong></td><td>Cannot find a second message matching a given message&rsquo;s digest</td></tr>
+<tr><td><strong>Collision resistance</strong></td><td>Cannot find any two messages with the same digest</td></tr>
+<tr><td><strong>Avalanche effect</strong></td><td>A one-bit change in M changes about <strong>half</strong> the digest bits &mdash; also called <strong>pseudorandomness</strong></td></tr>
+<tr><td><strong>Deterministic</strong></td><td>The same message always yields the same digest</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Iterated hash functions: the Merkle&ndash;Damg&aring;rd scheme</h2>
+
+<p>Nobody designs a hash function that swallows a gigabyte in one gulp. Instead a <strong>compression function</strong> that maps a fixed, larger input to a fixed, smaller output is applied repeatedly. That construction is the <strong>Merkle&ndash;Damg&aring;rd scheme</strong>, and <strong>MD4, MD5, SHA-1, SHA-512 all follow it</strong> (Whirlpool uses the related Miyaguchi&ndash;Preneel scheme of Lesson 7).</p>
+
+<div class="solve">
+  <span class="lbl">The scheme, in the five steps to write in an answer</span>
+  <p><strong>1. Pad</strong> the message so its length is an exact multiple of the block size, and <strong>append the original message length</strong> in the last block (this length field is called <strong>MD-strengthening</strong>, and it is what stops a class of extension attacks).</p>
+  <p><strong>2. Split</strong> the padded message into blocks M<sub>1</sub>, M<sub>2</sub>, &hellip;, M<sub>t</sub> of equal size.</p>
+  <p><strong>3. Initialise</strong> a chaining variable H<sub>0</sub> to a fixed <strong>initial value (IV)</strong> defined by the standard.</p>
+  <p><strong>4. Iterate:</strong> H<sub>i</sub> = f(H<sub>i&minus;1</sub>, M<sub>i</sub>) for i = 1&hellip;t, where <strong>f</strong> is the compression function. Each step takes the previous chaining value and the next block.</p>
+  <p><strong>5. Output:</strong> the final chaining value H<sub>t</sub> is the message digest.</p>
+</div>
+
+<div class="box">
+  <span class="lbl">The theorem worth quoting</span>
+  <p><strong>If the compression function f is collision resistant, then the whole iterated hash function is collision resistant.</strong> This is the Merkle&ndash;Damg&aring;rd result, and it is why designers only have to get one small function right instead of a function on arbitrary-length inputs.</p>
+</div>
+
+<p>Draw it as a horizontal chain of boxes labelled f, each fed from above by M<sub>i</sub> and from the left by H<sub>i&minus;1</sub>, with IV entering the first box and the digest leaving the last. Every algorithm diagram in Lessons 5, 6 and 7 is a zoom-in on one of those f boxes.</p>
+
+<h3>Two ways to build the compression function</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Approach</th><th>How</th><th>Examples</th></tr></thead>
+<tbody>
+<tr><td><strong>Made from scratch (dedicated)</strong></td><td>The compression function is designed only to be a hash &mdash; rounds of shifts, additions and boolean functions</td><td><strong>MD4, MD5, SHA-1, SHA-512</strong></td></tr>
+<tr><td><strong>Made from a block cipher</strong></td><td>An existing cipher is reused as the compression function, in the Rabin, Davies&ndash;Meyer, Matyas&ndash;Meyer&ndash;Oseas or <strong>Miyaguchi&ndash;Preneel</strong> scheme</td><td><strong>Whirlpool</strong> (uses cipher W, an AES variant)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Simple (non-cryptographic) hash functions &mdash; and why they fail</h2>
+
+<p>Sometimes asked as a short note. Two classic constructions, both far too weak for security:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Technique</th><th>Operation</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td><strong>Bitwise XOR of blocks</strong></td><td>Divide the message into n-bit blocks and XOR them all together: C<sub>i</sub> = b<sub>i1</sub> &oplus; b<sub>i2</sub> &oplus; &hellip; &oplus; b<sub>im</sub></td><td>Reordering blocks does not change the result; forging a message with a chosen digest is trivial</td></tr>
+<tr><td><strong>Rotated XOR (RXOR)</strong></td><td>Rotate the running digest left by one bit before each XOR, so block position matters</td><td>Better on random data, still easily forged &mdash; no avalanche, no one-wayness</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The lesson these teach: <strong>a checksum detects noise, a cryptographic hash resists an adversary.</strong> CRC is in the same category &mdash; excellent against transmission errors, useless against deliberate modification.</p>
+
+<h2>Hashing versus encryption</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Hashing</th><th>Encryption</th></tr></thead>
+<tbody>
+<tr><td><strong>Reversible?</strong></td><td><strong>No</strong> &mdash; one-way by design</td><td><strong>Yes</strong> &mdash; decryption recovers the plaintext</td></tr>
+<tr><td><strong>Key</strong></td><td>None (a plain hash / MDC)</td><td>Always keyed</td></tr>
+<tr><td><strong>Output length</strong></td><td>Fixed</td><td>Grows with the plaintext</td></tr>
+<tr><td><strong>Goal</strong></td><td>Integrity</td><td>Confidentiality</td></tr>
+<tr><td><strong>Typical use</strong></td><td>Digests, signatures, password storage</td><td>Secure transmission and storage of content</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Applications of hash functions</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Application</th><th>How the hash is used</th></tr></thead>
+<tbody>
+<tr><td><strong>Message integrity</strong></td><td>The digest travels with the message and is recomputed at the receiver (Lesson 1)</td></tr>
+<tr><td><strong>Message authentication</strong></td><td>The digest is keyed &mdash; HMAC (Lesson 4)</td></tr>
+<tr><td><strong>Digital signatures</strong></td><td>The <strong>digest</strong>, not the message, is signed with the private key &mdash; small and fast</td></tr>
+<tr><td><strong>Password storage</strong></td><td>Only H(password), usually salted, is stored; the password is never held in clear</td></tr>
+<tr><td><strong>Data structures</strong></td><td>Hash tables, deduplication, file-integrity checks, Git object names</td></tr>
+<tr><td><strong>Pseudorandom number / key generation</strong></td><td>Hashing a seed produces unpredictable output</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The hash function families, at a glance</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Digest</th><th>Block</th><th>Rounds / steps</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><strong>MD4</strong></td><td class="num">128 bits</td><td class="num">512 bits</td><td class="num">3 rounds &times; 16 = 48 steps</td><td>Broken (Lesson 5)</td></tr>
+<tr><td><strong>MD5</strong></td><td class="num">128 bits</td><td class="num">512 bits</td><td class="num">4 rounds &times; 16 = 64 steps</td><td>Broken 2004</td></tr>
+<tr><td><strong>SHA-1</strong></td><td class="num">160 bits</td><td class="num">512 bits</td><td class="num">80 steps</td><td>Deprecated</td></tr>
+<tr><td><strong>SHA-512</strong></td><td class="num">512 bits</td><td class="num">1024 bits</td><td class="num">80 rounds</td><td>Secure (Lesson 6)</td></tr>
+<tr><td><strong>Whirlpool</strong></td><td class="num">512 bits</td><td class="num">512 bits</td><td class="num">10 rounds</td><td>Secure (Lesson 7)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Second preimage resistance means that given:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A message M, it is infeasible to find a different M′ with the same digest</button>
+    <button class="opt">Nothing at all, it is infeasible to find any two messages that collide</button>
+    <button class="opt">A digest h, it is infeasible to find any message that produces h</button>
+    <button class="opt">A key K, it is infeasible to find a second key giving the same MAC</button>
+  </div>
+  <p class="why">Option two is preimage resistance and option three is collision resistance. The distinguishing feature here is that M is fixed for you.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Collision resistance is harder to achieve than second preimage resistance because:</p>
+  <div class="opts">
+    <button class="opt">Collisions require breaking the compression function of every round</button>
+    <button class="opt" data-ok="1">The attacker may choose both messages, which cuts the work from 2ⁿ to 2^(n/2)</button>
+    <button class="opt">The attacker knows the digest in advance and can work backwards from it</button>
+    <button class="opt">The digest must be longer than the message for collisions to be avoided</button>
+  </div>
+  <p class="why">The freedom to pick both messages is exactly the birthday-paradox setting, and it square-roots the effort.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In the Merkle–Damgård scheme, the message length is appended to the last block in order to:</p>
+  <div class="opts">
+    <button class="opt">Keep the digest length proportional to the number of blocks</button>
+    <button class="opt" data-ok="1">Strengthen the hash against attacks that extend or re-pad the message</button>
+    <button class="opt">Tell the compression function how many rounds it should run</button>
+    <button class="opt">Allow the receiver to recover the original message from the digest</button>
+  </div>
+  <p class="why">This is MD-strengthening. Without it, two messages that pad to the same bit string could be made to collide.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A cryptographic hash function is collision-free:</p>
+  <div class="opts">
+    <button class="opt">Only when a secret key is mixed in, as it is in HMAC</button>
+    <button class="opt">Always, provided the digest is at least 256 bits in length</button>
+    <button class="opt" data-ok="1">Never — collisions must exist by the pigeonhole principle, but must be infeasible to find</button>
+    <button class="opt">Only when the message is shorter than one block of the hash function</button>
+  </div>
+  <p class="why">Infinite input space, finite output space. The security claim is about finding a collision, never about their existence.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A simple XOR of all message blocks fails as a cryptographic hash mainly because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Blocks can be reordered or forged freely without changing the result</button>
+    <button class="opt">It is far too slow to compute on messages of realistic size</button>
+    <button class="opt">Its output length grows in proportion with the length of the message</button>
+    <button class="opt">It cannot accept messages whose length is not a multiple of 8 bits</button>
+  </div>
+  <p class="why">XOR is commutative, so order is invisible, and an attacker can adjust one block to force any digest wanted. RXOR fixes order but not forgeability.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which is the correct relationship between the resistance properties?</p>
+  <div class="opts">
+    <button class="opt">Second preimage resistance implies both of the other two properties</button>
+    <button class="opt" data-ok="1">Collision resistance implies second preimage resistance, but not the reverse</button>
+    <button class="opt">The three properties are logically independent of one another</button>
+    <button class="opt">Preimage resistance implies collision resistance, but not the reverse</button>
+  </div>
+  <p class="why">Strong collision resistance is the strongest of the three, which is why MD5 fell to collision attacks long before any preimage attack existed.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a cryptographic hash function.</summary>
+    <p class="ans">A function H that maps a variable-length message to a fixed-length digest h = H(M), such that it is computationally infeasible to invert it, to find a second message with a given message&rsquo;s digest, or to find any two messages with the same digest.</p></details>
+  <details class="card"><summary>Name and define the three resistance properties, with their attack effort.</summary>
+    <p class="ans">Preimage resistance (one-way): given h, cannot find M with H(M) = h — effort 2ⁿ. Second preimage resistance (weak collision resistance): given M, cannot find M′ ≠ M with the same digest — effort 2ⁿ. Collision resistance (strong): cannot find any pair M, M′ with the same digest — effort only 2^(n/2) by the birthday paradox.</p></details>
+  <details class="card"><summary>List the requirements of a hash function.</summary>
+    <p class="ans">Variable input size, fixed output size, efficiency of computation, preimage resistance, second preimage resistance, collision resistance, avalanche effect (pseudorandomness) and deterministic output.</p></details>
+  <details class="card"><summary>Describe the Merkle–Damgård iterated hash structure.</summary>
+    <p class="ans">Pad the message to a multiple of the block size and append its length (MD-strengthening); split it into blocks M₁…M_t; set H₀ to a fixed IV; iterate H_i = f(H_{i−1}, M_i) using the compression function f; output H_t as the digest. If f is collision resistant then so is the whole hash function.</p></details>
+  <details class="card"><summary>Give two ways of building a compression function, with an example of each.</summary>
+    <p class="ans">Made from scratch as a dedicated design — MD4, MD5, SHA-1, SHA-512. Or built from an existing block cipher using a scheme such as Rabin, Davies–Meyer, Matyas–Meyer–Oseas or Miyaguchi–Preneel — Whirlpool, which uses the AES-like cipher W.</p></details>
+  <details class="card"><summary>Give four differences between hashing and encryption.</summary>
+    <p class="ans">Hashing is one-way, encryption is reversible; hashing is keyless (as an MDC), encryption is always keyed; a hash output is fixed-length, ciphertext grows with the plaintext; hashing targets integrity, encryption targets confidentiality.</p></details>
+  <details class="card"><summary>List five applications of hash functions.</summary>
+    <p class="ans">Message integrity checking, message authentication through MACs, digital signatures (the digest is signed rather than the message), password storage, file deduplication and integrity verification, and pseudorandom number or key generation.</p></details>
+</div>
+
+<p class="ask">Next: the Random Oracle Model &mdash; the idealised hash function against which all of these properties are measured, and the birthday attack that sets the digest length.</p>
+
+<div class="nav">
+  <a href="0001-message-integrity.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0003-random-oracle-model.html">Next: Random Oracle Model &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

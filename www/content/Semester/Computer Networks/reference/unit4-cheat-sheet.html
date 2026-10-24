@@ -1,0 +1,219 @@
+<title>CN Unit IV Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Cheat sheet is denser than a lesson — tighten everything for print. */
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Reference &middot; print this one</p>
+<h1>Unit IV &mdash; Exam Sheet</h1>
+<p class="deck">The transport layer on one page. Three diagrams carry this unit: the TCP header, the three-way handshake, and the congestion-window graph. If you can draw all three from memory you have most of the marks.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p>In order of certainty: <strong>TCP vs UDP table</strong> &middot; <strong>three-way handshake diagram</strong> &middot; <strong>congestion control graph</strong> &middot; <strong>TCP header</strong> &middot; silly window syndrome &middot; SCTP's two features.</p>
+</div>
+
+<hr class="rule">
+
+<h2>Transport layer basics</h2>
+
+<div class="formula">
+  <span class="name">The three deliveries</span>
+  Data link &rarr; <strong>hop to hop</strong> (MAC) &middot; Network &rarr; <strong>host to host</strong> (IP) &middot; Transport &rarr; <strong>process to process</strong> (ports)
+</div>
+
+<p><strong>Port</strong> = 16 bits, 0&ndash;65,535. <strong>Socket address</strong> = IP + port. A connection = the <strong>pair</strong> of socket addresses (which is how one server holds thousands of connections on port 80).</p>
+<p><strong>Ranges:</strong> well-known 0&ndash;1023 &middot; registered 1024&ndash;49151 &middot; <strong>ephemeral 49152&ndash;65535</strong> (the client side).</p>
+<p><strong>Ports:</strong> FTP 20/21 &middot; SSH 22 &middot; TELNET 23 &middot; SMTP 25 &middot; DNS 53 &middot; DHCP 67/68 &middot; TFTP 69 &middot; HTTP 80 &middot; POP3 110 &middot; IMAP4 143 &middot; SNMP 161 &middot; HTTPS 443.</p>
+<p><strong>Multiplexing</strong> = many processes &rarr; one network layer (sender). <strong>Demultiplexing</strong> = one network layer &rarr; many processes by destination port (receiver).</p>
+
+<div class="box win">
+  <span class="lbl">Flow vs congestion control</span>
+  <p><strong>Flow control protects the RECEIVER (rwnd, advertised in the header). Congestion control protects the NETWORK (cwnd, computed by the sender).</strong> Send window = <strong>min(rwnd, cwnd)</strong>.</p>
+</div>
+
+<h2>UDP <span class="tag">8-byte header</span></h2>
+
+<div class="formula">
+  <span class="name">UDP header &mdash; four fields, 2 bytes each</span>
+  | Source Port (16) | Destination Port (16) | Total Length (16) | Checksum (16) |<br>
+  Total length = header + data; <strong>minimum 8</strong>, maximum 65,535
+</div>
+
+<p><strong>Pseudoheader</strong> (12 bytes, never transmitted): source IP, destination IP, zeros, <strong>protocol 17</strong>, UDP length. It lets the receiver check the datagram reached the right host and was meant for UDP. Checksum <strong>optional in IPv4</strong>, mandatory in IPv6.</p>
+<p><strong>UDP is used by:</strong> DNS, DHCP, TFTP, SNMP, RIP, VoIP, streaming, gaming &mdash; and <strong>anything multicast or broadcast, since TCP cannot do either</strong>.</p>
+<p><strong>The "why unreliable?" line:</strong> for real-time traffic a <em>late</em> packet is worse than a <em>lost</em> one &mdash; a retransmitted 20 ms of audio arrives after the moment it was needed.</p>
+
+<h2>TCP vs UDP <span class="tag">most likely question</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>TCP</th><th>UDP</th></tr></thead>
+<tbody>
+<tr><td>Connection</td><td>Connection-oriented (3-way handshake)</td><td>Connectionless</td></tr>
+<tr><td>Reliability</td><td>Reliable &mdash; ACK + retransmission</td><td>Unreliable, best effort</td></tr>
+<tr><td>Ordering</td><td>Guaranteed</td><td>Not guaranteed</td></tr>
+<tr><td>Header</td><td><strong>20&ndash;60 bytes</strong></td><td><strong>8 bytes</strong></td></tr>
+<tr><td>Data unit</td><td>Segment</td><td>User datagram</td></tr>
+<tr><td>Flow / congestion control</td><td>Both</td><td>Neither</td></tr>
+<tr><td>Checksum</td><td>Mandatory</td><td>Optional in IPv4</td></tr>
+<tr><td><strong>Data boundaries</strong></td><td><strong>Byte stream</strong> &mdash; not preserved</td><td><strong>Message oriented</strong> &mdash; preserved</td></tr>
+<tr><td>Broadcast / multicast</td><td><strong>No</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td>Used by</td><td>HTTP, FTP, SMTP, TELNET, SSH</td><td>DNS, DHCP, TFTP, SNMP, RIP</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>TCP header <span class="tag">10 marks</span></h2>
+
+<div class="formula">
+  <span class="name">20 to 60 bytes, 4 bytes per row</span>
+  | Source Port (16) | Destination Port (16) |<br>
+  | <strong>Sequence Number (32)</strong> |<br>
+  | <strong>Acknowledgement Number (32)</strong> |<br>
+  | HLEN (4) | Reserved (6) | <strong>Flags (6)</strong> | <strong>Window Size (16)</strong> |<br>
+  | Checksum (16) | Urgent Pointer (16) |<br>
+  | Options + Padding (0&ndash;40) |
+</div>
+
+<div class="formula">
+  <span class="name">The numbering rules</span>
+  <strong>Sequence number</strong> = number of the <strong>FIRST byte in this segment</strong><br>
+  <strong>Acknowledgement number</strong> = number of the <strong>NEXT byte expected</strong> (cumulative)<br>
+  TCP numbers <strong>bytes, not segments</strong>. ISN is <strong>random</strong> (old-segment confusion + hijacking).
+</div>
+
+<p><strong>Flags: URG, ACK, PSH, RST, SYN, FIN</strong> &mdash; <em>"Unskilled Attackers Pester Real Security Folks."</em><br>
+URG = urgent pointer valid &middot; ACK = ack number valid &middot; PSH = deliver to app now &middot; RST = abort &middot; SYN = synchronise &middot; FIN = finished.</p>
+<p><strong>SYN and FIN each consume one sequence number; a pure ACK consumes none.</strong></p>
+<p><strong>HLEN</strong> in 4-byte words: 5 = 20 bytes, 15 = 60 bytes. <strong>Window size</strong> = rwnd, max 65,535 (hence the window scale option). <strong>Checksum</strong> mandatory, pseudoheader protocol <strong>6</strong>.</p>
+
+<h2>Connection management <span class="tag">10 marks</span></h2>
+
+<div class="formula">
+  <span class="name">Three-way handshake</span>
+  1. C&rarr;S &nbsp;<strong>SYN</strong>, seq = x<br>
+  2. S&rarr;C &nbsp;<strong>SYN + ACK</strong>, seq = y, ack = <strong>x+1</strong><br>
+  3. C&rarr;S &nbsp;<strong>ACK</strong>, seq = x+1, ack = <strong>y+1</strong> (may carry data)
+</div>
+
+<div class="formula">
+  <span class="name">Four-way termination</span>
+  1. <strong>FIN</strong> &rarr; &nbsp; 2. <strong>ACK</strong> &larr; (server may still send) &nbsp; 3. <strong>FIN</strong> &larr; &nbsp; 4. <strong>ACK</strong> &rarr;
+</div>
+
+<p><strong>Why three, not two:</strong> TCP is full-duplex so both directions need initialising; the server combines its SYN and ACK. A two-way handshake would also let a delayed duplicate SYN open an unwanted connection.</p>
+<p><strong>Why four to close:</strong> each direction closes separately, and the server may still have data after acknowledging the FIN. If it has none, steps 2 and 3 combine &rarr; three-way close.</p>
+<p><strong>Half-close:</strong> one end stops sending but keeps receiving (client sends a list for sorting, then reads the result).</p>
+<p><strong>States:</strong> CLOSED, LISTEN, SYN-SENT, SYN-RCVD, ESTABLISHED, FIN-WAIT-1/2, CLOSE-WAIT, LAST-ACK, <strong>TIME-WAIT</strong>.</p>
+<p><strong>TIME-WAIT = 2 &times; MSL</strong>, for two reasons: a lost final ACK can be re-answered when the FIN is resent, and all old segments die out before the port pair is reused.</p>
+<p><strong>SYN flooding:</strong> spoofed SYNs fill the table with half-open connections &rarr; DoS. Fixed by <strong>SYN cookies</strong> (state encoded in the ISN, allocate only on the third segment).</p>
+
+<h2>Flow and error control</h2>
+
+<div class="formula">
+  <span class="name">Silly window syndrome</span>
+  Segments with a few data bytes and 40 bytes of headers.<br>
+  <strong>Sender-caused &rarr; Nagle's algorithm:</strong> send the first piece at once, then wait for an ACK <em>or</em> a full MSS.<br>
+  <strong>Receiver-caused &rarr; Clark's solution</strong> (ACK but advertise zero until the buffer is half empty or an MSS fits) <strong>or delayed ACK</strong> (bounded, ~500 ms).
+</div>
+
+<p><strong>Window regions:</strong> sent+acked &middot; sent-not-acked (outstanding) &middot; usable &middot; not sendable. <strong>Usable = min(rwnd,cwnd) &minus; outstanding.</strong></p>
+<p><strong>Zero-window deadlock</strong> &rarr; the <strong>persistence timer</strong> sends a one-byte probe.</p>
+<p><strong>Error control = checksum + acknowledgement + retransmission.</strong> There is <strong>no NAK</strong> &mdash; a corrupted segment is silently discarded and looks like a loss. Out-of-order segments are <strong>buffered</strong> (unlike Go-Back-N).</p>
+<p><strong>Fast retransmit = 3 duplicate ACKs.</strong> Why three? One duplicate could just be reordering.</p>
+
+<h2>Congestion control <span class="tag">draw the graph</span></h2>
+
+<div class="formula">
+  <span class="name">The three phases</span>
+  <strong>Slow start:</strong> cwnd = 1, +1 MSS per ACK &rarr; <strong>doubles every RTT</strong>, until cwnd = ssthresh<br>
+  <strong>Congestion avoidance:</strong> +1 MSS per <strong>RTT</strong> &rarr; linear<br>
+  <strong>Detection:</strong> <strong>timeout</strong> &rarr; ssthresh = cwnd/2, <strong>cwnd = 1</strong>, slow start<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>3 dup ACKs</strong> &rarr; ssthresh = cwnd/2, <strong>cwnd = cwnd/2</strong>, stay in avoidance (Reno)
+</div>
+
+<p><strong>AIMD</strong> = Additive Increase, Multiplicative Decrease. <strong>"Slow start" is a misnomer</strong> &mdash; the growth is exponential; only the starting point (1 MSS) is small.</p>
+<p><strong>Tahoe vs Reno:</strong> identical on a timeout. On 3 duplicate ACKs, <strong>Tahoe drops to 1</strong>, <strong>Reno halves and stays in congestion avoidance</strong> (fast recovery).</p>
+<p><strong>Trace trap:</strong> in slow start, <strong>never double past ssthresh</strong> &mdash; stop at it and switch phase. ssthresh is computed from cwnd <strong>at the moment of loss</strong>.</p>
+<p><strong>Sample trace</strong> (ssthresh 8, timeout at RTT 8): 1, 2, 4, <strong>8</strong>, 9, 10, 11, <strong>12</strong> &rarr; timeout &rarr; ssthresh 6, cwnd 1 &rarr; 1, 2, 4, <strong>6</strong>, 7.</p>
+<p><strong>The graph must show:</strong> exponential rise &middot; dashed ssthresh line &middot; linear rise &middot; vertical drop &middot; new ssthresh &middot; the repeating <strong>sawtooth</strong>.</p>
+
+<h2>Timers, options, SCTP</h2>
+
+<div class="formula">
+  <span class="name">The four timers</span>
+  <strong>Retransmission (RTO)</strong> &middot; <strong>Persistence</strong> (zero-window probe) &middot; <strong>Keepalive</strong> (~2 h idle) &middot; <strong>TIME-WAIT</strong> (2&times;MSL)
+</div>
+
+<div class="formula">
+  <span class="name">RTO calculation</span>
+  First: RTT<sub>S</sub> = RTT<sub>M</sub>, RTT<sub>D</sub> = RTT<sub>M</sub>/2<br>
+  Then: RTT<sub>S</sub> = (7/8)&middot;old + (1/8)&middot;RTT<sub>M</sub> &nbsp;&middot;&nbsp; RTT<sub>D</sub> = (3/4)&middot;old + (1/4)&middot;|RTT<sub>S</sub> &minus; RTT<sub>M</sub>|<br>
+  <strong>RTO = RTT<sub>S</sub> + 4 &times; RTT<sub>D</sub></strong> &nbsp;&mdash; use the <strong>NEW</strong> RTT<sub>S</sub> in the RTT<sub>D</sub> line
+</div>
+
+<p><strong>Karn's algorithm:</strong> after a retransmission you cannot tell which transmission an ACK answers, so <strong>exclude retransmitted segments from RTT measurement</strong> &mdash; paired with <strong>exponential backoff</strong> (double the RTO each retransmission).</p>
+<p><strong>Options:</strong> EOP, NOP, <strong>MSS</strong> (announced in the SYN, <em>not</em> negotiated, default 536), <strong>window scale</strong> (16-bit window caps at 65,535 &mdash; too small for a large bandwidth-delay product), <strong>timestamp</strong> (RTT + PAWS), SACK-permitted, <strong>SACK</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>UDP</th><th>TCP</th><th>SCTP</th></tr></thead>
+<tbody>
+<tr><td>Boundaries</td><td><strong>Message</strong></td><td>Byte stream</td><td><strong>Message</strong></td></tr>
+<tr><td><strong>Multi-homing</strong></td><td>No</td><td><strong>No</strong></td><td><strong>Yes</strong> &mdash; survives a path failure</td></tr>
+<tr><td><strong>Multi-streaming</strong></td><td>No</td><td><strong>No</strong> (head-of-line blocking)</td><td><strong>Yes</strong></td></tr>
+<tr><td>Handshake</td><td>None</td><td>3-way</td><td><strong>4-way with cookie</strong></td></tr>
+<tr><td>SYN flood</td><td>&mdash;</td><td>Vulnerable</td><td><strong>Immune by design</strong></td></tr>
+<tr><td>Half-close</td><td>&mdash;</td><td>Yes</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>SCTP numbering:</strong> TSN (per association), SI (stream id), SSN (per stream). Packets are built from <strong>chunks</strong>. Its term is <strong>association</strong>, not connection.</p>
+
+<hr class="rule">
+
+<h2>Final scan &mdash; ten minutes before you go in</h2>
+
+<ol>
+<li>Transport = process to process, via ports. Socket = IP + port; a connection is the pair.</li>
+<li>Send window = <strong>min(rwnd, cwnd)</strong>. rwnd protects the receiver, cwnd the network.</li>
+<li>UDP header 8 bytes, four fields. TCP header 20–60 bytes. Pseudoheader protocol 17 / 6.</li>
+<li>Seq = first byte in the segment. ACK = <strong>next</strong> byte expected. SYN and FIN consume one each.</li>
+<li>Handshake: SYN(x) → SYN+ACK(y, x+1) → ACK(x+1, y+1). Close takes four; TIME-WAIT is 2×MSL.</li>
+<li>Nagle fixes the sender's silly window; Clark or delayed ACK fixes the receiver's.</li>
+<li>Fast retransmit = 3 duplicate ACKs. TCP has no NAK; out-of-order segments are buffered.</li>
+<li>Slow start doubles per RTT; congestion avoidance adds 1 per RTT. Never double past ssthresh.</li>
+<li>Timeout → cwnd = 1. Three dup ACKs → cwnd = cwnd/2 in Reno, cwnd = 1 in Tahoe.</li>
+<li>RTO = RTT<sub>S</sub> + 4·RTT<sub>D</sub>. SCTP = multi-homing + multi-streaming + cookie handshake.</li>
+<li><strong>Congestion Control:</strong> Open-loop (preventive: retransmission/discard policies) vs Closed-loop (reactive: backpressure, choke packet, BECN/FECN).</li>
+<li><strong>Traffic Shaping:</strong> Leaky Bucket (strictly constant rate; drops overflow data) vs Token Bucket (bursts allowed up to capacity $C$; drops overflow tokens).</li>
+<li><strong>QoS &amp; Scheduling:</strong> Delay, Jitter, Reliability, Bandwidth. Weighted Fair Queuing (WFQ) prevents starvation by weighted bandwidth allocation.</li>
+</ol>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="numericals-method-handbook.html">How to solve numericals</a>
+  <a href="../lessons/unit-4/0028-transport-layer-services.html">Start Unit IV</a>
+  <a href="unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="unit2-cheat-sheet.html">Unit II sheet</a>
+  <a href="unit3-cheat-sheet.html">Unit III sheet</a>
+  <a href="unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>

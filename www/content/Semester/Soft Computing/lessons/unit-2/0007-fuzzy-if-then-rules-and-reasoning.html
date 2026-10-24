@@ -1,0 +1,348 @@
+<title>Fuzzy If-Then Rules and Reasoning</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit II &middot; Lesson 7 of 10</p>
+<h1>Fuzzy If-Then Rules and Reasoning</h1>
+<p class="deck">Linguistic variables, hedges, the four implication operators, and the compositional rule of inference &mdash; how a rule plus an observation produces a conclusion.</p>
+
+<div class="box exam">
+  <span class="lbl">Why this matters tomorrow</span>
+  <p>Two things are examined here: the <strong>definition set</strong> (linguistic variable, hedge, fuzzy proposition, implication) as short questions, and the <strong>GMP numerical</strong> (B&prime; = A&prime; &compfn; R), which is just Lesson&nbsp;6's composition wearing a different hat. Get the vocabulary right and the numerical is already done.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Fuzzy IF-THEN Rules &amp; Implication</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=yPZo40Nker4" target="_blank">Fuzzy IF-THEN Rules and Fuzzy Implication</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 7:50</span>
+    <div class="v-why">Clear introduction to linguistic variables, fuzzy propositions, canonical rule formats, and the Mamdani vs Larsen implication operators.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Fuzzy Rule Aggregation &amp; Decomposition</span>
+      <span class="best-tag">Top Exam Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=bviNOlLvM9g" target="_blank">Aggregation and Decomposition of Fuzzy Rules</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 6:20</span>
+    <div class="v-why">Shows how multi-antecedent rules decompose into conjunctive/disjunctive forms and how multiple firing rules aggregate into a single output fuzzy set via max-union.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: FUZZY REASONING -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Fuzzy Rule Reasoning Lifecycle</span>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="min-width:18rem;">
+      <strong>Step 1 &middot; Rule Antecedent Evaluation</strong>
+      <span class="sub">Compute firing strength $w_i = \min(\mu_{A_i}(x), \mu_{B_i}(y))$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Fuzzy Implication (Mamdani Min / Larsen Product)</span>
+    <div class="flow-box warn" style="min-width:18rem;">
+      <strong>Step 2 &middot; Consequent Truncation / Scaling</strong>
+      <span class="sub">Clip rule consequent: $\mu_{C_i'}(z) = \min(w_i, \mu_{C_i}(z))$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Fuzzy Aggregation</span>
+    <div class="flow-box ok" style="min-width:18rem;">
+      <strong>Step 3 &middot; Aggregated Output Fuzzy Set</strong>
+      <span class="sub">$\mu_{\text{agg}}(z) = \max(\mu_{C_1'}(z), \mu_{C_2'}(z), \dots, \mu_{C_k'}(z))$</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>Linguistic variables</h2>
+
+<p>A <em class="term">linguistic variable</em> is a variable whose values are <strong>words, not numbers</strong>. This is the mechanism that lets a machine compute with language.</p>
+
+<div class="formula">
+  <span class="name">Formal definition &mdash; a 5-tuple</span>
+  ( x , T(x) , U , G , M )
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Symbol</th><th>Name</th><th>For the variable "Temperature"</th></tr></thead>
+<tbody>
+<tr><td><strong>x</strong></td><td>Name of the variable</td><td>Temperature</td></tr>
+<tr><td><strong>T(x)</strong></td><td>Term set — the linguistic values it may take</td><td>{cold, cool, warm, hot, very hot}</td></tr>
+<tr><td><strong>U</strong></td><td>Universe of discourse</td><td>[0&deg;C, 50&deg;C]</td></tr>
+<tr><td><strong>G</strong></td><td>Syntactic rule — grammar for generating terms</td><td>Lets you build "very hot", "not cold or warm"</td></tr>
+<tr><td><strong>M</strong></td><td>Semantic rule — attaches a meaning (a fuzzy set) to each term</td><td>M(hot) = a triangular MF peaking at 40&deg;C</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Linguistic hedges</h2>
+
+<p>A <em class="term">hedge</em> is a modifier that transforms a fuzzy set — the operational meaning of words like "very" and "somewhat". These come straight from <a href="0005-fuzzy-set-operations.html">Lesson&nbsp;5</a>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Hedge</th><th>Operation</th><th>Effect on &mu; = 0.64</th></tr></thead>
+<tbody>
+<tr><td><strong>very</strong> A</td><td>concentration, &mu;&sup2;</td><td>0.41 — memberships shrink, set becomes stricter</td></tr>
+<tr><td><strong>extremely</strong> A</td><td>&mu;&sup3;</td><td>0.26 — stricter still</td></tr>
+<tr><td><strong>somewhat / more or less</strong> A</td><td>dilation, &mu;<sup>0.5</sup></td><td>0.80 — memberships grow, set becomes looser</td></tr>
+<tr><td><strong>slightly</strong> A</td><td>&mu;<sup>0.25</sup> (further dilation)</td><td>0.89</td></tr>
+<tr><td><strong>not</strong> A</td><td>complement, 1 &minus; &mu;</td><td>0.36</td></tr>
+<tr><td><strong>intensify</strong> A</td><td>2&mu;&sup2; if &mu; &le; 0.5, else 1&minus;2(1&minus;&mu;)&sup2;</td><td>0.74 — pushes values away from 0.5 toward 0 or 1</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The pattern to remember</span>
+  <p><strong>Powers above 1 concentrate ("very"); powers below 1 dilate ("somewhat").</strong> Squaring 0.64 gives 0.41 — being <em>very</em> tall is harder than being tall, so the degree must fall. If your answer moves the wrong way, you have used the wrong exponent.</p>
+</div>
+
+<h2>Fuzzy propositions</h2>
+
+<p>A <em class="term">fuzzy proposition</em> has the form "<strong>x is A</strong>", where A is a fuzzy set. Its truth value is not true/false but a number in [0,1] — namely T(P) = &mu;<sub>A</sub>(x).</p>
+
+<p>Compound propositions combine using the standard operators:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Connective</th><th>Form</th><th>Truth value</th></tr></thead>
+<tbody>
+<tr><td>Negation (NOT)</td><td>P&#772;</td><td>1 &minus; T(P)</td></tr>
+<tr><td>Conjunction (AND)</td><td>P &and; Q</td><td>min( T(P), T(Q) )</td></tr>
+<tr><td>Disjunction (OR)</td><td>P &or; Q</td><td>max( T(P), T(Q) )</td></tr>
+<tr><td>Implication (IF&hellip;THEN)</td><td>P &rarr; Q</td><td>max( 1 &minus; T(P), T(Q) ) &nbsp;<em>&mdash; classical form</em></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Fuzzy if-then rules</h2>
+
+<p>The central object of the whole unit:</p>
+
+<div class="formula">
+  <span class="name">Fuzzy rule</span>
+  IF &nbsp;x is A&nbsp; THEN &nbsp;y is B
+</div>
+
+<p>A is the <em class="term">antecedent</em> (premise), B is the <em class="term">consequent</em> (conclusion). Critically:</p>
+
+<div class="box">
+  <span class="lbl">The key insight</span>
+  <p><strong>A fuzzy if-then rule IS a fuzzy relation R on X &times; Y.</strong> "If temperature is high then fan is fast" is not a program statement — it is a matrix of association degrees between every temperature and every fan speed. This is why everything in Lesson&nbsp;6 immediately applies here.</p>
+</div>
+
+<h3>Implication operators — how the rule becomes a matrix</h3>
+
+<p>Different authors turn A &rarr; B into a relation differently. Four you should know:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>&mu;<sub>R</sub>(x, y) =</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><strong>Mamdani</strong> (min)</td><td>min( &mu;<sub>A</sub>(x), &mu;<sub>B</sub>(y) )</td><td>By far the most used; it truncates the consequent</td></tr>
+<tr><td><strong>Larsen</strong> (product)</td><td>&mu;<sub>A</sub>(x) &times; &mu;<sub>B</sub>(y)</td><td>Scales the consequent instead of truncating it</td></tr>
+<tr><td><strong>Zadeh</strong> (max-min)</td><td>max( min(&mu;<sub>A</sub>, &mu;<sub>B</sub>) , 1 &minus; &mu;<sub>A</sub> )</td><td>The classical-logic-faithful version</td></tr>
+<tr><td><strong>Kleene&ndash;Dienes</strong></td><td>max( 1 &minus; &mu;<sub>A</sub>(x) , &mu;<sub>B</sub>(y) )</td><td>Direct fuzzification of &not;P &or; Q</td></tr>
+<tr><td><strong>&#321;ukasiewicz</strong></td><td>min( 1 , 1 &minus; &mu;<sub>A</sub>(x) + &mu;<sub>B</sub>(y) )</td><td>Bounded implication</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Unless the question names one, <strong>use Mamdani min</strong> — and say so in your answer.</p>
+
+<h2>Fuzzy reasoning: the compositional rule of inference</h2>
+
+<p>Classical <em>modus ponens</em> says: given "P is true" and "P &rarr; Q", conclude "Q is true". It requires an <strong>exact</strong> match on P. Real observations never match exactly — the rule says "if temperature is high" and the sensor says 37&deg;C.</p>
+
+<p><em class="term">Generalised Modus Ponens</em> (GMP) removes that requirement:</p>
+
+<div class="formula">
+  <span class="name">Generalised Modus Ponens</span>
+  Premise 1 (observation): &nbsp; x is A&prime;<br>
+  Premise 2 (rule): &nbsp; IF x is A THEN y is B<br>
+  &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;<br>
+  Conclusion: &nbsp; y is B&prime;
+</div>
+
+<p>and B&prime; is computed by the <em class="term">compositional rule of inference</em> — which is exactly max&ndash;min composition:</p>
+
+<div class="formula">
+  <span class="name">Compositional rule of inference</span>
+  B&prime; = A&prime; &compfn; R &nbsp;&nbsp;&nbsp; i.e. &nbsp;&nbsp; &mu;<sub>B&prime;</sub>(y) = max<sub>x</sub> [ min( &mu;<sub>A&prime;</sub>(x) , &mu;<sub>R</sub>(x,y) ) ]
+</div>
+
+<p>Its mirror image, <em class="term">Generalised Modus Tollens</em> (GMT), reasons backwards: given "y is B&prime;" and the rule, conclude "x is A&prime;" via A&prime; = R &compfn; B&prime;.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example — GMP end to end</span>
+  <p><strong>Given</strong> X = {x&#8321;, x&#8322;}, Y = {y&#8321;, y&#8322;}, with<br>
+  A = 0.5/x&#8321; + 1.0/x&#8322; &nbsp;&nbsp; B = 0.4/y&#8321; + 0.9/y&#8322; &nbsp;&nbsp; observation A&prime; = 0.6/x&#8321; + 0.4/x&#8322;</p>
+
+  <p><strong>Step 1 — build R from the rule</strong> using Mamdani min, &mu;<sub>R</sub>(x,y) = min(&mu;<sub>A</sub>(x), &mu;<sub>B</sub>(y)):</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>R</th><th class="num">y&#8321; (0.4)</th><th class="num">y&#8322; (0.9)</th></tr></thead>
+  <tbody>
+  <tr><td><strong>x&#8321; (0.5)</strong></td><td class="num">min(0.5,0.4) = 0.4</td><td class="num">min(0.5,0.9) = 0.5</td></tr>
+  <tr><td><strong>x&#8322; (1.0)</strong></td><td class="num">min(1.0,0.4) = 0.4</td><td class="num">min(1.0,0.9) = 0.9</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 2 — compose the observation with R</strong>, B&prime; = A&prime; &compfn; R, where A&prime; = (0.6, 0.4):</p>
+  <ul>
+    <li>&mu;<sub>B&prime;</sub>(y&#8321;) = max[ min(0.6, 0.4), min(0.4, 0.4) ] = max[0.4, 0.4] = <strong>0.4</strong></li>
+    <li>&mu;<sub>B&prime;</sub>(y&#8322;) = max[ min(0.6, 0.5), min(0.4, 0.9) ] = max[0.5, 0.4] = <strong>0.5</strong></li>
+  </ul>
+
+  <p><strong>Conclusion:</strong> B&prime; = 0.4/y&#8321; + 0.5/y&#8322;.</p>
+  <p><strong>Read the result.</strong> The observation only partly matched A, so the conclusion is a weakened version of B — B had 0.9 at y&#8322;, B&prime; has 0.5. That degradation <em>is</em> approximate reasoning: a partial match yields a partial conclusion, which classical modus ponens cannot express at all.</p>
+</div>
+
+<h2>Decomposition and aggregation of rules</h2>
+
+<p>Two short-answer topics that close out this lesson.</p>
+
+<h3>Decomposition — compound rules into simple ones</h3>
+
+<p>Real rules have several clauses. Decomposition breaks them into canonical single-antecedent rules:</p>
+<ul>
+<li><strong>Multiple conjunctive antecedents:</strong> IF x is A&#8321; AND A&#8322; AND A&#8323; THEN y is B &rarr; combine the antecedents first by <strong>min</strong> into A<sub>s</sub> = A&#8321; &cap; A&#8322; &cap; A&#8323;, then apply the single rule.</li>
+<li><strong>Multiple disjunctive antecedents:</strong> IF x is A&#8321; OR A&#8322; THEN y is B &rarr; combine by <strong>max</strong>, A<sub>s</sub> = A&#8321; &cup; A&#8322;.</li>
+<li><strong>Conditional and unqualified:</strong> IF x is A THEN y is B, with no ELSE branch.</li>
+<li><strong>Nested-IF rules:</strong> IF x is A THEN (IF y is B THEN z is C) — flattened into a single conjunctive rule.</li>
+</ul>
+
+<h3>Aggregation — many rules into one output</h3>
+
+<p>A rule base fires several rules at once; their individual outputs must be merged.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>System</th><th>Rules linked by</th><th>Aggregation</th></tr></thead>
+<tbody>
+<tr><td><strong>Conjunctive system</strong></td><td>AND — all rules must hold together</td><td>Intersection: &mu;<sub>y</sub> = min over all rules</td></tr>
+<tr><td><strong>Disjunctive system</strong></td><td>OR — any satisfied rule contributes</td><td>Union: &mu;<sub>y</sub> = max over all rules</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Disjunctive (max) aggregation is the standard</strong> in fuzzy control, and it is what a Mamdani FIS uses in <a href="0009-fuzzy-inference-systems.html">Lesson&nbsp;9</a>.</p>
+
+
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. If &mu;<sub>Tall</sub>(x) = 0.81, then &mu;<sub>very&nbsp;Tall</sub>(x) equals:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">0.66</button>
+    <button class="opt">0.19</button>
+    <button class="opt">1.00</button>
+    <button class="opt">0.90</button>
+  </div>
+  <p class="why">"Very" is concentration: 0.81&sup2; = 0.6561. The distractor 0.90 is &radic;0.81, which is <em>dilation</em> — the hedge "somewhat". Being <em>very</em> tall must be harder, so the degree has to fall.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A fuzzy if-then rule, once formalised, is best described as:</p>
+  <div class="opts">
+    <button class="opt">A probability distribution over X</button>
+    <button class="opt">A crisp function mapping X onto Y</button>
+    <button class="opt" data-ok="1">A fuzzy relation defined on X &times; Y</button>
+    <button class="opt">A single fuzzy set defined over Y</button>
+  </div>
+  <p class="why">This is the pivot of the whole unit. The rule becomes a matrix of association degrees, which is why composition can then be used to reason with it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In GMP, the conclusion B&prime; is obtained by:</p>
+  <div class="opts">
+    <button class="opt">Taking the complement of the observation A&prime;</button>
+    <button class="opt">Defuzzifying the relation R into a crisp set</button>
+    <button class="opt" data-ok="1">Composing the observation A&prime; with relation R</button>
+    <button class="opt">Intersecting the observation A&prime; with the set B</button>
+  </div>
+  <p class="why">B&prime; = A&prime; &compfn; R — the compositional rule of inference. It is max&ndash;min composition applied to a 1&times;n row vector against an n&times;m relation matrix.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Rules combined disjunctively are aggregated using:</p>
+  <div class="opts">
+    <button class="opt">The min operator, i.e. product</button>
+    <button class="opt">The min operator, i.e. union</button>
+    <button class="opt">The max operator, called product</button>
+    <button class="opt" data-ok="1">The max operator, i.e. union</button>
+  </div>
+  <p class="why">Disjunctive = OR = union = max. Conjunctive = AND = intersection = min. Disjunctive/max aggregation is the standard in Mamdani fuzzy control.</p>
+</div>
+
+<div class="q">
+  <p class="stem">The hedge &ldquo;very&rdquo; is modelled as:</p>
+  <div class="opts">
+    <button class="opt">1 &minus; &mu;</button>
+    <button class="opt" data-ok="1">&mu;&sup2; &mdash; concentration</button>
+    <button class="opt">&mu;&sup3;</button>
+    <button class="opt">&mu;<sup>0.5</sup> &mdash; dilation</button>
+  </div>
+  <p class="why">Concentration squares the membership, sharpening the set. &mu;<sup>0.5</sup> is &ldquo;somewhat&rdquo; (dilation), &mu;&sup3; is &ldquo;extremely&rdquo;, and 1 &minus; &mu; is &ldquo;not&rdquo;.</p>
+</div>
+
+<div class="q">
+  <p class="stem">The Mamdani implication operator is:</p>
+  <div class="opts">
+    <button class="opt">&mu;<sub>A</sub> &middot; &mu;<sub>B</sub></button>
+    <button class="opt" data-ok="1">min( &mu;<sub>A</sub>, &mu;<sub>B</sub> )</button>
+    <button class="opt">max( 1 &minus; &mu;<sub>A</sub>, &mu;<sub>B</sub> )</button>
+    <button class="opt">min( 1, 1 &minus; &mu;<sub>A</sub> + &mu;<sub>B</sub> )</button>
+  </div>
+  <p class="why">The product is Larsen, max(1&minus;&mu;<sub>A</sub>, &mu;<sub>B</sub>) is Kleene&ndash;Dienes, and the last is &#321;ukasiewicz. Mamdani&rsquo;s min is the default unless a question names another.</p>
+</div>
+
+<div class="q">
+  <p class="stem">The generalised modus ponens computes B&prime; as:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">B&prime; = A&prime; &compfn; R, using max&ndash;min composition</button>
+    <button class="opt">B&prime; = A&prime; &cap; R</button>
+    <button class="opt">B&prime; = R &compfn; A&prime; only</button>
+    <button class="opt">B&prime; = 1 &minus; A&prime;</button>
+  </div>
+  <p class="why">First build R from the rule by an implication operator, then compose the observed input A&prime; with it: &mu;<sub>B&prime;</sub>(y) = max<sub>x</sub>[ min(&mu;<sub>A&prime;</sub>(x), &mu;<sub>R</sub>(x,y)) ].</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the 5-tuple defining a linguistic variable.</summary>
+    <p class="ans">(x, T(x), U, G, M) — name, term set, universe of discourse, syntactic rule, semantic rule.</p></details>
+  <details class="card"><summary>Name four implication operators with formulas.</summary>
+    <p class="ans">Mamdani: min(&mu;<sub>A</sub>, &mu;<sub>B</sub>). Larsen: &mu;<sub>A</sub>&middot;&mu;<sub>B</sub>. Zadeh: max(min(&mu;<sub>A</sub>,&mu;<sub>B</sub>), 1&minus;&mu;<sub>A</sub>). Kleene&ndash;Dienes: max(1&minus;&mu;<sub>A</sub>, &mu;<sub>B</sub>).</p></details>
+  <details class="card"><summary>State the compositional rule of inference.</summary>
+    <p class="ans">B&prime; = A&prime; &compfn; R, i.e. &mu;<sub>B&prime;</sub>(y) = max<sub>x</sub>[min(&mu;<sub>A&prime;</sub>(x), &mu;<sub>R</sub>(x,y))].</p></details>
+  <details class="card"><summary>Conjunctive vs disjunctive rule aggregation?</summary>
+    <p class="ans">Conjunctive: rules AND-ed, aggregate by min (intersection). Disjunctive: rules OR-ed, aggregate by max (union) — the standard choice.</p></details>
+</div>
+
+<p class="ask">GMP numericals are just composition in disguise. If Lesson&nbsp;6 felt shaky, go back to it first — everything here depends on it.</p>
+
+<div class="nav">
+  <a href="0006-fuzzy-relations-and-composition.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0008-fuzzification-and-defuzzification.html">Next: Fuzzification &amp; Defuzzification &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,181 @@
+<title>P, NP Classes and Non-Determinism</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit V &middot; Lesson 25 of 28</p>
+<h1>P, NP Classes and Non-Determinism</h1>
+<p class="deck">Decision vs optimization problems, deterministic vs non-deterministic algorithms, formal definitions of complexity classes P and NP, certificates and polynomial verifiers, and the P versus NP question.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Define Class P, Class NP, and Non-Deterministic algorithms with examples&rdquo;</strong> is a standard 5-to-8 mark question. Distinguish clearly between <em>solving</em> an instance from scratch and <em>verifying</em> a proposed certificate.</p>
+</div>
+
+<h2>Decision vs Optimization Problems</h2>
+<p>Computational problems fall broadly into two categories:</p>
+<ul>
+  <li><strong>Optimization Problem:</strong> Seeks the <em>best</em> solution (e.g., &ldquo;Find a tour visiting all cities with minimum total edge weight&rdquo; or &ldquo;Find the maximum profit subset of knapsack items&rdquo;).</li>
+  <li><strong>Decision Problem:</strong> Asks a question with a binary <strong>YES / NO</strong> answer (e.g., &ldquo;Given graph $G$ and integer $k$, does there exist a tour with total weight $\le k$?&rdquo;).</li>
+</ul>
+
+<div class="box win">
+  <span class="lbl">Why Complexity Theory Studies Decision Problems</span>
+  <p>Decision problems are formally represented as formal languages ($L \subseteq \{0, 1\}^*$). If a decision version of a problem is intractable, its corresponding optimization problem is at least as hard. Moreover, by binary searching over threshold parameter $k$, an optimization problem can be solved with only $O(\log(\text{Range}))$ calls to the decision solver.</p>
+</div>
+
+<h2>Deterministic vs Non-Deterministic Algorithms</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Deterministic Algorithm</th><th>Non-Deterministic Algorithm</th></tr></thead>
+<tbody>
+<tr><td><strong>Execution Step</strong></td><td>At every execution step, the next instruction to execute is uniquely, unambiguously defined.</td><td>Can branch into multiple computational paths simultaneously using a hypothetical guessing primitive.</td></tr>
+<tr><td><strong>Phases</strong></td><td>Single deterministic computation phase.</td><td>Two distinct phases: <strong>Guessing phase</strong> and <strong>Verification phase</strong>.</td></tr>
+<tr><td><strong>Acceptance</strong></td><td>Outputs YES if the execution reaches an accept state.</td><td>Outputs YES if <em>at least one</em> non-deterministic guess leads to an accept state.</td></tr>
+<tr><td><strong>Physical Realizability</strong></td><td>Directly implementable on physical CPU hardware (RAM / Turing Machine).</td><td>Purely theoretical mathematical construct used to classify problem hardness.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The Two Phases of a Non-Deterministic Algorithm</h3>
+<ol>
+  <li><strong>Guessing Phase:</strong> Generates an arbitrary candidate solution $S$ (called a <strong>certificate</strong> or <strong>witness</strong>) of polynomial length using non-deterministic choice primitives (<code>choice()</code>).</li>
+  <li><strong>Verification Phase:</strong> A standard deterministic algorithm inspects the candidate certificate $S$ and input $x$, verifying in polynomial time whether $S$ satisfies the problem conditions.</li>
+</ol>
+
+<div class="solve">
+  <span class="lbl">Non-Deterministic Algorithm for Hamiltonian Cycle</span>
+  <pre class="mono">Algorithm NonDeterministic_HC(Graph G(V, E)):
+    // Step 1: Guessing Phase
+    Guess a sequence of vertices S = &lt;v1, v2, ..., vn&gt; of length |V|
+    
+    // Step 2: Deterministic Verification Phase (Polynomial Time O(V + E))
+    If S does not contain all vertices of V exactly once:
+        return FALSE
+    For i = 1 to n - 1:
+        If edge (v_i, v_{i+1}) is not in E:
+            return FALSE
+    If edge (v_n, v_1) is not in E:
+        return FALSE
+    return TRUE  // Found a valid Hamiltonian Cycle!</pre>
+  <p>Because verification takes $O(V)$ time, Hamiltonian Cycle belongs to class NP.</p>
+</div>
+
+<h2>Complexity Class P (Polynomial Time)</h2>
+<div class="formula">
+  <span class="name">Class P Definition</span>
+  $$\mathbf{P} = \{ L \subseteq \{0,1\}^* \mid L \text{ can be decided by a deterministic algorithm in } O(n^k) \text{ time for some constant } k \}$$
+  Problems in P are considered <strong>tractable</strong> or efficiently solvable on classical computers.
+</div>
+<p><strong>Examples of problems in P:</strong></p>
+<ul>
+  <li>Searching (Binary search $O(\log n)$) and Sorting (Merge sort $O(n \log n)$).</li>
+  <li>Shortest Paths (Dijkstra $O(E + V \log V)$, Bellman-Ford $O(VE)$).</li>
+  <li>Minimum Spanning Tree (Kruskal, Prim $O(E \log V)$).</li>
+  <li>Linear Programming (Interior-point methods).</li>
+</ul>
+
+<h2>Complexity Class NP (Nondeterministic Polynomial Time)</h2>
+<div class="formula">
+  <span class="name">Class NP Definition (Verification View)</span>
+  $$\mathbf{NP} = \{ L \subseteq \{0,1\}^* \mid \exists \text{ a polynomial-time verifier } V(x, y) \text{ and constant } c \text{ such that }$$
+  $$x \in L \iff \exists \text{ certificate } y \text{ with } |y| = O(|x|^c) \text{ such that } V(x, y) = \text{ACCEPT} \}$$
+</div>
+<p>In simple terms: <strong>NP is the set of decision problems whose proposed solutions can be checked for correctness in polynomial time.</strong></p>
+
+<h2>The P versus NP Question</h2>
+<p>Does $P = NP$? Or is $P \ne NP$?</p>
+<ul>
+  <li>It is trivially true that <strong>$P \subseteq NP$</strong>: Any problem that can be solved in polynomial time can certainly be verified in polynomial time (the verifier simply ignores the certificate and solves the problem directly).</li>
+  <li>The unresolved question: If a solution can be <em>verified</em> efficiently, can it always be <em>found</em> efficiently from scratch?</li>
+  <li>Most computer scientists strongly conjecture that <strong>$P \ne NP$</strong>, meaning verification is fundamentally easier than discovery. Proving or disproving this is one of the seven Millennium Prize Problems, carrying a $1,000,000 reward from the Clay Mathematics Institute.</li>
+</ul>
+
+<div class="solve">
+  <span class="lbl">Class co-NP Overview</span>
+  <p><strong>co-NP</strong> is the class of languages whose complements are in NP. For problems in co-NP, a &ldquo;NO&rdquo; instance has a short, polynomial-time verifiable counterexample. For example, testing whether a boolean formula is a <em>Tautology</em> (true under all assignments) is in co-NP (a single falsifying assignment proves NO).</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Complexity Classes Euler Venn Diagram & P vs NP</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>Class P</strong><span class="sub">Deterministic Polynomial Time solvable &bull; O(n<sup>k</sup>) &bull; Sorting, Shortest Path, MST</span></div>
+    <div class="flow-box ok"><strong>Class NP</strong><span class="sub">Nondeterministic Polynomial Time &bull; Verification in O(n<sup>k</sup>) given a certificate</span></div>
+    <div class="flow-box warn"><strong>NP-Complete (NPC)</strong><span class="sub">Hardest problems in NP &bull; In NP and NP-Hard (SAT, Clique, TSP)</span></div>
+  </div>
+  <div class="flow-col" style="margin-top:0.6rem;">
+    <div class="flow-box" style="max-width:32rem;"><strong>NP-Hard:</strong> At least as hard as any problem in NP; does not need to be in NP itself</div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 17 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">P vs NP Complexity</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">P, NP, NP-Hard, and NP-Complete Classes Fully Explained</div>
+    <div class="v-desc">Clear visualization of deterministic vs non-deterministic Turing machines, polynomial verification, and the million-dollar P vs NP question.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=8Tr_Vv3G_5s" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. What does the abbreviation 'NP' actually stand for in computational complexity?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Nondeterministic Polynomial time</button>
+    <button class="opt">New Paradigm</button>
+    <button class="opt">Not Practical</button>
+    <button class="opt">Non-Polynomial time</button>
+  </div>
+  <p class="why">NP stands for Nondeterministic Polynomial time, meaning solvable in polynomial time on a non-deterministic machine.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which statement correctly describes the relationship between P and NP?</p>
+  <div class="opts">
+    <button class="opt">P contains exponential-time problems</button>
+    <button class="opt" data-ok="1">P is a subset of NP (P ⊆ NP)</button>
+    <button class="opt">NP is a strict subset of P</button>
+    <button class="opt">P and NP have completely empty intersection</button>
+  </div>
+  <p class="why">Any problem solvable deterministically in polynomial time can trivially be verified in polynomial time.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A candidate solution provided to a polynomial-time verifier to prove an instance is in NP is called:</p>
+  <div class="opts">
+    <button class="opt">A compiler symbol table</button>
+    <button class="opt">A hash digest</button>
+    <button class="opt" data-ok="1">A certificate (or witness)</button>
+    <button class="opt">A recurrence relation</button>
+  </div>
+  <p class="why">A certificate (witness) is the polynomial-sized evidence checked by the deterministic verifier.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Contrast Class P and Class NP in one sentence each.</summary>
+    <p class="ans">Class P is the set of decision problems solvable in deterministic polynomial time. Class NP is the set of decision problems verifiable in deterministic polynomial time given a certificate.</p></details>
+  <details class="card"><summary>What are the two phases of a non-deterministic algorithm?</summary>
+    <p class="ans">1. Guessing phase: generates a candidate certificate non-deterministically. 2. Verification phase: checks deterministically in polynomial time whether the guess is valid.</p></details>
+  <details class="card"><summary>Why is P ⊆ NP?</summary>
+    <p class="ans">Because if a problem can be solved in polynomial time without help, its verifier can simply solve the instance from scratch in polynomial time, ignoring the certificate.</p></details>
+</div>
+
+<div class="nav">
+  <a href="../unit-4/0024-dp-lcs-and-knapsack.html">&larr; Previous: DP &mdash; LCS &amp; Knapsack</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0026-np-completeness-and-polynomial-reductions.html">Next: NP-Completeness &amp; Reductions &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

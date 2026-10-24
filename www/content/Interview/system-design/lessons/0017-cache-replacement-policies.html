@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 17 - Cache Replacement Policies | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 17 of 66 · LRU, LFU, Eviction Algorithms</div>
+  
+  <h1>Cache Replacement (Eviction) Policies</h1>
+  <p class="subtitle">How cache systems decide which data to throw away when memory is 100% full.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module D — Caching</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>RAM is expensive and strictly bounded (e.g., 32 GB). Eventually, your cache will fill up completely. When a new write arrives, the cache cannot simply say "No room!". It must automatically evict (discard) an old key to make room. <strong>Cache Replacement Policies</strong> are the algorithms used to select the best victim key to evict so that the remaining keys produce the highest possible future hit ratio.</p>
+
+  <h2>2 · The Eviction Algorithms</h2>
+
+  <h3>1. LRU (Least Recently Used) — The King of Caching</h3>
+  <p>Evicts the item that has not been accessed for the longest period of time. Grounded in the principle of <em>temporal locality</em>: if you accessed a piece of data recently, you will likely access it again soon.</p>
+  <p><strong>Implementation:</strong> Built using a <strong>Doubly Linked List + Hash Map</strong>:</p>
+  <ul>
+    <li>Hash Map provides $O(1)$ lookup for any key.</li>
+    <li>Doubly Linked List maintains access order: whenever a key is accessed, move its node to the front (Head) in $O(1)$.</li>
+    <li>When full, remove the node at the tail (Tail) in $O(1)$.</li>
+  </ul>
+
+  <h3>2. LFU (Least Frequently Used)</h3>
+  <p>Evicts the item with the lowest total access count. Useful when some items are universally popular over long horizons.</p>
+  <p><strong>Flaw:</strong> An item accessed 10,000 times during a morning flash sale will stay stuck in cache all afternoon even when nobody searches for it anymore (frequency pollution). Solved by decaying counters over time.</p>
+
+  <h3>3. FIFO (First In, First Out)</h3>
+  <p>Evicts the oldest item based solely on when it was added, regardless of how frequently or recently it was accessed. Simple queue implementation, but performs poorly for real-world workloads.</p>
+
+  <h3>4. Clock (Second Chance Algorithm)</h3>
+  <p>A memory-efficient approximation of LRU. Operates as a circular buffer with a reference bit (0 or 1). When looking for a victim, the pointer moves clockwise: if bit is 1, set to 0 and skip; if bit is 0, evict that page.</p>
+
+  <h2>3 · Comparison Table</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Algorithm</th>
+        <th>Time Complexity</th>
+        <th>Space Overhead</th>
+        <th>Common Use Case</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>LRU</strong></td>
+        <td>$O(1)$ get / put</td>
+        <td>2 pointers per node (Prev/Next)</td>
+        <td>Default in 90% of caches (web apps, Redis, CPU cache).</td>
+      </tr>
+      <tr>
+        <td><strong>LFU</strong></td>
+        <td>$O(1)$ via min-heap / freq buckets</td>
+        <td>Access counters + buckets</td>
+        <td>Content streaming, static asset distribution.</td>
+      </tr>
+      <tr>
+        <td><strong>FIFO</strong></td>
+        <td>$O(1)$</td>
+        <td>Lowest (simple queue)</td>
+        <td>Simple pipeline buffers where order strictly mirrors flow.</td>
+      </tr>
+      <tr>
+        <td><strong>Random Eviction</strong></td>
+        <td>$O(1)$</td>
+        <td>Zero overhead</td>
+        <td>Redis <code>allkeys-random</code> when keys have uniform access patterns.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Now that internal caching is clear, let's explore caching at global geographic scale: Content Delivery Networks (CDNs).</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0016-cache-write-policies.html">← Previous: Cache Write Policies</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0018-cdn.html">Next: Content Delivery Networks (CDNs) →</a>
+  </div>
+</body>
+</html>

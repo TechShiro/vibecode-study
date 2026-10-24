@@ -1,0 +1,294 @@
+<title>Ethernet</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 18 of 27</p>
+<h1>Ethernet</h1>
+<p class="deck">The IEEE 802 model, the Ethernet frame format field by field, MAC addressing, the minimum and maximum frame sizes and where they come from, and the four generations from 10 Mbps to 10 Gbps. The last lesson of Unit&nbsp;II.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Explain the Ethernet frame format"</strong> is the question &mdash; 5 to 10 marks. Draw the frame as a labelled box diagram <strong>with the byte count under every field</strong>, then one line per field. Then add the two derived facts that earn the extra marks: <strong>minimum frame 64 bytes</strong> (from the CSMA/CD round-trip rule) and <strong>maximum frame 1518 bytes</strong>. The generations table is a separate 3-mark question.</p>
+</div>
+
+<h2>The IEEE 802 model</h2>
+
+<p>Ethernet is standardised as <strong>IEEE 802.3</strong>. The IEEE Project 802 split the OSI data link layer into <strong>two sublayers</strong>, and naming them is a reliable short question:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Sublayer</th><th>Standard</th><th>Responsibilities</th></tr></thead>
+<tbody>
+<tr><td><strong>LLC &mdash; Logical Link Control</strong></td><td>IEEE 802.2</td><td>Flow control, error control, and part of the framing. It is <strong>common to all LAN protocols</strong>, which is the point: it gives one interface to the network layer regardless of the LAN underneath.</td></tr>
+<tr><td><strong>MAC &mdash; Media Access Control</strong></td><td>802.3 (Ethernet), 802.5 (Token Ring), 802.11 (Wi-Fi)</td><td>Framing, physical addressing, and <strong>the access method</strong> &mdash; CSMA/CD for Ethernet. It is <strong>specific to each LAN</strong>.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why the split exists</span>
+  <p><strong>The access method changes from one LAN to another, but flow and error control do not.</strong> Putting the varying part (MAC) below the constant part (LLC) means the network layer sees the same interface whether it is running over Ethernet, Token Ring or Wi-Fi.</p>
+</div>
+
+<h2>The Ethernet frame format</h2>
+
+<div class="formula">
+  <span class="name">IEEE 802.3 frame</span>
+  | <strong>Preamble</strong> | <strong>SFD</strong> | <strong>Destination Address</strong> | <strong>Source Address</strong> | <strong>Length/Type</strong> | <strong>Data</strong> | <strong>CRC</strong> |<br>
+  &nbsp;&nbsp;7 bytes &nbsp;&nbsp;&nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 &nbsp;&nbsp;&nbsp;&nbsp; 46&ndash;1500 &nbsp;&nbsp;&nbsp; 4
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Preamble</strong></td><td>7 bytes</td><td>Alternating 1s and 0s (<code>10101010</code> &times; 7), used by the receiving system to <strong>synchronise its clock</strong> and to alert it that a frame is coming. <strong>It is added by the physical layer and is not formally part of the frame</strong> &mdash; a point worth stating, because it explains why frame-size calculations exclude it.</td></tr>
+<tr><td><strong>SFD</strong></td><td>1 byte</td><td><strong>Start Frame Delimiter</strong>, the pattern <code>10101011</code>. Its <strong>last two bits are 11</strong>, breaking the alternating pattern to say "the next field is the destination address". Also added by the physical layer.</td></tr>
+<tr><td><strong>Destination address</strong></td><td>6 bytes</td><td>The <strong>MAC address</strong> of the destination station, or of the next router.</td></tr>
+<tr><td><strong>Source address</strong></td><td>6 bytes</td><td>The MAC address of the sending station.</td></tr>
+<tr><td><strong>Length / Type</strong></td><td>2 bytes</td><td>In <strong>IEEE 802.3</strong> it is a <strong>length</strong> field (the number of bytes of data). In the original <strong>Ethernet II (DIX)</strong> format it is a <strong>type</strong> field naming the upper-layer protocol. The two are distinguished by value: <strong>&le; 1500 means length, &ge; 1536 means type.</strong></td></tr>
+<tr><td><strong>Data</strong></td><td><strong>46 to 1500</strong> bytes</td><td>The payload from the upper layer. If it is shorter than 46 bytes it must be <strong>padded</strong> up to 46.</td></tr>
+<tr><td><strong>CRC</strong></td><td>4 bytes</td><td><strong>CRC-32</strong> error detection, covering the addresses, length/type and data fields.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The two frame-size limits &mdash; and why</h3>
+
+<div class="formula">
+  <span class="name">Minimum and maximum</span>
+  Overhead = 6 + 6 + 2 + 4 = <strong>18 bytes</strong> (addresses, length/type, CRC)<br>
+  <strong>Minimum frame = 46 + 18 = 64 bytes = 512 bits</strong><br>
+  <strong>Maximum frame = 1500 + 18 = 1518 bytes</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Limit</th><th>Reason</th></tr></thead>
+<tbody>
+<tr><td><strong>Minimum 64 bytes</strong></td><td><strong>Required by CSMA/CD.</strong> A station must still be transmitting when a collision signal returns to it, so the frame must take at least the round-trip propagation time. At 10 Mbps with a 51.2 &micro;s slot time, that is 512 bits = 64 bytes. Frames shorter than this are <strong>padded</strong>.</td></tr>
+<tr><td><strong>Maximum 1518 bytes</strong></td><td>Two reasons: memory was expensive when Ethernet was designed, and <strong>a very long frame monopolises the shared medium</strong>, delaying every other station unfairly.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; frame sizes</span>
+  <p><strong>Q.</strong> An upper layer hands Ethernet 20 bytes of data. What is the transmitted frame size, and how much of it is useful? What if it hands over 1600 bytes?</p>
+
+  <p><strong>Case 1 &mdash; 20 bytes.</strong> The data field must be at least 46 bytes, so <strong>26 bytes of padding</strong> are added.<br>
+  Frame = 46 + 18 = <strong>64 bytes</strong>, of which only 20 bytes are useful data.<br>
+  Efficiency = 20/64 = <strong>31%</strong> &mdash; small frames are expensive.</p>
+
+  <p><strong>Case 2 &mdash; 1600 bytes.</strong> This exceeds the 1500-byte maximum, so the <strong>upper layer must fragment it</strong> into two frames &mdash; for example 1500 + 100 bytes, giving frames of 1518 and 118 bytes.</p>
+
+  <p><em>The point to state:</em> the padding is inserted by the MAC sublayer and <strong>removed at the receiver using the length field</strong> &mdash; which is precisely why 802.3 has a length field at all.</p>
+</div>
+
+<h2>MAC addressing</h2>
+
+<p>Every station on an Ethernet has a <strong>6-byte (48-bit) physical address</strong>, burned into its network interface card. It is written as <strong>12 hexadecimal digits, byte by byte, separated by colons or hyphens</strong>:</p>
+
+<div class="formula">
+  <span class="name">A MAC address</span>
+  <code>4A:30:10:21:10:1A</code> &nbsp;&nbsp; &mdash; 6 bytes, 48 bits, 12 hex digits<br>
+  First 3 bytes = <strong>OUI</strong>, the manufacturer's identifier &nbsp;&middot;&nbsp; Last 3 bytes = the card's serial number
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>How to recognise it</th><th>Received by</th></tr></thead>
+<tbody>
+<tr><td><strong>Unicast</strong></td><td>The <strong>least significant bit of the first byte is 0</strong> &mdash; so the second hex digit is even (0, 2, 4, 6, 8, A, C, E)</td><td>One station only</td></tr>
+<tr><td><strong>Multicast</strong></td><td>The <strong>least significant bit of the first byte is 1</strong> &mdash; second hex digit odd</td><td>A group of stations</td></tr>
+<tr><td><strong>Broadcast</strong></td><td>All 48 bits are 1: <code>FF:FF:FF:FF:FF:FF</code></td><td>Every station on the LAN &mdash; a special case of multicast</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>So <code>4A:30:...</code> is unicast (A = 1010, least significant bit 0), while <code>47:20:...</code> is multicast (7 = 0111, least significant bit 1). This test appears as a one-mark question.</p>
+
+<h2>The four generations of Ethernet</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Generation</th><th>Rate</th><th>Standard</th><th>Access method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><strong>Standard Ethernet</strong></td><td>10 Mbps</td><td>802.3</td><td>CSMA/CD, half-duplex</td><td>Manchester encoding; bus and star topologies</td></tr>
+<tr><td><strong>Fast Ethernet</strong></td><td>100 Mbps</td><td>802.3u</td><td>CSMA/CD (half) or full-duplex with a switch</td><td>4B/5B block coding; star topology; backward compatible</td></tr>
+<tr><td><strong>Gigabit Ethernet</strong></td><td>1 Gbps</td><td>802.3z / 802.3ab</td><td><strong>Usually full-duplex</strong>, with no CSMA/CD needed</td><td>Half-duplex mode needs <strong>carrier extension</strong> or <strong>frame bursting</strong> to keep the minimum frame time</td></tr>
+<tr><td><strong>10 Gigabit Ethernet</strong></td><td>10 Gbps</td><td>802.3ae</td><td><strong>Full-duplex only</strong> &mdash; CSMA/CD is abandoned entirely</td><td>Fibre only; used in backbones and data centres</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Standard Ethernet implementations</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Name</th><th>Medium</th><th>Max segment</th><th>Topology</th><th>Nickname</th></tr></thead>
+<tbody>
+<tr><td><strong>10BASE5</strong></td><td>Thick coaxial</td><td>500 m</td><td>Bus</td><td>Thick Ethernet / Thicknet</td></tr>
+<tr><td><strong>10BASE2</strong></td><td>Thin coaxial</td><td>185 m</td><td>Bus</td><td>Thin Ethernet / Cheapernet</td></tr>
+<tr><td><strong>10BASE-T</strong></td><td>Two UTP cables</td><td>100 m</td><td><strong>Star</strong> (hub or switch)</td><td>Twisted-pair Ethernet</td></tr>
+<tr><td><strong>10BASE-F</strong></td><td>Two fibre optic</td><td>2000 m</td><td>Star</td><td>Fibre Ethernet</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Reading the names:</strong> the number is the <strong>data rate in Mbps</strong>; <strong>BASE</strong> means <strong>baseband</strong> (digital signal sent directly, no modulation); the suffix is the <strong>medium</strong> or the maximum segment length in hundreds of metres. So 10BASE5 = 10 Mbps, baseband, 500 m.</p>
+
+<h2>Bridged, switched and full-duplex Ethernet</h2>
+
+<p>The three steps by which Ethernet outgrew its collision problem &mdash; a good closing paragraph for any Ethernet answer:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Stage</th><th>What changed</th><th>Effect on collisions</th></tr></thead>
+<tbody>
+<tr><td><strong>Bridged Ethernet</strong></td><td>A bridge divides the LAN into segments and forwards frames only where needed</td><td>Each segment is a separate <strong>collision domain</strong>, so collisions fall sharply. Bandwidth per station rises.</td></tr>
+<tr><td><strong>Switched Ethernet</strong></td><td>A switch gives <strong>each station its own dedicated port</strong> &mdash; effectively an N-port bridge</td><td>Each link is its own collision domain, with only two devices on it.</td></tr>
+<tr><td><strong>Full-duplex Ethernet</strong></td><td>Two separate paths, one each way, between station and switch</td><td><strong>Collisions become impossible, so CSMA/CD is no longer needed at all.</strong> Capacity doubles &mdash; 10 Mbps becomes 10 in each direction.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Collision domain vs broadcast domain &mdash; a classic short question</span>
+  <p>A <strong>collision domain</strong> is the set of devices whose transmissions can collide with one another. A <strong>broadcast domain</strong> is the set of devices that receive one another's broadcast frames.<br>
+  <strong>Hubs and repeaters</strong> extend both. <strong>Bridges and switches</strong> break up collision domains but <em>not</em> broadcast domains. <strong>Routers</strong> break up both.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">IEEE 802.3 Ethernet MAC Frame Format</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:34rem;">
+      <strong>Ethernet (802.3) MAC Frame Layout</strong>
+      <span class="sub">Preamble (7B) | SFD (1B) | Dest MAC (6B) | Src MAC (6B) | Type/Length (2B) | Payload Data (46 - 1500B) | CRC-32 (4B)</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>Minimum Frame Size = 64 Bytes</strong><span class="sub">Ensures collision detection across 2.5 km network before sender finishes transmission</span></div>
+    <div class="flow-box ok"><strong>Binary Exponential Backoff</strong><span class="sub">Wait R &times; 2T<sub>p</sub> where R &isin; [0, 2<sup>k</sup> - 1] &bull; After 16 collisions: abort!</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Ethernet Architecture</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-39: Ethernet Frame Format (IEEE 802.3) Explained</div>
+    <div class="v-desc">Field-by-field examination of the 802.3 Ethernet frame, MAC address unicast/multicast bit conventions, and minimum frame length derivation.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=ewpq3qxx5Ls" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The minimum Ethernet frame size of 64 bytes is set by:</p>
+  <div class="opts">
+    <button class="opt">The maximum amount of memory available in early switches</button>
+    <button class="opt">The size of the CRC field plus the two address fields</button>
+    <button class="opt">The length of the preamble and start frame delimiter</button>
+    <button class="opt" data-ok="1">The CSMA/CD requirement that a frame last at least one round-trip time</button>
+  </div>
+  <p class="why">A station must still be transmitting when a collision signal returns, so the frame must last at least 2 × T<sub>p</sub>. At 10 Mbps that is 512 bits = 64 bytes. Memory cost is the reason for the <em>maximum</em>, not the minimum.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The data field of an Ethernet frame is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">46 to 1500 bytes, padded up to 46 if the payload is shorter</button>
+    <button class="opt">46 to 1518 bytes, excluding only the CRC field</button>
+    <button class="opt">0 to 1500 bytes, since padding is never required</button>
+    <button class="opt">64 to 1518 bytes, which are the full frame limits</button>
+  </div>
+  <p class="why">46–1500 is the data field; 64–1518 is the whole frame, which adds the 18 bytes of addresses, length/type and CRC. Keeping the two ranges apart is exactly what this question tests.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Which MAC address is a multicast address?</p>
+  <div class="opts">
+    <button class="opt">4A:30:10:21:10:1A</button>
+    <button class="opt">B4:1C:FF:00:12:34</button>
+    <button class="opt">02:00:00:00:00:01</button>
+    <button class="opt" data-ok="1">47:20:1B:2E:08:EE</button>
+  </div>
+  <p class="why">Check the least significant bit of the first byte — that is, whether the second hex digit is odd. 47: the 7 is odd → multicast. 4A, 02 and B4 all end in even digits → unicast. Broadcast would be all FFs.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which device breaks up a broadcast domain?</p>
+  <div class="opts">
+    <button class="opt">A bridge</button>
+    <button class="opt">A switch</button>
+    <button class="opt">A hub</button>
+    <button class="opt" data-ok="1">A router</button>
+  </div>
+  <p class="why">Hubs and repeaters extend both domains. Bridges and switches split collision domains but pass broadcasts along, so the broadcast domain stays whole. Only a router — a layer-3 device — stops broadcasts.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. In full-duplex switched Ethernet, CSMA/CD is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Unnecessary, because collisions cannot occur on a dedicated two-path link</button>
+    <button class="opt">Replaced by token passing around a logical ring</button>
+    <button class="opt">Replaced by CSMA/CA, as used on wireless networks</button>
+    <button class="opt">Still essential, since two stations share the switch port</button>
+  </div>
+  <p class="why">With separate paths in each direction between station and switch, there is nothing to collide with, so the access method is redundant and capacity doubles. 10 Gigabit Ethernet abandons CSMA/CD entirely for this reason.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. In the IEEE 802 model, the access method belongs to which sublayer?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">MAC, which is specific to each type of LAN</button>
+    <button class="opt">Neither &mdash; it belongs to the physical layer below</button>
+    <button class="opt">LLC, which is common to all LAN protocols</button>
+    <button class="opt">Both equally, since they share all responsibilities</button>
+  </div>
+  <p class="why">MAC holds framing, physical addressing and the access method — the parts that differ between 802.3, 802.5 and 802.11. LLC holds flow and error control, which are the same everywhere, giving the network layer one consistent interface.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the two data link sublayers of IEEE 802 and their responsibilities.</summary>
+    <p class="ans">LLC (802.2) — flow control, error control and part of framing; common to all LANs, giving the network layer one interface. MAC (802.3, 802.5, 802.11) — framing, physical addressing and the access method; specific to each LAN.</p></details>
+  <details class="card"><summary>Draw and label the Ethernet frame with byte counts.</summary>
+    <p class="ans">Preamble 7 | SFD 1 | Destination address 6 | Source address 6 | Length/Type 2 | Data 46–1500 | CRC 4. Preamble and SFD are added by the physical layer and are not formally part of the frame.</p></details>
+  <details class="card"><summary>What are the preamble and SFD for?</summary>
+    <p class="ans">The preamble is 7 bytes of alternating 1s and 0s that let the receiver synchronise its clock and alert it that a frame is arriving. The SFD is one byte, 10101011, whose final two 1s break the pattern to signal that the destination address follows.</p></details>
+  <details class="card"><summary>State the minimum and maximum frame sizes and the reason for each.</summary>
+    <p class="ans">Minimum 64 bytes (46 data + 18 overhead), required by CSMA/CD so a frame lasts at least the round-trip propagation time — shorter payloads are padded. Maximum 1518 bytes (1500 + 18), because memory was costly and a long frame would monopolise the shared medium.</p></details>
+  <details class="card"><summary>How do you tell unicast, multicast and broadcast MAC addresses apart?</summary>
+    <p class="ans">Look at the least significant bit of the first byte: 0 → unicast (second hex digit even), 1 → multicast (second hex digit odd). Broadcast is all 48 bits set: FF:FF:FF:FF:FF:FF.</p></details>
+  <details class="card"><summary>Name the four generations of Ethernet with their rates and standards.</summary>
+    <p class="ans">Standard Ethernet 10 Mbps (802.3), Fast Ethernet 100 Mbps (802.3u), Gigabit Ethernet 1 Gbps (802.3z/ab), 10 Gigabit Ethernet 10 Gbps (802.3ae, full-duplex only, CSMA/CD abandoned).</p></details>
+  <details class="card"><summary>How do you read the name 10BASE5?</summary>
+    <p class="ans">10 = data rate in Mbps; BASE = baseband, the digital signal sent directly without modulation; 5 = the maximum segment length in hundreds of metres, so 500 m. 10BASE-T uses T for twisted pair, 10BASE-F for fibre.</p></details>
+  <details class="card"><summary>Which devices break collision domains, and which break broadcast domains?</summary>
+    <p class="ans">Hubs and repeaters break neither — they extend both. Bridges and switches break collision domains but not broadcast domains. Routers break both.</p></details>
+</div>
+
+<p class="ask">That completes Unit II. Unit III begins with the network layer's functions and services, then goes straight into IP addressing and subnetting &mdash; the highest marks-per-hour topic in this subject.</p>
+
+<div class="nav">
+  <a href="0017-controlled-access-and-channelization.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-3/0019-network-layer-services.html">Next: Network Layer Services &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

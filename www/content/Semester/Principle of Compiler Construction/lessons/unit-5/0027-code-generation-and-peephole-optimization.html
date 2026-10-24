@@ -1,0 +1,260 @@
+<title>Code Generation and Peephole Optimization</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit V &middot; Lesson 27 of 27</p>
+<h1>Code Generation and Peephole Optimization</h1>
+<p class="deck">Design issues in target code generation, register allocation and assignment, global register allocation via graph coloring (Chaitin's heuristic), and peephole optimization techniques.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;What is peephole optimization? Explain its characteristics with examples&rdquo;</strong> is a guaranteed 5-mark question in almost every university paper. <strong>&ldquo;Explain register allocation via graph coloring&rdquo;</strong> is the standard 7-to-10 mark question on the final phase of compilation.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Target Code Generation &amp; Register Allocation</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Code Generation in Compiler Design | Register Allocation via Graph Coloring</a>
+    <span class="v-meta">Gate Smashers &middot; 15:10</span>
+    <div class="v-why">Comprehensive coverage of target machine design issues, register vs address descriptors, interference graphs, and Chaitin's $k$-coloring simplify/spill algorithm.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Peephole Optimization &amp; Sliding Window</span>
+      <span class="best-tag">Top Exam Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=clb4tnEm8l4" target="_blank">Lec-24: Peephole Optimization in Compiler | Redundant Load/Store &amp; Dead Code Elimination</a>
+    <span class="v-meta">Gate Smashers &middot; 11:35</span>
+    <div class="v-why">The definitive exam explanation of the sliding window technique, eliminating redundant load/store pairs, jump chaining, unreachable code removal, and machine idioms.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: CODE GENERATION PIPELINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Target Code Generation &amp; Peephole Pipeline</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Optimized Intermediate Code</strong>
+      <span class="sub">Three-Address Code (TAC) &middot; CFG with Basic Blocks</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Step 1: Instruction Selection</span>
+    <div class="flow-box">
+      <strong>Instruction Selection &amp; Tree Rewriting</strong>
+      <span class="sub">Map IR operations to target ISA instructions (CISC/RISC)</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Step 2: Global Register Allocation</span>
+    <div class="flow-box warn">
+      <strong>Register Allocation &amp; Assignment (Graph Coloring)</strong>
+      <span class="sub">Build interference graph &middot; Color with $k$ physical registers &middot; Spill if degree &ge; $k$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Step 3: Instruction Scheduling</span>
+    <div class="flow-box">
+      <strong>Instruction Scheduling &amp; Pipeline Ordering</strong>
+      <span class="sub">Reorder instructions to avoid pipeline hazards and memory stalls</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Step 4: Final Window Inspection</span>
+    <div class="flow-box ok">
+      <strong>Peephole Optimizer (Sliding 2-to-4 Instruction Window)</strong>
+      <span class="sub">Redundant load/store pruning &middot; Jump chaining &middot; Strength reduction idioms</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box highlight">
+      <strong>Final Target Executable Code</strong>
+      <span class="sub">Relocatable machine binary or target assembly</span>
+    </div>
+  </div>
+</div>
+
+<h2>Issues in the design of a code generator</h2>
+<p>The code generator is the final phase of a compiler. It maps the intermediate representation (IR) into equivalent target machine assembly or binary code.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Issue</th><th>Core challenge &amp; design choices</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Target program format</strong></td><td>Can emit absolute machine code (runs immediately in fixed memory), relocatable machine code (requires linker/loader), or assembly code (easier to debug, delegates instruction encoding).</td></tr>
+<tr><td><strong>2. Instruction selection</strong></td><td>Mapping IR trees/quadruples to target instruction sets. CISC architectures offer multiple instructions for one IR statement; choosing the best sequence minimizes cycle count.</td></tr>
+<tr><td><strong>3. Register allocation vs assignment</strong></td><td><strong>Allocation:</strong> deciding <em>which</em> variables reside in fast CPU registers rather than slow RAM. <strong>Assignment:</strong> choosing the <em>specific</em> physical register (e.g., <code>R1</code> vs <code>R2</code>) for each variable.</td></tr>
+<tr><td><strong>4. Evaluation order</strong></td><td>The order in which subexpressions are computed dictates the number of temporary registers needed simultaneously (register pressure).</td></tr>
+<tr><td><strong>5. Memory management</strong></td><td>Mapping symbolic variable names to activation record offsets, static data labels, or heap pointers.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Register Allocation via Graph Coloring</h2>
+<p>Accessing variables in CPU registers takes 1 clock cycle, whereas memory accesses take tens to hundreds of cycles. Because physical registers are scarce ($k$ registers), optimizing register allocation is critical.</p>
+
+<h3>The Interference Graph</h3>
+<ul>
+  <li><strong>Nodes:</strong> Variables or temporaries (their <em>live ranges</em>).</li>
+  <li><strong>Edges:</strong> An undirected edge $(u, v)$ exists if variable $u$ and variable $v$ are <strong>simultaneously live</strong> at some program point. If an edge exists, $u$ and $v$ cannot share the same register.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">The $k$-Coloring Analogy</span>
+  Finding a register assignment for $k$ physical registers is equivalent to coloring the interference graph using at most <strong>$k$ distinct colors</strong> such that no two adjacent nodes have the same color.
+</div>
+
+<div class="solve">
+  <span class="lbl">Chaitin's Graph Coloring Algorithm (Kempe's Heuristic)</span>
+  <ol>
+    <li><strong>Build:</strong> Construct the interference graph from live variable analysis.</li>
+    <li><strong>Simplify:</strong> Find a node $v$ with degree $< k$ (fewer than $k$ neighbors). Remove $v$ from the graph and push $v$ onto a stack. (Since $v$ has $< k$ neighbors, whenever its neighbors are colored, there will always be at least one free color left for $v$).</li>
+    <li><strong>Repeat:</strong> Continue removing nodes of degree $< k$.</li>
+    <li><strong>Spill:</strong> If all remaining nodes have degree $\ge k$, pick a candidate variable (one with low use frequency or long live range) to <strong>spill</strong> into memory. Mark it and remove it.</li>
+    <li><strong>Select / Color:</strong> Pop nodes from the stack one by one, restore them to the graph, and assign any color not used by its already colored neighbors.</li>
+  </ol>
+</div>
+
+<h2>Peephole Optimization</h2>
+<p><strong>Peephole optimization</strong> is a local target-code optimization technique that examines a small sliding window (a &ldquo;peephole&rdquo;, typically 2 to 4 instructions) of target assembly code and replaces inefficient instruction sequences with shorter, faster equivalents.</p>
+
+<h3>Primary Characteristics and Techniques</h3>
+
+<div class="solve">
+  <span class="lbl">1. Elimination of Redundant Loads and Stores</span>
+  <p>If a value is stored in memory and immediately reloaded into another (or the same) register without intervening modification:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Target assembly before</th><th>Peephole optimized</th></tr></thead>
+  <tbody>
+  <tr>
+  <td><pre class="mono">MOV R0, a
+MOV a, R0    /* Redundant store: 'a' already holds R0 */</pre></td>
+  <td><pre class="mono">MOV R0, a
+/* second instruction deleted */</pre></td>
+  </tr>
+  <tr>
+  <td><pre class="mono">MOV a, R0
+MOV R0, b    /* If R0 is not needed later */</pre></td>
+  <td><pre class="mono">MOV a, b     /* Direct memory copy if supported */</pre></td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">2. Unreachable Code Elimination</span>
+  <p>An instruction that immediately follows an unconditional jump and does not have an attached jump target label can never be reached:</p>
+  <pre class="mono">/* Before: */
+    JMP L2
+    ADD R1, R2, R3   /* Unreachable dead code */
+L2: ...
+
+/* After: 'ADD' instruction pruned completely */</pre>
+</div>
+
+<div class="solve">
+  <span class="lbl">3. Flow-of-Control Optimizations (Jump Chaining)</span>
+  <p>Replaces jumps that branch to other jump instructions with a single direct jump:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+  <tr>
+  <td><pre class="mono">    GOTO L1
+    ...
+L1: GOTO L2</pre></td>
+  <td><pre class="mono">    GOTO L2
+    ...
+L1: GOTO L2</pre></td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">4. Algebraic Simplification and Reduction in Strength</span>
+  <ul>
+    <li><code>ADD R0, #0</code> &rarr; <em>Deleted</em> (no-op).</li>
+    <li><code>MULT R0, #1</code> &rarr; <em>Deleted</em> (no-op).</li>
+    <li><code>MULT R0, #2</code> &rarr; <code>SHL R0, #1</code> (bit-shift left is much faster than hardware multiplication).</li>
+    <li><code>MULT R0, #8</code> &rarr; <code>SHL R0, #3</code>.</li>
+  </ul>
+</div>
+
+<div class="solve">
+  <span class="lbl">5. Use of Machine Idioms</span>
+  <p>Hardware architectures often provide specialized instructions that perform common operations in fewer clock cycles:</p>
+  <ul>
+    <li><code>ADD R0, #1</code> &rarr; <code>INC R0</code> (increment register).</li>
+    <li><code>SUB R0, #1</code> &rarr; <code>DEC R0</code> (decrement register).</li>
+    <li>Auto-increment / auto-decrement addressing modes in loops (e.g. <code>MOV (R1)+, R2</code>).</li>
+  </ul>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In register allocation via graph coloring, what does an edge between two variables indicate?</p>
+  <div class="opts">
+    <button class="opt">One variable is assigned the value of the other</button>
+    <button class="opt">Both variables are integer constants</button>
+    <button class="opt">The variables belong to different basic blocks</button>
+    <button class="opt" data-ok="1">The variables are simultaneously live at some program point and cannot share the same register</button>
+  </div>
+  <p class="why">Interference means overlapping live ranges; adjacent nodes cannot receive the same color/register.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. What distinguishes register allocation from register assignment?</p>
+  <div class="opts">
+    <button class="opt">Allocation is for variables; assignment is only for constants</button>
+    <button class="opt" data-ok="1">Allocation selects which values stay in registers; assignment maps values to specific physical registers</button>
+    <button class="opt">Allocation is done at runtime; assignment is done at compile time</button>
+    <button class="opt">They are completely identical terms with no distinction</button>
+  </div>
+  <p class="why">Allocation decides who gets a register; assignment decides whether it is R0, R1, or R2.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Replacing `MULT R0, #4` with `SHL R0, #2` during peephole optimization is an example of:</p>
+  <div class="opts">
+    <button class="opt">Jump chaining</button>
+    <button class="opt">Redundant store elimination</button>
+    <button class="opt" data-ok="1">Reduction in strength</button>
+    <button class="opt">Unreachable code elimination</button>
+  </div>
+  <p class="why">Replacing an expensive multiplication by a power of 2 with a cheap left shift is strength reduction.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>The five design issues in code generation.</summary>
+    <p class="ans">1. Target program format. 2. Instruction selection. 3. Register allocation and assignment. 4. Evaluation order. 5. Memory management.</p></details>
+  <details class="card"><summary>How does Chaitin's heuristic color the interference graph?</summary>
+    <p class="ans">Repeatedly removes nodes with degree &lt; k and pushes them to a stack. If stuck, spills a variable. Once empty, pops nodes and colors them with available registers.</p></details>
+  <details class="card"><summary>Five techniques of peephole optimization.</summary>
+    <p class="ans">1. Redundant load/store elimination. 2. Unreachable code elimination. 3. Flow-of-control optimization (jump chaining). 4. Algebraic simplification / strength reduction. 5. Use of machine idioms (INC/DEC).</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">Unit V and Compiler Construction are complete!</span>
+  <p>Review the comprehensive printable summary on the <a href="../../reference/unit5-cheat-sheet.html">Unit V Cheat Sheet</a>.</p>
+</div>
+
+<div class="nav">
+  <a href="0026-data-flow-analysis-and-loop-optimization.html">&larr; Previous: Data-Flow Analysis &amp; Loop Optimization</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Cheat sheet &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

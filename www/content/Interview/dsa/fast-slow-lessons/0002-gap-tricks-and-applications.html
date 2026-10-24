@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fast &amp; Slow Lesson 02 — Gap Tricks &amp; Applications</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Fast &amp; Slow Track · Lesson 2 of 2 · arrays in disguise and fixed gaps</div>
+<h1>Fast &amp; Slow — Gap Tricks &amp; Applications</h1>
+<p class="subtitle">The same two-pointer race, redeployed: an array that secretly contains a cycle, palindromes checked in O(1) space, and a fixed-gap trick that deletes the nth-from-end in one pass.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Find the Duplicate Number (LC 287) is a famous "aha" interview question — the O(1)-space answer is Lesson 1's cycle trick wearing an array costume.
+  This is Lesson 2 of the 2-lesson Fast &amp; Slow track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Fast &amp; slow is really about <strong>the gap</strong> two pointers maintain. A <em>growing</em> gap (speeds 1
+and 2) detects cycles and finds midpoints. A <em>fixed</em> gap (same speed, head start of n) finds
+"nth from the end" in one pass. And the structure doesn't have to be a linked list: any deterministic
+"next" — including <code>i → nums[i]</code> over an array — is a linked list in disguise, so Floyd's machinery
+transfers wholesale.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Find the duplicate <strong>without modifying the array</strong> and in O(1) space," "is the list a palindrome
+  (O(1) space)," "remove the nth node from the end <strong>in one pass</strong>," "reorder / fold the list."
+  Constraints that outlaw HashSets, sorting, or a second pass are the tell — they force pointer gymnastics.
+</div>
+
+<h2>2 · Core — the array-as-linked-list reduction (LC 287)</h2>
+<p>
+<code>nums</code> has n+1 integers, each in <code>1..n</code>, one value duplicated. Read index <code>i</code> as a
+node whose next pointer is <code>nums[i]</code>. Values in <code>1..n</code> mean every arrow lands at a valid index,
+and starting from index 0 (which no arrow returns to, since values are ≥ 1) the walk enters a
+<strong>ρ-shape</strong>: a tail, then a loop. Two arrows entering one node is exactly a duplicated value — so
+<strong>the duplicate is the cycle entrance</strong>, and LC 142's two-phase algorithm reads it off without touching
+the array.
+</p>
+<pre><code>int findDuplicate(int[] nums) {
+    int slow = nums[0], fast = nums[nums[0]];    <span class="cmt">// take 1 and 2 steps from "node" 0</span>
+    while (slow != fast) {                       <span class="cmt">// phase 1: collide inside the cycle</span>
+        slow = nums[slow];                       <span class="cmt">// slow = slow.next</span>
+        fast = nums[nums[fast]];                 <span class="cmt">// fast = fast.next.next</span>
+    }
+    slow = 0;                                    <span class="cmt">// phase 2: reset to head (index 0)</span>
+    while (slow != fast) {
+        slow = nums[slow];                       <span class="cmt">// both at speed 1 now</span>
+        fast = nums[fast];
+    }
+    return slow;                                 <span class="cmt">// cycle entrance = the duplicated value</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1), array untouched — the only approach that satisfies all of LC 287's constraints at once (sorting mutates, HashSet costs O(n) space, binary-search-on-value works but is O(n log n)).</p>
+
+<div class="trace">
+<span class="step">nums = [1, 3, 4, 2, 2] &nbsp;→&nbsp; arrows: 0→1, 1→3, 2→4, 3→2, 4→2</span>
+<span class="step">walk from 0: 0 → 1 → 3 → <span class="ptr">2 → 4 → 2</span> → 4 → … (tail 0→1→3, loop 2→4→2)</span>
+<span class="step now">two arrows enter node <span class="ptr">2</span> (from 3 and from 4) — because the VALUE 2 appears twice</span>
+<span class="step">cycle entrance = 2 = the duplicate ✓</span>
+</div>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Duplicate in an array</td><td>LC 287</td><td>next = <code>nums[i]</code>; LC 142's two phases; entrance = duplicate.</td></tr>
+    <tr><td>Palindrome list, O(1) space</td><td>LC 234</td><td>Find mid → reverse back half → compare halves (→ optionally restore).</td></tr>
+    <tr><td>Fold the list</td><td>LC 143</td><td>Find mid → reverse back half → zip-merge (built in Reversal Lesson 2).</td></tr>
+    <tr><td>Nth from the end, one pass</td><td>LC 19</td><td>Fixed gap: lead pointer gets an n-step head start; both walk together.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Palindrome Linked List (LC 234)</h3>
+<p>
+O(1) space forces surgery: find the middle (Lesson 1), reverse the second half in place (the flip-loop from
+<a href="../linkedlist-reversal-lessons/0001-reversal-template.html">Reversal Lesson 1</a>), then walk the two
+halves in lockstep comparing values. The first-middle guard (<code>fast.next != null &amp;&amp;
+fast.next.next != null</code>) keeps the extra node in the front half for odd lengths.
+</p>
+<pre><code>boolean isPalindrome(ListNode head) {
+    ListNode slow = head, fast = head;
+    while (fast.next != null &amp;&amp; fast.next.next != null) { <span class="cmt">// slow → FIRST middle</span>
+        slow = slow.next;
+        fast = fast.next.next;
+    }
+    ListNode second = slow.next;
+    slow.next = null;                        <span class="cmt">// sever the halves</span>
+    ListNode prev = null;                    <span class="cmt">// reverse the back half (Reversal Lesson 1)</span>
+    while (second != null) {
+        ListNode next = second.next;
+        second.next = prev;
+        prev = second;
+        second = next;
+    }
+    ListNode p1 = head, p2 = prev;           <span class="cmt">// compare front half vs reversed back half</span>
+    while (p2 != null) {                     <span class="cmt">// back half is ≤ front half in length</span>
+        if (p1.val != p2.val) return false;
+        p1 = p1.next;
+        p2 = p2.next;
+    }
+    return true;                             <span class="cmt">// (interview bonus: re-reverse to restore the list)</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). For odd length the middle node stays in the front half and is never compared — correct, since it matches itself. Mentioning "I could re-reverse to restore the input" earns points.</p>
+
+<h3>Case: Reorder List (LC 143) — same skeleton, different phase 3</h3>
+<p>
+Identical setup to LC 234 — find mid, sever, reverse back half — but phase 3 <em>zip-merges</em> instead of
+comparing: <code>a₁→aₙ→a₂→aₙ₋₁…</code>. Full code and dry run live in
+<a href="../linkedlist-reversal-lessons/0002-k-group-and-applications.html">Reversal Lesson 2</a>; here, notice the
+shared skeleton. Once you own "mid + reverse," two LeetCode problems differ by only their last loop:
+</p>
+<pre><code><span class="cmt">// the shared skeleton behind LC 234 and LC 143:</span>
+<span class="cmt">// 1. slow/fast  → find first middle</span>
+<span class="cmt">// 2. sever      → slow.next = null</span>
+<span class="cmt">// 3. flip-loop  → reverse second half</span>
+<span class="cmt">// 4a. LC 234    → walk both halves, compare values</span>
+<span class="cmt">// 4b. LC 143    → walk both halves, zip-merge nodes</span></code></pre>
+
+<h3>Case: Remove Nth Node From End (LC 19) — the fixed gap</h3>
+<p>
+Different trick, same family: both pointers move at <strong>speed 1</strong>, but <code>lead</code> starts
+<code>n + 1</code> steps ahead of <code>trail</code> (the +1 lands trail <em>before</em> the victim, from the dummy).
+When <code>lead</code> hits null, the gap guarantees <code>trail.next</code> is the nth from the end. One pass, no
+length count.
+</p>
+<pre><code>ListNode removeNthFromEnd(ListNode head, int n) {
+    ListNode dummy = new ListNode(0);
+    dummy.next = head;                       <span class="cmt">// dummy: the head itself might be deleted</span>
+    ListNode lead = dummy, trail = dummy;
+    for (int i = 0; i &lt; n + 1; i++) lead = lead.next; <span class="cmt">// open a gap of n+1</span>
+    while (lead != null) {                   <span class="cmt">// slide the whole gap to the end</span>
+        lead = lead.next;
+        trail = trail.next;
+    }
+    trail.next = trail.next.next;            <span class="cmt">// trail is just before the victim → unlink it</span>
+    return dummy.next;
+}</code></pre>
+<p><strong>Time</strong> O(n) single pass, <strong>Space</strong> O(1). Deleting the head (n = length) is exactly why the dummy exists: trail stays on dummy and <code>dummy.next</code> skips the old head.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>LC 287 starting points:</strong> start the walk conceptually at index 0 — it's outside the cycle since no value equals 0. Initializing <code>slow = nums[0], fast = nums[nums[0]]</code> is "already moved once/twice," which lets the <code>while (slow != fast)</code> guard work without a do-while.</li>
+  <li><strong>Don't modify, don't allocate (LC 287):</strong> the problem explicitly bans sorting and O(n) space; if you reach for a HashSet, expect the follow-up. Floyd's is the intended answer.</li>
+  <li><strong>First vs second middle:</strong> cutting problems (234/143) want the <em>first</em> middle guard so the front half keeps the odd node. Re-check the guard on a 4-node dry run.</li>
+  <li><strong>Sever before reversing</strong> (234/143): forgetting <code>slow.next = null</code> leaves a cycle and the final loop never terminates.</li>
+  <li><strong>Compare on <code>p2 != null</code> (LC 234):</strong> the reversed back half is the shorter (or equal) half; driving on p1 overruns for odd lengths.</li>
+  <li><strong>Gap size n + 1, from dummy (LC 19):</strong> a gap of n lands trail ON the victim; n + 1 lands it just before. And with n = list length, only the dummy start keeps trail valid.</li>
+  <li><strong>Restore-the-input bonus (LC 234):</strong> real interviews sometimes require leaving the list intact — re-run the flip-loop on the back half and re-attach.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In LC 287, why is the duplicated value guaranteed to be the entrance of the cycle in the <code>i → nums[i]</code> graph?</div>
+  <button class="opt">Because the duplicate is the largest value, and the largest index is where walks converge</button>
+  <button class="opt">Because two different indices hold that value, so two arrows point into that node — the only way a walk can re-enter earlier territory</button>
+  <button class="opt">Because index 0 always points directly at the duplicated value</button>
+  <div class="fb" data-correct="A node with two in-edges is exactly a value stored at two indices. The walk from 0 first revisits a node at the point where a second arrow feeds in — that node's label is the duplicate." data-wrong="Size and index 0's target are irrelevant. The key: duplicate value ⇒ two indices point at the same node ⇒ that node has two in-edges ⇒ it's where the ρ-shaped walk closes its loop, i.e. the cycle entrance."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 19 you open a gap of exactly <code>n</code> (not n + 1) starting from the dummy. When lead hits null, where is trail?</div>
+  <button class="opt">Just before the node to delete, which is what you want</button>
+  <button class="opt">Two nodes before the node to delete, so you overshoot the unlink</button>
+  <button class="opt">On the node to delete itself — but you need its predecessor to unlink it</button>
+  <div class="fb" data-correct="With a gap of n, trail lands ON the nth-from-end. Singly linked lists can't unlink the node you're standing on (no back pointer) — you need the predecessor, hence gap n + 1 from the dummy." data-wrong="Count it on dummy→1→2→3, n = 1: gap n moves lead 1 step; when lead nulls out, trail sits on 3 — the victim itself, not its predecessor. That's why the template uses n + 1."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">For Palindrome Linked List (LC 234) on an odd-length list like 1→2→3→2→1, why is it fine that the middle node (3) never gets compared?</div>
+  <button class="opt">The middle of an odd palindrome pairs with itself, so it can't cause a mismatch — only the two halves around it matter</button>
+  <button class="opt">It does get compared, against the null terminator of the reversed half</button>
+  <button class="opt">It isn't fine — the algorithm must special-case odd lengths with an extra check</button>
+  <div class="fb" data-correct="A palindrome mirrors around its center; the center element is unconstrained. Front half [1,2,(3)] vs reversed back half [1,2] — the comparison loop drives on the shorter half and 3 is skipped by design." data-wrong="No comparison against null happens and no special case is needed: the loop runs while p2 (the shorter reversed half) is non-null, so the center node is simply skipped — and a center can never break the mirror property."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/find-duplicate-integer">NeetCode — Find the Duplicate Number</a> and <a href="https://neetcode.io/problems/palindrome-linked-list">NeetCode — Palindrome Linked List</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 19 (fixed gap — get the n + 1 count right first try) → LC 234 (mid + reverse + compare) → LC 143 (re-solve; notice it's LC 234 with a merge finale) → LC 287 (write the reduction comment <em>before</em> the code: "index i is a node, nums[i] is next") → stretch: LC 142 again, from memory, including the proof.</li>
+</ul>
+
+<h2>7 · Fast &amp; Slow cheat sheet</h2>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Cycle yes/no</td><td>"does the list loop", O(1) space</td><td>slow ×1, fast ×2; collide ⇒ cycle, null ⇒ no</td><td>O(n) / O(1)</td><td>141</td></tr>
+    <tr><td>Cycle entrance</td><td>"where does the cycle begin"</td><td>collide → reset one to head → both ×1 → meet at entrance (a = k·c − b)</td><td>O(n) / O(1)</td><td>142</td></tr>
+    <tr><td>Middle of list</td><td>"middle node", half-split prep</td><td>when fast exhausts, slow is mid; guard choice picks first vs second middle</td><td>O(n) / O(1)</td><td>876</td></tr>
+    <tr><td>Repeating process</td><td>deterministic f applied repeatedly</td><td>Floyd's on values: slow = f(slow), fast = f(f(fast))</td><td>O(n) / O(1)</td><td>202</td></tr>
+    <tr><td>Array duplicate</td><td>n+1 values in 1..n, no mutation, O(1) space</td><td>next = nums[i]; LC 142 two-phase; entrance = duplicate</td><td>O(n) / O(1)</td><td>287</td></tr>
+    <tr><td>Palindrome list</td><td>"palindrome", O(1) space</td><td>first-mid → sever → reverse back half → lockstep compare</td><td>O(n) / O(1)</td><td>234</td></tr>
+    <tr><td>Fold / reorder</td><td>"a₁→aₙ→a₂→…"</td><td>first-mid → sever → reverse back half → zip-merge</td><td>O(n) / O(1)</td><td>143</td></tr>
+    <tr><td>Nth from end</td><td>"one pass", "nth from the end"</td><td>dummy; lead gets n+1 head start; walk together; unlink trail.next</td><td>O(n) / O(1)</td><td>19</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the LC 287 arrow diagram drawn for a different array, a dry run of the n + 1 gap, or the LC 234
+  restore-the-list variant written out? Ask in the chat. When the cheat sheet rows all feel obvious, say
+  <strong>"next"</strong> and we move to the Trie track.
+</div>
+
+<div class="nav">
+  <span><a href="0001-cycle-detection.html">← Cycle Detection</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../trie-lessons/0001-trie-basics.html">Trie: Basics →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

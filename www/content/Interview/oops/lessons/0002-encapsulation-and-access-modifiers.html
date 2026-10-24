@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 02 — Encapsulation and Access Modifiers</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 2 of 8 · encapsulation, access modifiers, final, immutability</div>
+<h1>Encapsulation and Access Modifiers</h1>
+<p class="subtitle">Your data needs a bodyguard. Encapsulation is how a class says "nobody touches my fields except through my door."</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero. This is Lesson 2 of 8.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+<strong>Encapsulation = wrapping data and the methods that use it into one unit, then hiding the data from
+outsiders.</strong> Outsiders interact only through public methods — the class's official "front door."
+That door can validate, log, or refuse — so the object can guarantee its data is never garbage.
+This is the first of the four OOP pillars, and the one you already half-built in Lesson 1.
+</p>
+
+<h2>2 · The capsule analogy</h2>
+<p>
+Think of a medicine capsule. Inside is powder — several chemicals mixed in an exact ratio. The capsule shell
+does two jobs: it <strong>bundles</strong> the chemicals into one unit, and it <strong>protects</strong> you from
+touching them directly. You never handle the powder; you swallow the capsule whole.
+</p>
+<p>
+A well-designed class is a capsule. Fields are the powder (hidden inside). Public methods are the shell
+(the only safe way to interact). Another everyday version: an ATM. You have a clean interface — insert card,
+type PIN, get cash. You cannot reach into the machine and grab notes from the tray. The machine's inner state
+is protected; your only access is through controlled operations.
+</p>
+
+<div class="callout">
+  <span class="label">Encapsulation has two halves — say both</span>
+  Half 1: <strong>bundling</strong> data + methods in a class. Half 2: <strong>data hiding</strong> —
+  making fields <code>private</code> so the bundle can't be bypassed. Many candidates say only "data hiding"
+  and lose the completeness point. Bundle first, then hide.
+</div>
+
+<h2>3 · Private fields + getters/setters — and the WHY</h2>
+<p>Here's the pattern. First, the unprotected version and how it goes wrong:</p>
+
+<pre><code>class Person {
+    public int age;          <span class="cmt">// anyone can write anything...</span>
+}
+
+Person p = new Person();
+p.age = -5;                  <span class="cmt">// nonsense — and Java happily allows it</span></code></pre>
+
+<p>
+No one can stop that assignment, because the field itself is the door. Now the encapsulated version:
+make the field <code>private</code>, and offer methods as the only door:
+</p>
+
+<pre><code>class Person {
+    private int age;                     <span class="cmt">// hidden — no direct access from outside</span>
+
+    public int getAge() {                <span class="cmt">// GETTER: controlled read</span>
+        return age;
+    }
+
+    public void setAge(int age) {        <span class="cmt">// SETTER: controlled write</span>
+        if (age &lt; 0 || age &gt; 130) {      <span class="cmt">// the bodyguard checks IDs</span>
+            throw new IllegalArgumentException("Invalid age: " + age);
+        }
+        this.age = age;
+    }
+}
+
+Person p = new Person();
+p.setAge(25);       <span class="cmt">// fine</span>
+p.setAge(-5);       <span class="cmt">// rejected — exception, data stays valid</span>
+<span class="cmt">// p.age = -5;      // won't even compile: age is private</span></code></pre>
+
+<p>Why bother with this ceremony? Four concrete wins:</p>
+<ul>
+  <li><strong>Validation.</strong> <code>setAge(-5)</code> can be rejected. With a public field, it can't.</li>
+  <li><strong>Read-only or write-only data.</strong> Provide a getter but no setter → outsiders can read but never change it (an account number, for example).</li>
+  <li><strong>Freedom to change internals.</strong> Tomorrow you might store birth date instead of age and compute age in <code>getAge()</code>. Callers never notice — the door looks the same.</li>
+  <li><strong>One place to debug.</strong> If the balance is ever wrong, the bug must be inside the class's own methods. With public fields, the whole codebase is a suspect.</li>
+</ul>
+
+<div class="callout trap">
+  <span class="label">"Getters/setters everywhere" is NOT the point</span>
+  If you blindly add a public getter and setter for every field, you've built a public field with extra steps.
+  The point is <em>control</em>: add a setter only if outsiders truly need to change that field, and put rules in it.
+  Saying this in an interview shows real understanding, not memorisation.
+</div>
+
+<h2>4 · Access modifiers — the four visibility levels</h2>
+<p>
+Java gives you four dials for "who can see this member," from most open to most locked:
+<code>public</code> → <code>protected</code> → default (no keyword, aka <em>package-private</em>) → <code>private</code>.
+Analogy — your house: the front lawn is visible to everyone (public); some rooms are open to family and their
+children even after they move to another city (protected — includes subclasses); the living room is for people
+inside your gated society (default — same package); your diary is yours alone (private).
+</p>
+
+<table>
+  <thead><tr><th>Modifier</th><th>Same class</th><th>Same package</th><th>Subclass (other package)</th><th>Everywhere</th></tr></thead>
+  <tbody>
+    <tr><td><code>public</code></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td><code>protected</code></td><td>Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+    <tr><td>default <span class="cmt">(no keyword)</span></td><td>Yes</td><td>Yes</td><td>No</td><td>No</td></tr>
+    <tr><td><code>private</code></td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr>
+  </tbody>
+</table>
+
+<pre><code>package bank;
+
+public class Account {
+    private double balance;          <span class="cmt">// only Account's own methods</span>
+    protected String branchCode;     <span class="cmt">// Account + same package + subclasses anywhere</span>
+    String internalNote;             <span class="cmt">// default: same package only</span>
+    public void deposit(double a) {} <span class="cmt">// everyone</span>
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">The two rows people forget</span>
+  (1) <strong>Default</strong> is a real level — no keyword means "package-private," not public.
+  (2) <strong>protected = default + subclasses</strong>. It's the inheritance-friendly level: a subclass in a
+  different package can still see it. You'll use it in Lesson 3.
+</div>
+
+<div class="callout">
+  <span class="label">Rule of thumb</span>
+  Fields: <code>private</code> by default, always. Methods: <code>public</code> only for the class's official API,
+  <code>private</code> for internal helpers. Start locked; open up only with a reason. Interviewers love hearing
+  "principle of least privilege."
+</div>
+
+<h2>5 · <code>final</code> — the "no changes" keyword</h2>
+<p>
+<code>final</code> means "this cannot change" — but <em>what</em> can't change depends on where you put it.
+One keyword, three uses:
+</p>
+
+<table>
+  <thead><tr><th>Used on</th><th>Meaning</th><th>Everyday analogy</th></tr></thead>
+  <tbody>
+    <tr><td><code>final</code> variable/field</td><td>Assign once, never reassign</td><td>Ink on your birth certificate</td></tr>
+    <tr><td><code>final</code> method</td><td>Subclasses cannot override it</td><td>A rule head office won't let branches modify</td></tr>
+    <tr><td><code>final</code> class</td><td>Nobody can extend (subclass) it</td><td>A sealed product — no third-party modifications</td></tr>
+  </tbody>
+</table>
+
+<pre><code>final double PI = 3.14159;       <span class="cmt">// PI = 3; → compile error</span>
+
+class Account {
+    final String accountNo;       <span class="cmt">// set once (here or in constructor), fixed forever</span>
+    Account(String no) { this.accountNo = no; }
+    final void audit() { }        <span class="cmt">// subclasses may use it, may not override it</span>
+}
+
+final class SecureToken { }       <span class="cmt">// class Fake extends SecureToken → compile error</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">final reference ≠ frozen object</span>
+  <code>final List&lt;Integer&gt; list = new ArrayList&lt;&gt;();</code> — you cannot repoint <code>list</code> to another
+  list, but <code>list.add(5)</code> is perfectly legal. <code>final</code> freezes the <em>reference</em> (the
+  address slip from Lesson 1), not the object it points to. This distinction is a favourite follow-up question.
+</div>
+
+<p>
+Real example you already know: <code>String</code> is a <code>final</code> class in Java — you cannot extend it.
+Why would the JDK do that? That brings us to immutability.
+</p>
+
+<h2>6 · A first taste of immutability</h2>
+<p>
+An <strong>immutable</strong> object never changes after construction. No setters, no way in. Want a "different"
+value? You create a <em>new</em> object. Analogy: a printed photograph — you can't edit it; you take a new photo.
+Java's <code>String</code> works exactly like this: <code>s.toUpperCase()</code> doesn't change <code>s</code>,
+it returns a brand-new string.
+</p>
+<p>The classic recipe (know these steps by heart):</p>
+
+<pre><code>final class Money {                       <span class="cmt">// 1. final class — no subclass can add mutability</span>
+    private final int amount;             <span class="cmt">// 2. private final fields — hidden AND fixed</span>
+    private final String currency;
+
+    Money(int amount, String currency) {  <span class="cmt">// 3. set everything in the constructor</span>
+        this.amount = amount;
+        this.currency = currency;
+    }
+
+    int getAmount() { return amount; }    <span class="cmt">// 4. getters only — NO setters</span>
+    String getCurrency() { return currency; }
+
+    Money add(int extra) {                <span class="cmt">// 5. "changes" return a NEW object</span>
+        return new Money(this.amount + extra, this.currency);
+    }
+}</code></pre>
+
+<p>
+Why is this worth the trouble? Immutable objects are <strong>impossible to corrupt</strong> — no validation needed
+after birth — and <strong>safe to share</strong> across threads or hand out from getters without fear someone
+mutates your internals. Encapsulation taken to its logical extreme: don't just guard the data, make change impossible.
+Lesson 6 (SOLID &amp; design) builds on this.
+</p>
+
+<h2>7 · Interview questions this lesson answers</h2>
+<p>From your senior's Top-25 list:</p>
+<ul>
+  <li><strong>Q1. "What are the main principles of OOPS?"</strong> (the Encapsulation part)<br>
+  Encapsulation is bundling data with the methods that operate on it, and hiding the data behind
+  <code>private</code> so all access goes through controlled public methods. It protects object state
+  (e.g. rejecting <code>setAge(-5)</code>) and lets internals change without breaking callers.</li>
+  <li><strong>Q6. "Can you explain abstraction vs encapsulation with an example?"</strong> (the encapsulation half — abstraction arrives in Lesson 5)<br>
+  Encapsulation is about <em>protecting HOW data is stored</em>: a <code>Person</code> hides its
+  <code>private int age</code> and validates writes via <code>setAge</code>. (Abstraction, in contrast, is about
+  <em>exposing only WHAT something does</em> — hold this thought for Lesson 5.)</li>
+  <li><strong>Q10. "What are access specifiers (public, private, protected)?"</strong><br>
+  They control member visibility. Java has four: <code>public</code> (everywhere), <code>protected</code>
+  (package + subclasses), default/package-private (package only), <code>private</code> (declaring class only).
+  Best practice: private fields, public methods only for the intended API.</li>
+</ul>
+
+<h2>8 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why is <code>private int age</code> + <code>setAge(int)</code> better than a plain <code>public int age</code>?</div>
+  <button class="opt">Private fields are stored in a faster, protected region of heap memory</button>
+  <button class="opt">It is mostly convention — both give the same guarantees, setters just look cleaner</button>
+  <button class="opt">The setter is a single controlled entry point that can validate and reject bad values like -5</button>
+  <div class="fb" data-correct="With a public field, any code anywhere can write nonsense and nothing can stop it. A setter funnels every write through one gate where you can validate, log, or refuse." data-wrong="Access modifiers don't change memory layout or speed — they change who is ALLOWED to touch the data. The win is a single guarded door instead of an open field."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A field has no access modifier at all (default). A subclass in a <em>different package</em> tries to use it. What happens?</div>
+  <button class="opt">Compile error — default visibility stops at the package boundary, even for subclasses</button>
+  <button class="opt">It works — subclasses always inherit access to their parent's non-private members</button>
+  <button class="opt">It works but only for reading the field, not for writing to it</button>
+  <div class="fb" data-correct="Default (package-private) means same-package only. Crossing a package boundary needs protected (for subclasses) or public. This is exactly the gap between the default and protected rows of the table." data-wrong="Subclasses don't automatically see everything: private is never visible, and default stops at the package edge. Only protected extends visibility to out-of-package subclasses."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Given <code>final Account acc = new Account();</code>, which line fails to compile?</div>
+  <button class="opt"><code>acc.deposit(100);</code> — calling a method that changes the object's state</button>
+  <button class="opt"><code>acc = new Account();</code> — pointing the variable at a different object</button>
+  <button class="opt">Both lines fail — final makes the object completely read-only</button>
+  <div class="fb" data-correct="final freezes the reference, not the object. You can never re-aim acc at another Account, but the object it points to can still change through its own methods." data-wrong="final on a variable only forbids REASSIGNMENT. Mutating the pointed-to object is legal — to forbid that you'd need the class itself to be immutable."></div>
+</div>
+
+<h2>9 · Do this next</h2>
+<ul>
+  <li>Write a <code>BankAccount</code> class: <code>private double balance</code>, a getter, and <code>deposit</code>/<code>withdraw</code> methods that throw <code>IllegalArgumentException</code> on negative amounts or overdrafts. In <code>main</code>, prove that <code>acc.balance = -999;</code> refuses to compile (try it, read the error, then delete the line).</li>
+  <li>Then convert it into an immutable <code>Money</code>-style class using the 5-step recipe: <code>final</code> class, <code>private final</code> fields, constructor-only setup, getters only, and a <code>withdraw</code> that returns a <em>new</em> object.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure when a field deserves a setter, confused by the protected-vs-default boundary, or want more practice
+  with the immutability recipe? Ask in the chat. When you can recite the visibility table from memory and explain
+  <em>why</em> <code>setAge(-5)</code> must be stoppable, say <strong>"next"</strong> and we move to
+  Lesson 3: Inheritance.
+</div>
+
+<div class="nav">
+  <span><a href="0001-classes-and-objects.html">← Classes and Objects</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0003-inheritance.html">Inheritance →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

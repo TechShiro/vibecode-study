@@ -1,0 +1,439 @@
+<title>CLR(1) and LALR(1) Parsing</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit III &middot; Lesson 16 of 17</p>
+<h1>CLR(1) and LALR(1) Parsing</h1>
+<p class="deck">LR(1) items with context lookahead, canonical LR (CLR) table construction, merging same-core states into LALR(1), conflict behavior during state merging, and the master comparison hierarchy.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Construct the CLR and LALR parsing tables for the given grammar&rdquo;</strong> carries 15&ndash;20 marks and is the most mathematically demanding question in Unit III. You must: (1) clearly define an LR(1) item $[A \to \alpha \cdot \beta, a]$, (2) compute the 10-state canonical LR(1) collection, (3) demonstrate how states with identical cores merge into the 7-state LALR(1) collection, and (4) reproduce the 5-point comparison table across LR(0), SLR(1), LALR(1), and CLR(1).</p>
+</div>
+
+<!-- CURATED VIDEO MASTERCLASS -->
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; LR(1) Items &amp; CLR(1) Construction</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">CLR(1) Parser in Compiler Design with Solved Example</a>
+    <span class="v-meta">Gate Smashers &middot; 17:50</span>
+    <div class="v-why">Definitive explanation of computing LR(1) lookaheads via $\text{FIRST}(\beta a)$ and constructing all canonical LR(1) states without index confusion.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; LALR(1) Merging &amp; LR Hierarchy</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">LALR(1) Parser Construction, State Merging &amp; Conflicts</a>
+    <span class="v-meta">Neso Academy &middot; 19:30</span>
+    <div class="v-why">In-depth walkthrough of merging LR(1) states by matching cores, why LALR never introduces S/R conflicts, and how R/R conflicts can arise.</div>
+  </div>
+</div>
+
+<h2>1. Why SLR is Insufficient &mdash; The Need for LR(1) Lookahead</h2>
+
+<p>SLR(1) parsers consult the global set $FOLLOW(A)$ to decide whether to reduce $A \to \alpha$. However, $FOLLOW(A)$ collects <em>every terminal</em> that can follow $A$ across the <em>entire grammar</em>, regardless of the current parse state.</p>
+<p>In many valid right-sentential forms, only a <strong>strict subset</strong> of $FOLLOW(A)$ is legally allowed at a specific step. Placing reduce actions indiscriminately across all of $FOLLOW(A)$ leads to false conflicts (as proven in Lesson 15 with $S \to L = R \mid R$).</p>
+<p>To fix this, <strong>Canonical LR (CLR)</strong> equips every item with an explicit <strong>1-symbol lookahead context</strong>.</p>
+
+<h2>2. Formal Definition of an LR(1) Item</h2>
+
+<div class="formula">
+  <span class="name">LR(1) Item Structure</span>
+  [A &rarr; &alpha; &bull; &beta;, &nbsp; a]<br><br>
+  where $A \to \alpha \beta$ is a grammar production, $\cdot$ is the dot position, and <strong>$a$</strong> is a lookahead terminal (or the endmarker $\$$).
+</div>
+
+<p><strong>Semantic Meaning:</strong> The substring $\alpha$ has been matched on the stack, $\beta$ is expected next in the input, and when the complete non-terminal $A$ is reduced, the very next terminal in the input stream <strong>must be $a$</strong>.</p>
+
+<div class="box win">
+  <span class="lbl">Crucial Rule for Shifts vs Reduces</span>
+  <p>The lookahead $a$ has <strong>no effect</strong> on shift items $[A \to \alpha \cdot X \beta, a]$. The dot simply shifts across $X$ regardless of $a$. The lookahead $a$ comes into play <strong>only when the dot reaches the end</strong> $[A \to \alpha \cdot, a]$ &mdash; instructing the parser to reduce by $A \to \alpha$ <strong>strictly when the current lookahead symbol equals $a$</strong>.</p>
+</div>
+
+<h2>3. CLR(1) Canonical Collection: CLOSURE and GOTO</h2>
+
+<div class="formula">
+  <span class="name">Algorithm: CLR CLOSURE(I)</span>
+  1. Initialize $CLOSURE(I) = I$.<br>
+  2. For each item $[A \to \alpha \cdot B \beta, a] \in CLOSURE(I)$, and each production $B \to \gamma$ in the grammar, add the item:<br>
+  <div style="font-weight:700; margin:0.5rem 0;">[B &rarr; &bull; &gamma;, &nbsp; b] &emsp; for every terminal &nbsp; b &isin; FIRST(&beta;a)</div>
+  to $CLOSURE(I)$ if not already present.<br>
+  3. Repeat until no more items can be added.
+</div>
+
+<div class="box">
+  <span class="lbl">How to Compute FIRST(&beta;a)</span>
+  <p>If $\beta$ does NOT derive $\epsilon$, then $FIRST(\beta a) = FIRST(\beta)$.<br>
+  If $\beta$ is empty ($\beta = \epsilon$) or $\beta \Rightarrow^* \epsilon$, then the terminal $a$ itself provides the lookahead: $FIRST(\epsilon a) = \{a\}$.</p>
+</div>
+
+<div class="formula">
+  <span class="name">Algorithm: CLR GOTO(I, X)</span>
+  For any grammar symbol $X$ (terminal or non-terminal):<br>
+  $$GOTO(I, X) = CLOSURE(\{[A \to \alpha X \cdot \beta, a] \mid [A \to \alpha \cdot X \beta, a] \in I\})$$
+  <em>The lookahead $a$ is preserved untouched as the dot steps over $X$.</em>
+</div>
+
+<h2>4. Full Worked Example &mdash; CLR(1) Canonical Collection</h2>
+
+<p>Consider the classic grammar:</p>
+<div class="formula">
+  (1) S &rarr; C C &emsp;&emsp; (2) C &rarr; c C &emsp;&emsp; (3) C &rarr; d
+</div>
+
+<h3>Step 1: Augmented Grammar</h3>
+<p>$S' \to S$. The initial item takes the lookahead $\$$: <strong>$[S' \to \cdot S, \$]$</strong>.</p>
+
+<h3>Step 2: Constructing All 10 LR(1) States</h3>
+
+<ul>
+  <li><strong>State $I_0$ = $CLOSURE(\{[S' \to \cdot S, \$]\})$:</strong><br>
+    <code>[S' &rarr; &bull; S,  $]</code> &emsp; &beta;=&epsilon;, a=$, FIRST(&beta;a) = {$} &rArr;<br>
+    <code>[S  &rarr; &bull; C C, $]</code> &emsp; &beta;=C, a=$, FIRST(C$) = FIRST(C) = {c, d} &rArr;<br>
+    <code>[C  &rarr; &bull; c C, c/d]</code><br>
+    <code>[C  &rarr; &bull; d,   c/d]</code>
+  </li>
+  <li><strong>State $I_1$ = $GOTO(I_0, S)$:</strong><br>
+    <code>[S' &rarr; S &bull;,  $]</code> &emsp; <strong>[Accept on $]</strong>
+  </li>
+  <li><strong>State $I_2$ = $GOTO(I_0, C)$:</strong><br>
+    <code>[S  &rarr; C &bull; C, $]</code> &emsp; &beta;=&epsilon;, a=$, FIRST(&beta;a) = {$} &rArr;<br>
+    <code>[C  &rarr; &bull; c C, $]</code><br>
+    <code>[C  &rarr; &bull; d,   $]</code>
+  </li>
+  <li><strong>State $I_3$ = $GOTO(I_0, c)$:</strong><br>
+    <code>[C  &rarr; c &bull; C, c/d]</code> &emsp; &beta;=&epsilon;, a=c/d, FIRST(&beta;a) = {c, d} &rArr;<br>
+    <code>[C  &rarr; &bull; c C, c/d]</code><br>
+    <code>[C  &rarr; &bull; d,   c/d]</code>
+  </li>
+  <li><strong>State $I_4$ = $GOTO(I_0, d)$:</strong><br>
+    <code>[C  &rarr; d &bull;,   c/d]</code> &emsp; <strong>[Reduce $C \to d$ only on c, d]</strong>
+  </li>
+  <li><strong>State $I_5$ = $GOTO(I_2, C)$:</strong><br>
+    <code>[S  &rarr; C C &bull;, $]</code> &emsp; <strong>[Reduce $S \to CC$ only on $]</strong>
+  </li>
+  <li><strong>State $I_6$ = $GOTO(I_2, c)$:</strong><br>
+    <code>[C  &rarr; c &bull; C, $]</code> &emsp; &beta;=&epsilon;, a=$, FIRST(&beta;a) = {$} &rArr;<br>
+    <code>[C  &rarr; &bull; c C, $]</code><br>
+    <code>[C  &rarr; &bull; d,   $]</code>
+  </li>
+  <li><strong>State $I_7$ = $GOTO(I_2, d)$:</strong><br>
+    <code>[C  &rarr; d &bull;,   $]</code> &emsp; <strong>[Reduce $C \to d$ only on $]</strong>
+  </li>
+  <li><strong>State $I_8$ = $GOTO(I_3, C)$:</strong><br>
+    <code>[C  &rarr; c C &bull;, c/d]</code> &emsp; <strong>[Reduce $C \to cC$ only on c, d]</strong>
+  </li>
+  <li><strong>State $I_9$ = $GOTO(I_6, C)$:</strong><br>
+    <code>[C  &rarr; c C &bull;, $]</code> &emsp; <strong>[Reduce $C \to cC$ only on $]</strong>
+  </li>
+</ul>
+
+<!-- CLR STATE TRANSITION OVERVIEW -->
+<div class="diagram-wrap">
+  <span class="diagram-title">CLR(1) State Transitions &amp; Core Clusters</span>
+  <div style="display:flex; justify-content:center; align-items:center; gap:1rem; flex-wrap:wrap; margin:0.8rem 0;">
+    <div class="flow-box highlight" style="min-width:13rem;">
+      <strong>Core Cluster: [C &rarr; c&bull;C]</strong><br>
+      <code>I₃ [lookahead c/d]</code><br>
+      <code>I₆ [lookahead $]</code>
+    </div>
+
+    <span class="flow-arrow-right">&harr;</span>
+
+    <div class="flow-box warn" style="min-width:13rem;">
+      <strong style="color:var(--warn);">Core Cluster: [C &rarr; d&bull;]</strong><br>
+      <code>I₄ [lookahead c/d]</code><br>
+      <code>I₇ [lookahead $]</code>
+    </div>
+
+    <span class="flow-arrow-right">&harr;</span>
+
+    <div class="flow-box ok" style="min-width:13rem;">
+      <strong style="color:var(--ok);">Core Cluster: [C &rarr; cC&bull;]</strong><br>
+      <code>I₈ [lookahead c/d]</code><br>
+      <code>I₉ [lookahead $]</code>
+    </div>
+  </div>
+</div>
+
+<h3>The CLR(1) Parsing Table (10 States)</h3>
+<div class="tw">
+<table>
+<thead>
+  <tr>
+    <th rowspan="2" style="vertical-align:middle; text-align:center;">State</th>
+    <th colspan="3" style="text-align:center; border-bottom:1px solid var(--rule);">ACTION</th>
+    <th colspan="2" style="text-align:center; border-bottom:1px solid var(--rule);">GOTO</th>
+  </tr>
+  <tr>
+    <th class="num">c</th><th class="num">d</th><th class="num">$</th>
+    <th class="num">S</th><th class="num">C</th>
+  </tr>
+</thead>
+<tbody>
+  <tr><td class="num"><strong>0</strong></td><td class="num">s3</td><td class="num">s4</td><td></td><td class="num">1</td><td class="num">2</td></tr>
+  <tr><td class="num"><strong>1</strong></td><td></td><td></td><td class="num" style="font-weight:700; color:var(--ok);">acc</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>2</strong></td><td class="num">s6</td><td class="num">s7</td><td></td><td></td><td class="num">5</td></tr>
+  <tr><td class="num"><strong>3</strong></td><td class="num">s3</td><td class="num">s4</td><td></td><td></td><td class="num">8</td></tr>
+  <tr><td class="num"><strong>4</strong></td><td class="num">r3</td><td class="num">r3</td><td></td><td></td><td></td></tr>
+  <tr><td class="num"><strong>5</strong></td><td></td><td></td><td class="num">r1</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>6</strong></td><td class="num">s6</td><td class="num">s7</td><td></td><td></td><td class="num">9</td></tr>
+  <tr><td class="num"><strong>7</strong></td><td></td><td></td><td class="num">r3</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>8</strong></td><td class="num">r2</td><td class="num">r2</td><td></td><td></td><td></td></tr>
+  <tr><td class="num"><strong>9</strong></td><td></td><td></td><td class="num">r2</td><td></td><td></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. LALR(1) Construction &mdash; Merging States with Identical Cores</h2>
+
+<div class="formula">
+  <span class="name">Definition: Core of an LR(1) Item</span>
+  The <strong>core</strong> of an LR(1) item $[A \to \alpha \cdot \beta, a]$ is the production and dot position $A \to \alpha \cdot \beta$, completely ignoring the lookahead $a$.
+</div>
+
+<p>Notice in the CLR(1) table that several pairs of states have <strong>identical sets of cores</strong> and differ <em>only in their lookaheads</em>:</p>
+<ul>
+  <li><strong>States $I_3$ and $I_6$</strong> share the core $\{C \to c \cdot C, C \to \cdot c C, C \to \cdot d\}$.<br>
+    Merge into <strong>$I_{36}$</strong> with lookahead set $\{c, d\} \cup \{\$\} = \{c, d, \$\}$.</li>
+  <li><strong>States $I_4$ and $I_7$</strong> share the core $\{C \to d \cdot\}$.<br>
+    Merge into <strong>$I_{47}$</strong> with lookahead set $\{c, d\} \cup \{\$\} = \{c, d, \$\}$.</li>
+  <li><strong>States $I_8$ and $I_9$</strong> share the core $\{C \to c C \cdot\}$.<br>
+    Merge into <strong>$I_{89}$</strong> with lookahead set $\{c, d\} \cup \{\$\} = \{c, d, \$\}$.</li>
+</ul>
+
+<div class="box win">
+  <span class="lbl">State Count Equivalence</span>
+  <p>Merging the 10 CLR states reduces the table size to <strong>exactly 7 states</strong>: $I_0, I_1, I_2, I_{36}, I_{47}, I_5, I_{89}$.<br>
+  <strong>Crucial theorem:</strong> The number of states in an LALR(1) parser is <em>always identical</em> to the number of states in an SLR(1) parser!</p>
+</div>
+
+<h3>The LALR(1) Parsing Table (7 States)</h3>
+<div class="tw">
+<table>
+<thead>
+  <tr>
+    <th rowspan="2" style="vertical-align:middle; text-align:center;">State</th>
+    <th colspan="3" style="text-align:center; border-bottom:1px solid var(--rule);">ACTION</th>
+    <th colspan="2" style="text-align:center; border-bottom:1px solid var(--rule);">GOTO</th>
+  </tr>
+  <tr>
+    <th class="num">c</th><th class="num">d</th><th class="num">$</th>
+    <th class="num">S</th><th class="num">C</th>
+  </tr>
+</thead>
+<tbody>
+  <tr><td class="num"><strong>0</strong></td><td class="num">s36</td><td class="num">s47</td><td></td><td class="num">1</td><td class="num">2</td></tr>
+  <tr><td class="num"><strong>1</strong></td><td></td><td></td><td class="num" style="font-weight:700; color:var(--ok);">acc</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>2</strong></td><td class="num">s36</td><td class="num">s47</td><td></td><td></td><td class="num">5</td></tr>
+  <tr><td class="num"><strong>36</strong></td><td class="num">s36</td><td class="num">s47</td><td></td><td></td><td class="num">89</td></tr>
+  <tr><td class="num"><strong>47</strong></td><td class="num">r3</td><td class="num">r3</td><td class="num">r3</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>5</strong></td><td></td><td></td><td class="num">r1</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>89</strong></td><td class="num">r2</td><td class="num">r2</td><td class="num">r2</td><td></td><td></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>6. Conflict Behavior During LALR State Merging</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Conflict Category</th><th>Can Merging Introduce It?</th><th>Mathematical Reason</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Shift/Reduce Conflict</strong></td>
+  <td><strong style="color:var(--ok);">NO (Never)</strong></td>
+  <td>
+    Suppose state $I_m$ has shift on $a$ and reduce on $a$. The shift action is determined purely by the core item $[A \to \alpha \cdot a \beta]$. Since cores in the merged states are identical, both individual states already had this shift on $a$. If one individual state had a reduction on $a$, that state <em>already possessed a Shift/Reduce conflict in CLR(1)</em>! Merging can never create a new S/R conflict.
+  </td>
+</tr>
+<tr>
+  <td><strong>Reduce/Reduce Conflict</strong></td>
+  <td><strong style="color:var(--accent);">YES (Possible)</strong></td>
+  <td>
+    Suppose State $I_1$ has $[A \to \alpha \cdot, a]$ and $[B \to \beta \cdot, b]$, while State $I_2$ (same core) has $[A \to \alpha \cdot, c]$ and $[B \to \beta \cdot, a]$. Neither individual state has an R/R conflict in CLR(1). But when merged, State $I_{12}$ has both reductions active on lookahead terminal $a$ &mdash; producing a <strong>new Reduce/Reduce conflict</strong>!
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>7. Master Comparison Hierarchy of Bottom-Up Parsers</h2>
+
+<div class="tw">
+<table>
+<thead>
+  <tr>
+    <th>Property</th>
+    <th>LR(0)</th>
+    <th>SLR(1)</th>
+    <th>LALR(1)</th>
+    <th>CLR(1)</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td><strong>Item Structure</strong></td>
+    <td>$[A \to \alpha \cdot \beta]$</td>
+    <td>$[A \to \alpha \cdot \beta]$</td>
+    <td>$[A \to \alpha \cdot \beta, a]$ (merged)</td>
+    <td>$[A \to \alpha \cdot \beta, a]$</td>
+  </tr>
+  <tr>
+    <td><strong>Lookahead Source</strong></td>
+    <td>None (0 symbols)</td>
+    <td>$FOLLOW(A)$ for all reduces</td>
+    <td>Merged item lookahead</td>
+    <td>Exact context lookahead</td>
+  </tr>
+  <tr>
+    <td><strong>Number of States</strong></td>
+    <td>Fewest ($K$)</td>
+    <td>Identical to LR(0) ($K$)</td>
+    <td>Identical to LR(0) ($K$)</td>
+    <td>Extremely large (often $10 \times K$)</td>
+  </tr>
+  <tr>
+    <td><strong>Parsing Power</strong></td>
+    <td>Weakest</td>
+    <td>Moderate</td>
+    <td>High (practical standard)</td>
+    <td>Maximum (all DCFGs)</td>
+  </tr>
+  <tr>
+    <td><strong>Industry Adoption</strong></td>
+    <td>Theoretical only</td>
+    <td>Educational</td>
+    <td><strong>Yacc / Bison / POSIX standard</strong></td>
+    <td>Impractical due to table bloat</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Formal Expressive Power Hierarchy</span>
+  $$\text{LL}(1) \subset \text{SLR}(1) \subset \text{LALR}(1) \subset \text{CLR}(1)$$
+  <em>Every SLR(1) grammar is LALR(1). Every LALR(1) grammar is CLR(1). The converse is NOT true.</em>
+</div>
+
+<h2>Error Detection, Error Recovery &amp; The Viable Prefix Property in LR Parsers</h2>
+
+<p>A central theoretical and practical triumph of bottom-up LR parsing is its precise, immediate error localization. Unlike naive parsers, an LR parser will <strong>never shift an invalid terminal onto the stack</strong>. The moment an illegal token appears in the input stream, the parser announces an error immediately.</p>
+
+<div class="box exam">
+  <span class="lbl">The Viable Prefix Property Explained Verbatim (Mam's Syntax Analysis-2.pdf)</span>
+  <p>A <strong>viable prefix</strong> is defined as a prefix of a right-sentential form that can appear on the stack of a shift-reduce parser without going past the right end of the handle.<br><br>
+  <strong>Why this matters for examiners:</strong>
+  <ul>
+    <li>As long as the parser's stack contains a viable prefix, there is at least one continuation of input symbols that could complete a valid rightmost derivation.</li>
+    <li>Canonical LR parsers possess the <strong>viable prefix property</strong>: they detect a syntax error as soon as the input token makes it impossible to form a viable prefix. No erroneous input token is ever shifted into the parser state stack!</li>
+    <li><em>LALR note:</em> While merging states in LALR never introduces shift/reduce conflicts, it may delay error detection &mdash; an LALR parser may perform a few extra spurious reductions before detecting an error, but it still <strong>never shifts an invalid token</strong>.</li>
+  </ul>
+  </p>
+</div>
+
+<h3>Error Recovery Strategies in Bottom-Up LR Parsing</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Recovery Strategy</th><th>Algorithm / Procedure</th><th>Pros &amp; Cons in Exams</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Panic-Mode Recovery in LR</strong></td><td>
+  When an error entry (blank) is encountered in the ACTION table:
+  <ol>
+    <li>Scan down the stack from the top until a state $s$ is uncovered that possesses a valid <code>goto</code> entry on a major non-terminal $A$ (such as <code>stmt</code> or <code>expr</code>).</li>
+    <li>Discard zero or more input tokens until a token $a$ is found that can legitimately follow $A$ ($a \in \text{FOLLOW}(A)$).</li>
+    <li>Push state $\text{goto}(s, A)$ onto the stack and resume normal shift-reduce parsing.</li>
+  </ol>
+</td><td><strong>Completely avoids infinite loops</strong>; robust and easy to implement. May discard significant input if synchronizing headers are far away.</td></tr>
+<tr><td><strong>2. Phrase-Level Recovery in LR</strong></td><td>
+  The compiler designer fills blank slots in the ACTION table with pointers to custom error routines based on the state and symbol:
+  <ul>
+    <li><em>Routine E1 (missing operand):</em> Push dummy <code>id</code> token and state, report "Operand expected".</li>
+    <li><em>Routine E2 (unbalanced parentheses):</em> Push matching <code>)</code> state, report "Unbalanced parenthesis".</li>
+    <li><em>Routine E3 (missing semicolon):</em> Insert <code>;</code> token and execute shift.</li>
+  </ul>
+</td><td>Local, user-friendly diagnostic messages; requires careful manual configuration to avoid cascading false errors.</td></tr>
+<tr><td><strong>3. Error Productions</strong></td><td>
+  Augment the grammar itself with productions representing common programming mistakes (e.g., $E \to E \ E$ for missing operators).</td><td>Permits the parser to construct standard parse trees and generate pinpoint diagnostic warnings.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. When computing the CLR closure of $[A \to \alpha \cdot B \beta, a]$, what lookahead is assigned to newly generated items $[B \to \cdot \gamma, b]$?</p>
+  <div class="opts">
+    <button class="opt">Only the original terminal $a$</button>
+    <button class="opt">All terminals $b \in FOLLOW(B)$</button>
+    <button class="opt">All terminals $b \in FIRST(B)$</button>
+    <button class="opt" data-ok="1">All terminals $b \in FIRST(\beta a)$</button>
+  </div>
+  <p class="why">The lookahead represents what follows B in this sentential form: $\beta$ followed by $a$. Hence, $b \in FIRST(\beta a)$.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. An LALR(1) parser is constructed by merging states from which collection?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">CLR(1) states having identical cores (same productions and dot positions)</button>
+    <button class="opt">LR(0) states having identical GOTO transitions</button>
+    <button class="opt">SLR(1) states having overlapping FOLLOW sets</button>
+    <button class="opt">LL(1) states having disjoint FIRST sets</button>
+  </div>
+  <p class="why">LALR merges CLR states that share identical cores, unioning their lookahead sets. This contracts the table back to LR(0)/SLR size while retaining precise lookahead discrimination.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Can merging CLR(1) states into LALR(1) introduce new Shift/Reduce conflicts?</p>
+  <div class="opts">
+    <button class="opt">Yes, frequently</button>
+    <button class="opt">Only if the start symbol is recursive</button>
+    <button class="opt" data-ok="1">No, never</button>
+    <button class="opt">Only if the grammar contains $\epsilon$-productions</button>
+  </div>
+  <p class="why">Shifts depend solely on the core $[A \to \alpha \cdot a \beta]$. Because both merged states had the exact same core, if a Shift/Reduce conflict occurred after merging, it must have already been present in one of the individual CLR states.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. How does the number of states in an LALR(1) parser compare to the number of states in an SLR(1) parser for any arbitrary grammar?</p>
+  <div class="opts">
+    <button class="opt">It depends on the number of $\epsilon$-productions</button>
+    <button class="opt">LALR always has more states than SLR</button>
+    <button class="opt">SLR always has more states than LALR</button>
+    <button class="opt" data-ok="1">They are always strictly equal</button>
+  </div>
+  <p class="why">Both SLR(1) and LALR(1) state spaces are in 1-to-1 correspondence with the canonical sets of LR(0) cores. Therefore, their state counts are always identical.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>How does CLR lookahead differ from SLR?</summary>
+    <p class="ans">SLR reduces on all terminals in $FOLLOW(A)$ regardless of state context. CLR reduces strictly on the terminal $a$ carried by the LR(1) item $[A \to \alpha \cdot, a]$, which was computed from $FIRST(\beta a)$ when the item was created.</p></details>
+  <details class="card"><summary>Why can LALR introduce Reduce/Reduce conflicts but never Shift/Reduce?</summary>
+    <p class="ans">Shifts depend strictly on the item core $[A \to \alpha \cdot a \beta]$, which is identical in both merged states. A reduce action depends on lookaheads: if two different productions reduce in the same core state with non-overlapping lookaheads in CLR, unioning their lookaheads during merge can cause their lookaheads to collide on a shared terminal, creating an R/R conflict.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0015-slr-parsing.html">&larr; Previous: SLR Parsing</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0017-parser-generators.html">Next: Parser Generators &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

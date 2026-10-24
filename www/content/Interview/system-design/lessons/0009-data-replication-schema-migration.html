@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 09 - Data Replication & Schema Migration | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 09 of 66 · Replication, Master-Slave, Schema Evolution</div>
+  
+  <h1>Data Replication & Schema Migration</h1>
+  <p class="subtitle">Making sure your data outlives a single server crash and evolves safely.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module B — Databases</span>
+  </div>
+
+  <div class="yt-embed">
+    <div class="yt-title">📺 Recommended Lecture</div>
+    <a href="https://www.youtube.com/watch?v=8_z7r8iogzg" target="_blank">Distributed Consensus and Data Replication strategies on the server — Gaurav Sen</a>
+    <span class="yt-desc">Excellent whiteboard breakdown of master-slave, split-brain, and replication trade-offs. Watch if the concept of replication lag feels fuzzy.</span>
+  </div>
+
+  <h2>The one idea</h2>
+  <p>Data replication involves keeping copies of your data across multiple servers (nodes) so that if one server goes up in flames, your system stays alive. Schema migration is the careful art of changing the structure of that data (adding/removing columns) across all those servers without taking your application offline.</p>
+
+  <h2>Why Replicate?</h2>
+  <ol>
+    <li><strong>High Availability (HA):</strong> If the primary database dies, a replica can take over immediately (failover).</li>
+    <li><strong>Read Scalability:</strong> Instead of hammering one database with all read and write queries, you can route read queries to the replicas, freeing up the primary for writes.</li>
+    <li><strong>Geographical Proximity:</strong> You can place replicas closer to your users (e.g., one in the US, one in Europe) to reduce read latency.</li>
+  </ol>
+
+  <h2>Architectures</h2>
+  
+  <h3>1. Master-Slave (Leader-Follower)</h3>
+  <p>This is the most common pattern. One node is designated as the <strong>Leader (Master)</strong>. All writes <em>must</em> go to the leader. The leader then ships a data log to the <strong>Followers (Slaves)</strong>, which apply the updates to their own local copies. Reads can go to the leader or any follower.</p>
+  
+  <div class="diagram">
+    <svg viewBox="0 0 600 250" xmlns="http://www.w3.org/2000/svg">
+      <!-- Client -->
+      <rect x="50" y="100" width="80" height="40" rx="5" fill="#2d3748" stroke="#a0aec0" stroke-width="2"/>
+      <text x="90" y="125" fill="#e2e8f0" font-family="sans-serif" font-size="14" text-anchor="middle">Client</text>
+      
+      <!-- Leader -->
+      <rect x="250" y="40" width="100" height="60" rx="5" fill="#2c5282" stroke="#63b3ed" stroke-width="2"/>
+      <text x="300" y="75" fill="#e2e8f0" font-family="sans-serif" font-size="14" text-anchor="middle">Leader DB</text>
+      <text x="300" y="55" fill="#90cdf4" font-family="sans-serif" font-size="10" text-anchor="middle">(Writes & Reads)</text>
+      
+      <!-- Followers -->
+      <rect x="450" y="120" width="100" height="40" rx="5" fill="#2d3748" stroke="#a0aec0" stroke-width="2"/>
+      <text x="500" y="145" fill="#e2e8f0" font-family="sans-serif" font-size="14" text-anchor="middle">Follower A</text>
+      
+      <rect x="450" y="180" width="100" height="40" rx="5" fill="#2d3748" stroke="#a0aec0" stroke-width="2"/>
+      <text x="500" y="205" fill="#e2e8f0" font-family="sans-serif" font-size="14" text-anchor="middle">Follower B</text>
+      
+      <!-- Arrows -->
+      <path d="M 130 110 L 240 75" stroke="#ecc94b" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+      <text x="180" y="85" fill="#ecc94b" font-family="sans-serif" font-size="12">Write</text>
+      
+      <path d="M 130 130 L 440 135" stroke="#68d391" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+      <text x="250" y="150" fill="#68d391" font-family="sans-serif" font-size="12">Read</text>
+      
+      <path d="M 350 80 Q 400 100 445 125" stroke="#cbd5e0" stroke-width="2" stroke-dasharray="4,4" fill="none" marker-end="url(#arrow)"/>
+      <path d="M 350 80 Q 400 130 445 185" stroke="#cbd5e0" stroke-width="2" stroke-dasharray="4,4" fill="none" marker-end="url(#arrow)"/>
+      <text x="420" y="90" fill="#cbd5e0" font-family="sans-serif" font-size="12">Replicate</text>
+      
+      <!-- Arrowhead definition -->
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="context-stroke" />
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <h3>2. Multi-Master (Multi-Leader)</h3>
+  <p>Multiple nodes can accept writes. Used primarily for multi-datacenter deployments. If a user is in the US, they write to the US Master. If a user is in Asia, they write to the Asia Master. The masters then sync with each other.</p>
+  <p><strong>The Catch:</strong> Conflict resolution. If two users edit the same record simultaneously on different masters, you have a collision. You need complex logic (like LWW - Last Write Wins, or custom application logic) to resolve it.</p>
+
+  <h2>Sync vs Async Replication</h2>
+  <p>How does the leader send data to the follower?</p>
+  
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Aspect</th>
+        <th>Synchronous</th>
+        <th>Asynchronous</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>How it works</strong></td>
+        <td>Leader waits for Follower to confirm it saved the data before responding "Success" to the client.</td>
+        <td>Leader writes data locally, says "Success" to client, and sends data to Follower in the background.</td>
+      </tr>
+      <tr>
+        <td><strong>Latency</strong></td>
+        <td>High. Client waits for network roundtrips to all sync replicas.</td>
+        <td>Low. Client gets immediate response.</td>
+      </tr>
+      <tr>
+        <td><strong>Durability</strong></td>
+        <td>Perfect. If Leader dies, Follower has 100% of the data.</td>
+        <td>Risky. If Leader dies before background sync, recent writes are permanently lost.</td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <div class="callout trap">
+    <strong>The Replication Lag Trap:</strong> In async replication, if a user updates their profile (goes to Leader) and immediately refreshes the page (reads from Follower), they might see their old profile because the Follower hasn't received the update yet. This is <strong>Replication Lag</strong>. A common fix is "Read-your-own-writes" consistency (route the user's reads to the Leader for a few seconds after a write).
+  </div>
+
+  <h2>Schema Migration Without Downtime</h2>
+  <p>In a production system, you cannot simply run <code>ALTER TABLE ADD COLUMN</code> on a multi-terabyte database. It will lock the table for hours, causing total system downtime.</p>
+
+  <p><strong>How to do it safely:</strong></p>
+  <ol>
+    <li><strong>Backward Compatibility is Mandatory:</strong> Your application code must be able to handle the old schema and the new schema simultaneously.</li>
+    <li><strong>Shadow Writes:</strong> Write to the new column/table while continuing to write to the old one.</li>
+    <li><strong>Backfill:</strong> Run a background script to copy old data into the new structure slowly, chunk by chunk, without locking the DB.</li>
+    <li><strong>Flip the switch:</strong> Once backfilled, change the application code to read from the new structure.</li>
+    <li><strong>Cleanup:</strong> Eventually drop the old column/table in a future deployment.</li>
+  </ol>
+  <p>Tools like <em>gh-ost</em> (GitHub) or <em>pt-online-schema-change</em> are often used in MySQL to do this automatically by creating a shadow table, syncing data via replication logs, and swapping them instantaneously.</p>
+
+  <h2>Check yourself</h2>
+  <div class="quiz" data-answer="2">
+    <div class="q">In a Leader-Follower setup using Asynchronous replication, what happens if the Leader crashes immediately after acknowledging a write to a client, but before sending the log to the Follower?</div>
+    <button class="opt">The Follower pauses until the Leader restarts.</button>
+    <button class="opt">The Follower pulls the lost data from the client cache.</button>
+    <button class="opt">The data is permanently lost.</button>
+    <button class="opt">The database automatically switches to synchronous mode.</button>
+    <div class="fb" data-correct="Correct! Because the replication was async, the Follower never got the data. If the Leader is destroyed, that write is gone forever." data-wrong="Remember that async means the client gets a success response before the Follower has the data."></div>
+  </div>
+
+  <div class="quiz" data-answer="1">
+    <div class="q">To prevent users from experiencing "Replication Lag" right after they update their own data, what routing strategy is commonly used?</div>
+    <button class="opt">Route all reads to a random Follower.</button>
+    <button class="opt">Read-your-own-writes (route their reads to the Leader temporarily).</button>
+    <button class="opt">Switch the entire cluster to Synchronous replication.</button>
+    <button class="opt">Disable caching entirely.</button>
+    <div class="fb" data-correct="Correct! Routing the user's subsequent reads to the Leader ensures they see their own update immediately." data-wrong="Switching to Synchronous replication would solve it, but ruins performance. Think of a routing-based solution."></div>
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Research the <strong>Split-Brain Problem</strong>: What happens if the network partitions and two followers both think they should be the new Leader?</li>
+  </ul>
+
+  <div class="callout">
+    Say "next" to advance to <strong>Lesson 10: Data Partitioning</strong>, where we learn how to scale when our data is too big to fit on one master server.
+  </div>
+
+  <div class="nav">
+    <a href="0008-in-memory-databases.html">← Previous: In-Memory Databases</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0010-data-partitioning.html">Next: Data Partitioning →</a>
+  </div>
+
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

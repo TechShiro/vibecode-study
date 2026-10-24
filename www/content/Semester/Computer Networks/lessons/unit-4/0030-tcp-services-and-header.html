@@ -1,0 +1,261 @@
+<title>TCP Services and Header</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit IV &middot; Lesson 30 of 42</p>
+<h1>TCP: Services and Header</h1>
+<p class="deck">Stream delivery, the numbering system that everything else depends on, the eleven header fields, the six control flags, and the options. The sequence-number rules in particular return in every remaining lesson of this unit.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Draw and explain the TCP header"</strong> is a 10-mark near-certainty. Draw it <strong>four bytes (32 bits) per row</strong> with the bit-width under each field. The two places marks are actually lost: the <strong>six control flags</strong> (name all six, one line each) and the <strong>sequence vs acknowledgement number rule</strong>. Get those right and the rest is description.</p>
+</div>
+
+<h2>TCP's services</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Service</th><th>What it means</th></tr></thead>
+<tbody>
+<tr><td><strong>Process-to-process communication</strong></td><td>Delivery to the correct process using <strong>port numbers</strong>, as with UDP.</td></tr>
+<tr><td><strong>Stream delivery service</strong></td><td>TCP is a <strong>stream-oriented</strong> protocol. It lets the two processes behave as though connected by an <strong>imaginary tube</strong> carrying a continuous flow of bytes. <strong>Message boundaries are not preserved.</strong></td></tr>
+<tr><td><strong>Sending and receiving buffers</strong></td><td>Because the two processes may write and read at different speeds, TCP keeps a <strong>buffer at each end</strong> for storage in both directions.</td></tr>
+<tr><td><strong>Segments</strong></td><td>TCP groups bytes from the buffer into packets called <strong>segments</strong>, adds a header, and hands them to IP. Segments need not be the same size.</td></tr>
+<tr><td><strong>Full-duplex</strong></td><td>Data flows <strong>in both directions at the same time</strong> over one connection. Each direction has its own sequence numbers and its own window.</td></tr>
+<tr><td><strong>Connection-oriented</strong></td><td>A connection is <strong>established, used, then torn down</strong>. Note: it is a <strong>virtual</strong> connection, not a physical circuit &mdash; the segments themselves travel as independent IP datagrams.</td></tr>
+<tr><td><strong>Reliable</strong></td><td>Acknowledgement, checksum and retransmission guarantee safe, in-order arrival.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The point about "connection-oriented" that earns a mark</span>
+  <p><strong>TCP's connection is virtual, not physical.</strong> IP is connectionless and treats every datagram independently &mdash; segments of one TCP connection may take different routes and arrive out of order. TCP creates the <em>appearance</em> of an ordered, reliable pipe on top of that, using sequence numbers and buffering at the endpoints. Saying this shows you understand the layering rather than just the label.</p>
+</div>
+
+<h2>The numbering system &mdash; learn this before the header</h2>
+
+<p>TCP numbers <strong>bytes, not segments</strong>. Every byte of data transferred in a connection is numbered, and the segment header reports positions within that byte numbering.</p>
+
+<div class="formula">
+  <span class="name">The two rules</span>
+  <strong>Sequence number</strong> = the number of the <strong>FIRST byte of data carried in this segment</strong><br>
+  <strong>Acknowledgement number</strong> = the number of the <strong>NEXT byte the receiver expects</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&mdash; and it is <strong>cumulative</strong>: acknowledging byte n means every byte up to n&minus;1 arrived safely.
+</div>
+
+<p>The <strong>Initial Sequence Number (ISN)</strong> is chosen <strong>randomly</strong>, not started at 0. Two reasons, both examinable: it prevents a delayed segment from an old connection being mistaken for part of a new one, and it makes connection hijacking harder for an attacker who would otherwise be able to guess sequence numbers.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; sequence and acknowledgement numbers</span>
+  <p><strong>Q.</strong> A TCP connection transfers 5000 bytes in five segments of 1000 bytes each. The ISN is 10,001. Give the sequence number of each segment, and the acknowledgement number the receiver returns after each.</p>
+
+  <p>Byte numbering runs from 10,001 to 15,000. The first data byte is <strong>10,001</strong>.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Segment</th><th>Bytes carried</th><th>Sequence number</th><th>Receiver's ACK number</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>10,001 &ndash; 11,000</td><td class="num"><strong>10,001</strong></td><td class="num"><strong>11,001</strong></td></tr>
+  <tr><td>2</td><td>11,001 &ndash; 12,000</td><td class="num"><strong>11,001</strong></td><td class="num"><strong>12,001</strong></td></tr>
+  <tr><td>3</td><td>12,001 &ndash; 13,000</td><td class="num"><strong>12,001</strong></td><td class="num"><strong>13,001</strong></td></tr>
+  <tr><td>4</td><td>13,001 &ndash; 14,000</td><td class="num"><strong>13,001</strong></td><td class="num"><strong>14,001</strong></td></tr>
+  <tr><td>5</td><td>14,001 &ndash; 15,000</td><td class="num"><strong>14,001</strong></td><td class="num"><strong>15,001</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><em>Sanity check:</em> each ACK number = the previous sequence number + the bytes in that segment. And the ACK always names a byte <strong>not yet received</strong> &mdash; it is a request, not a receipt. Answering "11,000" instead of "11,001" is the standard error, and it comes from thinking of the ACK as "the last byte I got" rather than "the next byte I want".</p>
+</div>
+
+<h2>The TCP header</h2>
+
+<div class="formula">
+  <span class="name">TCP header &mdash; 20 to 60 bytes, drawn 4 bytes per row</span>
+  Row 1: | <strong>Source Port (16)</strong> | <strong>Destination Port (16)</strong> |<br>
+  Row 2: | <strong>Sequence Number (32)</strong> |<br>
+  Row 3: | <strong>Acknowledgement Number (32)</strong> |<br>
+  Row 4: | HLEN (4) | Reserved (6) | <strong>Flags (6)</strong> | <strong>Window Size (16)</strong> |<br>
+  Row 5: | <strong>Checksum (16)</strong> | Urgent Pointer (16) |<br>
+  Row 6: | Options and Padding (0 to 40 bytes) |
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Source port</strong></td><td>16 bits</td><td>Port of the sending process</td></tr>
+<tr><td><strong>Destination port</strong></td><td>16 bits</td><td>Port of the receiving process</td></tr>
+<tr><td><strong>Sequence number</strong></td><td>32 bits</td><td>The number of the <strong>first data byte in this segment</strong>. During connection setup, when SYN is set, it carries the <strong>ISN</strong> and consumes one sequence number even though no data is sent.</td></tr>
+<tr><td><strong>Acknowledgement number</strong></td><td>32 bits</td><td>The number of the <strong>next byte expected</strong>. Cumulative. Valid only when the <strong>ACK flag</strong> is set.</td></tr>
+<tr><td><strong>HLEN</strong></td><td>4 bits</td><td>Header length in <strong>4-byte words</strong>. Value 5 = 20 bytes (no options); value 15 = 60 bytes.</td></tr>
+<tr><td><strong>Reserved</strong></td><td>6 bits</td><td>Set to zero, kept for future use</td></tr>
+<tr><td><strong>Control flags</strong></td><td>6 bits</td><td>URG, ACK, PSH, RST, SYN, FIN &mdash; see below</td></tr>
+<tr><td><strong>Window size</strong></td><td>16 bits</td><td>The <strong>receiver's advertised window (rwnd)</strong> &mdash; how many bytes the receiver is currently willing to accept. Maximum <strong>65,535</strong>, which is why the <em>window scale</em> option exists. <strong>This field is how flow control is implemented.</strong></td></tr>
+<tr><td><strong>Checksum</strong></td><td>16 bits</td><td>Covers header, data and a <strong>pseudoheader</strong> with protocol number <strong>6</strong>. <strong>Mandatory in TCP</strong>, unlike UDP where it is optional.</td></tr>
+<tr><td><strong>Urgent pointer</strong></td><td>16 bits</td><td>Valid only when <strong>URG</strong> is set. Added to the sequence number, it gives the number of the <strong>last byte of urgent data</strong>.</td></tr>
+<tr><td><strong>Options and padding</strong></td><td>0&ndash;40 bytes</td><td>MSS, window scale, SACK, timestamp &mdash; see Lesson 34</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The six control flags</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Flag</th><th>Name</th><th>Meaning when set</th></tr></thead>
+<tbody>
+<tr><td><strong>URG</strong></td><td>Urgent</td><td>The <strong>urgent pointer field is valid</strong> &mdash; this segment contains data the receiver should process ahead of the queue.</td></tr>
+<tr><td><strong>ACK</strong></td><td>Acknowledgement</td><td>The <strong>acknowledgement number field is valid</strong>. Set on every segment after the first.</td></tr>
+<tr><td><strong>PSH</strong></td><td>Push</td><td><strong>Deliver the data to the application immediately</strong>, without waiting for the buffer to fill. Used by interactive applications such as TELNET.</td></tr>
+<tr><td><strong>RST</strong></td><td>Reset</td><td><strong>Abort the connection</strong> &mdash; sent on an error, or when a segment arrives for a connection that does not exist.</td></tr>
+<tr><td><strong>SYN</strong></td><td>Synchronise</td><td><strong>Synchronise sequence numbers</strong> during connection establishment.</td></tr>
+<tr><td><strong>FIN</strong></td><td>Finish</td><td><strong>Terminate the connection</strong> &mdash; the sender has no more data to send.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">A mnemonic, and the two facts attached to it</span>
+  <p>In header order the flags are <strong>URG, ACK, PSH, RST, SYN, FIN</strong> &mdash; <em>"Unskilled Attackers Pester Real Security Folks."</em><br>
+  Two facts that get asked directly: <strong>SYN and FIN each consume one sequence number</strong> even though they carry no data (which is why the handshake's numbers advance by 1). <strong>Pure ACK segments consume none.</strong></p>
+</div>
+
+<h3>What "urgent" actually means &mdash; a common misconception</h3>
+
+<p>Urgent data is <strong>not</strong> sent on a separate faster channel and does not overtake anything in the network. The URG flag simply tells the receiving TCP that the bytes up to the urgent pointer should be <strong>passed to the application out of band, ahead of the normal read queue</strong>. It is a signal about handling at the destination, not about priority in transit. Ctrl-C in a TELNET session is the classic use.</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">TCP 20-Byte Base Header & 6 Control Flags</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:34rem;">
+      <strong>TCP Base Header (20 Bytes)</strong>
+      <span class="sub">Src Port (16b) | Dest Port (16b) | Sequence No (32b) | Ack No (32b)<br>HLEN (4b) | Reserved (6b) | <strong>Flags: URG, ACK, PSH, RST, SYN, FIN</strong> | Window Size (16b)<br>Checksum (16b) | Urgent Pointer (16b) | Options (0&ndash;40B)</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>SYN / FIN</strong><span class="sub">Establish / Terminate connection; consumes 1 sequence number</span></div>
+    <div class="flow-box ok"><strong>ACK / PSH</strong><span class="sub">Validates Ack number / Forces immediate push to application</span></div>
+    <div class="flow-box warn"><strong>RST / URG</strong><span class="sub">Aborts abnormal connection / Marks high-priority out-of-band data</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 19 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">TCP Header Architecture</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-69 & Lec-70: TCP Header Format & Flags Deep Dive</div>
+    <div class="v-desc">Detailed examination of 32-bit sequence/acknowledgement byte numbering, header length scaling (x4), and the operational role of each flag.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=c8aet11HNxg" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. A segment carries bytes 4001 to 5000. Its sequence number and the receiver's acknowledgement number are:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Sequence 4001, acknowledgement 5001</button>
+    <button class="opt">Sequence 1, acknowledgement 1000</button>
+    <button class="opt">Sequence 5000, acknowledgement 5001</button>
+    <button class="opt">Sequence 4001, acknowledgement 5000</button>
+  </div>
+  <p class="why">Sequence = first byte carried = 4001. Acknowledgement = <em>next</em> byte expected = 5001, not the last byte received. Answering 5000 is the standard slip, and it comes from reading the ACK as a receipt rather than a request.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The TCP window size field implements:</p>
+  <div class="opts">
+    <button class="opt">Error control &mdash; it counts unacknowledged segments</button>
+    <button class="opt">Congestion control &mdash; it reflects network load</button>
+    <button class="opt">Connection control &mdash; it counts open connections</button>
+    <button class="opt" data-ok="1">Flow control &mdash; it is the receiver's advertised window</button>
+  </div>
+  <p class="why">rwnd is set by the receiver to say how much it can currently absorb, which protects the receiver — that is flow control. Congestion control uses cwnd, which the sender computes itself and which appears nowhere in the header.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Which flags consume a sequence number despite carrying no data?</p>
+  <div class="opts">
+    <button class="opt">URG and RST</button>
+    <button class="opt" data-ok="1">SYN and FIN</button>
+    <button class="opt">All six control flags do</button>
+    <button class="opt">ACK and PSH</button>
+  </div>
+  <p class="why">SYN and FIN each consume one sequence number, which is why the handshake's numbers advance by 1 with no data sent. Pure ACK segments consume none — a fact that matters when tracing a connection trace in an exam question.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The PSH flag asks the receiver to:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Deliver the data to the application at once, without waiting for the buffer to fill</button>
+    <button class="opt">Reset the connection because an error has occurred</button>
+    <button class="opt">Increase the advertised window to accept more data</button>
+    <button class="opt">Push the segment ahead of others queued in the network</button>
+  </div>
+  <p class="why">PSH is about buffering at the endpoints, not priority in transit. Interactive applications such as TELNET use it so a keystroke is not held back waiting for more bytes to accumulate.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. TCP's initial sequence number is chosen randomly in order to:</p>
+  <div class="opts">
+    <button class="opt">Allow the connection to carry more than 2³² bytes of data</button>
+    <button class="opt" data-ok="1">Avoid confusion with old segments, and make hijacking harder</button>
+    <button class="opt">Distribute load evenly across the available port numbers</button>
+    <button class="opt">Let the receiver compute the checksum more efficiently</button>
+  </div>
+  <p class="why">A delayed segment from an old connection could otherwise be accepted as part of a new one, and a predictable ISN would let an attacker forge segments into an existing connection. Both reasons are examinable.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. An HLEN value of 8 means the TCP header is:</p>
+  <div class="opts">
+    <button class="opt">8 bytes, the same size as the UDP header</button>
+    <button class="opt" data-ok="1">32 bytes, so 12 bytes of options are present</button>
+    <button class="opt">20 bytes, the minimum with no options</button>
+    <button class="opt">60 bytes, the maximum permitted size</button>
+  </div>
+  <p class="why">HLEN counts 4-byte words: 8 × 4 = 32 bytes. Since the base header is 20 bytes, the extra 12 must be options. Value 5 gives the 20-byte minimum, value 15 the 60-byte maximum.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>List TCP's seven services.</summary>
+    <p class="ans">Process-to-process communication via ports; stream delivery service (an imaginary tube of bytes, boundaries not preserved); sending and receiving buffers; segments; full-duplex; connection-oriented; reliable.</p></details>
+  <details class="card"><summary>Why is TCP's connection called virtual?</summary>
+    <p class="ans">IP is connectionless and treats each datagram independently, so segments may take different routes and arrive out of order. TCP creates the appearance of an ordered reliable pipe on top of that, using sequence numbers and endpoint buffering — there is no physical circuit.</p></details>
+  <details class="card"><summary>State the sequence number and acknowledgement number rules.</summary>
+    <p class="ans">Sequence number = the number of the first data byte in this segment. Acknowledgement number = the number of the next byte expected, and it is cumulative, so acknowledging n means everything up to n−1 arrived. TCP numbers bytes, not segments.</p></details>
+  <details class="card"><summary>Why is the ISN random?</summary>
+    <p class="ans">So a delayed segment from an old connection cannot be mistaken for part of a new one, and so an attacker cannot guess sequence numbers to hijack a connection.</p></details>
+  <details class="card"><summary>Draw the TCP header with field sizes.</summary>
+    <p class="ans">Source Port (16) | Destination Port (16); Sequence Number (32); Acknowledgement Number (32); HLEN (4) | Reserved (6) | Flags (6) | Window Size (16); Checksum (16) | Urgent Pointer (16); Options and Padding (0–40 bytes). Total 20–60 bytes.</p></details>
+  <details class="card"><summary>Name the six control flags and what each means.</summary>
+    <p class="ans">URG — urgent pointer valid. ACK — acknowledgement number valid. PSH — deliver to the application immediately. RST — abort the connection. SYN — synchronise sequence numbers during setup. FIN — sender has no more data, terminate.</p></details>
+  <details class="card"><summary>What is the window size field, and what limits it?</summary>
+    <p class="ans">The receiver's advertised window (rwnd), the number of bytes it is currently willing to accept — this is how flow control is implemented. It is 16 bits, so the maximum is 65,535, which is why the window scale option exists.</p></details>
+  <details class="card"><summary>How does TCP's checksum differ from UDP's?</summary>
+    <p class="ans">Both cover header, data and a pseudoheader, but TCP's pseudoheader carries protocol number 6 rather than 17, and the TCP checksum is mandatory whereas UDP's is optional in IPv4.</p></details>
+</div>
+
+<p class="ask">Next: how the connection is actually opened and closed &mdash; the three-way handshake, which is the most-drawn diagram in this unit.</p>
+
+<div class="nav">
+  <a href="0029-udp.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0031-tcp-connection-management.html">Next: TCP Connection Management &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

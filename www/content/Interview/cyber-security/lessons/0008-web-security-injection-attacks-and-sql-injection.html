@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 08 – SQL Injection & Injection Attacks</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module D · Lesson 8 of 17 · Web Application Security</div>
+  <h1>SQL Injection (SQLi) & Command Injection</h1>
+  <p class="subtitle">Why mixing untrusted user data with code causes catastrophic execution, exploiting databases with sqlmap, and parameterized defenses.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Web Security (OWASP Top 10)</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>The universal vulnerability behind all injection flaws (SQL Injection, OS Command Injection, LDAP Injection) is <strong>the failure to separate code from data</strong>. When an application concatenates untrusted user input directly into an interpreter string, an attacker crafts malicious syntax that breaks out of the data context and instructs the database or operating system to execute arbitrary unauthorized commands.</p>
+
+  <h2>2 · Recommended Deep-Dive Lecture</h2>
+  <p>To watch how a single quote mark alters SQL syntax and bypasses login authentication, watch Computerphile's classic breakdown:</p>
+  <div class="video-container">
+    <iframe src="https://www.youtube-nocookie.com/embed/_jKylhJtPmI" title="SQL Injection - Computerphile" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+
+  <h2>3 · Types of SQL Injection</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Category</th><th>Technique</th><th>How It Works</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>In-Band SQLi</strong></td>
+        <td><strong>UNION-based</strong></td>
+        <td>Appends results of attacker query to original query using <code>UNION SELECT username, password FROM users--</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>In-Band SQLi</strong></td>
+        <td><strong>Error-based</strong></td>
+        <td>Intentionally triggers database error messages (e.g. <code>CAST(version() AS int)</code>) that leak sensitive data inside error strings.</td>
+      </tr>
+      <tr>
+        <td><strong>Inferential (Blind)</strong></td>
+        <td><strong>Boolean Blind</strong></td>
+        <td>No data or errors returned on screen. Attacker injects TRUE/FALSE conditions (<code>AND SUBSTRING(password,1,1)='a'</code>) and observes page content differences.</td>
+      </tr>
+      <tr>
+        <td><strong>Inferential (Blind)</strong></td>
+        <td><strong>Time-based Blind</strong></td>
+        <td>Forces database to sleep (<code>pg_sleep(5)</code> or <code>WAITFOR DELAY '0:0:5'</code>). If server takes 5 seconds to respond, injected character was correct!</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Automated Database Exploitation with Sqlmap</h2>
+  <pre><code># 1. Test a target URL parameter for SQL injection vulnerabilities
+sqlmap -u "http://target.com/product.php?id=10" --banner
+
+# 2. Enumerate all databases on the backend server
+sqlmap -u "http://target.com/product.php?id=10" --dbs
+
+# 3. Dump the users table from database 'corp_db'
+sqlmap -u "http://target.com/product.php?id=10" -D corp_db -T users --dump
+
+# 4. Inject using a captured HTTP POST request from Burp Suite
+sqlmap -r login_request.req -p username --batch</code></pre>
+
+  <h2>5 · Complete Defense: Parameterized Queries (Prepared Statements)</h2>
+  <div class="callout good">
+    <h4>Why Sanitization Fails and Prepared Statements Succeed</h4>
+    <p>Trying to blacklist characters (<code>'</code>, <code>"</code>, <code>--</code>) is doomed to fail due to encoding bypasses (Unicode, hex, double URL encoding). <strong>Prepared Statements</strong> compile the SQL query template on the database engine FIRST, and send user input separately as literal data parameters. The database parser treats user input strictly as a string constant, making injection mathematically impossible!</p>
+    <pre><code># VULNERABLE CODE (String Concatenation):
+cursor.execute(f"SELECT * FROM users WHERE username = '{user}' AND password = '{pwd}'")
+
+# SECURE CODE (Parameterized Query):
+cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (user, pwd))</code></pre>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0007-pki-digital-signatures-and-tls-handshake.html">← Lesson 07: PKI & TLS 1.3</a>
+    <a href="0009-cross-site-scripting-xss-csrf-and-cors.html">Lesson 09: XSS, CSRF & CORS →</a>
+  </nav>
+</body>
+</html>

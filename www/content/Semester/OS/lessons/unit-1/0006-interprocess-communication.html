@@ -1,0 +1,348 @@
+<title>Interprocess Communication</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit I &middot; Lesson 6 of 14</p>
+<h1>Interprocess Communication</h1>
+<p class="deck">Why processes cooperate, the two IPC models compared, the bounded-buffer producer&ndash;consumer code, direct and indirect message passing, blocking and non-blocking, buffering, and the four real IPC systems.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain the two models of interprocess communication with diagrams&rdquo;</strong> is the 10-mark question here, and the comparison table below is the answer. <strong>The bounded-buffer producer&ndash;consumer code is worth writing out</strong> &mdash; it appears again in Unit II with semaphores, so learning it now pays twice. Also learn the <strong>three design questions of message passing</strong> (direct/indirect, synchronous/asynchronous, buffering), because &ldquo;discuss the issues in message passing&rdquo; is exactly those three.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Interprocess Communication (IPC): Shared Memory vs Message Passing</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Shared Memory (shmget / mmap)</strong><span class="sub">Zero Kernel Intervention after Setup</span></div>
+      <div class="flow-box">Processes map common physical memory frame into their virtual address spaces &bull; Fastest IPC speed &bull; Synchronization handled by application via semaphores</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Message Passing (send / receive)</strong><span class="sub">Kernel Managed Message Queue</span></div>
+      <div class="flow-box">Processes exchange messages through kernel mailbox &bull; Direct (P, Q) vs Indirect (Mailbox A) &bull; Synchronous blocking vs Asynchronous non-blocking &bull; Safer across distributed nodes</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">IPC Paradigms</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Inter Process Communication Explained & Shared Memory vs Message Passing</div>
+    <div class="v-desc">Clear contrast showing memory mapping, message queues, pipe semantics, and synchronization trade-offs for exam answers.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=dJuYKfR8vec" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Independent and cooperating processes</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Independent process</strong></th><th><strong>Cooperating process</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Definition</strong></td><td>Cannot affect, and cannot be affected by, any other process</td><td>Can affect, or be affected by, other processes</td></tr>
+<tr><td><strong>Shares data?</strong></td><td>No</td><td>Yes</td></tr>
+<tr><td><strong>Deterministic?</strong></td><td>Yes &mdash; same input always gives same result</td><td>Not necessarily &mdash; depends on relative timing</td></tr>
+<tr><td><strong>Needs IPC?</strong></td><td>No</td><td><strong>Yes</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Four reasons for allowing process cooperation</strong> &mdash; a standard 4-mark list:</p>
+
+<ol>
+<li><strong>Information sharing.</strong> Several users may want the same piece of information, such as a shared file.</li>
+<li><strong>Computation speed-up.</strong> A task split into subtasks running in parallel finishes sooner &mdash; but only on a machine with multiple processing cores.</li>
+<li><strong>Modularity.</strong> Divide the system into separate processes or threads, each with one job.</li>
+<li><strong>Convenience.</strong> Even one user works on many tasks at once &mdash; editing, printing and compiling in parallel.</li>
+</ol>
+
+<h2>The two IPC models</h2>
+
+<div class="formula">
+  <span class="name">The fundamental split</span>
+  <strong>1. Shared memory.</strong> A region of memory is established that both processes map into their address spaces. They then read and write that region <strong>as ordinary memory</strong>. The OS is involved only <em>once</em>, to set the region up.<br><br>
+  <strong>2. Message passing.</strong> Processes exchange discrete messages through the kernel using <code>send()</code> and <code>receive()</code>. <strong>Every message is a system call.</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Shared memory</strong></th><th><strong>Message passing</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Speed</strong></td><td><strong>Faster</strong> &mdash; at memory speed, no kernel involvement after setup</td><td>Slower &mdash; a system call per message, plus copying</td></tr>
+<tr><td><strong>Kernel involvement</strong></td><td>Only to create the shared region</td><td>On <strong>every</strong> send and every receive</td></tr>
+<tr><td><strong>Synchronisation</strong></td><td>The <strong>programmer's responsibility</strong> &mdash; the processes must not write the same location at once</td><td><strong>Handled by the OS</strong> &mdash; messages are delivered atomically</td></tr>
+<tr><td><strong>Suits</strong></td><td>Large volumes of data; processes on the <strong>same machine</strong></td><td>Small amounts of data; processes on <strong>different machines</strong>, over a network</td></tr>
+<tr><td><strong>Ease of implementation</strong></td><td>Harder to program correctly &mdash; race conditions are the programmer's problem</td><td>Easier &mdash; no shared state to corrupt</td></tr>
+<tr><td><strong>Conflicts</strong></td><td>Possible &mdash; needs semaphores or monitors (Unit II)</td><td>None &mdash; nothing is shared</td></tr>
+<tr><td><strong>System calls</strong></td><td><code>shmget</code>, <code>shmat</code>, <code>mmap</code></td><td><code>send</code>, <code>receive</code>, <code>pipe</code>, <code>msgsnd</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-line contrast</span>
+  <p><strong>Shared memory is faster but leaves synchronisation to you; message passing is slower but the OS keeps it safe.</strong> Everything else in this lesson elaborates that sentence.</p>
+</div>
+
+<h2>Shared memory &mdash; the producer&ndash;consumer problem</h2>
+
+<p>The paradigm for cooperating processes: a <strong>producer</strong> process produces items that a <strong>consumer</strong> process consumes. A compiler produces assembly code consumed by an assembler; a web server produces HTML consumed by a browser.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Buffer type</th><th>Rule</th></tr></thead>
+<tbody>
+<tr><td><strong>Unbounded buffer</strong></td><td>No practical limit on size. The <strong>consumer may have to wait</strong> for items, but the producer <strong>never waits</strong></td></tr>
+<tr><td><strong>Bounded buffer</strong></td><td>Fixed size. The consumer waits if the buffer is <strong>empty</strong>; the producer waits if the buffer is <strong>full</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Bounded buffer &mdash; shared data</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.85rem; text-align:left; margin-top:.4rem">
+  #define BUFFER_SIZE 10<br>
+  item buffer[BUFFER_SIZE];<br>
+  int in = 0;&nbsp;&nbsp;&nbsp;/* next free position */<br>
+  int out = 0;&nbsp;&nbsp;/* first full position */
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.5rem">Buffer is <strong>empty</strong> when <code>in == out</code>. Buffer is <strong>full</strong> when <code>((in + 1) % BUFFER_SIZE) == out</code>.</span>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Producer</th><th>Consumer</th></tr></thead>
+<tbody>
+<tr>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+item next_produced;<br>
+while (true) {<br>
+&nbsp;&nbsp;/* produce an item */<br>
+&nbsp;&nbsp;while (((in + 1) % BUFFER_SIZE) == out)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;;&nbsp;&nbsp;/* buffer full — do nothing */<br>
+&nbsp;&nbsp;buffer[in] = next_produced;<br>
+&nbsp;&nbsp;in = (in + 1) % BUFFER_SIZE;<br>
+}
+</td>
+<td style="font-family:ui-monospace,monospace; font-size:.78rem; vertical-align:top">
+item next_consumed;<br>
+while (true) {<br>
+&nbsp;&nbsp;while (in == out)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;;&nbsp;&nbsp;/* buffer empty — do nothing */<br>
+&nbsp;&nbsp;next_consumed = buffer[out];<br>
+&nbsp;&nbsp;out = (out + 1) % BUFFER_SIZE;<br>
+&nbsp;&nbsp;/* consume the item */<br>
+}
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The limitation to state &mdash; it is worth a mark</span>
+  <p>This solution can use <strong>only BUFFER_SIZE &minus; 1 elements</strong> out of BUFFER_SIZE. One slot is deliberately wasted, because otherwise &ldquo;full&rdquo; and &ldquo;empty&rdquo; would both be <code>in == out</code> and could not be told apart. Using all N slots requires a counter variable &mdash; and that counter is precisely what creates a <strong>race condition</strong>, which is where Unit II begins.</p>
+</div>
+
+<h2>Message passing</h2>
+
+<p>A message-passing facility provides two operations: <strong><code>send(message)</code></strong> and <strong><code>receive(message)</code></strong>. If two processes want to communicate, a <strong>communication link</strong> must exist between them. Three design questions must be settled, and &ldquo;discuss the issues in message passing&rdquo; means exactly these three.</p>
+
+<h3>Question 1 &mdash; naming: direct or indirect?</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Direct communication</strong></th><th><strong>Indirect communication</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Syntax</strong></td><td><code>send(P, msg)</code> &mdash; send to process P<br><code>receive(Q, msg)</code> &mdash; receive from process Q</td><td><code>send(A, msg)</code> &mdash; send to mailbox A<br><code>receive(A, msg)</code> &mdash; receive from mailbox A</td></tr>
+<tr><td><strong>Who is named</strong></td><td>The <strong>process</strong>, explicitly</td><td>A <strong>mailbox / port</strong>, which has a unique id</td></tr>
+<tr><td><strong>Link established</strong></td><td>Automatically, between exactly one pair</td><td>Only if both processes share a mailbox</td></tr>
+<tr><td><strong>Links per pair</strong></td><td>Exactly one</td><td>Several possible &mdash; one per shared mailbox</td></tr>
+<tr><td><strong>Number of processes</strong></td><td>Exactly <strong>two</strong> per link</td><td><strong>Many</strong> may share a mailbox</td></tr>
+<tr><td><strong>Weakness</strong></td><td><strong>Poor modularity</strong> &mdash; changing a process's identifier means finding and changing every reference to it</td><td>More OS machinery: mailboxes must be created, owned and deleted</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Direct communication also has an <strong>asymmetric</strong> variant, in which only the sender names the receiver; the receiver's call, <code>receive(id, msg)</code>, sets <code>id</code> to whichever process sent the message.</p>
+
+<p><strong>The mailbox-sharing problem:</strong> if P1, P2 and P3 all share mailbox A, and P1 sends while both P2 and P3 execute <code>receive</code> &mdash; who gets the message? Three solutions: <em>allow a link between at most two processes</em>; <em>allow only one process at a time to execute receive</em>; or <em>let the system choose arbitrarily</em>, using an algorithm such as round robin, and tell the sender who received it.</p>
+
+<h3>Question 2 &mdash; synchronisation: blocking or non-blocking?</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>Blocking (synchronous)</th><th>Non-blocking (asynchronous)</th></tr></thead>
+<tbody>
+<tr><td><strong>Send</strong></td><td>The sender is blocked until the message is received by the receiving process or mailbox</td><td>The sender sends and <strong>immediately resumes</strong></td></tr>
+<tr><td><strong>Receive</strong></td><td>The receiver blocks until a message is available</td><td>The receiver retrieves either a valid message or a <strong>null</strong>, and continues either way</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The four combinations are all legal. When <strong>both send and receive are blocking</strong>, the pair is called a <strong>rendezvous</strong> &mdash; a term worth using, because it earns a mark on its own. Note also that with blocking send and blocking receive, the producer&ndash;consumer solution becomes trivial: no explicit buffer management is needed at all.</p>
+
+<h3>Question 3 &mdash; buffering: how many messages can wait?</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Queue capacity</th><th>Behaviour</th><th>Also called</th></tr></thead>
+<tbody>
+<tr><td><strong>Zero capacity</strong></td><td>The queue holds no messages, so the <strong>sender must block until the receiver takes the message</strong></td><td>A message system with <strong>no buffering</strong>; a rendezvous</td></tr>
+<tr><td><strong>Bounded capacity</strong></td><td>The queue holds at most n messages. If it is not full the sender continues; if it is full <strong>the sender blocks</strong> until space appears</td><td><strong>Automatic buffering</strong></td></tr>
+<tr><td><strong>Unbounded capacity</strong></td><td>The queue is potentially infinite, so <strong>the sender never blocks</strong></td><td>Automatic buffering</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Examples of IPC systems</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>System</th><th>Model</th><th>Key facts</th></tr></thead>
+<tbody>
+<tr><td><strong>POSIX shared memory</strong></td><td>Shared memory</td><td><code>shm_open()</code> creates the object, <code>ftruncate()</code> sizes it, <code>mmap()</code> maps it into the address space. Memory-mapped file based</td></tr>
+<tr><td><strong>Mach</strong></td><td>Message passing</td><td>All communication, including with system tasks, is by messages to <strong>ports</strong>. Every task gets a <em>Kernel</em> and a <em>Notify</em> mailbox at creation</td></tr>
+<tr><td><strong>Windows &mdash; ALPC</strong></td><td>Message passing (hybrid)</td><td>Advanced Local Procedure Call, using <strong>ports</strong>. For large messages it switches to a <strong>section object</strong> &mdash; shared memory &mdash; for speed</td></tr>
+<tr><td><strong>Pipes</strong></td><td>Message passing</td><td>See below</td></tr>
+<tr><td><strong>Sockets</strong> and <strong>RPC</strong></td><td>Message passing over a network</td><td>A socket is an endpoint identified by <em>IP address : port</em>. RPC makes a call on a remote machine look like a local procedure call, using <strong>stubs</strong> to marshal parameters</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Pipes &mdash; the four design questions and the two kinds</h3>
+
+<p>Four questions must be answered for any pipe: is it <strong>unidirectional or bidirectional</strong>? if bidirectional, is it <strong>half or full duplex</strong>? must a <strong>parent&ndash;child relationship</strong> exist? and can it be used <strong>over a network</strong>?</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Ordinary pipe</strong> (anonymous)</th><th><strong>Named pipe</strong> (FIFO)</th></tr></thead>
+<tbody>
+<tr><td><strong>Direction</strong></td><td><strong>Unidirectional</strong> &mdash; one write end, one read end; two are needed for two-way traffic</td><td><strong>Bidirectional</strong> (half duplex on UNIX, full duplex on Windows)</td></tr>
+<tr><td><strong>Relationship needed</strong></td><td><strong>Yes</strong> &mdash; parent and child only</td><td><strong>No</strong> &mdash; any unrelated processes may use it</td></tr>
+<tr><td><strong>Lifetime</strong></td><td>Dies when the processes finish</td><td>Persists in the file system until deleted</td></tr>
+<tr><td><strong>Named?</strong></td><td>No name in the file system</td><td>Has a name; created with <code>mkfifo()</code></td></tr>
+<tr><td><strong>Call</strong></td><td><code>pipe(int fd[])</code> &mdash; <code>fd[0]</code> is the read end, <code>fd[1]</code> the write end</td><td><code>mkfifo()</code>, then ordinary <code>open</code>, <code>read</code>, <code>write</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Numerical &mdash; shared memory against message passing</h2>
+
+<div class="solve">
+  <span class="lbl">Q. Two processes must exchange 1 MB of data. A system call costs 2 &micro;s, a message may carry at most 4 KB, and copying costs 0.5 &micro;s per KB. Setting up a shared-memory region costs one system call plus 50 &micro;s. Compare the two models.</span>
+  <p><strong>Message passing.</strong> Number of messages = 1024 KB &divide; 4 KB = <strong>256 messages</strong>.</p>
+  <p>Each message needs a <code>send</code> and a <code>receive</code>, so 2 system calls: 2 &times; 2 = 4 &micro;s. Copying 4 KB costs 0.5 &times; 4 = 2 &micro;s, and the data is copied <strong>twice</strong> &mdash; sender to kernel buffer, kernel to receiver &mdash; so 4 &micro;s.</p>
+  <p>Cost per message = 4 + 4 = <strong>8 &micro;s</strong> &nbsp;&rarr;&nbsp; Total = 256 &times; 8 = <strong>2048 &micro;s &asymp; 2.05 ms</strong></p>
+  <p><strong>Shared memory.</strong> Setup = 1 system call (2 &micro;s) + 50 &micro;s = 52 &micro;s. After that the data is written once and read once directly, with <strong>no kernel involvement</strong>: 2 &times; (0.5 &times; 1024) = 1024 &micro;s.</p>
+  <p>Total = 52 + 1024 = <strong>1076 &micro;s &asymp; 1.08 ms</strong></p>
+  <p><strong>Shared memory is about 1.9&times; faster here</strong>, and the gap widens with the volume of data, because the setup cost is paid <em>once</em> while the per-message system-call cost is paid 256 times.</p>
+  <p><em>Sanity check:</em> for a <em>single small</em> message the verdict reverses. One 4 KB exchange costs 8 &micro;s by message passing but 52 + 4 = 56 &micro;s by shared memory, because the setup dominates. <strong>That is exactly why the rule is &ldquo;shared memory for bulk data, message passing for small or remote exchanges.&rdquo;</strong></p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In the shared-memory model, synchronisation is the responsibility of:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The application programmer</button>
+    <button class="opt">The kernel</button>
+    <button class="opt">Nobody — it cannot go wrong</button>
+    <button class="opt">The device driver</button>
+  </div>
+  <p class="why">That is the price of the speed. Message passing hands synchronisation to the OS, which is why it is easier but slower.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the standard bounded-buffer solution using only <code>in</code> and <code>out</code>, the usable capacity is:</p>
+  <div class="opts">
+    <button class="opt">Unbounded</button>
+    <button class="opt" data-ok="1">BUFFER_SIZE − 1</button>
+    <button class="opt">BUFFER_SIZE</button>
+    <button class="opt">BUFFER_SIZE / 2</button>
+  </div>
+  <p class="why">One slot is sacrificed so that &ldquo;full&rdquo; and &ldquo;empty&rdquo; can be distinguished. Using all N slots needs a counter, and that counter is what introduces the race condition studied in Unit II.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A pair of blocking send and blocking receive is called a:</p>
+  <div class="opts">
+    <button class="opt">Deadlock</button>
+    <button class="opt">Handshake</button>
+    <button class="opt" data-ok="1">Rendezvous</button>
+    <button class="opt">Semaphore</button>
+  </div>
+  <p class="why">Both parties wait until the exchange happens. It also corresponds exactly to the zero-capacity buffering case.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The main disadvantage of direct communication is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Limited modularity — changing a process identifier means changing every reference to it</button>
+    <button class="opt">It requires more kernel memory</button>
+    <button class="opt">It cannot be used between related processes</button>
+    <button class="opt">Only one message can be in flight</button>
+  </div>
+  <p class="why">Hard-coding process names into send and receive calls is brittle. Mailboxes decouple sender from receiver, which is why indirect communication is more flexible.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. An ordinary (anonymous) pipe requires:</p>
+  <div class="opts">
+    <button class="opt">A name in the file system</button>
+    <button class="opt">Both processes to be on different machines</button>
+    <button class="opt" data-ok="1">A parent–child relationship between the two processes</button>
+    <button class="opt">Full-duplex hardware</button>
+  </div>
+  <p class="why">Ordinary pipes are unidirectional and only work between related processes. Named pipes (FIFOs) have a file-system name and work between any processes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. With a zero-capacity message queue, the sender:</p>
+  <div class="opts">
+    <button class="opt">Never blocks</button>
+    <button class="opt" data-ok="1">Must block until the receiver takes the message</button>
+    <button class="opt">Discards the message</button>
+    <button class="opt">Blocks only when the queue is full</button>
+  </div>
+  <p class="why">Zero capacity means no message can wait anywhere, so the two must meet — a rendezvous. Bounded capacity blocks only when full; unbounded capacity never blocks the sender.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give four reasons for allowing process cooperation.</summary>
+    <p class="ans">Information sharing, computation speed-up, modularity and convenience. Speed-up only helps if the machine actually has multiple processing cores.</p></details>
+  <details class="card"><summary>Compare shared memory and message passing on six points.</summary>
+    <p class="ans">Shared memory is faster, involves the kernel only at setup, leaves synchronisation to the programmer, suits large volumes on one machine, is harder to program, and can suffer conflicts. Message passing is slower, involves the kernel on every send and receive, has synchronisation handled by the OS, suits small amounts and machines across a network, is easier to program, and has no conflicts.</p></details>
+  <details class="card"><summary>State the empty and full conditions of the bounded buffer.</summary>
+    <p class="ans">Empty when in == out. Full when (in + 1) % BUFFER_SIZE == out. Only BUFFER_SIZE − 1 slots can be used, because otherwise the two conditions would be identical.</p></details>
+  <details class="card"><summary>Name the three design questions of message passing.</summary>
+    <p class="ans">Naming — direct (name the process) or indirect (name a mailbox or port). Synchronisation — blocking or non-blocking send and receive, with blocking-blocking called a rendezvous. Buffering — zero, bounded or unbounded capacity.</p></details>
+  <details class="card"><summary>Compare direct and indirect communication.</summary>
+    <p class="ans">Direct names the process explicitly, links form automatically between exactly one pair, and modularity is poor because identifiers are hard-coded. Indirect names a mailbox, requires both processes to share it, allows many processes per mailbox and several links per pair, but needs more OS machinery.</p></details>
+  <details class="card"><summary>Compare ordinary and named pipes.</summary>
+    <p class="ans">Ordinary pipes are unidirectional, need a parent–child relationship, have no file-system name and die with the processes. Named pipes (FIFOs) are bidirectional — half duplex on UNIX — need no relationship, have a name created by mkfifo() and persist until deleted.</p></details>
+  <details class="card"><summary>Name four real IPC systems and the model each uses.</summary>
+    <p class="ans">POSIX shared memory (shm_open, mmap) uses shared memory. Mach uses message passing to ports. Windows ALPC uses ports but switches to shared-memory section objects for large messages. Pipes, sockets and RPC use message passing, with sockets and RPC working across a network.</p></details>
+</div>
+
+<p class="ask">Next: the lighter-weight alternative to processes &mdash; threads, the three multithreading models, and Amdahl's law.</p>
+
+<div class="nav">
+  <a href="0005-process-concept-and-scheduling.html">&larr; Process Concept</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0007-threads-and-multithreading.html">Next: Threads and Multithreading &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

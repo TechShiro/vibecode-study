@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 08 – Schedules & Serializability</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module C · Lesson 8 of 17 · Correctness of Concurrent Execution</div>
+  <h1>Schedules, Serializability & Precedence Graphs</h1>
+  <p class="subtitle">How database engines mathematically prove whether an interleaved schedule is correct.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Transactions & Concurrency</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>To maximize CPU utilization and throughput, databases interleave the operations of multiple transactions. A <strong>Schedule</strong> (or History) is the chronological order of execution of concurrent operations. If transactions execute sequentially one after another (a <strong>Serial Schedule</strong>), correctness is guaranteed, but performance is terrible. The gold standard of concurrent execution is <strong>Serializability</strong>: an interleaved concurrent schedule is correct if and only if it produces the exact same final state as <em>some</em> serial schedule.</p>
+
+  <h2>2 · Conflicting Operations</h2>
+  <p>Two consecutive operations <code>I<sub>i</sub></code> and <code>I<sub>j</sub></code> in a schedule are in <strong>conflict</strong> if and only if all three conditions hold:</p>
+  <ol>
+    <li>They belong to <strong>different transactions</strong> (<code>T<sub>i</sub> &ne; T<sub>j</sub></code>).</li>
+    <li>They access the <strong>exact same data item</strong> <code>Q</code>.</li>
+    <li>At least one of the operations is a <strong>WRITE</strong> (<code>W(Q)</code>).</li>
+  </ol>
+  <div class="callout warning">
+    <p>Read-Read (<code>R1(A), R2(A)</code>) is NEVER a conflict. Conflicts arise from Read-Write (<code>R1(A), W2(A)</code>), Write-Read (<code>W1(A), R2(A)</code>), and Write-Write (<code>W1(A), W2(A)</code>).</p>
+  </div>
+
+  <h2>3 · Conflict Serializability & Precedence Graphs</h2>
+  <p>A schedule <em>S</em> is <strong>Conflict Serializable</strong> if it can be transformed into a serial schedule by repeatedly swapping non-conflicting adjacent operations.</p>
+
+  <div class="callout info">
+    <h4>Algorithm: Testing Conflict Serializability via Precedence Graph</h4>
+    <ol>
+      <li>Create a node for each active transaction in the schedule: <code>T1, T2, ..., Tn</code>.</li>
+      <li>Draw a directed edge <code>Ti &rarr; Tj</code> if <code>Ti</code> executes an operation that conflicts with an operation executed later by <code>Tj</code>:
+        <ul>
+          <li><code>Ti</code> executes <code>R(A)</code> and later <code>Tj</code> executes <code>W(A)</code></li>
+          <li><code>Ti</code> executes <code>W(A)</code> and later <code>Tj</code> executes <code>R(A)</code></li>
+          <li><code>Ti</code> executes <code>W(A)</code> and later <code>Tj</code> executes <code>W(A)</code></li>
+        </ul>
+      </li>
+      <li><strong>Result:</strong> If the Precedence Graph has <strong>NO CYCLES</strong>, the schedule is Conflict Serializable! The equivalent serial schedule order is obtained via <strong>Topological Sort</strong>.</li>
+      <li>If there is a cycle (e.g. <code>T1 &rarr; T2 &rarr; T1</code>), the schedule is <strong>NOT</strong> conflict serializable and must be rejected.</li>
+    </ol>
+  </div>
+
+  <h2>4 · View Serializability & Blind Writes</h2>
+  <p>A schedule is <strong>View Serializable</strong> if it is view-equivalent to some serial schedule (same initial reads, same final writes, same read-from dependencies). Every conflict serializable schedule is view serializable. The converse is false: schedules with <strong>Blind Writes</strong> (writing a value without reading it first) can be view serializable without being conflict serializable. However, testing view serializability is NP-Complete, so real database engines only enforce conflict serializability.</p>
+
+  <h2>5 · Schedule Safety Hierarchy (Cascadeless & Strict)</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Schedule Class</th><th>Formal Definition</th><th>Why It Matters</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Recoverable Schedule</strong></td>
+        <td>If <code>Tj</code> reads data written by <code>Ti</code>, then <code>Ti</code> must commit <em>before</em> <code>Tj</code> commits.</td>
+        <td>Prevents dirty reads leading to impossible recovery (if <code>Ti</code> aborts after <code>Tj</code> committed).</td>
+      </tr>
+      <tr>
+        <td><strong>Cascadeless Schedule (ACA)</strong></td>
+        <td>Every transaction reads ONLY data committed by prior transactions (<code>Ti</code> commits before <code>Tj</code> reads).</td>
+        <td>Avoids <strong>Cascading Rollbacks</strong>, where aborting 1 transaction forces aborting 50 other dependent transactions.</td>
+      </tr>
+      <tr>
+        <td><strong>Strict Schedule</strong></td>
+        <td>No transaction can read OR write a data item until the prior transaction that wrote to it has committed or aborted.</td>
+        <td>Simplifies recovery to simple pre-image restoration; used by all production engines.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <nav class="bottom-nav">
+    <a href="0007-transactions-and-acid-properties.html">← Lesson 07: Transactions & ACID</a>
+    <a href="0009-concurrency-control-and-2pl.html">Lesson 09: Concurrency Control & 2PL →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<title>SSL and TLS</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Info and Data Security &middot; Unit IV &middot; Lesson 21 of 23</p>
+<h1>SSL and TLS</h1>
+<p class="deck">The SSL/TLS protocol stack, the handshake protocol step by step, record protocol, session vs connection, TLS 1.2 vs 1.3 differences, and how HTTPS works.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>&ldquo;Explain SSL/TLS handshake protocol&rdquo;</strong> is a guaranteed 10-marker. Draw the message exchange (ClientHello, ServerHello, Certificate, KeyExchange, ChangeCipherSpec, Finished). Know the four protocols in the SSL stack.</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; SSL/TLS Architecture &amp; Handshake Protocol</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=j9QmMEWmcfo" target="_blank">SSL / TLS in Cryptography &amp; Network Security | HTTPS Handshake</a>
+    <span class="v-meta">Gate Smashers &middot; 14:15</span>
+    <div class="v-why">The definitive exam lecture detailing the four subprotocols (Handshake, ChangeCipherSpec, Alert, Record), cipher suites negotiation, and mutual master secret derivation.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; TLS Record Protocol &amp; TLS 1.2 vs 1.3</span>
+      <span class="best-tag">Top Exam Contrast</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">TLS 1.2 vs TLS 1.3: 1-RTT Handshake, 0-RTT Resumption &amp; Modern Ciphers</a>
+    <span class="v-meta">Gate Smashers &middot; Network Security Playlist</span>
+    <div class="v-why">Clear comparison of round trip latency improvements (2-RTT reduced to 1-RTT), removal of insecure algorithms (MD5, SHA-1, RC4, RSA key transport), and mandatory Perfect Forward Secrecy.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: TLS HANDSHAKE SEQUENCE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Classical TLS Handshake Protocol Exchange</span>
+  <div class="flow-col">
+    <!-- Phase 1 -->
+    <div class="flow-box highlight" style="min-width:24rem;">
+      <strong>Phase 1 &middot; Security Capability Negotiation</strong>
+      <span class="sub">Client &rarr; Server: <code>ClientHello</code> (TLS version, ClientRandom, CipherSuites list)<br>Server &rarr; Client: <code>ServerHello</code> (Chosen CipherSuite, ServerRandom)</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Phase 2: Server Authentication &amp; Key Exchange</span>
+    
+    <!-- Phase 2 -->
+    <div class="flow-box warn" style="min-width:24rem;">
+      <strong>Phase 2 &middot; Server Identity &amp; Key Material</strong>
+      <span class="sub">Server &rarr; Client: <code>Certificate</code> (X.509 chain) &middot; <code>ServerKeyExchange</code> (ECDHE params) &middot; <code>ServerHelloDone</code></span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Phase 3: Client Key Exchange &amp; Master Secret</span>
+    
+    <!-- Phase 3 -->
+    <div class="flow-box" style="min-width:24rem;">
+      <strong>Phase 3 &middot; Secret Generation</strong>
+      <span class="sub">Client sends <code>ClientKeyExchange</code> (Pre-master secret encrypted or ECDH point)<br>Both independently derive identical Master Secret: $MS = \text{PRF}(PMS, \text{Randoms})$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Phase 4: Cipher Activation</span>
+    
+    <!-- Phase 4 -->
+    <div class="flow-box ok" style="min-width:24rem;">
+      <strong>Phase 4 &middot; Finished Handshake &amp; Secure Channel Open</strong>
+      <span class="sub">Both exchange <code>ChangeCipherSpec</code> and encrypted <code>Finished</code> verification messages.<br>Subsequent HTTP traffic is fully encrypted under negotiated symmetric session keys!</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>SSL/TLS protocol stack</h2>
+<p>SSL sits between the <strong>application layer</strong> (HTTP, FTP) and the <strong>transport layer</strong> (TCP). Four sub-protocols:</p>
+<div class="tw"><table>
+<thead><tr><th>Protocol</th><th>Function</th></tr></thead>
+<tbody>
+<tr><td><strong>Handshake</strong></td><td>Authenticate server (optionally client), negotiate cipher suite, establish session keys</td></tr>
+<tr><td><strong>Change Cipher Spec</strong></td><td>Signal: switch to negotiated keys now</td></tr>
+<tr><td><strong>Alert</strong></td><td>Send warnings and fatal errors</td></tr>
+<tr><td><strong>Record</strong></td><td>Fragment, compress, MAC, encrypt, transmit application data</td></tr>
+</tbody></table></div>
+
+<h2>TLS handshake (simplified)</h2>
+<ol>
+<li><strong>ClientHello:</strong> supported cipher suites, random number, TLS version.</li>
+<li><strong>ServerHello:</strong> chosen cipher suite, random number, session ID.</li>
+<li><strong>Server Certificate:</strong> server&rsquo;s X.509 certificate (contains public key).</li>
+<li><strong>ServerKeyExchange</strong> (if needed, e.g. DHE): server&rsquo;s DH parameters.</li>
+<li><strong>ServerHelloDone.</strong></li>
+<li><strong>ClientKeyExchange:</strong> pre-master secret encrypted with server&rsquo;s public key (RSA) or client&rsquo;s DH public value.</li>
+<li>Both derive <strong>master secret</strong> from pre-master + two randoms.</li>
+<li><strong>ChangeCipherSpec</strong> (both sides): switch to encrypted communication.</li>
+<li><strong>Finished</strong> (both sides): first encrypted message, verifies handshake integrity.</li>
+</ol>
+
+<div class="formula"><span class="name">Key derivation</span>
+Master secret = PRF(pre-master secret, "master secret", client_random + server_random)<br>
+From master secret: derive client/server write keys, client/server MAC keys, client/server IVs.</div>
+
+<h2>Record protocol</h2>
+<p>For each chunk of application data: <strong>Fragment &rarr; Compress &rarr; Add MAC &rarr; Encrypt &rarr; Add SSL record header &rarr; Send.</strong></p>
+
+<h2>Session vs connection</h2>
+<p><strong>Session:</strong> created by handshake, stores crypto parameters. Can span multiple connections.<br>
+<strong>Connection:</strong> a single transport link. Session resumption avoids repeating the full handshake.</p>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. The four SSL sub-protocols are:</p>
+<div class="opts">
+<button class="opt">Authentication, Key Exchange, Encryption, Signing</button>
+<button class="opt">Request, Response, Error, Redirect</button>
+<button class="opt" data-ok="1">Handshake, Change Cipher Spec, Alert, Record</button>
+<button class="opt">SYN, ACK, FIN, RST</button>
+</div><p class="why">Handshake negotiates. CCS signals switch. Alert reports errors. Record encrypts data.</p></div>
+<div class="q"><p class="stem">2. The pre-master secret is encrypted with:</p>
+<div class="opts">
+<button class="opt">The client&rsquo;s private key</button>
+<button class="opt">A shared password</button>
+<button class="opt">The session key</button>
+<button class="opt" data-ok="1">The server&rsquo;s public key (sent in the certificate)</button>
+</div><p class="why">Client encrypts with server's public key so only the server can decrypt. From this they derive the master secret.</p></div>
+<div class="q"><p class="stem">3. The SSL Record protocol order is:</p>
+<div class="opts">
+<button class="opt">MAC &rarr; Encrypt &rarr; Compress &rarr; Send</button>
+<button class="opt" data-ok="1">Fragment &rarr; Compress &rarr; MAC &rarr; Encrypt &rarr; Header &rarr; Send</button>
+<button class="opt">Encrypt &rarr; MAC &rarr; Fragment &rarr; Send</button>
+<button class="opt">Compress &rarr; Encrypt &rarr; MAC &rarr; Fragment</button>
+</div><p class="why">MAC-then-encrypt in TLS 1.2. Fragment first to fit size limits.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>TLS handshake steps.</summary><p class="ans">ClientHello → ServerHello → Certificate → ServerKeyExchange → ServerHelloDone → ClientKeyExchange → [derive master secret] → ChangeCipherSpec → Finished (both).</p></details>
+<details class="card"><summary>Session vs connection in SSL.</summary><p class="ans">Session: crypto parameters, spans multiple connections. Connection: single transport link. Session resumption avoids full handshake repeat.</p></details>
+</div>
+
+<div class="nav">
+<a href="0020-pgp-and-smime.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0022-ipsec.html">Next: IPSec &rarr;</a>
+<a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

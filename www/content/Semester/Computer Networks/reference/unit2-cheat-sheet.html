@@ -1,0 +1,229 @@
+<title>CN Unit II Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Cheat sheet is denser than a lesson — tighten everything for print. */
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Reference &middot; print this one</p>
+<h1>Unit II &mdash; Exam Sheet</h1>
+<p class="deck">Physical layer and data link layer on one page. This is the numerical unit &mdash; every formula that can be asked is here, with the sanity check that catches the arithmetic slip.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p>In order of certainty: <strong>Nyquist / Shannon</strong> &middot; <strong>CRC</strong> &middot; <strong>Hamming code</strong> &middot; <strong>sliding-window efficiency</strong> &middot; <strong>ALOHA throughput</strong> &middot; <strong>Ethernet frame format</strong>. Six topics, and between them they carry most of Unit II.</p>
+</div>
+
+<hr class="rule">
+
+<h2>Signals and impairment <span class="tag">definitions</span></h2>
+
+<div class="formula">
+  <span class="name">Sine wave</span>
+  f = 1/T &nbsp;&middot;&nbsp; &lambda; = c/f &nbsp;&middot;&nbsp; three attributes: <strong>amplitude, frequency, phase</strong><br>
+  Bandwidth of a composite signal = f<sub>highest</sub> &minus; f<sub>lowest</sub>
+</div>
+
+<p><strong>Frequency = rate of change with time.</strong> No change &rarr; frequency 0. Instant change &rarr; frequency &infin;.</p>
+<p><strong>Impairments:</strong> <strong>attenuation</strong> (loses energy), <strong>distortion</strong> (changes shape, affects composite signals), <strong>noise</strong> (thermal, induced, crosstalk, impulse).</p>
+<p><strong>dB</strong> = 10 log<sub>10</sub>(P<sub>2</sub>/P<sub>1</sub>). <strong>Halving power = &minus;3 dB.</strong> SNR<sub>dB</sub> = 10 log<sub>10</sub> SNR.</p>
+
+<h2>Data rate limits <span class="tag">always a numerical</span></h2>
+
+<div class="formula">
+  <span class="name">Nyquist &mdash; noiseless</span>
+  BitRate = <strong>2 &times; B &times; log<sub>2</sub>L</strong>
+</div>
+
+<div class="formula">
+  <span class="name">Shannon &mdash; noisy</span>
+  Capacity = <strong>B &times; log<sub>2</sub>(1 + SNR)</strong> &nbsp;&nbsp;(no L, no factor of 2)
+</div>
+
+<p><strong>Choosing:</strong> SNR mentioned &rarr; Shannon. Signal levels mentioned &rarr; Nyquist. Both given &rarr; <strong>Shannon for the ceiling, then Nyquist for the number of levels.</strong></p>
+<p><strong>Unit trap:</strong> if SNR is in dB, convert first: SNR = 10<sup>(SNR<sub>dB</sub>/10)</sup>. Shortcut for large SNR: C &asymp; B &times; SNR<sub>dB</sub>/3.</p>
+<p><em>Sanity check:</em> examiners pick SNR = 3, 7, 15, 31, 63 so that log<sub>2</sub>(1+SNR) is exact. If yours is not, re-read the question.</p>
+
+<h2>Line coding <span class="tag">drawing question</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Scheme</th><th>Rule</th><th>DC</th><th>Self-sync</th><th>BW</th></tr></thead>
+<tbody>
+<tr><td>Unipolar NRZ</td><td>1 = +V, 0 = 0</td><td>Yes</td><td>No</td><td>N/2</td></tr>
+<tr><td>NRZ-L</td><td><strong>Level</strong> carries the bit</td><td>Yes</td><td>No</td><td>N/2</td></tr>
+<tr><td>NRZ-I</td><td><strong>1 = invert, 0 = no change</strong></td><td>Yes</td><td>Partly</td><td>N/2</td></tr>
+<tr><td>RZ</td><td>Returns to 0 mid-bit; 3 levels</td><td>No</td><td>Yes</td><td>N</td></tr>
+<tr><td><strong>Manchester</strong></td><td><strong>Mid-bit transition = data</strong> (0 = H&rarr;L, 1 = L&rarr;H)</td><td>No</td><td>Yes</td><td>N</td></tr>
+<tr><td><strong>Diff. Manchester</strong></td><td><strong>Start-of-bit transition = data</strong> (0 = transition); mid-bit = sync only</td><td>No</td><td>Yes</td><td>N</td></tr>
+<tr><td>Bipolar AMI</td><td>0 = 0 V, 1 = alternating &plusmn;</td><td>No</td><td>No</td><td>N/2</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Scrambling:</strong> B8ZS replaces 8 zeros, HDB3 replaces 4 zeros, both with a deliberate polarity <strong>violation</strong>. <strong>4B/5B</strong> block coding: 4 bits &rarr; 5 bits, no code with more than three consecutive 0s, 25% overhead, used in 100BASE-TX.</p>
+<p><em>Sanity check when drawing:</em> in <strong>both</strong> Manchester schemes, <strong>every bit must have a mid-bit transition</strong>. Any flat bit is an error.</p>
+
+<h2>Multiplexing and spread spectrum</h2>
+
+<div class="formula">
+  <span class="name">Synchronous TDM</span>
+  Frame rate = input data rate &divide; bits per slot &nbsp;&middot;&nbsp; <strong>Frame duration = input bit duration</strong><br>
+  Output rate = n &times; input rate (+ framing bits) &nbsp;&middot;&nbsp; Output bit duration = input bit duration &divide; n
+</div>
+
+<p><strong>FDM:</strong> divides frequency, analog, every user transmits all the time, needs <strong>guard bands</strong> &mdash; <strong>n channels need n&minus;1 guard bands</strong>. <strong>WDM</strong> = FDM on fibre. <strong>TDM:</strong> divides time, digital, whole bandwidth per slot, needs framing bits.</p>
+<p><strong>Statistical TDM:</strong> slots on demand, no empty slots, but <strong>every slot needs an address</strong>.</p>
+<p><strong>FHSS</strong> hops the carrier pseudorandomly (Bluetooth). <strong>DSSS</strong> multiplies each bit by a chip code (802.11b, CDMA).</p>
+
+<h2>Transmission media &amp; switching</h2>
+
+<p><strong>Twisted pair</strong> &mdash; twisted so both wires get equal noise and it <em>cancels</em>. UTP (cheap, LANs, RJ-45) vs STP (shielded, Token Ring). <strong>Coaxial</strong> &mdash; core, insulation, outer conductor/shield, jacket; BNC. <strong>Fibre</strong> &mdash; <strong>total internal reflection, core denser than cladding</strong>; single-mode (laser, longest) vs multimode step/graded index.</p>
+<p><strong>Unguided:</strong> radio (omnidirectional, penetrates walls), microwave (unidirectional, line of sight, no walls), infrared (short range, blocked by walls &mdash; which prevents inter-room interference).</p>
+
+<div class="formula">
+  <span class="name">Packet-switching delay</span>
+  Total time = <strong>(L + p &minus; 1) &times; t</strong> &nbsp;&nbsp;(L links, p packets, t per-packet transmission time)
+</div>
+
+<p><strong>Circuit switching:</strong> dedicated path, 3 phases (setup, transfer, teardown), physical layer, telephone network. <strong>Datagram:</strong> no setup, full address per packet, may arrive out of order, network layer, the Internet. <strong>Virtual circuit:</strong> setup phase, short VCI (local significance), in order, data link layer, Frame Relay/ATM.</p>
+
+<h2>Error detection and correction <span class="tag">two numericals</span></h2>
+
+<div class="formula">
+  <span class="name">Hamming distance</span>
+  Detect s errors: d<sub>min</sub> &ge; <strong>s + 1</strong> &nbsp;&middot;&nbsp; Correct t errors: d<sub>min</sub> &ge; <strong>2t + 1</strong>
+</div>
+
+<div class="formula">
+  <span class="name">CRC</span>
+  Append <strong>(n&minus;1) zeros</strong> (n = divisor bits) &rarr; divide by XOR &rarr; remainder is the CRC<br>
+  Receiver: divide again; <strong>zero remainder = accept</strong><br>
+  <em>Check: the remainder has exactly one fewer bit than the divisor.</em>
+</div>
+
+<p><strong>Worked reference:</strong> dataword <code>1001</code>, divisor <code>1011</code> &rarr; CRC <code>110</code> &rarr; codeword <strong><code>1001110</code></strong>.</p>
+
+<div class="formula">
+  <span class="name">Hamming code</span>
+  Redundancy bits: <strong>2<sup>r</sup> &ge; m + r + 1</strong><br>
+  Parity bits at positions <strong>1, 2, 4, 8</strong> &hellip; &nbsp;p<sub>1</sub>: 1,3,5,7 &middot; p<sub>2</sub>: 2,3,6,7 &middot; p<sub>4</sub>: 4,5,6,7<br>
+  Syndrome read as <strong>c<sub>4</sub>c<sub>2</sub>c<sub>1</sub></strong> gives the error position; <strong>000 = no error</strong>
+</div>
+
+<p><strong>Worked reference:</strong> data <code>1011</code> &rarr; codeword <strong><code>0110011</code></strong>. Received <code>0110111</code> &rarr; syndrome 101 = <strong>5</strong> &rarr; flip bit 5.</p>
+<p><strong>Checksum:</strong> one's complement addition, complement the sum. <em>Receiver's sum before complementing must be all 1s.</em></p>
+
+<h2>Framing, flow and error control <span class="tag">efficiency numerical</span></h2>
+
+<p><strong>Byte stuffing:</strong> insert ESC before any flag or ESC byte in the data (<em>the ESC case is the one students forget</em>). <strong>Bit stuffing:</strong> insert a <strong>0 after five consecutive 1s</strong>; flag is <code>01111110</code>.</p>
+
+<div class="formula">
+  <span class="name">The efficiency framework</span>
+  T<sub>t</sub> = frame size / bandwidth &nbsp;&middot;&nbsp; T<sub>p</sub> = distance / speed &nbsp;&middot;&nbsp; <strong>a = T<sub>p</sub>/T<sub>t</sub></strong><br>
+  Stop-and-Wait: &eta; = <strong>1/(1+2a)</strong> &nbsp;&middot;&nbsp; GBN and SR: &eta; = <strong>N/(1+2a)</strong>, capped at 1<br>
+  Throughput = &eta; &times; bandwidth &nbsp;&middot;&nbsp; <strong>Optimal N = 1 + 2a</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Stop-and-Wait</th><th>Go-Back-N</th><th>Selective Repeat</th></tr></thead>
+<tbody>
+<tr><td><strong>Sender window</strong></td><td class="num">1</td><td class="num"><strong>2<sup>m</sup> &minus; 1</strong></td><td class="num"><strong>2<sup>m&minus;1</sup></strong></td></tr>
+<tr><td><strong>Receiver window</strong></td><td class="num">1</td><td class="num"><strong>1</strong></td><td class="num"><strong>2<sup>m&minus;1</sup></strong></td></tr>
+<tr><td>Out-of-order frames</td><td>&mdash;</td><td>Discarded</td><td>Buffered</td></tr>
+<tr><td>Retransmits</td><td>The frame</td><td>Frame + <strong>all after it</strong></td><td><strong>Only that frame</strong></td></tr>
+<tr><td>ACKs</td><td>Individual</td><td><strong>Cumulative</strong></td><td>Individual + NAK</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Why 2<sup>m</sup>&minus;1 for GBN:</strong> with a full 2<sup>m</sup> window, lost ACKs make a retransmitted frame 0 indistinguishable from a new frame 0.</p>
+
+<h2>HDLC and PPP</h2>
+
+<p><strong>HDLC</strong> &mdash; bit-oriented, ISO. Modes: <strong>NRM</strong> (unbalanced, secondary needs permission) and <strong>ABM</strong> (balanced, either may start). Frame: Flag(1) | Address(1+) | Control(1&ndash;2) | Info | FCS(2&ndash;4) | Flag. Types by control bits: <strong>0 = I-frame</strong> (data + piggybacked ACK), <strong>10 = S-frame</strong> (control only), <strong>11 = U-frame</strong> (link management).</p>
+<p><strong>PPP</strong> &mdash; byte-oriented, point-to-point only. Frame: Flag(0x7E) | Address(<strong>0xFF constant</strong>) | Control(<strong>0x03 constant</strong>) | Protocol | Payload | FCS | Flag. <strong>No flow control, no error correction.</strong> Phases: <strong>Dead &rarr; Establish (LCP) &rarr; Authenticate (PAP/CHAP) &rarr; Network (NCP) &rarr; Open &rarr; Terminate</strong>.</p>
+<p><strong>PAP</strong>: 2-step, password in plain text, once. <strong>CHAP</strong>: 3-step challenge&ndash;hash&ndash;verify, password never sent, repeats during the session.</p>
+
+<h2>Multiple access <span class="tag">ALOHA numerical</span></h2>
+
+<div class="formula">
+  <span class="name">ALOHA throughput</span>
+  Pure: S = G e<sup>&minus;2G</sup> &rarr; max <strong>0.184 at G = 0.5</strong> &nbsp;&middot;&nbsp; vulnerable time <strong>2T<sub>fr</sub></strong><br>
+  Slotted: S = G e<sup>&minus;G</sup> &rarr; max <strong>0.368 at G = 1</strong> &nbsp;&middot;&nbsp; vulnerable time <strong>T<sub>fr</sub></strong>
+</div>
+
+<div class="formula">
+  <span class="name">CSMA/CD minimum frame size</span>
+  T<sub>fr</sub> &ge; 2 &times; T<sub>p</sub> &nbsp;&rarr;&nbsp; <strong>L<sub>min</sub> = 2 &times; T<sub>p</sub> &times; Bandwidth</strong><br>
+  10 Mbps, T<sub>p</sub> = 25.6 &micro;s &rarr; 51.2 &micro;s slot time &rarr; <strong>512 bits = 64 bytes</strong>
+</div>
+
+<p><strong>Persistence:</strong> 1-persistent (send at once when idle; keep sensing when busy &mdash; Ethernet, most collisions), non-persistent (random wait when busy &mdash; fewer collisions, wasted bandwidth), p-persistent (probability p on a slotted channel &mdash; the compromise).</p>
+<p><strong>Back-off:</strong> after the kth collision, wait a random number of slots from <strong>0 to 2<sup>k</sup>&minus;1</strong>; discard after 16 attempts.</p>
+<p><strong>CSMA/CA</strong> (wireless) exists because detection needs full duplex, signals attenuate, and there is the <strong>hidden station problem</strong>. Strategies: <strong>IFS, contention window, ACK</strong>, optionally RTS/CTS.</p>
+<p><strong>Controlled access:</strong> reservation (minislot per station), polling (primary polls to receive, selects to send), token passing (only the token holder transmits). <strong>Channelization:</strong> FDMA (frequency), TDMA (time, needs synchronisation), CDMA (code).</p>
+
+<div class="formula">
+  <span class="name">CDMA</span>
+  Composite = &Sigma;(d<sub>i</sub> &times; c<sub>i</sub>) &nbsp;&middot;&nbsp; Decode: d<sub>i</sub> = (Composite &middot; c<sub>i</sub>) &divide; N<br>
+  <strong>bit 1 = +1 &middot; bit 0 = &minus;1 &middot; silent = 0</strong>
+</div>
+
+<h2>Ethernet <span class="tag">frame diagram</span></h2>
+
+<div class="formula">
+  <span class="name">IEEE 802.3 frame &mdash; byte counts</span>
+  Preamble <strong>7</strong> | SFD <strong>1</strong> | Dest addr <strong>6</strong> | Src addr <strong>6</strong> | Length/Type <strong>2</strong> | Data <strong>46&ndash;1500</strong> | CRC <strong>4</strong>
+</div>
+
+<p><strong>Overhead = 18 bytes.</strong> <strong>Minimum frame 64 bytes</strong> (CSMA/CD round-trip rule; shorter payloads are padded). <strong>Maximum frame 1518 bytes.</strong> Preamble and SFD are added by the physical layer and are not part of the frame.</p>
+<p><strong>MAC address:</strong> 6 bytes = 48 bits = 12 hex digits. <strong>Unicast if the second hex digit is even, multicast if odd</strong>; broadcast = FF:FF:FF:FF:FF:FF.</p>
+<p><strong>IEEE 802 sublayers:</strong> <strong>LLC</strong> (802.2, flow and error control, common to all LANs) and <strong>MAC</strong> (framing, addressing, access method, specific to each LAN).</p>
+<p><strong>Generations:</strong> 10 Mbps 802.3 &middot; 100 Mbps 802.3u &middot; 1 Gbps 802.3z/ab &middot; 10 Gbps 802.3ae (full-duplex only, no CSMA/CD).</p>
+<p><strong>Domains:</strong> hub/repeater break neither; <strong>switch/bridge break collision domains</strong>; <strong>only a router breaks broadcast domains</strong>.</p>
+
+<hr class="rule">
+
+<h2>Final scan &mdash; ten minutes before you go in</h2>
+
+<ol>
+<li>Nyquist = 2B log₂L. Shannon = B log₂(1+SNR). No factor of 2 in Shannon.</li>
+<li>Halving power is −3 dB. Convert dB SNR before substituting.</li>
+<li>Manchester: mid-bit transition = data. Differential Manchester: start-of-bit transition = data.</li>
+<li>n channels need n−1 guard bands. TDM frame duration = input bit duration.</li>
+<li>Fibre: core denser than cladding, total internal reflection.</li>
+<li>Packet switching total time = (L + p − 1) × t.</li>
+<li>CRC: append (n−1) zeros, remainder has one fewer bit than the divisor.</li>
+<li>Hamming: 2^r ≥ m+r+1, parity at powers of 2, syndrome c₄c₂c₁ is the position.</li>
+<li>a = T<sub>p</sub>/T<sub>t</sub>. η = 1/(1+2a) or N/(1+2a). Optimal N = 1+2a.</li>
+<li>ALOHA 18.4% at G=0.5, slotted 36.8% at G=1. Ethernet min frame 64 bytes, max 1518.</li>
+<li><strong>Modulation:</strong> ASK (amplitude), FSK (frequency), PSK (phase, QPSK = 2 bits/baud), QAM (both; highest bandwidth efficiency). AM ($B = 2B$), FM ($B = 2(1+\beta)B$, Carson's rule).</li>
+<li><strong>Media &amp; Switching:</strong> Baseband coax (50 &Omega;, digital) vs Broadband (75 &Omega;, analog FDM). SVC (dynamic setup/teardown) vs PVC (permanently provisioned).</li>
+</ol>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="numericals-method-handbook.html">How to solve numericals</a>
+  <a href="../lessons/unit-2/0007-analog-and-digital-signals.html">Start Unit II</a>
+  <a href="unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="unit3-cheat-sheet.html">Unit III sheet</a>
+  <a href="unit4-cheat-sheet.html">Unit IV sheet</a>
+  <a href="unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>

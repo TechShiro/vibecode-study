@@ -1,0 +1,376 @@
+<title>Unicast and Multicast Routing</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 26 of 27</p>
+<h1>Unicast and Multicast Routing</h1>
+<p class="deck">Distance vector and link state worked through with a real example, the count-to-infinity problem and its four fixes, RIP versus OSPF versus BGP, and then the multicast half &mdash; trees, RPF/RPB/RPM, and the three protocol families.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two big questions. (1) <strong>"Compare distance vector and link state routing"</strong> &mdash; a table, plus a worked distance-vector iteration if the question gives a network. Show the <strong>table at each step</strong>; marks are awarded per iteration. (2) <strong>"Explain the count-to-infinity problem and its solutions"</strong> &mdash; the mechanism plus the four fixes. Multicast is usually a shorter 5-mark question: <strong>source-based versus group-shared tree</strong> and the <strong>three protocols</strong>.</p>
+</div>
+
+<h2>Routing fundamentals</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Concept</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Metric / cost</strong></td><td>The value assigned to a link &mdash; hop count, bandwidth, delay, or a combination. The "best" route is the one with least total cost.</td></tr>
+<tr><td><strong>Autonomous System (AS)</strong></td><td>A group of networks and routers under a single administration.</td></tr>
+<tr><td><strong>Interior routing (IGP)</strong></td><td>Routing <strong>within</strong> an AS &mdash; RIP, OSPF.</td></tr>
+<tr><td><strong>Exterior routing (EGP)</strong></td><td>Routing <strong>between</strong> autonomous systems &mdash; BGP.</td></tr>
+<tr><td><strong>Static routing</strong></td><td>Routes entered manually. Simple and secure, but does not adapt to failures. Suits small, stable networks.</td></tr>
+<tr><td><strong>Dynamic routing</strong></td><td>Routers exchange information and update tables automatically. Adapts to topology changes at the cost of protocol traffic.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Distance Vector Routing</h2>
+
+<p>Based on the <strong>Bellman-Ford algorithm</strong>. Each router keeps a <strong>vector of distances</strong> to every destination, and knows only the cost to its <strong>immediate neighbours</strong>.</p>
+
+<div class="formula">
+  <span class="name">The Bellman-Ford update</span>
+  D<sub>x</sub>(y) = min over all neighbours v of &nbsp;[ c(x, v) + D<sub>v</sub>(y) ]<br>
+  "My cost to y = the cheapest of (cost to a neighbour + that neighbour's cost to y)"
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>What is shared</strong></td><td>The <strong>whole routing table</strong> (the distance vector)</td></tr>
+<tr><td><strong>With whom</strong></td><td><strong>Only immediate neighbours</strong></td></tr>
+<tr><td><strong>When</strong></td><td>Periodically (every 30 s in RIP) and when a change occurs</td></tr>
+<tr><td><strong>Knowledge of topology</strong></td><td><strong>None</strong> &mdash; a router knows distances but never sees the map. "Routing by rumour."</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; a distance vector iteration</span>
+  <p><strong>Q.</strong> For the network below, find router A's routing table after the routers exchange vectors. Link costs: A&ndash;B = 2, A&ndash;C = 5, B&ndash;C = 1, B&ndash;D = 4, C&ndash;D = 3.</p>
+
+  <p><strong>Step 1 &mdash; initial tables</strong> (each router knows only its direct links):</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>From</th><th>to A</th><th>to B</th><th>to C</th><th>to D</th></tr></thead>
+  <tbody>
+  <tr><td><strong>A</strong></td><td class="num">0</td><td class="num">2</td><td class="num">5</td><td class="num">&infin;</td></tr>
+  <tr><td><strong>B</strong></td><td class="num">2</td><td class="num">0</td><td class="num">1</td><td class="num">4</td></tr>
+  <tr><td><strong>C</strong></td><td class="num">5</td><td class="num">1</td><td class="num">0</td><td class="num">3</td></tr>
+  <tr><td><strong>D</strong></td><td class="num">&infin;</td><td class="num">4</td><td class="num">3</td><td class="num">0</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 2 &mdash; A receives B's and C's vectors and applies Bellman-Ford.</strong></p>
+
+  <p><strong>A to C:</strong><br>
+  direct = 5<br>
+  via B = c(A,B) + D<sub>B</sub>(C) = 2 + 1 = <strong>3</strong><br>
+  via C = 5 + 0 = 5<br>
+  minimum = <strong>3, via B</strong> &mdash; better than the direct link.</p>
+
+  <p><strong>A to D:</strong><br>
+  direct = &infin;<br>
+  via B = 2 + 4 = <strong>6</strong><br>
+  via C = 5 + 3 = 8<br>
+  minimum = <strong>6, via B</strong></p>
+
+  <p><strong>A to B:</strong> direct = 2; via C = 5 + 1 = 6. Minimum = <strong>2, direct</strong>.</p>
+
+  <p><strong>Step 3 &mdash; A's routing table:</strong></p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Destination</th><th>Cost</th><th>Next hop</th></tr></thead>
+  <tbody>
+  <tr><td>A</td><td class="num">0</td><td>&mdash;</td></tr>
+  <tr><td>B</td><td class="num">2</td><td><strong>B</strong></td></tr>
+  <tr><td>C</td><td class="num">3</td><td><strong>B</strong></td></tr>
+  <tr><td>D</td><td class="num">6</td><td><strong>B</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 4 &mdash; check for convergence.</strong> Run one more exchange. C now advertises cost 3 to A (via B) and 3 to D, so A&rarr;D via C = 3 + 3 = 6 &mdash; no improvement. <strong>The table is stable, so the algorithm has converged.</strong></p>
+
+  <p><em>Two things that earn marks:</em> notice that <strong>A's best route to C does not use the direct A&ndash;C link</strong> &mdash; a direct link is not automatically the best route, and examiners choose costs specifically to test this. And always <strong>state explicitly that you checked for convergence</strong>; that is the step most answers omit.</p>
+</div>
+
+<h3>The count-to-infinity problem</h3>
+
+<p>The central weakness of distance vector routing. Suppose A&ndash;B fails, but B has already told C that it can reach A at cost 1. C tells B "I can reach A at cost 2" &mdash; without knowing that C's own route goes <em>through B</em>. B believes it, sets its cost to 3, tells C, which sets 4, and so on. <strong>The cost creeps upward one step at a time, and until it reaches "infinity", packets for A loop between B and C.</strong></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Fix</th><th>How it works</th></tr></thead>
+<tbody>
+<tr><td><strong>Define infinity as a small number</strong></td><td>RIP treats <strong>16 as infinity</strong>, so the count terminates in at most 16 rounds. The cost is that RIP cannot be used on networks with paths longer than 15 hops.</td></tr>
+<tr><td><strong>Split horizon</strong></td><td><strong>A router does not advertise a route back on the interface it learned that route from.</strong> C stops telling B about a route to A that C learned from B in the first place.</td></tr>
+<tr><td><strong>Poison reverse</strong></td><td>Stronger than split horizon: instead of staying silent, the router advertises that route back with a cost of <strong>infinity</strong> &mdash; an explicit "do not use me for this".</td></tr>
+<tr><td><strong>Hold-down timers</strong></td><td>After hearing that a route is unreachable, a router <strong>ignores updates about it for a set period</strong>, giving the bad news time to propagate everywhere before any new route is accepted.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The honest closing line:</strong> split horizon and poison reverse fix the two-router loop, but <strong>not loops involving three or more routers</strong>. That limitation is what motivated link state routing.</p>
+
+<h2>Link State Routing</h2>
+
+<p>Based on <strong>Dijkstra's shortest path algorithm</strong>. Every router builds a <strong>complete map of the whole network</strong> and then computes shortest paths itself.</p>
+
+<div class="formula">
+  <span class="name">The four steps</span>
+  1. Each router <strong>discovers its neighbours</strong> and the cost to each.<br>
+  2. It builds a <strong>Link State Packet (LSP)</strong> listing those neighbours and costs.<br>
+  3. It <strong>floods</strong> the LSP to every router in the domain &mdash; so all routers end up with identical <strong>link state databases</strong>.<br>
+  4. Each router runs <strong>Dijkstra's algorithm</strong> on that database to build its own shortest-path tree, and from it, its routing table.
+</div>
+
+<p><strong>Flooding</strong> means each router forwards a received LSP out of every interface except the one it arrived on. Because every router receives every LSP, <strong>all routers share the same view of the topology</strong> &mdash; and that shared, complete view is exactly what prevents the loops that plague distance vector.</p>
+
+<h3>The comparison table</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Distance Vector</th><th>Link State</th></tr></thead>
+<tbody>
+<tr><td><strong>Algorithm</strong></td><td><strong>Bellman-Ford</strong></td><td><strong>Dijkstra</strong></td></tr>
+<tr><td><strong>What is shared</strong></td><td>The <strong>whole routing table</strong></td><td><strong>Only link state information</strong> about its own neighbours</td></tr>
+<tr><td><strong>Shared with</strong></td><td><strong>Neighbours only</strong></td><td><strong>Every router</strong> in the domain, by flooding</td></tr>
+<tr><td><strong>Knowledge of topology</strong></td><td>None &mdash; "routing by rumour"</td><td><strong>Complete map</strong> of the network</td></tr>
+<tr><td><strong>When shared</strong></td><td>Periodically (every 30 s)</td><td><strong>Only when a change occurs</strong></td></tr>
+<tr><td><strong>Convergence</strong></td><td><strong>Slow</strong></td><td><strong>Fast</strong></td></tr>
+<tr><td><strong>Count to infinity</strong></td><td><strong>Suffers from it</strong></td><td><strong>Immune</strong></td></tr>
+<tr><td><strong>CPU and memory</strong></td><td>Low</td><td><strong>High</strong> &mdash; stores the full database and runs Dijkstra</td></tr>
+<tr><td><strong>Bandwidth used</strong></td><td>More, because full tables are sent repeatedly</td><td>Less in steady state, but bursts on change</td></tr>
+<tr><td><strong>Scales to</strong></td><td>Small networks</td><td><strong>Large networks</strong></td></tr>
+<tr><td><strong>Protocol</strong></td><td><strong>RIP</strong></td><td><strong>OSPF, IS-IS</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The three routing protocols</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>RIP</th><th>OSPF</th><th>BGP</th></tr></thead>
+<tbody>
+<tr><td><strong>Full form</strong></td><td>Routing Information Protocol</td><td>Open Shortest Path First</td><td>Border Gateway Protocol</td></tr>
+<tr><td><strong>Type</strong></td><td>Interior (IGP)</td><td>Interior (IGP)</td><td><strong>Exterior (EGP)</strong></td></tr>
+<tr><td><strong>Algorithm</strong></td><td><strong>Distance vector</strong></td><td><strong>Link state</strong></td><td><strong>Path vector</strong></td></tr>
+<tr><td><strong>Metric</strong></td><td><strong>Hop count</strong>, maximum 15 (16 = infinity)</td><td><strong>Cost</strong>, based on bandwidth; supports types of service</td><td>Policy-based, not a simple metric</td></tr>
+<tr><td><strong>Updates</strong></td><td>Full table every 30 s</td><td>LSPs on change only</td><td>On change</td></tr>
+<tr><td><strong>Scope</strong></td><td>Small networks</td><td>Large enterprise networks; supports <strong>areas</strong></td><td><strong>Between autonomous systems &mdash; the Internet backbone</strong></td></tr>
+<tr><td><strong>Loop prevention</strong></td><td>Split horizon, poison reverse, hop limit</td><td>Complete topology view</td><td>The <strong>AS path</strong> is carried, so a loop is visible directly</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Path vector routing</strong> deserves its own line: like distance vector, but each advertisement carries <strong>the entire list of autonomous systems the route passes through</strong>. A router seeing its own AS in the path knows the route is a loop and rejects it. It also allows <strong>policy-based</strong> decisions &mdash; an AS can refuse routes through a competitor regardless of cost, which is why BGP is what the Internet actually runs on.</p>
+
+<h2>Multicast routing</h2>
+
+<h3>Unicast, multicast and broadcast recap</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Source&ndash;destination</th><th>Routing table entry</th></tr></thead>
+<tbody>
+<tr><td><strong>Unicast</strong></td><td>One to one</td><td>One destination address, one next hop</td></tr>
+<tr><td><strong>Multicast</strong></td><td><strong>One to many</strong>, to a group that joined</td><td>A <strong>group address</strong>, and possibly <strong>several</strong> outgoing interfaces</td></tr>
+<tr><td><strong>Broadcast</strong></td><td>One to all</td><td>Every interface (rarely routed on the Internet)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why multicast is not just repeated unicast</span>
+  <p>Sending the same video to 1000 subscribers by unicast means <strong>1000 copies leaving the source</strong> and traversing the same backbone links a thousand times. Multicast sends <strong>one copy</strong>, which routers duplicate <em>only where the paths diverge</em>. The saving in bandwidth and source load is the entire point &mdash; state it in any multicast answer.</p>
+</div>
+
+<h3>The two kinds of tree</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Source-based tree</th><th>Group-shared tree</th></tr></thead>
+<tbody>
+<tr><td><strong>Structure</strong></td><td><strong>One tree per (source, group) pair</strong></td><td><strong>One tree per group</strong>, rooted at a designated router</td></tr>
+<tr><td><strong>Root</strong></td><td>The source itself</td><td>The <strong>core</strong> or <strong>rendezvous point (RP)</strong></td></tr>
+<tr><td><strong>Path quality</strong></td><td><strong>Optimal</strong> &mdash; shortest path from that source</td><td>Sub-optimal &mdash; everything detours via the core</td></tr>
+<tr><td><strong>Router state</strong></td><td><strong>High</strong> &mdash; an entry per source per group</td><td><strong>Low</strong> &mdash; one entry per group</td></tr>
+<tr><td><strong>Suits</strong></td><td>Dense groups, few sources</td><td>Sparse groups, many sources</td></tr>
+<tr><td><strong>Protocols</strong></td><td>DVMRP, MOSPF, PIM-DM</td><td>CBT, PIM-SM</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>RPF, RPB and RPM &mdash; the three refinements</h3>
+
+<div class="formula">
+  <span class="name">The progression, each fixing the previous one's flaw</span>
+  <strong>RPF &mdash; Reverse Path Forwarding.</strong> A router forwards a multicast packet <em>only</em> if it arrived on the interface that lies on the router's own shortest path <strong>back to the source</strong>; otherwise it is discarded. <em>Fixes: looping.</em> <em>Remaining flaw: a network with several routers still receives duplicate copies.</em><br><br>
+  <strong>RPB &mdash; Reverse Path Broadcasting.</strong> For each network, <strong>one router is chosen as the parent</strong>, and only the parent forwards onto that network. <em>Fixes: duplicates &mdash; the result is a genuine broadcast tree.</em> <em>Remaining flaw: it still delivers to networks with no group members.</em><br><br>
+  <strong>RPM &mdash; Reverse Path Multicasting.</strong> Adds <strong>pruning</strong> &mdash; a network with no members sends a prune message and is cut from the tree &mdash; and <strong>grafting</strong>, which reattaches it when a member appears. <em>Fixes: delivery to uninterested networks. This is true multicast.</em>
+</div>
+
+<p>The examiner's point is the <strong>progression</strong>: RPF stops loops, RPB stops duplicates, RPM stops waste. Present them in that order with the flaw each one addresses.</p>
+
+<h3>The three multicast protocols</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Protocol</th><th>Full form</th><th>Based on</th><th>Tree</th><th>Best for</th></tr></thead>
+<tbody>
+<tr><td><strong>DVMRP</strong></td><td>Distance Vector Multicast Routing Protocol</td><td>RIP + <strong>RPM</strong></td><td>Source-based</td><td>Dense groups. Uses flood-and-prune.</td></tr>
+<tr><td><strong>MOSPF</strong></td><td>Multicast Open Shortest Path First</td><td>OSPF extension &mdash; adds group membership to the link state database, then runs Dijkstra</td><td>Source-based</td><td>Dense groups within one OSPF domain</td></tr>
+<tr><td><strong>PIM</strong></td><td>Protocol Independent Multicast</td><td><strong>Independent of any unicast protocol</strong> &mdash; it uses whatever routing table already exists</td><td><strong>PIM-DM</strong>: source-based, flood-and-prune.<br><strong>PIM-SM</strong>: group-shared, rooted at a <strong>rendezvous point</strong>, join-based.</td><td>DM for dense groups, <strong>SM for sparse groups spread over a wide area</strong> &mdash; the one actually deployed</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Dense mode vs sparse mode &mdash; the distinction to state</span>
+  <p><strong>Dense mode assumes everyone wants the traffic: it floods first and prunes back.</strong> Efficient when most networks have members. <strong>Sparse mode assumes nobody wants it: nothing is sent until a router explicitly joins.</strong> Efficient when members are few and scattered &mdash; which is the normal case on the Internet, and why PIM-SM is what is actually deployed.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Distance Vector vs Link State Routing Protocols</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Distance Vector (e.g., RIP)</strong><span class="sub">Bellman-Ford Algorithm</span></div>
+      <div class="flow-box">Shares entire routing table only with immediate neighbors</div>
+      <div class="flow-box warn">Count-to-Infinity problem solved by Split Horizon & Poison Reverse</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Link State (e.g., OSPF)</strong><span class="sub">Dijkstra's Shortest Path First</span></div>
+      <div class="flow-box">Floods link-state advertisements (LSAs) to every node in autonomous system</div>
+      <div class="flow-box">Every router constructs identical topological map & independently calculates shortest path tree</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 17 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Routing Algorithms</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-62: Distance Vector Routing Algorithm & Bellman-Ford</div>
+    <div class="v-desc">Walkthrough of routing table updates, distance vector matrix calculation, and the count-to-infinity convergence loop.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=5ZuP5qjbKSI" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In distance vector routing, a router shares:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Its entire routing table, with its immediate neighbours only</button>
+    <button class="opt">Its entire routing table, with every router in the domain</button>
+    <button class="opt">Information about its own links, with every router in the domain</button>
+    <button class="opt">Its complete topology map, with its immediate neighbours only</button>
+  </div>
+  <p class="why">Distance vector: whole table, neighbours only. Link state is the mirror image — only its own link information, but flooded to everyone. Mixing the two halves is the standard error here.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Given A–B = 2, B–C = 1 and a direct A–C link of cost 5, A's best route to C is:</p>
+  <div class="opts">
+    <button class="opt">Cost 8, adding all three links</button>
+    <button class="opt">Cost 5, via the direct link</button>
+    <button class="opt">Cost 1, using B's own cost to C</button>
+    <button class="opt" data-ok="1">Cost 3, via B</button>
+  </div>
+  <p class="why">2 + 1 = 3 beats the direct link's 5. A direct link is not automatically the best route, and examiners choose costs precisely to test whether you check the alternatives.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Split horizon prevents count-to-infinity by:</p>
+  <div class="opts">
+    <button class="opt">Ignoring all updates about a route for a fixed hold-down period</button>
+    <button class="opt">Setting the maximum hop count to 16 so the count terminates</button>
+    <button class="opt" data-ok="1">Not advertising a route back on the interface it was learned from</button>
+    <button class="opt">Flooding link state packets to every router in the domain</button>
+  </div>
+  <p class="why">Split horizon stops C telling B about a route C learned from B in the first place. The hop limit of 16 and hold-down timers are separate fixes, and flooding belongs to link state routing entirely.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which protocol uses path vector routing, and why?</p>
+  <div class="opts">
+    <button class="opt">DVMRP &mdash; carrying the AS path enables multicast pruning</button>
+    <button class="opt">RIP &mdash; carrying the AS path removes the 15-hop limit</button>
+    <button class="opt">OSPF &mdash; carrying the AS path speeds up Dijkstra's algorithm</button>
+    <button class="opt" data-ok="1">BGP &mdash; carrying the AS path makes loops visible and allows policy decisions</button>
+  </div>
+  <p class="why">BGP advertises the full list of autonomous systems a route traverses. A router seeing its own AS knows immediately that the route loops, and the path also lets an AS refuse routes on policy grounds regardless of cost.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. RPB improves on RPF by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Choosing one parent router per network, so no network gets duplicates</button>
+    <button class="opt">Pruning branches that lead to networks with no group members</button>
+    <button class="opt">Discarding packets that did not arrive on the shortest path to the source</button>
+    <button class="opt">Building one shared tree rooted at a designated rendezvous point</button>
+  </div>
+  <p class="why">RPF stops loops but a network with several routers still receives duplicates; RPB designates a single parent per network to eliminate them. Pruning is the further step, RPM. Keep the progression in order: loops, duplicates, waste.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. PIM sparse mode is preferred over dense mode when:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Group members are few and scattered over a wide area</button>
+    <button class="opt">The underlying unicast protocol must be OSPF specifically</button>
+    <button class="opt">Almost every network on the internet has a group member</button>
+    <button class="opt">The multicast group has exactly one sending source</button>
+  </div>
+  <p class="why">Dense mode floods then prunes, which only pays off when most networks want the traffic. Sparse mode sends nothing until a router explicitly joins — right for scattered members, which is the normal Internet case. PIM is protocol independent, so the unicast protocol is irrelevant.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the Bellman-Ford update rule.</summary>
+    <p class="ans">D<sub>x</sub>(y) = min over all neighbours v of [ c(x,v) + D<sub>v</sub>(y) ] — my cost to y is the cheapest of (cost to a neighbour plus that neighbour's cost to y).</p></details>
+  <details class="card"><summary>Give six differences between distance vector and link state routing.</summary>
+    <p class="ans">Bellman-Ford vs Dijkstra; shares the whole routing table vs only its own link information; with neighbours only vs flooded to every router; no topology knowledge vs a complete map; periodic updates vs on-change only; slow vs fast convergence; suffers count-to-infinity vs immune; low vs high CPU and memory. Protocols: RIP vs OSPF.</p></details>
+  <details class="card"><summary>Explain the count-to-infinity problem and its four fixes.</summary>
+    <p class="ans">When a link fails, a neighbour may advertise back a route that actually ran through the failed link. The cost creeps up one step at a time while packets loop. Fixes: define infinity as a small number (16 in RIP); split horizon (do not advertise a route back on the interface it was learned from); poison reverse (advertise it back with infinite cost); hold-down timers (ignore updates about the route for a period). Split horizon and poison reverse do not fix loops involving three or more routers.</p></details>
+  <details class="card"><summary>State the four steps of link state routing.</summary>
+    <p class="ans">Discover neighbours and link costs; build a Link State Packet listing them; flood the LSP to every router so all share an identical link state database; run Dijkstra's algorithm on that database to build the shortest-path tree and the routing table.</p></details>
+  <details class="card"><summary>Compare RIP, OSPF and BGP.</summary>
+    <p class="ans">RIP — interior, distance vector, hop count metric with maximum 15, full table every 30 s, small networks. OSPF — interior, link state, cost based on bandwidth, LSPs on change, large networks with areas. BGP — exterior, path vector, policy-based, between autonomous systems, and the protocol the Internet backbone runs on.</p></details>
+  <details class="card"><summary>Compare source-based and group-shared multicast trees.</summary>
+    <p class="ans">Source-based: one tree per (source, group) pair, rooted at the source, optimal paths, high router state, suits dense groups — DVMRP, MOSPF, PIM-DM. Group-shared: one tree per group rooted at a core or rendezvous point, sub-optimal paths, low router state, suits sparse groups with many sources — CBT, PIM-SM.</p></details>
+  <details class="card"><summary>Explain RPF, RPB and RPM and what each fixes.</summary>
+    <p class="ans">RPF forwards a packet only if it arrived on the interface on the shortest path back to the source — this stops loops, but a network with several routers still gets duplicates. RPB designates one parent router per network so only it forwards there — this stops duplicates, but networks with no members still receive traffic. RPM adds pruning (and grafting to rejoin) so uninterested networks are cut from the tree — this is true multicast.</p></details>
+  <details class="card"><summary>Distinguish PIM dense mode from sparse mode.</summary>
+    <p class="ans">Dense mode assumes most networks want the traffic: it floods first and prunes back, using a source-based tree. Sparse mode assumes almost none do: nothing is sent until a router explicitly joins, using a group-shared tree rooted at a rendezvous point. Sparse mode is what is actually deployed, because Internet multicast groups are scattered.</p></details>
+</div>
+
+<p class="ask">Want three more distance-vector networks to iterate to convergence, with answer tables? Ask &mdash; the numerical is where the marks are, and it only takes practice.</p>
+
+<div class="nav">
+  <a href="0025-icmp-and-igmp.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0027-ipv6.html">Next: IPv6 &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

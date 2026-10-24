@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 11 – MVCC & SQL Isolation Levels</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module C · Lesson 11 of 17 · Multi-Version Concurrency</div>
+  <h1>MVCC & ANSI SQL Isolation Levels</h1>
+  <p class="subtitle">Why modern databases achieve high read throughput without blocking writes: PostgreSQL and MySQL MVCC internals.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Transactions & Concurrency</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Traditional Two-Phase Locking suffers from a severe performance flaw: <strong>readers block writers, and writers block readers</strong>. If a report query takes 30 seconds to scan a million rows, all updates to those rows are frozen. Modern engines (PostgreSQL, MySQL InnoDB, Oracle) solve this via <strong>Multi-Version Concurrency Control (MVCC)</strong>: <em>readers never block writers, and writers never block readers</em>.</p>
+
+  <h2>2 · ANSI SQL-92 Isolation Levels & Phenomena</h2>
+  <p>The SQL standard defines 4 isolation levels based on three concurrency phenomena:</p>
+  <ul>
+    <li><strong>Dirty Read (G1)</strong>: <code>T1</code> modifies a row without committing; <code>T2</code> reads that uncommitted value; <code>T1</code> aborts. <code>T2</code> saw phantom data that never legally existed!</li>
+    <li><strong>Non-Repeatable Read (G2)</strong>: <code>T1</code> reads a row; <code>T2</code> modifies or deletes that row and commits; <code>T1</code> re-reads the row and sees changed values.</li>
+    <li><strong>Phantom Read (A3)</strong>: <code>T1</code> queries a range: <code>SELECT * WHERE age > 30</code> (returns 5 rows); <code>T2</code> inserts a new 35-year-old employee and commits; <code>T1</code> repeats the range query and sees 6 rows!</li>
+  </ul>
+
+  <table class="vs-table">
+    <thead>
+      <tr><th>Isolation Level</th><th>Dirty Read</th><th>Non-Repeatable Read</th><th>Phantom Read</th><th>Default In</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Read Uncommitted</strong></td><td>Allowed</td><td>Allowed</td><td>Allowed</td><td>Rarely used</td></tr>
+      <tr><td><strong>Read Committed</strong></td><td><strong style="color:var(--good-color,#22c55e)">Prevented</strong></td><td>Allowed</td><td>Allowed</td><td>PostgreSQL, Oracle, SQL Server</td></tr>
+      <tr><td><strong>Repeatable Read</strong></td><td><strong style="color:var(--good-color,#22c55e)">Prevented</strong></td><td><strong style="color:var(--good-color,#22c55e)">Prevented</strong></td><td>Prevented in InnoDB</td><td>MySQL InnoDB</td></tr>
+      <tr><td><strong>Serializable</strong></td><td><strong style="color:var(--good-color,#22c55e)">Prevented</strong></td><td><strong style="color:var(--good-color,#22c55e)">Prevented</strong></td><td><strong style="color:var(--good-color,#22c55e)">Prevented</strong></td><td>Financial Ledger strict mode</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3 · MVCC Internal Architecture</h2>
+  <p>Instead of overwriting rows in place, the database creates <strong>multiple historical versions</strong> of the same row:</p>
+  <ul>
+    <li><strong>PostgreSQL</strong>: Appends hidden system columns to every row:
+      <ul>
+        <li><code>xmin</code>: Transaction ID that created / inserted this row version.</li>
+        <li><code>xmax</code>: Transaction ID that deleted or superseded this row version (0 if current).</li>
+      </ul>
+    </li>
+    <li><strong>MySQL InnoDB</strong>: Uses hidden fields <code>DB_TRX_ID</code> and <code>DB_ROLL_PTR</code> pointing into the <strong>Undo Log</strong>. When a row is updated, the previous version is reconstructed on-the-fly by traversing the undo rollback segment.</li>
+  </ul>
+
+  <div class="callout info">
+    <h4>The Read View Snapshot</h4>
+    <p>When a transaction begins a read query under MVCC, the DBMS captures a <strong>Read View</strong> containing:
+      <code>{low_limit_id, high_limit_id, active_trx_ids}</code>.
+      Any row created by a transaction that committed before the snapshot is <strong>visible</strong>. Any row created by an active or uncommitted transaction is <strong>invisible</strong> (the engine traverses the undo chain to find the version that was committed before the query started).</p>
+  </div>
+
+  <h2>4 · Read Committed vs Repeatable Read in MVCC</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">RC</div>
+      <h3>Read Committed</h3>
+      <p>A fresh Read View snapshot is created <strong>at the start of each individual SQL statement</strong>. If another transaction commits between two statements inside the same transaction, changes become visible immediately.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">RR</div>
+      <h3>Repeatable Read</h3>
+      <p>A single Read View snapshot is created <strong>at the start of the first read query in the transaction</strong> and preserved throughout the entire transaction duration. Every query sees the identical historical frozen snapshot.</p>
+    </div>
+  </div>
+
+  <h2>5 · The Write Skew Anomaly in Snapshot Isolation</h2>
+  <div class="callout danger">
+    <h4>Why Snapshot Isolation &ne; Full Serializability</h4>
+    <p>Consider the <em>Doctors on Call</em> problem: Constraint is "At least one doctor must be on call". Doctors Alice and Bob are both on call. Simultaneously:</p>
+    <ul>
+      <li>Alice queries: "Is someone else on call?" (Yes, Bob). Alice checks out and commits.</li>
+      <li>Bob queries: "Is someone else on call?" (Yes, Alice). Bob checks out and commits.</li>
+    </ul>
+    <p>Under Repeatable Read / Snapshot Isolation, neither doctor updated the other's row, so no write conflict was triggered! Both commit, leaving <strong>ZERO doctors on call</strong>! True Serializable Isolation catches this via Serializable Snapshot Isolation (SSI) by tracking read-write dependency cycles.</p>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0010-deadlock-handling-in-databases.html">← Lesson 10: Deadlock Handling</a>
+    <a href="0012-database-recovery-and-wal-aries.html">Lesson 12: Database Recovery & ARIES WAL →</a>
+  </nav>
+</body>
+</html>

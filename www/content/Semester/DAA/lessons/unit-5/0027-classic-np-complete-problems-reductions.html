@@ -1,0 +1,210 @@
+<title>Classic NP-Complete Problems and Reductions</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit V &middot; Lesson 27 of 28</p>
+<h1>Classic NP-Complete Problems and Reductions</h1>
+<p class="deck">The grand tree of reductions: 3-SAT, the Clique decision problem, Vertex Cover, Set Cover, and step-by-step reduction gadget proofs.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Prove that the Clique Problem is NP-Complete by reducing from 3-SAT&rdquo;</strong> and <strong>&ldquo;Show that Vertex Cover is NP-Complete&rdquo;</strong> are standard 10-mark examination proofs. Always write: (1) Certificate verification in polynomial time, (2) Gadget construction, and (3) Proof in both directions (if and only if).</p>
+</div>
+
+<h2>The Reduction Hierarchy</h2>
+<p>Following Stephen Cook's breakthrough proof of SAT in 1971, Richard Karp published his landmark 1972 paper proving 21 classic problems to be NP-Complete via a cascading tree of polynomial-time reductions:</p>
+
+<div class="solve">
+  <span class="lbl">The Reduction Lineage</span>
+  <pre class="mono">                  Circuit-SAT
+                      │
+                      ▼
+             Cook     SAT (CNF-SAT)
+             1971     │
+                      ▼
+                     3-SAT
+                   /       \
+                  ▼         ▼
+               Clique   Subset Sum
+                  │         │
+                  ▼         ▼
+             Vertex Cover Knapsack
+                  │
+          ┌───────┴───────┐
+          ▼               ▼
+      Set Cover   Hamiltonian Cycle
+                          │
+                          ▼
+                         TSP</pre>
+</div>
+
+<h2>1. 3-CNF Satisfiability (3-SAT)</h2>
+<ul>
+  <li><strong>Literal:</strong> A boolean variable $x_i$ or its negation $\overline{x_i}$.</li>
+  <li><strong>Clause:</strong> A disjunction (OR $\lor$) of literals (e.g. $(x_1 \lor \overline{x_2} \lor x_3)$).</li>
+  <li><strong>3-CNF:</strong> A conjunction (AND $\land$) of clauses where each clause has <strong>exactly 3 distinct literals</strong>:
+  $$\Phi = C_1 \land C_2 \land \dots \land C_m = (l_{11} \lor l_{12} \lor l_{13}) \land \dots \land (l_{m1} \lor l_{m2} \lor l_{m3})$$</li>
+  <li><strong>Decision Problem:</strong> Does there exist a truth assignment to all variables that makes $\Phi$ evaluate to TRUE?</li>
+  <li><strong>SAT &rarr; 3-SAT Reduction:</strong> Any general clause $(l_1 \lor l_2 \lor \dots \lor l_k)$ with $k &gt; 3$ can be broken into 3-literal clauses using $k-3$ auxiliary variables $y_1, y_2, \dots$:
+  $$(l_1 \lor l_2 \lor y_1) \land (\overline{y_1} \lor l_3 \lor y_2) \land \dots \land (\overline{y_{k-3}} \lor l_{k-1} \lor l_k)$$</li>
+</ul>
+
+<h2>2. The Clique Decision Problem (CDP)</h2>
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>clique</strong> in an undirected graph $G = (V, E)$ is a subset of vertices $V' \subseteq V$ such that every pair of vertices in $V'$ is connected by an edge (a complete subgraph).<br>
+  <strong>Decision Problem:</strong> Given graph $G$ and integer $k$, does $G$ contain a clique of size at least $k$?
+</div>
+
+<div class="solve">
+  <span class="lbl">Proof: Clique is NP-Complete (Reducing 3-SAT ≤_P Clique)</span>
+  <p><strong>Part 1: Show Clique &isin; NP</strong></p>
+  <p>Certificate: A list of $k$ vertices $V'$. Verifier: Check that $|V'| = k$ and that for all pairs $u, v \in V'$, edge $(u, v) \in E$. This takes $O(k^2) = O(V^2)$ polynomial time. Hence, Clique &isin; NP.</p>
+
+  <p><strong>Part 2: Reduction Construction from 3-SAT ($\Phi \to \langle G, k \rangle$)</strong></p>
+  <ul>
+    <li>Let $\Phi = C_1 \land C_2 \land \dots \land C_m$ be a 3-CNF formula with $m$ clauses.</li>
+    <li>For each clause $C_r = (l_r^1 \lor l_r^2 \lor l_r^3)$, create a group (triad) of 3 vertices in $G$. Total vertices $|V| = 3m$.</li>
+    <li>Place an undirected edge between two vertices $u$ and $v$ if and only if:
+      <ol>
+        <li>$u$ and $v$ belong to <strong>different clause groups</strong> ($C_r \ne C_s$).</li>
+        <li>$u$ and $v$ are <strong>consistent</strong> (they are not negations of each other, e.g. $x_1$ and $\overline{x_1}$).</li>
+      </ol>
+    </li>
+    <li>Set target clique size <strong>$k = m$</strong>. Graph construction runs in $O(m^2)$ polynomial time.</li>
+  </ul>
+
+  <p><strong>Part 3: Correctness (&hArr;)</strong></p>
+  <ul>
+    <li><strong>Forward (&rArr;):</strong> If $\Phi$ is satisfiable, pick one TRUE literal per clause. This gives $m$ vertices. Since they come from distinct clauses and none are contradictory, an edge exists between all of them &rarr; $G$ has a clique of size $m$.</li>
+    <li><strong>Backward (&lArr;):</strong> If $G$ has a clique of size $m$, since no edges exist within the same clause triad, the clique must contain exactly one vertex from each clause triad. Because edges only connect consistent literals, we assign TRUE to these literals without contradiction &rarr; $\Phi$ is satisfied.</li>
+  </ul>
+</div>
+
+<h2>3. The Vertex Cover (VC) Problem</h2>
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>vertex cover</strong> of an undirected graph $G = (V, E)$ is a subset of vertices $V' \subseteq V$ such that every edge $(u, v) \in E$ has at least one endpoint in $V'$ ($u \in V'$ or $v \in V'$ or both).<br>
+  <strong>Decision Problem:</strong> Given graph $G$ and integer $k$, does $G$ contain a vertex cover of size at most $k$?
+</div>
+
+<div class="solve">
+  <span class="lbl">Proof: Vertex Cover is NP-Complete (Reducing Clique ≤_P VC)</span>
+  <p><strong>The Fundamental Duality Theorem:</strong></p>
+  <p>For any graph $G = (V, E)$ with complement graph $\overline{G} = (V, \overline{E})$ where $(u, v) \in \overline{E} \iff (u, v) \notin E$:</p>
+  <div class="formula">
+    <strong>$S \subseteq V$ is a Clique in $G \iff V \setminus S$ is a Vertex Cover in $\overline{G}$.</strong>
+  </div>
+  <p><strong>Reduction Algorithm:</strong></p>
+  <ol>
+    <li>Given instance $\langle G, k \rangle$ of the Clique problem:</li>
+    <li>Construct complement graph $\overline{G} = (V, \overline{E})$ in $O(V^2)$ polynomial time.</li>
+    <li>Set target vertex cover size $k' = |V| - k$.</li>
+    <li>Output instance $\langle \overline{G}, k' \rangle$.</li>
+  </ol>
+  <p><strong>Proof of Equivalence:</strong></p>
+  <ul>
+    <li>If $G$ has a clique $S$ of size $k$, then every pair in $S$ has an edge in $G$, so no pair in $S$ has an edge in $\overline{G}$. Therefore, any edge in $\overline{E}$ must have at least one endpoint outside $S$ (in $V \setminus S$). Thus, $V \setminus S$ covers all edges of $\overline{G}$, with size $|V| - k = k'$.</li>
+    <li>Conversely, if $\overline{G}$ has a vertex cover $V'$ of size $\le k'$, its complement $S = V \setminus V'$ has size $\ge |V| - k' = k$. Since $V'$ covers all edges in $\overline{G}$, no edge in $\overline{G}$ connects two vertices of $S$. Hence, all pairs in $S$ must be connected in $G$, forming a clique of size $\ge k$.</li>
+  </ul>
+</div>
+
+<h2>4. The Set Cover Problem</h2>
+<p>Given a universe $U = \{e_1, e_2, \dots, e_n\}$, a collection of subsets $S = \{S_1, S_2, \dots, S_m\}$ where each $S_i \subseteq U$, and an integer $k$. Can we choose at most $k$ subsets from $S$ whose union covers all of $U$?</p>
+<div class="box win">
+  <span class="lbl">Reduction: Vertex Cover &le;_P Set Cover</span>
+  <ul>
+    <li>Let universe $U = E$ (all edges of graph $G$).</li>
+    <li>For each vertex $v \in V$, create subset $S_v = \{ e \in E \mid e \text{ is incident to } v \}$.</li>
+    <li>A set of $k$ vertices covers all edges in $G \iff$ the corresponding $k$ subsets cover universe $U$.</li>
+  </ul>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Classic NP-Complete Problems Reduction Tree</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:28rem;"><strong>Circuit-SAT (Cook-Levin Theorem)</strong></div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box"><strong>3-SAT (3-Conjunctive Normal Form)</strong></div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-row">
+      <div class="flow-box ok"><strong>Independent Set</strong><span class="sub">No two vertices adjacent</span></div>
+      <div class="flow-arrow-right">&harr;</div>
+      <div class="flow-box warn"><strong>Vertex Cover</strong><span class="sub">Edges touched by vertex subset</span></div>
+      <div class="flow-arrow-right">&harr;</div>
+      <div class="flow-box"><strong>Clique</strong><span class="sub">Complete subgraph</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 19 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Reduction Reductions</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">3-SAT to Clique and Vertex Cover Polynomial Reductions</div>
+    <div class="v-desc">Detailed gadget construction mapping 3-SAT clauses to trios of vertices with edges connecting consistent literals.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=CHtTLireUCA" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In the reduction from 3-SAT to Clique, how many vertices are created in graph G for a formula with m clauses?</p>
+  <div class="opts">
+    <button class="opt">m vertices</button>
+    <button class="opt">m² vertices</button>
+    <button class="opt" data-ok="1">3m vertices (3 vertices per clause)</button>
+    <button class="opt">2^m vertices</button>
+  </div>
+  <p class="why">Each clause contains 3 literals; a vertex is created for each literal position, totaling 3m vertices.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. If S is a clique of size k in graph G with |V| vertices, what is V \ S in the complement graph Ḡ?</p>
+  <div class="opts">
+    <button class="opt">A clique of size k</button>
+    <button class="opt">An empty subgraph</button>
+    <button class="opt">A Hamiltonian path</button>
+    <button class="opt" data-ok="1">A vertex cover of size |V| - k</button>
+  </div>
+  <p class="why">By the duality theorem, the complement of a clique in G is always a vertex cover in Ḡ.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In a vertex cover problem, an edge (u, v) is covered if:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">At least one endpoint (u or v) belongs to the vertex cover set</button>
+    <button class="opt">Both endpoints u and v must belong to the vertex cover set</button>
+    <button class="opt">The edge has zero weight</button>
+    <button class="opt">Neither endpoint belongs to the vertex cover set</button>
+  </div>
+  <p class="why">A vertex cover requires at least one of the two incident endpoints of every edge to be in the subset.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Define Clique and Vertex Cover.</summary>
+    <p class="ans">Clique: a subset of vertices where every pair is connected by an edge. Vertex Cover: a subset of vertices that touches (covers) every edge in the graph.</p></details>
+  <details class="card"><summary>State the duality theorem linking Clique and Vertex Cover.</summary>
+    <p class="ans">S is a clique in G if and only if V \ S is a vertex cover in the complement graph Ḡ.</p></details>
+  <details class="card"><summary>How are edges formed in the 3-SAT to Clique reduction graph?</summary>
+    <p class="ans">Edges connect vertices in different clauses that are non-contradictory (do not represent x and ¬x).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0026-np-completeness-and-polynomial-reductions.html">&larr; Previous: NP-Completeness &amp; Reductions</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0028-hamiltonian-cycle-tsp-and-approximations.html">Next: Hamiltonian Cycle, TSP &amp; Approximations &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

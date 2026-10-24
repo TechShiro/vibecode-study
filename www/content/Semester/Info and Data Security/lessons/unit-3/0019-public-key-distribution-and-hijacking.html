@@ -1,0 +1,266 @@
+<title>Public-Key Distribution and Hijacking</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit III &middot; Lesson 19 of 19</p>
+<h1>Public-Key Distribution and Hijacking</h1>
+<p class="deck">How public keys are distributed securely &mdash; public announcement, directory, CA and certificates, X.509 &mdash; and the attacks that exploit weak distribution: man-in-the-middle, session hijacking, and certificate spoofing.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Four methods of public-key distribution</strong> is a guaranteed question &mdash; present as a table with advantages and weaknesses. <strong>Hijacking</strong> is tested as &ldquo;explain session hijacking with diagram&rdquo; or as a part of MITM.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Man-in-the-Middle Attack on Diffie-Hellman</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLYwpaL_SFmcArHtWmbs_vXX6soTK3WEJw" target="_blank">Public Key Distribution &amp; Man-in-the-Middle Attack on Diffie-Hellman</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 8:30</span>
+    <div class="v-why">Proves why unauthenticated public key exchange completely collapses under active adversary interception (Darth masquerades as Bob to Alice, and Alice to Bob).</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Digital Certificates &amp; X.509 Standard</span>
+      <span class="best-tag">Top Exam Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=sco-1X92c8w" target="_blank">Digital Certificates, X.509 Standard &amp; Certificate Authority (CA)</a>
+    <span class="v-meta">Gate Smashers &middot; 13:50</span>
+    <div class="v-why">Exhaustive walkthrough of X.509 format fields (Version, Serial No, Signature Algo, Issuer, Validity, Subject, Subject's Public Key), CA signature, and revocation (CRL / OCSP).</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: PKI CERTIFICATE CHAIN -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Public Key Infrastructure (PKI) Trust Chain</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Root Certificate Authority (Root CA)</strong>
+      <span class="sub">Self-signed root certificate pre-installed in OS / Browser trust store</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Root CA Digitally Signs Intermediate CA</span>
+    
+    <div class="flow-box">
+      <strong>Intermediate Certificate Authority (Sub-CA)</strong>
+      <span class="sub">Delegated authority &middot; Shields Root CA private key from online compromise</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Intermediate CA Digitally Signs End-Entity Certificate</span>
+    
+    <div class="flow-box ok">
+      <strong>End-Entity Server Certificate (e.g. *.google.com)</strong>
+      <span class="sub">Binds domain identity to server's public key &middot; Authenticated by browser</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Four methods of public-key distribution</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>How it works</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Public announcement</strong></td><td>User broadcasts their public key (email, website, keyserver)</td><td><strong>No authentication</strong> &mdash; anyone can post a fake key claiming to be Alice</td></tr>
+<tr><td><strong>2. Publicly available directory</strong></td><td>A trusted authority maintains a directory mapping names to public keys; users register in person</td><td>Directory can be <strong>tampered</strong> if compromised; single point of failure</td></tr>
+<tr><td><strong>3. Public-key authority (online)</strong></td><td>The authority signs each key on request in real-time; the user contacts the authority for every communication</td><td>Authority must be <strong>online</strong> at all times; becomes a bottleneck</td></tr>
+<tr><td><strong>4. Public-key certificates (CA)</strong></td><td>A <strong>Certificate Authority</strong> signs a certificate binding (name, public key, validity). The certificate can be verified offline using the CA&rsquo;s public key</td><td>Requires <strong>trust in the CA</strong>; if CA is compromised, all certificates are suspect</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Method 4 is the standard</span>
+  <p>The CA-based system is what the internet uses (X.509 certificates in TLS/SSL). The other three are listed for the exam comparison table, but <strong>certificates are the only method that scales and works offline</strong>.</p>
+</div>
+
+<h2>X.509 certificates</h2>
+
+<p>An X.509 certificate contains:</p>
+
+<ul>
+<li><strong>Version</strong> (v1, v2, v3)</li>
+<li><strong>Serial number</strong> (unique per CA)</li>
+<li><strong>Signature algorithm</strong> (e.g., SHA-256 with RSA)</li>
+<li><strong>Issuer</strong> (the CA&rsquo;s distinguished name)</li>
+<li><strong>Validity period</strong> (not before / not after)</li>
+<li><strong>Subject</strong> (the entity&rsquo;s distinguished name)</li>
+<li><strong>Subject&rsquo;s public key</strong> (algorithm + key value)</li>
+<li><strong>CA&rsquo;s digital signature</strong> over all of the above</li>
+</ul>
+
+<div class="formula">
+  <span class="name">Certificate notation</span>
+  CA &laquo;A&raquo; = E<sub>KR<sub>CA</sub></sub>( ID<sub>A</sub> &Verbar; KU<sub>A</sub> &Verbar; validity &Verbar; &hellip; )<br><br>
+  Anyone with KU<sub>CA</sub> (the CA&rsquo;s public key) can verify that the certificate is genuine.
+</div>
+
+<h3>Certificate chain (hierarchy)</h3>
+
+<p>If Alice&rsquo;s certificate is signed by CA<sub>1</sub> and Bob trusts CA<sub>2</sub>, they can still communicate if there is a <strong>chain</strong>: CA<sub>2</sub> has signed CA<sub>1</sub>&rsquo;s certificate, so Bob trusts CA<sub>1</sub> transitively. This is the <strong>certificate hierarchy</strong> / <strong>chain of trust</strong>.</p>
+
+<h3>Certificate Revocation List (CRL)</h3>
+
+<p>A list published by the CA of certificates that are <strong>revoked before expiry</strong> (e.g., if the private key is compromised). The verifier must check the CRL (or use OCSP &mdash; Online Certificate Status Protocol) before accepting a certificate.</p>
+
+<h2>Hijacking</h2>
+
+<h3>Man-in-the-middle (MITM) on public-key distribution</h3>
+
+<div class="formula">
+  <span class="name">MITM attack</span>
+  Alice requests Bob&rsquo;s public key. Mallory intercepts and sends <strong>her own public key</strong> as Bob&rsquo;s.<br>
+  Alice encrypts with Mallory&rsquo;s key thinking it is Bob&rsquo;s. Mallory decrypts, reads, re-encrypts with Bob&rsquo;s real key, forwards to Bob.<br><br>
+  <strong>Neither side detects the attack.</strong><br>
+  <strong>Defence:</strong> certificates from a trusted CA. Mallory cannot forge a certificate for Bob without the CA&rsquo;s private key.
+</div>
+
+<h3>Session hijacking</h3>
+
+<p>An attacker <strong>takes over an established session</strong> between two authenticated parties:</p>
+
+<ol>
+<li><strong>TCP session hijacking:</strong> attacker predicts TCP sequence numbers and injects packets after authentication is complete. The server thinks the attacker is the legitimate client.</li>
+<li><strong>Cookie hijacking:</strong> attacker steals a session cookie (via XSS, sniffing) and uses it to impersonate the user&rsquo;s session with a web server.</li>
+<li><strong>IP spoofing:</strong> attacker forges the source IP address to appear as the legitimate client.</li>
+</ol>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack type</th><th>What is exploited</th><th>Defence</th></tr></thead>
+<tbody>
+<tr><td><strong>MITM</strong></td><td>Unauthenticated key exchange</td><td>Certificates, authenticated DH</td></tr>
+<tr><td><strong>TCP hijacking</strong></td><td>Predictable sequence numbers</td><td>Random sequence numbers, encryption (TLS)</td></tr>
+<tr><td><strong>Cookie hijacking</strong></td><td>Unencrypted session tokens</td><td>HTTPS, secure/httponly cookie flags</td></tr>
+<tr><td><strong>IP spoofing</strong></td><td>No source authentication in IP</td><td>IPSec, ingress filtering</td></tr>
+<tr><td><strong>Replay</strong></td><td>Reuse of old credentials</td><td>Timestamps, nonces, sequence numbers</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The exam-ready summary</span>
+  <p><strong>Hijacking = taking control of a session after authentication.</strong> It differs from MITM (which is during key exchange) and replay (which is reuse of old messages). The common theme: <strong>any gap between authentication and communication is exploitable</strong>. TLS closes this gap by combining authentication and encryption into one protocol.</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The most secure and scalable method of public-key distribution is:</p>
+  <div class="opts">
+    <button class="opt">A publicly available directory</button>
+    <button class="opt">Sending keys via email</button>
+    <button class="opt">Public announcement on a website</button>
+    <button class="opt" data-ok="1">Public-key certificates signed by a Certificate Authority</button>
+  </div>
+  <p class="why">Certificates are signed by a trusted CA and can be verified offline. The other methods lack authentication or require the authority to be online.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. An X.509 certificate is verified using:</p>
+  <div class="opts">
+    <button class="opt">The certificate&rsquo;s serial number</button>
+    <button class="opt" data-ok="1">The CA&rsquo;s public key &mdash; to check the CA&rsquo;s digital signature on the certificate</button>
+    <button class="opt">A shared symmetric key</button>
+    <button class="opt">The subject&rsquo;s private key</button>
+  </div>
+  <p class="why">The CA signs the certificate with its private key. Anyone with the CA&rsquo;s public key can verify the signature, confirming the certificate is genuine.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A CRL is used to:</p>
+  <div class="opts">
+    <button class="opt">Encrypt messages</button>
+    <button class="opt">Generate session keys</button>
+    <button class="opt" data-ok="1">List certificates that have been revoked before their expiry date</button>
+    <button class="opt">Distribute new certificates</button>
+  </div>
+  <p class="why">Certificate Revocation List = certificates that should no longer be trusted (e.g., private key compromised). Must be checked before accepting a certificate.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In a MITM attack on public-key distribution, the attacker:</p>
+  <div class="opts">
+    <button class="opt">Steals the CA&rsquo;s private key</button>
+    <button class="opt">Cracks the recipient&rsquo;s private key</button>
+    <button class="opt" data-ok="1">Substitutes their own public key for the intended recipient&rsquo;s key</button>
+    <button class="opt">Floods the network with packets</button>
+  </div>
+  <p class="why">The attacker intercepts the key exchange and substitutes their own key. They then relay messages between the parties, decrypting and re-encrypting.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Session hijacking differs from a replay attack in that:</p>
+  <div class="opts">
+    <button class="opt">They are the same attack</button>
+    <button class="opt" data-ok="1">Hijacking takes over a LIVE session; replay resends OLD messages</button>
+    <button class="opt">Hijacking uses encryption; replay does not</button>
+    <button class="opt">Replay is more dangerous than hijacking</button>
+  </div>
+  <p class="why">Hijacking = active takeover of a current session after auth. Replay = passive reuse of recorded credentials.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The defence against MITM on Diffie&ndash;Hellman is:</p>
+  <div class="opts">
+    <button class="opt">Sending the shared secret in a separate channel</button>
+    <button class="opt">Using a longer prime p</button>
+    <button class="opt">Using DH twice</button>
+    <button class="opt" data-ok="1">Authenticating the public values with digital signatures or certificates</button>
+  </div>
+  <p class="why">DH gives no authentication. Signing g^a and g^b with the sender&rsquo;s private key (Station-to-Station protocol) prevents substitution.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A certificate chain enables:</p>
+  <div class="opts">
+    <button class="opt">Sending certificates without signatures</button>
+    <button class="opt">Bypassing the need for any CA</button>
+    <button class="opt">Encrypting messages without a key</button>
+    <button class="opt" data-ok="1">Trust transitivity &mdash; trusting a CA you don&rsquo;t directly know through a chain of signed certificates</button>
+  </div>
+  <p class="why">If Bob trusts CA_2 and CA_2 has signed CA_1&rsquo;s certificate, Bob can transitively trust certificates issued by CA_1.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the four methods of public-key distribution.</summary>
+    <p class="ans">1. Public announcement (no auth). 2. Publicly available directory (tamper risk). 3. Online public-key authority (bottleneck). 4. Certificates from CA (standard, works offline).</p></details>
+  <details class="card"><summary>What does an X.509 certificate contain?</summary>
+    <p class="ans">Version, serial number, signature algorithm, issuer (CA), validity period, subject, subject&rsquo;s public key, and the CA&rsquo;s digital signature over all fields.</p></details>
+  <details class="card"><summary>Explain session hijacking vs MITM vs replay.</summary>
+    <p class="ans">MITM: intercepts during key exchange. Hijacking: takes over a live session after auth. Replay: resends old messages. All exploit gaps in authentication/freshness.</p></details>
+  <details class="card"><summary>How do certificates prevent MITM?</summary>
+    <p class="ans">The CA signs (name, public key). An attacker cannot forge a certificate for Bob without the CA&rsquo;s private key, so substituting a fake public key is detectable.</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">That completes Unit III &mdash; five lessons on authentication and key management</span>
+  <p>Print the <a href="../../reference/unit3-cheat-sheet.html">Unit III cheat sheet</a> for quick revision. The sheet covers all protocols, comparison tables, and attack types on one printable page.</p>
+</div>
+
+<p class="ask">Want practice questions on Kerberos message flows or DH numericals? Ask and I will generate them with full solutions.</p>
+
+<div class="nav">
+  <a href="0018-key-distribution-and-kerberos.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-4/0020-pgp-and-smime.html">Next: Network Security &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

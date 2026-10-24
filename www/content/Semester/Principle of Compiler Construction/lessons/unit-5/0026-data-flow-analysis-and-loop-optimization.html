@@ -1,0 +1,202 @@
+<title>Data-Flow Analysis and Loop Optimization</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit V &middot; Lesson 26 of 27</p>
+<h1>Data-Flow Analysis and Loop Optimization</h1>
+<p class="deck">The data-flow abstraction, transfer equations (Gen and Kill), reaching definitions, available expressions, live variables, dominator trees, and natural loop optimization.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Compare Reaching Definitions, Available Expressions, and Live Variables&rdquo;</strong> is a guaranteed 8-to-10 mark theory question. Always draw the 4-quadrant comparison table showing: direction (forward/backward), meet operator ($\cup$ / $\cap$), boundary condition, and optimization enabled.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Data-Flow Equations &amp; Transfer Functions</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Data Flow Analysis in Compiler Design | Reaching Definitions &amp; Available Expressions</a>
+    <span class="v-meta">Gate Smashers &middot; 16:45</span>
+    <div class="v-why">Definitive lecture on Gen, Kill, In, Out equations, the iterative fixed-point convergence algorithm, and why Available Expressions requires intersection (&cap;) whereas Reaching Definitions requires union (&cup;).</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Dominator Trees, Back Edges &amp; Natural Loops</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Dominator Tree &amp; Natural Loops in Compiler Design</a>
+    <span class="v-meta">Neso Academy &middot; 18:20</span>
+    <div class="v-why">Rigorous formal treatment of the dominance relation $d \text{ dom } n$, immediate dominators, building dominator trees, and the algorithm for identifying natural loops from back edges.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: DATA-FLOW TRANSFER DYNAMICS -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Fundamental Data-Flow Transfer Engine</span>
+  <div class="flow-col">
+    <!-- Predecessor Inflow -->
+    <div class="flow-row" style="gap:1.2rem;">
+      <div class="flow-box" style="min-width:8rem; max-width:10rem; padding:0.4rem 0.6rem;">
+        <strong>Pred 1: Out[P1]</strong>
+      </div>
+      <div class="flow-box" style="min-width:8rem; max-width:10rem; padding:0.4rem 0.6rem;">
+        <strong>Pred 2: Out[P2]</strong>
+      </div>
+      <div class="flow-box" style="min-width:8rem; max-width:10rem; padding:0.4rem 0.6rem;">
+        <strong>Pred k: Out[Pk]</strong>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Confluence Operator: &wedge; (&cup; or &cap;)</span>
+    
+    <!-- In Boundary -->
+    <div class="flow-box highlight" style="min-width:18rem;">
+      <strong>In[B] &middot; Entry Boundary Information</strong>
+      <span class="sub">$\text{In}[B] = \bigwedge_{P \in \text{pred}(B)} \text{Out}[P]$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    
+    <!-- Block Transformation -->
+    <div class="flow-box warn" style="min-width:22rem; border-width:2px;">
+      <strong>Basic Block B &middot; Transfer Function</strong>
+      <span class="sub">1. Filter: Remove invalid definitions via $(\text{In}[B] - \mathbf{kill}_B)$<br>2. Generate: Add freshly computed facts via $\cup\ \mathbf{gen}_B$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Transfer Equation Result</span>
+    
+    <!-- Out Boundary -->
+    <div class="flow-box ok" style="min-width:18rem;">
+      <strong>Out[B] &middot; Exit Boundary Information</strong>
+      <span class="sub">$\text{Out}[B] = \mathbf{gen}_B \cup (\text{In}[B] - \mathbf{kill}_B)$</span>
+    </div>
+  </div>
+</div>
+
+<h2>What is data-flow analysis?</h2>
+<p><strong>Data-flow analysis</strong> is a framework that proves properties about how values and definitions propagate along execution paths in a Control Flow Graph (CFG). Because determining exact runtime execution paths is undecidable, data-flow analysis computes safe static approximations across all possible paths.</p>
+
+<h2>The Data-Flow Framework</h2>
+<p>For each basic block $B$:</p>
+<ul>
+  <li>$\mathbf{gen}_B$: The information generated within block $B$.</li>
+  <li>$\mathbf{kill}_B$: The information from outside that is invalidated/killed within block $B$.</li>
+  <li>$\mathbf{In}[B]$: Information arriving at the entry boundary of block $B$.</li>
+  <li>$\mathbf{Out}[B]$: Information leaving the exit boundary of block $B$.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">General Transfer Function</span>
+  $$\text{Out}[B] = \text{gen}_B \cup (\text{In}[B] - \text{kill}_B)$$
+  $$\text{In}[B] = \bigwedge_{P \in \text{pred}(B)} \text{Out}[P]$$
+  where $\wedge$ is the <strong>meet operator</strong> (either set union $\cup$ or set intersection $\cap$).
+</div>
+
+<h2>The Three Classic Data-Flow Problems</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Reaching Definitions</th><th>Available Expressions</th><th>Live Variable Analysis</th></tr></thead>
+<tbody>
+<tr><td><strong>Direction</strong></td><td>Forward ($\text{In} \to \text{Out}$)</td><td>Forward ($\text{In} \to \text{Out}$)</td><td>Backward ($\text{Out} \to \text{In}$)</td></tr>
+<tr><td><strong>Meet Operator</strong></td><td>Union ($\cup$ &mdash; any path)</td><td>Intersection ($\cap$ &mdash; all paths)</td><td>Union ($\cup$ &mdash; any path)</td></tr>
+<tr><td><strong>Transfer Eq.</strong></td><td>$\text{Out}[B] = \text{gen}_B \cup (\text{In}[B] - \text{kill}_B)$</td><td>$\text{Out}[B] = \text{gen}_B \cup (\text{In}[B] - \text{kill}_B)$</td><td>$\text{In}[B] = \text{use}_B \cup (\text{Out}[B] - \text{def}_B)$</td></tr>
+<tr><td><strong>Boundary (Entry/Exit)</strong></td><td>$\text{Out}[\text{Entry}] = \emptyset$</td><td>$\text{Out}[\text{Entry}] = \emptyset$; others $U$</td><td>$\text{In}[\text{Exit}] = \emptyset$</td></tr>
+<tr><td><strong>Application</strong></td><td>Detecting uninitialized variables, copy propagation</td><td>Global common subexpression elimination</td><td>Dead code elimination, register allocation</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>1. Reaching Definitions</h3>
+<p>A definition $d: x = y + z$ <strong>reaches</strong> a program point $p$ if there is an execution path from $d$ to $p$ along which $x$ is not killed (redefined). If a use of $x$ is reached by only one definition, it enables constant or copy propagation.</p>
+
+<h3>2. Available Expressions</h3>
+<p>An expression $x + y$ is <strong>available</strong> at point $p$ if <em>every</em> path from the entry node to $p$ evaluates $x + y$, and after the last such evaluation prior to reaching $p$, neither $x$ nor $y$ is redefined. If $x + y$ is available at $p$, its recomputation at $p$ can be replaced by a temporary holding the previous result (Global CSE).</p>
+
+<h3>3. Live Variable Analysis</h3>
+<p>A variable $x$ is <strong>live</strong> at point $p$ if there exists a path from $p$ to a subsequent use of $x$ along which $x$ is not redefined. Otherwise, $x$ is <strong>dead</strong>. If a variable is dead immediately after an assignment $x = \dots$, the assignment can be safely deleted (Dead Code Elimination).</p>
+
+<h2>Dominators and Natural Loops</h2>
+<div class="formula">
+  <span class="name">Dominance Relation</span>
+  A node $d$ <strong>dominates</strong> a node $n$ (written $d \text{ dom } n$) if every path from the initial entry node of the flow graph to $n$ must pass through $d$.
+  <ul>
+    <li>Every node dominates itself: $n \text{ dom } n$.</li>
+    <li>The initial node dominates all nodes in the flow graph.</li>
+  </ul>
+</div>
+
+<h3>Natural Loops</h3>
+<p>A <strong>natural loop</strong> has two essential properties:</p>
+<ol>
+  <li>It has a single entry point called the <strong>header</strong>, which dominates all nodes in the loop.</li>
+  <li>It contains at least one <strong>back edge</strong>: an edge $m \to d$ where the destination $d$ dominates the source $m$ ($d \text{ dom } m$).</li>
+</ol>
+<p><strong>Constructing the natural loop of a back edge $m \to d$:</strong> It consists of $d$, together with all nodes that can reach $m$ without passing through $d$.</p>
+
+<h2>Loop Optimization Techniques</h2>
+<ul>
+  <li><strong>Loop-Invariant Computation:</strong> An instruction $x = y + z$ in loop $L$ is invariant if both operands $y$ and $z$ are either constants or have all their reaching definitions strictly outside of $L$. Such statements can be hoisted to the loop preheader.</li>
+  <li><strong>Induction Variables:</strong> A variable $i$ is a basic induction variable if its only assignments in $L$ are of the form $i = i \pm c$. Any variable $j$ whose value is a linear function of $i$ ($j = c_1 \times i + c_2$) is also an induction variable.</li>
+  <li><strong>Strength Reduction:</strong> Replaces the multiplication in $j = 4 \times i$ with addition ($j = j + 4$) inside the loop, saving CPU clock cycles on every iteration.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Available expressions analysis uses which direction and meet operator?</p>
+  <div class="opts">
+    <button class="opt">Forward flow with union (⋃) across all predecessor paths</button>
+    <button class="opt" data-ok="1">Forward flow with intersection (⋂) across all predecessor paths</button>
+    <button class="opt">Backward flow with union (⋃) across all successor paths</button>
+    <button class="opt">Backward flow with intersection (⋂) across all successor paths</button>
+  </div>
+  <p class="why">An expression is available only if it is computed on ALL paths reaching the point, requiring intersection (⋂).</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Live variable analysis is performed in which direction and what is its primary use?</p>
+  <div class="opts">
+    <button class="opt">Forward flow; used for common subexpression elimination</button>
+    <button class="opt">Forward flow; used for loop unrolling</button>
+    <button class="opt">Backward flow; used for lexical tokenization</button>
+    <button class="opt" data-ok="1">Backward flow; used for register allocation and dead-code elimination</button>
+  </div>
+  <p class="why">Liveness flows backward from uses to definitions; if a variable is not live after an assignment, that assignment is dead code.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A directed edge m → d is a back edge if and only if:</p>
+  <div class="opts">
+    <button class="opt">The tail m dominates the head d (m dom d)</button>
+    <button class="opt">Both m and d have identical out-degrees</button>
+    <button class="opt">It connects two unrelated functions</button>
+    <button class="opt" data-ok="1">The head d dominates the tail m (d dom m)</button>
+  </div>
+  <p class="why">A back edge points from a node back to one of its dominators, establishing a loop header.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Contrast Reaching Definitions and Available Expressions.</summary>
+    <p class="ans">Reaching definitions: Forward, Union (∪). Tests if a definition may reach along ANY path. Available expressions: Forward, Intersection (∩). Tests if an expression must be computed on ALL paths.</p></details>
+  <details class="card"><summary>What is a dominator and a natural loop?</summary>
+    <p class="ans">Node d dominates n (d dom n) if every path from entry to n passes through d. A natural loop is defined by a back edge m → d (where d dom m) and contains all nodes that reach m without going through d.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0025-dag-representation-and-local-optimization.html">&larr; Previous: DAG Representation and Local Optimization</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0027-code-generation-and-peephole-optimization.html">Next: Code Generation and Peephole Optimization &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

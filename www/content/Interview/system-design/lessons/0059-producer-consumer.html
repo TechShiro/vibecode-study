@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 59 - Producer-Consumer Pattern | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · LLD · Lesson 59 of 66 · Bounded Buffer, BlockingQueue, Backpressure</div>
+  
+  <h1>The Producer-Consumer Pattern &amp; Backpressure</h1>
+  <p class="subtitle">Decoupling task generation from task execution using thread-safe bounded buffers.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module N — Concurrency &amp; Thread Safety</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In a multithreaded application, if producer threads (e.g. network socket readers) generate tasks faster than consumer threads (e.g. database writers) can process them, an unbounded queue will grow indefinitely until the JVM runs out of heap memory and crashes with <code>java.lang.OutOfMemoryError</code>. The <strong>Producer-Consumer Pattern</strong> coordinates threads through a <strong>Bounded Buffer (BlockingQueue)</strong>, automatically applying <strong>Backpressure</strong> to slow down producers when the queue is full.</p>
+
+  <h2>2 · How a Bounded BlockingQueue Coordinates Threads</h2>
+  <div class="arch-flow">
+    <div class="box">Producer Thread</div>
+    <div class="arrow-right"></div>
+    <div class="box queue">Bounded Queue (Capacity: 100)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Consumer Thread</div>
+  </div>
+
+  <ul>
+    <li><strong><code>put(item)</code>:</strong> Adds an item to the queue. If the buffer is full (100 items), the calling producer thread <strong>blocks and sleeps</strong> until a consumer removes an item!</li>
+    <li><strong><code>take()</code>:</strong> Removes and returns an item. If the buffer is empty, the consumer thread <strong>blocks and sleeps</strong> until a producer inserts an item!</li>
+    <li>Zero CPU wasted in busy-waiting loops! Handled efficiently by OS condition variables (<code>Lock.newCondition()</code>).</li>
+  </ul>
+
+  <h2>3 · Production Implementation with Java BlockingQueue</h2>
+  <pre><code>public class LogProcessor {
+    <span class="cmt">// Fixed bounded buffer prevents OutOfMemoryError</span>
+    private final BlockingQueue&lt;LogMessage&gt; queue = new ArrayBlockingQueue&lt;&gt;(1000);
+
+    public void start() {
+        <span class="cmt">// Consumer thread</span>
+        Thread consumer = new Thread(() -&gt; {
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    LogMessage msg = queue.take(); <span class="cmt">// Blocks if queue empty</span>
+                    persistToDisk(msg);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        consumer.start();
+    }
+
+    public void submitLog(LogMessage msg) throws InterruptedException {
+        queue.put(msg); <span class="cmt">// Blocks if queue full (Backpressure!)</span>
+    }
+}</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do modern CPU chips handle atomic updates without any locking at all? Lesson 60: Race Conditions &amp; CAS.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0058-locking-mechanisms.html">← Previous: Locking Mechanisms</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0060-race-conditions.html">Next: Race Conditions &amp; CAS →</a>
+  </div>
+</body>
+</html>

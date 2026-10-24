@@ -1,0 +1,426 @@
+<title>AVL Trees</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 8 of 15</p>
+<h1>AVL Trees</h1>
+<p class="deck">The balance factor, the four rotations with the rule for picking the right one, a full six-key insertion trace, deletion with its R0/R1/R&minus;1 cases, and the minimum-nodes recurrence that bounds the height.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Construct an AVL tree by inserting the following keys, showing all rotations&rdquo; is a 10-mark question and appears constantly.</strong> Three things earn the marks: <strong>write the balance factor beside every node after every insertion</strong>; <strong>name the rotation (LL, RR, LR, RL) before performing it</strong>; and <strong>redraw the tree after each rotation</strong>, not just at the end. The <strong>minimum-nodes recurrence N(h) = N(h&minus;1) + N(h&minus;2) + 1</strong> is a separate short question worth memorising outright.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">AVL Tree Self-Balancing 4-Rotation Taxonomy</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Balance Factor BF = Height(Left) - Height(Right) &isin; {-1, 0, +1}</strong>
+    </div>
+    <div class="flow-arrow-down">&darr; When node becomes unbalanced (|BF| &gt; 1)</div>
+    <div class="flow-row">
+      <div class="flow-box"><strong>LL Imbalance (BF=+2, Child=+1)</strong><span class="sub">Single <strong>Right Rotation</strong> on critical node</span></div>
+      <div class="flow-box"><strong>RR Imbalance (BF=-2, Child=-1)</strong><span class="sub">Single <strong>Left Rotation</strong> on critical node</span></div>
+    </div>
+    <div class="flow-row" style="margin-top:0.6rem;">
+      <div class="flow-box ok"><strong>LR Imbalance (BF=+2, Child=-1)</strong><span class="sub">Left Rotate child, then <strong>Right Rotate</strong> node</span></div>
+      <div class="flow-box ok"><strong>RL Imbalance (BF=-2, Child=+1)</strong><span class="sub">Right Rotate child, then <strong>Left Rotate</strong> node</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 19 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">AVL Trees</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">10.1 AVL Tree &mdash; Insertion and Rotations (LL, RR, LR, RL)</div>
+    <div class="v-desc">The definitive visual demonstration of identifying the critical unbalanced node and executing single and double rotations.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=jDM6_TnYIqE" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>The definition</h2>
+
+<div class="formula">
+  <span class="name">AVL tree &mdash; Adelson-Velsky and Landis, 1962</span>
+  An <strong>AVL tree</strong> is a <strong>self-balancing binary search tree</strong> in which, for <strong>every node</strong>,<br><br>
+  <strong>Balance Factor (BF) = height(left subtree) &minus; height(right subtree) &isin; {&minus;1, 0, +1}</strong><br><br>
+  <em>Convention:</em> the height of an empty subtree is <strong>&minus;1</strong>, and the height of a single node is <strong>0</strong>.<br>
+  <em>Some books use 0 for empty and 1 for a single node &mdash; the balance factors come out identical, so either is fine, but say which you use.</em>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>BF</th><th>Meaning</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><strong>+1</strong></td><td>Left subtree is taller by one</td><td>Balanced</td></tr>
+<tr><td><strong>0</strong></td><td>Both subtrees have equal height</td><td>Balanced</td></tr>
+<tr><td><strong>&minus;1</strong></td><td>Right subtree is taller by one</td><td>Balanced</td></tr>
+<tr><td><strong>+2 or &minus;2</strong></td><td>Out of balance</td><td><strong>Rotate</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>It is the first self-balancing BST ever invented</strong>, and it guarantees <strong>h = O(log n)</strong>, so search, insert and delete are all O(log n) in the <em>worst</em> case &mdash; unlike a plain BST, which degrades to O(n).</p>
+
+<h2>The four rotations</h2>
+
+<div class="box exam">
+  <span class="lbl">How to pick the rotation &mdash; the rule that removes all guesswork</span>
+  <p><strong>1.</strong> After inserting, walk <strong>up</strong> from the new node and find the <strong>lowest node whose BF became &plusmn;2</strong>. Call it <strong>A</strong>.<br>
+  <strong>2.</strong> Look at the <strong>first two steps of the path from A down to the newly inserted node</strong>.<br>
+  <strong>3.</strong> Those two letters name the case: <strong>Left-Left, Right-Right, Left-Right or Right-Left</strong>.</p>
+  <p><strong>LL and RR are &ldquo;same direction twice&rdquo; &rarr; a SINGLE rotation. LR and RL are &ldquo;direction changes&rdquo; &rarr; a DOUBLE rotation.</strong></p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Case</th><th>Trigger</th><th>Fix</th><th>Rotations</th></tr></thead>
+<tbody>
+<tr><td><strong>LL</strong></td><td>BF(A) = +2 and BF(left child) = +1</td><td><strong>Single right rotation</strong> at A</td><td>1</td></tr>
+<tr><td><strong>RR</strong></td><td>BF(A) = &minus;2 and BF(right child) = &minus;1</td><td><strong>Single left rotation</strong> at A</td><td>1</td></tr>
+<tr><td><strong>LR</strong></td><td>BF(A) = +2 and BF(left child) = &minus;1</td><td><strong>Left rotation at the left child, then right rotation at A</strong></td><td>2</td></tr>
+<tr><td><strong>RL</strong></td><td>BF(A) = &minus;2 and BF(right child) = +1</td><td><strong>Right rotation at the right child, then left rotation at A</strong></td><td>2</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">LL &mdash; single right rotation. Insert 30, 20, 10.</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+  &nbsp;&nbsp;&nbsp;<strong>30</strong> (BF +2)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong> (BF 0)<br>
+  &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&rarr;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\<br>
+  <strong>20</strong> (BF +1)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>10</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong><br>
+  /<br>
+  <strong>10</strong>
+  </div>
+  <span style="font-size:.85em">The middle key becomes the new root, and the old root becomes its right child. <strong>&ldquo;Left-Left is fixed by rotating right.&rdquo;</strong></span>
+</div>
+
+<div class="formula">
+  <span class="name">RR &mdash; single left rotation. Insert 10, 20, 30.</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+  <strong>10</strong> (BF &minus;2)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong> (BF 0)<br>
+  &nbsp;&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&rarr;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong> (BF &minus;1)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>10</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong>
+  </div>
+</div>
+
+<div class="formula">
+  <span class="name">LR &mdash; double rotation. Insert 30, 10, 20.</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left; line-height:1.5">
+  &nbsp;&nbsp;&nbsp;<strong>30</strong> (+2)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong> (+2)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong> (0)<br>
+  &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>step 1:</em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>step 2:</em>&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\<br>
+  <strong>10</strong> (&minus;1)&nbsp;<em>left rot</em>&nbsp;&nbsp;<strong>20</strong>&nbsp;&nbsp;&nbsp;<em>right rot</em>&nbsp;&nbsp;<strong>10</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong><br>
+  &nbsp;&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;<em>at 10</em>&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>at 30</em><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>10</strong>
+  </div>
+  <span style="font-size:.85em"><strong>RL is the mirror image:</strong> right-rotate the right child first, then left-rotate at A.</span>
+</div>
+
+<div class="box win">
+  <span class="lbl">The shortcut that saves time under exam pressure</span>
+  <p>Whatever the case, the outcome is always the same: <strong>of the three keys involved, the MIDDLE one becomes the subtree root, the smallest becomes its left child and the largest its right child.</strong> Write the three keys in sorted order and you have the answer &mdash; then justify it by naming the rotation.</p>
+</div>
+
+<h2>Insertion &mdash; the full worked trace</h2>
+
+<div class="solve">
+  <span class="lbl">Q. Build an AVL tree by inserting 10, 20, 30, 40, 50, 25. Show every balance factor and every rotation.</span>
+
+  <p><strong>Insert 10.</strong> Single node, BF = 0. Balanced.</p>
+
+  <p><strong>Insert 20.</strong> Goes right of 10. BF(10) = 0 &minus; 1 = <strong>&minus;1</strong>. Balanced.</p>
+
+  <p><strong>Insert 30.</strong> Goes right of 20. Now BF(20) = &minus;1, and <strong>BF(10) = &minus;2 &mdash; unbalanced.</strong></p>
+  <p>Lowest unbalanced node A = 10. Path from 10 to 30: <strong>right, right &rarr; RR case &rarr; single left rotation at 10.</strong></p>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong> (0)<br>
+    &nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\<br>
+    <strong>10</strong>(0)&nbsp;&nbsp;<strong>30</strong>(0)
+    </div>
+  </div>
+
+  <p><strong>Insert 40.</strong> 40 &gt; 20 &rarr; right; 40 &gt; 30 &rarr; right of 30. BF(30) = &minus;1, BF(20) = 1 &minus; 2 = <strong>&minus;1</strong>. Balanced &mdash; no rotation.</p>
+
+  <p><strong>Insert 50.</strong> 50 &gt; 20 &rarr; right; &gt; 30 &rarr; right; &gt; 40 &rarr; right of 40.</p>
+  <p>BF(40) = &minus;1; <strong>BF(30) = 0 &minus; 2 = &minus;2 &mdash; unbalanced</strong>; (BF(20) = 1 &minus; 3 = &minus;2 too, but <strong>30 is the LOWEST unbalanced node</strong>, so we fix 30).</p>
+  <p>Path from 30 to 50: <strong>right, right &rarr; RR &rarr; single left rotation at 30.</strong></p>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong> (&minus;1)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;<strong>10</strong>(0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>40</strong>(0)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong>(0)&nbsp;&nbsp;<strong>50</strong>(0)
+    </div>
+  </div>
+  <p><em>Note:</em> fixing the lowest unbalanced node restored balance everywhere above it too. <strong>For an insertion, one rotation is always enough</strong> &mdash; a fact worth stating, because it is exactly what distinguishes insertion from deletion.</p>
+
+  <p><strong>Insert 25.</strong> 25 &gt; 20 &rarr; right; 25 &lt; 40 &rarr; left; 25 &lt; 30 &rarr; left of 30.</p>
+  <p>BF(30) = <strong>+1</strong>; BF(40) = 2 &minus; 1 = <strong>+1</strong>; <strong>BF(20) = 1 &minus; 3 = &minus;2 &mdash; unbalanced.</strong></p>
+  <p>A = 20. Path from 20 to 25: <strong>right (to 40), then left (to 30) &rarr; RL case &rarr; double rotation.</strong></p>
+  <p><strong>Step 1 &mdash; right rotation at the right child, 40.</strong> Node 30 rises; 40 becomes 30's right child.</p>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20</strong> (&minus;2)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;<strong>10</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>25</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>40</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>50</strong>
+    </div>
+  </div>
+  <p><strong>Step 2 &mdash; left rotation at A = 20.</strong> Node 30 becomes the root; 20 becomes its left child and inherits 30's old left child, 25.</p>
+  <div class="formula">
+    <span class="name">Final AVL tree</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong> (0)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;<strong>20</strong> (0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>40</strong> (&minus;1)<br>
+    &nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    <strong>10</strong>(0)&nbsp;&nbsp;<strong>25</strong>(0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>50</strong>(0)
+    </div>
+  </div>
+  <p><strong>Check 1 &mdash; every BF is in {&minus;1, 0, +1}.</strong> &check;</p>
+  <p><strong>Check 2 &mdash; inorder is 10, 20, 25, 30, 40, 50: sorted.</strong> &check; Run both checks on every AVL answer.</p>
+  <p><strong>Height = 2 for 6 nodes.</strong> A plain BST on the same insertion sequence would have been a chain of height 4.</p>
+</div>
+
+<h2>Deletion</h2>
+
+<p>Delete exactly as in a plain BST (Lesson 7's three cases), then <strong>walk back up to the root, recomputing balance factors and rotating wherever one reaches &plusmn;2</strong>.</p>
+
+<div class="box exam">
+  <span class="lbl">The two differences from insertion &mdash; both are marked</span>
+  <p><strong>1. A deletion may need MORE THAN ONE rotation.</strong> An insertion needs at most one, because a single rotation restores the subtree's original height. A deletion <em>reduces</em> the height, so the imbalance can propagate all the way to the root &mdash; up to <strong>O(log n)</strong> rotations.</p>
+  <p><strong>2. The rotation is chosen from the SIBLING's balance factor</strong>, not from the path to the deleted node &mdash; because the deleted node is gone. This is what the <strong>R0, R1, R&minus;1, L0, L1, L&minus;1</strong> notation is for.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Case</th><th>BF(A)</th><th>BF of A's <strong>left</strong> child</th><th>Rotation</th></tr></thead>
+<tbody>
+<tr><td><strong>L1</strong></td><td>+2</td><td>+1</td><td><strong>Single right</strong> (like LL)</td></tr>
+<tr><td><strong>L0</strong></td><td>+2</td><td><strong>0</strong></td><td><strong>Single right</strong> (like LL) &mdash; occurs only on deletion</td></tr>
+<tr><td><strong>L&minus;1</strong></td><td>+2</td><td>&minus;1</td><td><strong>Double: left then right</strong> (like LR)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Case</th><th>BF(A)</th><th>BF of A's <strong>right</strong> child</th><th>Rotation</th></tr></thead>
+<tbody>
+<tr><td><strong>R&minus;1</strong></td><td>&minus;2</td><td>&minus;1</td><td><strong>Single left</strong> (like RR)</td></tr>
+<tr><td><strong>R0</strong></td><td>&minus;2</td><td><strong>0</strong></td><td><strong>Single left</strong> (like RR) &mdash; occurs only on deletion</td></tr>
+<tr><td><strong>R1</strong></td><td>&minus;2</td><td>+1</td><td><strong>Double: right then left</strong> (like RL)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>L0 and R0 cannot arise from an insertion at all</strong> &mdash; that is the whole reason this second notation exists. Mentioning it is worth a mark.</p>
+
+<div class="solve">
+  <span class="lbl">Q. Delete 10 from the final tree above.</span>
+  <p><strong>Tree before:</strong> 30 as root; left subtree 20 with children 10 and 25; right subtree 40 with right child 50.</p>
+  <p><strong>Step 1 &mdash; BST deletion.</strong> 10 is a leaf, so remove it.</p>
+  <p><strong>Step 2 &mdash; recompute balance factors from the deletion point upward.</strong></p>
+  <ul>
+    <li>BF(20) = height(NULL) &minus; height(25) = (&minus;1) &minus; 0 = <strong>&minus;1</strong>. Fine.</li>
+    <li>BF(30) = height(20's subtree) &minus; height(40's subtree) = 1 &minus; 1 = <strong>0</strong>. Fine.</li>
+  </ul>
+  <p><strong>No rotation is needed.</strong> The tree remains a valid AVL tree:</p>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30</strong> (0)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;<strong>20</strong>(&minus;1)&nbsp;&nbsp;&nbsp;<strong>40</strong>(&minus;1)<br>
+    &nbsp;&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<strong>25</strong>(0)&nbsp;&nbsp;&nbsp;&nbsp;<strong>50</strong>(0)
+    </div>
+  </div>
+  <p><em>Now delete 50 as well:</em> BF(40) becomes 0 &minus; (&minus;1) = <strong>+1</strong>... wait, 40 now has no children at all, so BF(40) = <strong>0</strong>, and BF(30) = 2 &minus; 1 = <strong>+1</strong>. Still balanced &mdash; no rotation.</p>
+  <p><em>Now delete 25 too:</em> 20 becomes a leaf, so BF(20) = 0; BF(30) = 1 &minus; 1 = 0. Still balanced. The tree is 30 with children 20 and 40. <strong>Not every deletion needs a rotation</strong> &mdash; check first, rotate only when a BF actually reaches &plusmn;2.</p>
+</div>
+
+<h2>The height bound &mdash; the minimum-nodes recurrence</h2>
+
+<div class="formula">
+  <span class="name">Minimum number of nodes in an AVL tree of height h</span>
+  <strong>N(h) = N(h &minus; 1) + N(h &minus; 2) + 1</strong>, &nbsp;&nbsp; with <strong>N(0) = 1</strong> and <strong>N(1) = 2</strong><br><br>
+  <em>Why:</em> to make the tree of height h as sparse as possible, the root has one subtree of height h&minus;1 and the other of height h&minus;2 &mdash; the largest difference the AVL property allows &mdash; plus the root itself.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th class="num">h</th><th class="num">0</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th><th class="num">9</th><th class="num">10</th></tr></thead>
+<tbody>
+<tr><td><strong>N(h) &mdash; minimum nodes</strong></td><td class="num">1</td><td class="num">2</td><td class="num">4</td><td class="num">7</td><td class="num">12</td><td class="num">20</td><td class="num">33</td><td class="num">54</td><td class="num">88</td><td class="num">143</td><td class="num">232</td></tr>
+<tr><td><strong>Maximum nodes = 2<sup>h+1</sup>&minus;1</strong></td><td class="num">1</td><td class="num">3</td><td class="num">7</td><td class="num">15</td><td class="num">31</td><td class="num">63</td><td class="num">127</td><td class="num">255</td><td class="num">511</td><td class="num">1023</td><td class="num">2047</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><em>Notice the pattern:</em> N(h) = <strong>Fibonacci(h + 3) &minus; 1</strong>. The sparsest AVL trees are called <strong>Fibonacci trees</strong> &mdash; a name worth dropping.</p>
+
+<div class="solve">
+  <span class="lbl">Numerical 1. What is the minimum number of nodes in an AVL tree of height 5?</span>
+  <p>N(0) = 1, N(1) = 2.<br>
+  N(2) = 2 + 1 + 1 = <strong>4</strong><br>
+  N(3) = 4 + 2 + 1 = <strong>7</strong><br>
+  N(4) = 7 + 4 + 1 = <strong>12</strong><br>
+  N(5) = 12 + 7 + 1 = <strong>20</strong></p>
+  <p><strong>Answer: 20 nodes.</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2. What is the maximum possible height of an AVL tree with 20 nodes?</span>
+  <p>Read the same table the other way. We need the <strong>largest h with N(h) &le; 20</strong>.</p>
+  <p>N(5) = 20 &le; 20 &check; &nbsp;&nbsp; N(6) = 33 &gt; 20 &cross;</p>
+  <p><strong>Answer: maximum height 5.</strong></p>
+  <p><em>Compare:</em> a perfectly balanced tree with 20 nodes has height &lfloor;log<sub>2</sub>20&rfloor; = 4. So the AVL property costs <strong>at most one extra level</strong> here &mdash; and a plain BST could have reached height 19.</p>
+</div>
+
+<div class="formula">
+  <span class="name">The closed-form bound &mdash; quote it</span>
+  <strong>h &lt; 1.44 log<sub>2</sub>(n + 2) &minus; 0.328</strong> &nbsp;&nbsp;&rArr;&nbsp;&nbsp; <strong>h = O(log n)</strong><br><br>
+  So an AVL tree is at worst about <strong>44 % taller</strong> than a perfectly balanced tree &mdash; and all operations are <strong>O(log n) in the worst case</strong>.
+</div>
+
+<h2>The complexity table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>AVL &mdash; worst case</th><th>Plain BST &mdash; worst case</th></tr></thead>
+<tbody>
+<tr><td><strong>Search</strong></td><td><strong>O(log n)</strong></td><td>O(n)</td></tr>
+<tr><td><strong>Insert</strong></td><td>O(log n), with <strong>at most 1 rotation</strong></td><td>O(n)</td></tr>
+<tr><td><strong>Delete</strong></td><td>O(log n), with <strong>up to O(log n) rotations</strong></td><td>O(n)</td></tr>
+<tr><td><strong>Space</strong></td><td>O(n) &mdash; plus a height or BF field per node</td><td>O(n)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The trade-off to state when comparing with red&ndash;black trees (Lesson 9)</span>
+  <p>AVL trees are <strong>more rigidly balanced</strong>, so they are <strong>faster to search</strong> but <strong>slower to insert and delete</strong>, because they rotate more often. <strong>Use AVL when lookups dominate; use red&ndash;black when updates dominate.</strong></p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The balance factor of a node in an AVL tree is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">height(left subtree) − height(right subtree), and must be −1, 0 or +1</button>
+    <button class="opt">Always 0</button>
+    <button class="opt">The number of nodes in the left subtree minus the right</button>
+    <button class="opt">The depth of the node</button>
+  </div>
+  <p class="why">A balance factor of ±2 anywhere means the tree must be rotated at the lowest such node.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. BF(A) = +2 and BF(A's left child) = −1 calls for:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">An LR double rotation — left at the left child, then right at A</button>
+    <button class="opt">A single left rotation at A</button>
+    <button class="opt">A single right rotation at A</button>
+    <button class="opt">An RL double rotation</button>
+  </div>
+  <p class="why">The signs disagree, so the direction changes along the path — which always means a double rotation. Matching signs, +2 with +1, would be LL and a single right rotation.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Inserting 10, 20, 30, 40, 50, 25 into an AVL tree gives a final root of:</p>
+  <div class="opts">
+    <button class="opt">25</button>
+    <button class="opt">20</button>
+    <button class="opt" data-ok="1">30</button>
+    <button class="opt">40</button>
+  </div>
+  <p class="why">Two RR rotations bring the tree to root 20, and inserting 25 triggers an RL double rotation that lifts 30 to the root. Final inorder: 10, 20, 25, 30, 40, 50.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The minimum number of nodes in an AVL tree of height 5 is:</p>
+  <div class="opts">
+    <button class="opt">63</button>
+    <button class="opt">12</button>
+    <button class="opt">33</button>
+    <button class="opt" data-ok="1">20</button>
+  </div>
+  <p class="why">N(h) = N(h−1) + N(h−2) + 1 with N(0) = 1 and N(1) = 2 gives 1, 2, 4, 7, 12, 20. Note that 12 is N(4) and 33 is N(6).</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. An AVL insertion requires at most how many rotations?</p>
+  <div class="opts">
+    <button class="opt">Two</button>
+    <button class="opt">O(log n)</button>
+    <button class="opt" data-ok="1">One (single or double)</button>
+    <button class="opt">O(n)</button>
+  </div>
+  <p class="why">A single rotation restores the subtree's original height, so nothing above it can still be unbalanced. Deletion reduces the height, so its imbalance can propagate — up to O(log n) rotations.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The cases L0 and R0 arise:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Only on deletion, never on insertion</button>
+    <button class="opt">On both equally</button>
+    <button class="opt">Only on insertion</button>
+    <button class="opt">Never — they are not real cases</button>
+  </div>
+  <p class="why">An insertion can never leave the child of the unbalanced node with balance factor 0. That is precisely why the R0/R1/R−1 notation exists alongside LL/RR/LR/RL.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Compared with a red–black tree, an AVL tree is:</p>
+  <div class="opts">
+    <button class="opt">Less balanced, so faster to update and slower to search</button>
+    <button class="opt">Not a binary search tree</button>
+    <button class="opt" data-ok="1">More rigidly balanced — faster search, slower insert and delete</button>
+    <button class="opt">Identical in every respect</button>
+  </div>
+  <p class="why">AVL keeps the height within about 1.44 log n; red–black allows up to 2 log(n+1) but rotates far less. Use AVL when lookups dominate.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define an AVL tree and the balance factor.</summary>
+    <p class="ans">A self-balancing BST in which every node has balance factor height(left) − height(right) in {−1, 0, +1}. A factor of ±2 means the tree must be rotated. It guarantees h = O(log n), so search, insert and delete are O(log n) even in the worst case.</p></details>
+  <details class="card"><summary>Give the rule for choosing the rotation, and the four cases.</summary>
+    <p class="ans">Find the lowest node A with balance factor ±2, then read the first two steps of the path from A to the newly inserted node. LL: +2 with left child +1, single right rotation. RR: −2 with right child −1, single left rotation. LR: +2 with left child −1, left then right. RL: −2 with right child +1, right then left. Same direction twice means single; a change of direction means double.</p></details>
+  <details class="card"><summary>Give the shortcut for the result of any rotation.</summary>
+    <p class="ans">Of the three keys involved, the middle one becomes the subtree root, the smallest becomes its left child and the largest its right child.</p></details>
+  <details class="card"><summary>How does AVL deletion differ from AVL insertion?</summary>
+    <p class="ans">Two ways. Insertion needs at most one rotation because a rotation restores the subtree's original height; deletion reduces the height, so imbalance can propagate to the root and up to O(log n) rotations may be needed. And the rotation is chosen from the sibling's balance factor rather than the path to the deleted node, which is what the L0/L1/L−1 and R0/R1/R−1 notation records. L0 and R0 can only occur on deletion.</p></details>
+  <details class="card"><summary>State the minimum-nodes recurrence and its first values.</summary>
+    <p class="ans">N(h) = N(h−1) + N(h−2) + 1 with N(0) = 1, N(1) = 2, giving 1, 2, 4, 7, 12, 20, 33, 54, 88, 143, 232. It equals Fibonacci(h + 3) − 1, and the sparsest AVL trees are called Fibonacci trees.</p></details>
+  <details class="card"><summary>Find the maximum height of an AVL tree with 20 nodes, and state the closed-form bound.</summary>
+    <p class="ans">The largest h with N(h) ≤ 20 is 5, since N(5) = 20 and N(6) = 33. In general h &lt; 1.44 log₂(n + 2) − 0.328, so an AVL tree is at most about 44 % taller than a perfectly balanced one.</p></details>
+</div>
+
+<p class="ask">Next: the balancing scheme that trades a little height for far fewer rotations &mdash; red&ndash;black trees.</p>
+
+<div class="nav">
+  <a href="0007-binary-search-trees.html">&larr; Binary Search Trees</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0009-red-black-trees.html">Next: Red&ndash;Black Trees &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

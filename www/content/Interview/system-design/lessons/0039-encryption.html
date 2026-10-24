@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 39 - Encryption &amp; Cryptography | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 39 of 66 · AES, RSA, KMS, Envelope Encryption</div>
+  
+  <h1>Encryption &amp; Cryptography in System Design</h1>
+  <p class="subtitle">Protecting data-at-rest, data-in-transit, and managing encryption keys without human compromise.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module J — Security</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In modern systems, security operates under the principle of <strong>Zero Trust</strong>: assume the perimeter has already been breached. If a hacker steals your raw database backup hard drive or sniffs your cloud network cables, all data must be completely unintelligible gibberish without the cryptographic decryption keys. Security requires protecting data in two states: <strong>In-Transit</strong> (moving over networks) and <strong>At-Rest</strong> (stored on disks).</p>
+
+  <h2>2 · Hashing vs Symmetric vs Asymmetric Encryption</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Cryptographic Primitive</th>
+        <th>Directionality</th>
+        <th>Speed</th>
+        <th>Core Use Cases</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Cryptographic Hashing</strong><br>(SHA-256, bcrypt, Argon2)</td>
+        <td>One-Way (Irreversible). Cannot decrypt.</td>
+        <td>Fast (SHA) or Intentionally Slow (bcrypt for passwords)</td>
+        <td>User passwords, digital checksums, content addressing (Git).</td>
+      </tr>
+      <tr>
+        <td><strong>Symmetric Encryption</strong><br>(AES-256, ChaCha20)</td>
+        <td>Two-Way (Same secret key encrypts and decrypts).</td>
+        <td>Blazing Fast (Hardware accelerated on CPU chips).</td>
+        <td>Database disk encryption, S3 object encryption, bulk data payloads.</td>
+      </tr>
+      <tr>
+        <td><strong>Asymmetric Encryption</strong><br>(RSA, ECC / Curve25519)</td>
+        <td>Two-Way (Public key encrypts; Private key decrypts).</td>
+        <td>Slow (Heavy mathematical operations on prime numbers).</td>
+        <td>TLS handshakes, digital signatures, SSH key authentication.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Envelope Encryption (AWS KMS / Vault Pattern)</h2>
+  <p>How do you encrypt a 10 GB database table without sending 10 GB of data over the network to a central Key Management Service (KMS)? Use <strong>Envelope Encryption</strong>:</p>
+  <ol>
+    <li>Your app asks KMS to generate a new <strong>Data Encryption Key (DEK)</strong>.</li>
+    <li>KMS returns two copies: a <em>Plaintext DEK</em> and an <em>Encrypted DEK</em> (encrypted by KMS's master Key Encryption Key).</li>
+    <li>Your application uses the Plaintext DEK to encrypt the 10 GB database table locally in milliseconds using fast AES-256.</li>
+    <li>Your application <strong>deletes the Plaintext DEK from RAM</strong> and stores the <em>Encrypted DEK</em> right alongside the encrypted table on disk!</li>
+    <li>To read the data later, your app asks KMS to decrypt only the tiny 32-byte Encrypted DEK!</li>
+  </ol>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We enter Module K: System Design Trade-offs. Architecture is the art of trade-offs. Next: Push vs Pull Architecture.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0038-access-control.html">← Previous: Access Control</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0040-push-vs-pull.html">Next: Push vs Pull Architecture →</a>
+  </div>
+</body>
+</html>

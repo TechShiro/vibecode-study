@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 05 – Normalization: 1NF, 2NF, 3NF & BCNF</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module B · Lesson 5 of 17 · Eliminating Redundancy & Anomalies</div>
+  <h1>Normalization: 1NF, 2NF, 3NF & BCNF</h1>
+  <p class="subtitle">Step-by-step elimination of insertion, deletion, and update anomalies through mathematical normal forms.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Normalization</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Poor database schemas suffer from three devastating <strong>modification anomalies</strong>:</p>
+  <ul>
+    <li><strong>Update Anomaly</strong>: If an employee's department address is duplicated in 1,000 employee records, changing the office location requires 1,000 updates. If one fails, data is corrupted.</li>
+    <li><strong>Insertion Anomaly</strong>: You cannot record a new department's details until at least one employee is hired, because <code>emp_id</code> is part of the primary key and cannot be NULL.</li>
+    <li><strong>Deletion Anomaly</strong>: If the last employee in a department resigns and their row is deleted, the department's existence and office location are wiped from the system permanently.</li>
+  </ul>
+  <p><strong>Database Normalization</strong> is the formal process of decomposing tables with redundancy into smaller, well-structured relations without losing data (Lossless Join) or constraints (Dependency Preservation).</p>
+
+  <h2>2 · Recommended Deep-Dive Lecture</h2>
+  <p>For mastering closure computations and step-by-step decomposition through 1NF, 2NF, 3NF, and BCNF, watch this acclaimed lecture by Abdul Bari:</p>
+  <div class="video-container">
+    <iframe src="https://www.youtube-nocookie.com/embed/UrYLYV7WSHM" title="Database Normalization 1NF 2NF 3NF BCNF - Abdul Bari" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+
+  <h2>3 · The Normal Form Hierarchy</h2>
+
+  <div class="arch-flow">
+    <div class="box">Unnormalized Data</div>
+    <div class="arrow-right"></div>
+    <div class="box">1NF (Atomic Values)</div>
+    <div class="arrow-right"></div>
+    <div class="box">2NF (No Partial FDs)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">3NF (No Transitive FDs)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">BCNF (Strict Superkey Determinant)</div>
+  </div>
+
+  <h2>4 · Detailed Breakdown of Normal Forms</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Normal Form</th><th>Requirement / Condition</th><th>Violating Pattern</th><th>Remedy</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1NF</strong> (First Normal Form)</td>
+        <td>All attribute values must be <strong>atomic</strong> (indivisible scalars). No multi-valued attributes, no arrays, no nested tables.</td>
+        <td><code>phone_numbers = "98765, 87654"</code> in a single column.</td>
+        <td>Separate into individual rows or a dedicated child table.</td>
+      </tr>
+      <tr>
+        <td><strong>2NF</strong> (Second Normal Form)</td>
+        <td>Must be in 1NF AND have <strong>NO Partial Dependencies</strong>: no non-prime attribute may depend on a proper subset of any candidate key.</td>
+        <td>In <code>{student_id, course_id} &rarr; course_fee</code>, where <code>course_fee</code> depends solely on <code>course_id</code>.</td>
+        <td>Decompose into separate relations: <code>(student_id, course_id)</code> and <code>(course_id, course_fee)</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>3NF</strong> (Third Normal Form)</td>
+        <td>Must be in 2NF AND have <strong>NO Transitive Dependencies</strong>. For every non-trivial FD <code>X &rarr; Y</code>: either <strong>X is a Superkey</strong> OR <strong>Y is a Prime Attribute</strong> (part of a candidate key).</td>
+        <td><code>emp_id &rarr; dept_id</code> and <code>dept_id &rarr; dept_name</code>. Non-prime <code>dept_name</code> transitively depends on <code>emp_id</code>.</td>
+        <td>Decompose into <code>Employee(emp_id, dept_id)</code> and <code>Department(dept_id, dept_name)</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>BCNF</strong> (Boyce-Codd Normal Form)</td>
+        <td>Stricter 3NF. For EVERY non-trivial FD <code>X &rarr; Y</code>, <strong>X MUST be a Superkey</strong> without exception.</td>
+        <td>A relation with overlapping candidate keys where a prime attribute is determined by a non-superkey.</td>
+        <td>Decompose relation into <code>(X, Y)</code> and <code>(R - Y)</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5 · Decomposition Guarantees: Lossless vs Dependency Preserving</h2>
+  <div class="callout info">
+    <h4>Lossless Join Decomposition</h4>
+    <p>A decomposition of <code>R</code> into <code>R1</code> and <code>R2</code> is guaranteed to be lossless if and only if their shared attributes form a superkey of at least one of the decomposed tables: <code>(R1 &cap; R2 &rarr; R1)</code> OR <code>(R1 &cap; R2 &rarr; R2)</code>. Lossless property is <strong>MANDATORY</strong>; otherwise, fake "spurious tuples" are generated when joining tables back.</p>
+  </div>
+
+  <div class="callout warning">
+    <h4>Dependency Preservation</h4>
+    <p>A decomposition is dependency preserving if the union of FDs enforceable on individual tables equals the original FD set <em>F</em>: <code>(F1 &cup; F2)<sup>+</sup> = F<sup>+</sup></code>. Every relation can always be decomposed into <strong>3NF with both Lossless Join AND Dependency Preservation</strong>. However, BCNF guarantees Lossless Join, but <em>cannot always preserve all dependencies</em>.</p>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0004-functional-dependencies-and-armstrong-axioms.html">← Lesson 04: Functional Dependencies</a>
+    <a href="0006-advanced-normalization-and-denormalization.html">Lesson 06: Advanced Normalization & Denormalization →</a>
+  </nav>
+</body>
+</html>

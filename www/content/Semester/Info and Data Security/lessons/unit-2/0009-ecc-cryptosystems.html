@@ -1,0 +1,286 @@
+<title>ECC Cryptosystems</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit II &middot; Lesson 9 of 14</p>
+<h1>ECC Cryptosystems &mdash; ECDH and EC ElGamal</h1>
+<p class="deck">Turning the point arithmetic into cryptography: key generation, Diffie&ndash;Hellman key exchange on a curve, elliptic curve ElGamal encryption and decryption &mdash; both worked end to end &mdash; plus the ECC-versus-RSA argument.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two numericals and one table. <strong>&ldquo;Perform ECDH key exchange on the given curve&rdquo;</strong> and <strong>&ldquo;Encrypt and decrypt the message point using EC ElGamal&rdquo;</strong> are both mechanical once Lesson 8 is solid &mdash; the whole difficulty is the point arithmetic, not the protocol. The table is <strong>&ldquo;Compare ECC with RSA&rdquo;</strong>, worth memorising because it also answers &ldquo;advantages of ECC&rdquo;.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Elliptic Curve Diffie-Hellman (ECDH)</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=BTeLEu005QQ" target="_blank">Elliptic Curve Cryptography &amp; Diffie-Hellman Key Exchange</a>
+    <span class="v-meta">T V Nagaraju Technical &middot; 20:01</span>
+    <div class="v-why">Definitive walkthrough of ECDH protocol: Alice selects private $n_A$, computes public point $P_A = n_A G$; Bob computes $P_B = n_B G$; both arrive at shared secret point $K = n_A P_B = n_B P_A$.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Elliptic Curve ElGamal Encryption/Decryption</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=dhJX9kktijo" target="_blank">ECC | Encryption and Decryption Solved Numerical Example</a>
+    <span class="v-meta">Lectures by Shreedarshan K &middot; 19:39</span>
+    <div class="v-why">Exhaustive numerical tracing plaintext embedding into point $P_m$, ciphertext generation $C = \{kG, P_m + kP_B\}$, and decryption recovering original point $P_m$.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: ECDH KEY EXCHANGE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Elliptic Curve Diffie-Hellman (ECDH) Key Exchange</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Global Curve Parameters: $E(\mathbb{F}_p)$ &middot; Base Point $G$</strong>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <div class="flow-row" style="gap:2rem;">
+      <div style="border:1.5px solid var(--accent); border-radius:6px; padding:0.8rem; background:var(--panel); min-width:13rem;">
+        <div style="font-weight:700; color:var(--accent); text-align:center;">Alice</div>
+        <div style="font-size:0.82rem; margin-top:0.4rem;">Private Key: $n_A \in [1, p-1]$<br>Public Key: $P_A = n_A \cdot G$</div>
+      </div>
+      <div style="border:1.5px solid var(--ok); border-radius:6px; padding:0.8rem; background:var(--panel); min-width:13rem;">
+        <div style="font-weight:700; color:var(--ok); text-align:center;">Bob</div>
+        <div style="font-size:0.82rem; margin-top:0.4rem;">Private Key: $n_B \in [1, p-1]$<br>Public Key: $P_B = n_B \cdot G$</div>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Public Point Exchange over Insecure Channel</span>
+    <div class="flow-box ok" style="min-width:22rem;">
+      <strong>Shared Secret Point Computation</strong>
+      <span class="sub">Alice computes: $K = n_A \cdot P_B = n_A (n_B G)$<br>Bob computes: $K = n_B \cdot P_A = n_B (n_A G)$<br>Result: Identical shared point $K = n_A n_B G$!</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>The domain parameters and the key pair</h2>
+
+<p>Every ECC scheme starts from a set of <strong>public domain parameters</strong> that all parties agree on, and each party then holds one private integer and one public point.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Item</th><th>Symbol</th><th>Public or private</th><th>What it is</th></tr></thead>
+<tbody>
+<tr><td>Field / curve</td><td>p, a, b</td><td>Public</td><td>The curve E<sub>p</sub>(a, b)</td></tr>
+<tr><td><strong>Base point (generator)</strong></td><td><strong>G</strong></td><td>Public</td><td>A point of large prime order on the curve</td></tr>
+<tr><td>Order of G</td><td>n</td><td>Public</td><td>The smallest n with nG = O</td></tr>
+<tr><td><strong>Private key</strong></td><td><strong>n<sub>A</sub></strong></td><td><strong>Private</strong></td><td>A random integer, 1 &lt; n<sub>A</sub> &lt; n</td></tr>
+<tr><td><strong>Public key</strong></td><td><strong>P<sub>A</sub> = n<sub>A</sub>G</strong></td><td>Public</td><td>A point on the curve</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The security statement in one line</span>
+  <p>Everyone sees <strong>G</strong> and <strong>P<sub>A</sub> = n<sub>A</sub>G</strong>. Recovering n<sub>A</sub> from them is exactly the <strong>ECDLP</strong>, which has no known sub-exponential attack. That single fact secures every scheme in this lesson and the ECDSA of Lesson 14.</p>
+</div>
+
+<h2>ECDH &mdash; Elliptic Curve Diffie&ndash;Hellman</h2>
+
+<div class="formula">
+  <span class="name">The protocol</span>
+  Alice picks private <strong>n<sub>A</sub></strong>, publishes <strong>P<sub>A</sub> = n<sub>A</sub>G</strong>.<br>
+  Bob picks private <strong>n<sub>B</sub></strong>, publishes <strong>P<sub>B</sub> = n<sub>B</sub>G</strong>.<br><br>
+  Alice computes <strong>K = n<sub>A</sub>P<sub>B</sub></strong> &nbsp;&nbsp; Bob computes <strong>K = n<sub>B</sub>P<sub>A</sub></strong><br>
+  Both equal <strong>n<sub>A</sub>n<sub>B</sub>G</strong> &mdash; the shared secret point. Its <strong>x-coordinate</strong> is normally taken as the session key.
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 1 &mdash; ECDH worked in full</span>
+  <p><strong>Q. On the curve E<sub>17</sub>(2, 2): y<sup>2</sup> = x<sup>3</sup> + 2x + 2 mod 17 with base point G = (5, 1) of order n = 19, Alice&rsquo;s private key is n<sub>A</sub> = 3 and Bob&rsquo;s is n<sub>B</sub> = 10. Find both public keys and the shared secret.</strong></p>
+  <p><strong>Step 0 &mdash; check G is on the curve.</strong> y<sup>2</sup> = 1; x<sup>3</sup> + 2x + 2 = 125 + 10 + 2 = 137 &equiv; 137 &minus; 136 = 1. &check;</p>
+  <p><strong>Step 1 &mdash; build the multiples of G we need.</strong></p>
+  <p><strong>2G = 2(5,1):</strong> &lambda; = (3&middot;25 + 2)(2&middot;1)<sup>&minus;1</sup> = 77 &middot; 2<sup>&minus;1</sup> &equiv; 9 &middot; 9 = 81 &equiv; <strong>13</strong> &nbsp;(77 &equiv; 9; 2<sup>&minus;1</sup> = 9 since 2&times;9 = 18 &equiv; 1).<br>
+  x<sub>3</sub> = 169 &minus; 10 = 159 &equiv; <strong>6</strong>; &nbsp; y<sub>3</sub> = 13(5 &minus; 6) &minus; 1 = &minus;14 &equiv; <strong>3</strong>. &nbsp; <strong>2G = (6, 3)</strong></p>
+  <p><strong>3G = 2G + G = (6,3) + (5,1):</strong> &lambda; = (1 &minus; 3)(5 &minus; 6)<sup>&minus;1</sup> = (&minus;2)(&minus;1)<sup>&minus;1</sup> = <strong>2</strong>.<br>
+  x<sub>3</sub> = 4 &minus; 6 &minus; 5 = &minus;7 &equiv; <strong>10</strong>; &nbsp; y<sub>3</sub> = 2(6 &minus; 10) &minus; 3 = &minus;11 &equiv; <strong>6</strong>. &nbsp; <strong>3G = (10, 6)</strong></p>
+  <p><strong>Step 2 &mdash; the public keys.</strong> &nbsp; <strong>P<sub>A</sub> = 3G = (10, 6)</strong> &nbsp;&nbsp; <strong>P<sub>B</sub> = 10G = (7, 11)</strong> &nbsp;<span style="font-size:.9em">(continuing the doubling chain: 4G = (3,1), 8G = (13,7), 10G = 8G + 2G = (7,11))</span></p>
+  <p><strong>Step 3 &mdash; the shared secret, computed by each side.</strong></p>
+  <p>Alice: <strong>K = n<sub>A</sub>P<sub>B</sub> = 3 &times; (7,11) = 3 &times; 10G = 30G</strong>. Since 30 mod 19 = 11, this is <strong>11G = (13, 10)</strong>.</p>
+  <p>Bob: <strong>K = n<sub>B</sub>P<sub>A</sub> = 10 &times; (10,6) = 10 &times; 3G = 30G = 11G = (13, 10)</strong>.</p>
+  <p><strong>Shared secret point K = (13, 10); the session key is its x-coordinate, 13.</strong></p>
+  <p><em>Sanity checks:</em> both sides reached the same point &mdash; if they had not, the arithmetic is wrong. And <strong>reduce the scalar mod n before multiplying</strong>: 30G = 11G because 19G = O. That shortcut saves half the work in the exam.</p>
+</div>
+
+<h3>The man-in-the-middle warning</h3>
+
+<p>Exactly as with ordinary Diffie&ndash;Hellman: <strong>ECDH gives no authentication.</strong> Darth can substitute his own public point for each side and hold two separate shared secrets. The fix is to <strong>sign the exchanged points</strong> &mdash; which is ECDSA, Lesson 14 &mdash; or to certify them. State this whenever a question asks about ECDH security.</p>
+
+<h2>EC ElGamal &mdash; elliptic curve encryption</h2>
+
+<p>First, a problem to name: <strong>the plaintext must be a point on the curve</strong>, and not every integer is one. Two standard answers, and mentioning either earns a mark:</p>
+
+<ul>
+<li><strong>Koblitz&rsquo;s method:</strong> embed the message m as the x-coordinate by trying x = mK + j for j = 0, 1, 2, &hellip; until x<sup>3</sup> + ax + b is a quadratic residue; the receiver recovers m as &lfloor;x/K&rfloor;.</li>
+<li><strong>Use ECC only for the key</strong>, and encrypt the data with AES under it &mdash; what real systems (ECIES, TLS) actually do.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">EC ElGamal encryption and decryption</span>
+  Bob&rsquo;s private key <strong>n<sub>B</sub></strong>, public key <strong>P<sub>B</sub> = n<sub>B</sub>G</strong>.<br><br>
+  <strong>Encrypt</strong> a message point P<sub>m</sub>: Alice picks a random secret <strong>k</strong> and sends the pair<br>
+  <strong>C = { C<sub>1</sub>, C<sub>2</sub> } = { kG, &nbsp; P<sub>m</sub> + kP<sub>B</sub> }</strong><br><br>
+  <strong>Decrypt:</strong> Bob computes <strong>P<sub>m</sub> = C<sub>2</sub> &minus; n<sub>B</sub>C<sub>1</sub></strong><br>
+  <span style="font-size:.85em">because n<sub>B</sub>C<sub>1</sub> = n<sub>B</sub>(kG) = k(n<sub>B</sub>G) = kP<sub>B</sub>, the same mask Alice added.</span>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why the ciphertext is two points</span>
+  <p>C<sub>2</sub> hides the message under the mask kP<sub>B</sub>, and C<sub>1</sub> = kG is the <strong>clue that lets only Bob rebuild that mask</strong> &mdash; an eavesdropper would need k from kG, which is the ECDLP. Note the <strong>message expands to twice the size</strong>, the standard drawback of ElGamal-type encryption.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2 &mdash; EC ElGamal worked in full</span>
+  <p><strong>Q. On E<sub>17</sub>(2,2) with G = (5,1), Bob&rsquo;s private key is n<sub>B</sub> = 10 so P<sub>B</sub> = (7, 11). Alice encrypts the message point P<sub>m</sub> = (9, 16) using random k = 7. Find the ciphertext and verify the decryption.</strong></p>
+  <p><strong>Step 1 &mdash; C<sub>1</sub> = kG = 7G.</strong> From the doubling chain, 4G = (3,1) and 2G = (6,3), so 7G = 4G + 2G + G = <strong>(0, 6)</strong>.</p>
+  <p><strong>Step 2 &mdash; the mask kP<sub>B</sub> = 7 &times; (7,11).</strong> Since P<sub>B</sub> = 10G, this is 70G; and 70 mod 19 = 70 &minus; 57 = 13, so kP<sub>B</sub> = <strong>13G = (16, 4)</strong>.</p>
+  <p><strong>Step 3 &mdash; C<sub>2</sub> = P<sub>m</sub> + kP<sub>B</sub> = (9,16) + (16,4).</strong><br>
+  &lambda; = (4 &minus; 16)(16 &minus; 9)<sup>&minus;1</sup> = (&minus;12)(7)<sup>&minus;1</sup> &equiv; 5 &middot; 5 = 25 &equiv; <strong>8</strong> &nbsp;(&minus;12 &equiv; 5; 7<sup>&minus;1</sup> = 5 since 7&times;5 = 35 &equiv; 1).<br>
+  x<sub>3</sub> = 64 &minus; 9 &minus; 16 = 39 &equiv; <strong>5</strong>; &nbsp; y<sub>3</sub> = 8(9 &minus; 5) &minus; 16 = 32 &minus; 16 = <strong>16</strong>. &nbsp; <strong>C<sub>2</sub> = (5, 16)</strong></p>
+  <p><strong>Ciphertext: C = { (0, 6), (5, 16) }</strong></p>
+  <p><strong>Step 4 &mdash; Bob decrypts. First n<sub>B</sub>C<sub>1</sub> = 10 &times; (0,6).</strong> C<sub>1</sub> = 7G, so this is 70G = 13G = <strong>(16, 4)</strong> &mdash; the same mask, as required.</p>
+  <p><strong>Step 5 &mdash; subtract:</strong> P<sub>m</sub> = C<sub>2</sub> &minus; (16,4) = (5,16) + (16, &minus;4) = (5,16) + <strong>(16, 13)</strong>.<br>
+  &lambda; = (13 &minus; 16)(16 &minus; 5)<sup>&minus;1</sup> = (&minus;3)(11)<sup>&minus;1</sup> &equiv; 14 &middot; 14 = 196 &equiv; <strong>9</strong> &nbsp;(11<sup>&minus;1</sup> = 14 since 11&times;14 = 154 = 153 + 1).<br>
+  x<sub>3</sub> = 81 &minus; 5 &minus; 16 = 60 &equiv; <strong>9</strong>; &nbsp; y<sub>3</sub> = 9(5 &minus; 9) &minus; 16 = &minus;36 &minus; 16 = &minus;52 &equiv; <strong>16</strong>.</p>
+  <p><strong>Recovered P<sub>m</sub> = (9, 16)</strong> &mdash; identical to the original. &check;</p>
+  <p><em>The trick that halves the work:</em> express every point as a multiple of G and add the <em>scalars</em> mod n, doing full point arithmetic only for the final subtraction. Examiners accept it, and it removes most chances of error.</p>
+</div>
+
+<h2>ECC versus RSA</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>RSA</th><th>ECC</th></tr></thead>
+<tbody>
+<tr><td><strong>Hard problem</strong></td><td>Integer factorisation</td><td><strong>Elliptic curve discrete logarithm</strong></td></tr>
+<tr><td><strong>Key size for 128-bit security</strong></td><td class="num">3072 bits</td><td class="num"><strong>256 bits</strong></td></tr>
+<tr><td><strong>Key generation</strong></td><td>Slow &mdash; must find two large primes</td><td><strong>Fast</strong> &mdash; one random integer and one scalar multiplication</td></tr>
+<tr><td><strong>Encryption / verification</strong></td><td><strong>Fast</strong> with small e (65537)</td><td>Slower</td></tr>
+<tr><td><strong>Decryption / signing</strong></td><td>Slow</td><td><strong>Fast</strong></td></tr>
+<tr><td><strong>Signature size</strong></td><td>Large (as big as the modulus)</td><td><strong>Small</strong> &mdash; two integers of curve size</td></tr>
+<tr><td><strong>Suits</strong></td><td>Servers, legacy PKI</td><td><strong>Smart cards, mobiles, IoT, TLS, Bitcoin</strong></td></tr>
+<tr><td><strong>Maturity</strong></td><td>Since 1977; universally deployed</td><td>Since 1985 (Koblitz, Miller); standard since the 2000s</td></tr>
+<tr><td><strong>Risk</strong></td><td>Well understood</td><td><strong>Curve choice matters</strong> &mdash; weak or suspect curves have been proposed</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Advantages and disadvantages of ECC &mdash; the list to write</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+<tbody>
+<tr><td><strong>Much smaller keys</strong> for equal security &mdash; 256 vs 3072 bits</td><td><strong>More complex mathematics</strong>, so harder to implement correctly</td></tr>
+<tr><td>Less bandwidth, storage, memory and <strong>power</strong> &mdash; ideal for constrained devices</td><td><strong>Implementation bugs are fatal</strong>: a repeated nonce k leaks the private key (Lesson 14)</td></tr>
+<tr><td><strong>Faster key generation and signing</strong>; short signatures</td><td>Choosing or trusting the curve is a real problem &mdash; some standard curves are distrusted</td></tr>
+<tr><td>Scales better as required security rises</td><td>Side-channel attacks on scalar multiplication if not written in constant time</td></tr>
+<tr><td>Standardised and widely deployed &mdash; TLS, SSH, Bitcoin, Aadhaar-era smart cards</td><td>Like RSA, <strong>broken by a large quantum computer</strong> (Shor&rsquo;s algorithm)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Applications</h3>
+
+<p><strong>ECDH</strong> for key agreement in <strong>TLS 1.3, SSH, Signal and WhatsApp</strong>; <strong>ECDSA</strong> for certificates, code signing and <strong>Bitcoin/Ethereum</strong> transactions; <strong>ECIES</strong> for hybrid encryption; and ECC throughout <strong>smart cards, SIMs, passports and IoT</strong>, where an RSA key would be too large to store or too slow to use.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In ECDH, the shared secret computed by both parties is:</p>
+  <div class="opts">
+    <button class="opt">G raised to the power n_A n_B in the field Z_p</button>
+    <button class="opt">P_A + P_B, the sum of the two public key points</button>
+    <button class="opt" data-ok="1">n_A n_B G, reached as n_A P_B by Alice and n_B P_A by Bob</button>
+    <button class="opt">n_A + n_B mod n, the sum of the two private keys</button>
+  </div>
+  <p class="why">Scalar multiplication commutes: n_A(n_B G) = n_B(n_A G). Adding the public points would give a value an eavesdropper could compute too.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In EC ElGamal, the ciphertext component C₁ = kG exists in order to:</p>
+  <div class="opts">
+    <button class="opt">Carry the message point itself in encrypted form</button>
+    <button class="opt">Prove to the receiver that the sender knows the private key</button>
+    <button class="opt" data-ok="1">Let the holder of n_B rebuild the mask kP_B, which no eavesdropper can</button>
+    <button class="opt">Allow the receiver to recover the random value k directly</button>
+  </div>
+  <p class="why">n_B C₁ = n_B kG = kP_B. An attacker would have to get k from kG — the ECDLP. And note the receiver never needs k itself.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. On a curve where G has order 19, computing 30G is best handled by:</p>
+  <div class="opts">
+    <button class="opt">Reducing the coordinates of G modulo 19 before multiplying</button>
+    <button class="opt">Performing all thirty point additions to avoid rounding errors</button>
+    <button class="opt">Splitting it as 30G = 19G + 11G and adding the two results</button>
+    <button class="opt" data-ok="1">Reducing the scalar first: 30 mod 19 = 11, so 30G = 11G</button>
+  </div>
+  <p class="why">19G = O, so scalars work modulo the order n. The last option is right but pointless — 19G is the identity, so it contributes nothing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Plaintext must be encoded as a curve point before EC ElGamal because:</p>
+  <div class="opts">
+    <button class="opt">Point coordinates are always longer than the message they carry</button>
+    <button class="opt">The curve equation changes with every message that is encrypted</button>
+    <button class="opt" data-ok="1">The scheme adds points, and an arbitrary integer need not lie on the curve</button>
+    <button class="opt">Decryption returns a point, so encryption must consume two of them</button>
+  </div>
+  <p class="why">Koblitz's method embeds m in the x-coordinate by trying successive candidates; real systems avoid the problem by using ECC for the key and a symmetric cipher for the data.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. ECDH on its own is vulnerable to a man-in-the-middle attack because:</p>
+  <div class="opts">
+    <button class="opt">Scalar multiplication can be reversed cheaply for small private keys</button>
+    <button class="opt">The base point G is public, which lets an attacker recompute the secret</button>
+    <button class="opt" data-ok="1">The exchanged public points are not authenticated, so they can be substituted</button>
+    <button class="opt">The shared secret point is transmitted openly during the exchange</button>
+  </div>
+  <p class="why">Exactly the weakness of plain Diffie–Hellman. The remedy is to sign or certify the points — ECDSA plus a certificate, which is what TLS does.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>List the ECC domain parameters and the key pair.</summary>
+    <p class="ans">Public: the prime p, the curve coefficients a and b, the base point G, and n, the order of G. Each user picks a random private integer n_A with 1 &lt; n_A &lt; n and publishes the public key point P_A = n_A G. Recovering n_A from P_A is the ECDLP.</p></details>
+  <details class="card"><summary>State the ECDH protocol.</summary>
+    <p class="ans">Alice publishes P_A = n_A G and Bob publishes P_B = n_B G. Alice computes K = n_A P_B, Bob computes K = n_B P_A, and both equal n_A n_B G. The x-coordinate of that point is used as the session key. Without authentication of the exchanged points it is open to a man-in-the-middle attack.</p></details>
+  <details class="card"><summary>Give the EC ElGamal encryption and decryption formulas.</summary>
+    <p class="ans">With Bob&rsquo;s public key P_B = n_B G, Alice picks a random k and sends C = {kG, P_m + kP_B}. Bob recovers the plaintext as P_m = C₂ − n_B C₁, because n_B C₁ = n_B kG = kP_B, the mask that was added. The ciphertext is twice the size of the message.</p></details>
+  <details class="card"><summary>How is a message turned into a curve point?</summary>
+    <p class="ans">By Koblitz&rsquo;s method: take x = mK + j for j = 0, 1, 2, … until x³ + ax + b is a quadratic residue, giving a valid point; the receiver recovers m as ⌊x/K⌋. Practical systems avoid the issue by using ECC only to establish a key and encrypting the data with a symmetric cipher.</p></details>
+  <details class="card"><summary>Compare ECC and RSA on six points.</summary>
+    <p class="ans">ECDLP versus factoring; 256-bit versus 3072-bit keys at the same security; fast versus slow key generation; slower encryption and verification but faster signing and decryption; much smaller signatures; and best suited to constrained devices where RSA suits established server PKI.</p></details>
+  <details class="card"><summary>Give the advantages and disadvantages of ECC.</summary>
+    <p class="ans">Advantages: far smaller keys for equal security, lower bandwidth, storage and power, fast key generation and signing, short signatures, and better scaling as security rises. Disadvantages: complex mathematics and implementation, fatal failures if the nonce k repeats, dependence on trustworthy curve choice, side-channel risk in scalar multiplication, and vulnerability to quantum attack.</p></details>
+</div>
+
+<p class="ask">Next: digital signatures in general &mdash; what they must provide, how they are produced, and why the digest is signed rather than the message.</p>
+
+<div class="nav">
+  <a href="0008-elliptic-curve-cryptography.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0010-digital-signature.html">Next: Digital Signature &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

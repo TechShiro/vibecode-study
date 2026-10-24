@@ -1,0 +1,214 @@
+<title>Intrusion Detection Systems (IDS)</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit V &middot; Lesson 27 of 28</p>
+<h1>Intrusion Detection Systems (IDS)</h1>
+<p class="deck">Architecture of intrusion detection systems, signature-based vs anomaly-based detection, HIDS vs NIDS deployment, honeypots, and Snort rule anatomy.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Compare Signature-based vs Anomaly-based IDS&rdquo;</strong> and <strong>&ldquo;Differentiate HIDS and NIDS with advantages and disadvantages&rdquo;</strong> are standard 8-to-10 mark exam questions. Provide clear side-by-side tables and explain false positives vs false negatives.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Intrusion Detection Systems (IDS) &amp; Intruders</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=R1mF7Mxfynk" target="_blank">Intrusion Detection System (IDS) &amp; Types of Intruders</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 8:15</span>
+    <div class="v-why">High-scoring overview of intruder classes (Masquerader, Misfeasor, Clandestine user), sensors, analyzer engines, and administrator alerting consoles.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Signature vs Anomaly &amp; HIDS vs NIDS</span>
+      <span class="best-tag">Top Exam Contrast</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=3PclUhCoTbA" target="_blank">Signature-Based IDS vs Anomaly-Based IDS with Examples</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 9:30</span>
+    <div class="v-why">Crisp comparison: Signature-based (fast, low false positives, misses 0-days) vs Anomaly-based (detects novel zero-day attacks, high false positive rate), plus Host vs Network deployment.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: IDS PROCESSING PIPELINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Dual-Engine Intrusion Detection Pipeline</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Network Traffic &amp; System Log Sensors (HIDS / NIDS)</strong>
+      <span class="sub">Packet capture (libpcap) &middot; System call traces &middot; Authentication logs</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Feature Extraction &amp; Protocol Parsing</span>
+    
+    <div class="flow-row" style="gap:1.5rem;">
+      <!-- Engine 1 -->
+      <div class="flow-box warn" style="min-width:14rem;">
+        <strong>Signature-Based Engine (Misuse)</strong>
+        <span class="sub">Compares packet against known exploit patterns (Snort rules)<br>&bull; Fast &bull; Accurate &bull; Blind to Zero-Days</span>
+      </div>
+      <!-- Engine 2 -->
+      <div class="flow-box ok" style="min-width:14rem;">
+        <strong>Anomaly-Based Engine (Behavioral)</strong>
+        <span class="sub">Compares activity against statistical baseline profile<br>&bull; Catches Zero-Days &bull; High False Alarms</span>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Correlation &amp; Policy Decision</span>
+    
+    <div class="flow-box" style="min-width:22rem;">
+      <strong>Alert Generation &amp; Honeypot Redirection</strong>
+      <span class="sub">Emit alert to SIEM console &middot; Trigger firewall rule update (IPS) &middot; Divert attacker to Honeypot decoy!</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>What is an Intrusion Detection System?</h2>
+<p>An <strong>Intrusion Detection System (IDS)</strong> is a hardware device or software application that monitors system or network activities for malicious actions or policy violations, and produces reports or alerts to a management station.</p>
+
+<div class="box win">
+  <span class="lbl">IDS vs Firewall</span>
+  <ul>
+    <li><strong>Firewall:</strong> Acts as a perimeter security gatekeeper. It inspects packet headers (IPs, ports) and enforces access control rules to block unauthorized traffic. It rarely analyzes deep payload content.</li>
+    <li><strong>IDS:</strong> Acts as an intelligent security alarm / detective. It performs deep packet inspection and behavioural analysis on traffic that has already passed through the firewall, identifying sophisticated multi-step attacks.</li>
+    <li><strong>Intrusion Prevention System (IPS):</strong> An inline active device that not only detects intrusions but immediately drops malicious packets or terminates TCP connections.</li>
+  </ul>
+</div>
+
+<h2>Detection Techniques</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Signature-Based (Misuse Detection)</th><th>Anomaly-Based (Behavioral Detection)</th></tr></thead>
+<tbody>
+<tr><td><strong>Principle</strong></td><td>Compares current activity against a database of known attack signatures (patterns, byte sequences, regex).</td><td>Establishes a baseline profile of &ldquo;normal&rdquo; activity and flags statistically significant deviations.</td></tr>
+<tr><td><strong>Detection of Known Attacks</strong></td><td><strong>Extremely accurate</strong> with very low false alarm rates.</td><td>Can detect known attacks, but may miss stealthy attacks that mimic normal baseline traffic.</td></tr>
+<tr><td><strong>Zero-Day Detection</strong></td><td><strong>Ineffective</strong> &mdash; blind to novel attacks until a signature is authored and distributed.</td><td><strong>Effective</strong> &mdash; can detect previously unseen zero-day attacks and insider anomalies.</td></tr>
+<tr><td><strong>False Positive Rate</strong></td><td>Very Low (fires only on precise signature match).</td><td>High (legitimate changes in user behaviour trigger false alarms).</td></tr>
+<tr><td><strong>Maintenance</strong></td><td>Requires constant downloading of updated signature feeds.</td><td>Requires periodic retraining to prevent baseline drift.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Classification Errors</span>
+  <ul>
+    <li><strong>False Positive (Type I error):</strong> Normal legitimate traffic is erroneously flagged as malicious (crying wolf).</li>
+    <li><strong>False Negative (Type II error):</strong> An actual malicious intrusion slips past undetected (dangerous security breach).</li>
+  </ul>
+</div>
+
+<h2>Deployment Architecture: HIDS vs NIDS</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Criterion</th><th>Host-Based IDS (HIDS)</th><th>Network-Based IDS (NIDS)</th></tr></thead>
+<tbody>
+<tr><td><strong>Placement</strong></td><td>Installed directly on individual critical servers/endpoints.</td><td>Placed at network chokepoints, switch SPAN/mirror ports, or taps.</td></tr>
+<tr><td><strong>Monitoring Scope</strong></td><td>Analyzes host-specific audit logs, system calls, file integrity (checksums), and registry changes.</td><td>Analyzes raw network packets, protocol headers, and payload streams across all hosts.</td></tr>
+<tr><td><strong>Encrypted Traffic</strong></td><td><strong>Can inspect</strong> decrypted payloads in host memory before/after encryption.</td><td><strong>Blinded</strong> by end-to-end encrypted payloads (HTTPS, TLS, SSH).</td></tr>
+<tr><td><strong>Resource Overhead</strong></td><td>Consumes CPU and memory on the protected host.</td><td>Zero resource overhead on protected host machines.</td></tr>
+<tr><td><strong>Resilience</strong></td><td>Vulnerable to being disabled if an attacker gains root on the host.</td><td>Invisible and tamper-resistant; has no IP address on monitored link.</td></tr>
+<tr><td><strong>Attack Verification</strong></td><td>Can determine whether an attack actually succeeded on the host OS.</td><td>Cannot easily confirm if an attack exploit succeeded on the target.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Honeypots and Deception Technology</h2>
+<p>A <strong>honeypot</strong> is an isolated decoy system intentionally configured with vulnerabilities and placed on a network to attract adversaries. Because a honeypot has no legitimate production purpose, <strong>any activity directed at it is presumed malicious</strong>.</p>
+<ul>
+  <li><strong>Low-Interaction Honeypot:</strong> Simulates only specific network daemons (e.g., emulates an open FTP or SSH banner). Safe and lightweight; used for gathering automated worm scans.</li>
+  <li><strong>High-Interaction Honeypot:</strong> Runs a real, full operating system with real services. Provides deep forensic insight into zero-day attacker techniques and command history, but carries risk if used as a pivot point.</li>
+  <li><strong>Honeytoken:</strong> Fake sensitive data (e.g., bogus database credit card numbers or dummy API keys) used to detect unauthorized exfiltration.</li>
+</ul>
+
+<h2>Snort: Architecture and Rule Anatomy</h2>
+<p><strong>Snort</strong> is the world's most widely deployed open-source network intrusion detection and prevention system.</p>
+
+<div class="solve">
+  <span class="lbl">Snort Rule Structure</span>
+  <pre class="mono">alert tcp any any -> 192.168.1.0/24 80 (msg:"WEB-ATTACK /etc/passwd access attempt"; content:"/etc/passwd"; nocase; sid:1000001; rev:1;)</pre>
+
+  <p><strong>1. Rule Header:</strong> Defines the action and network addressing:</p>
+  <ul>
+    <li><code>alert</code>: Action to take (<code>alert</code>, <code>log</code>, <code>drop</code>, <code>reject</code>).</li>
+    <li><code>tcp</code>: Protocol to match (TCP, UDP, ICMP, IP).</li>
+    <li><code>any any</code>: Source IP address and source port.</li>
+    <li><code>-></code>: Direction of traffic flow.</li>
+    <li><code>192.168.1.0/24 80</code>: Destination subnet and destination port (HTTP).</li>
+  </ul>
+
+  <p><strong>2. Rule Options (enclosed in parentheses):</strong></p>
+  <ul>
+    <li><code>msg:"..."</code>: Human-readable alert description.</li>
+    <li><code>content:"..."</code>: Byte sequence or ASCII string to search for inside packet payload.</li>
+    <li><code>nocase</code>: Case-insensitive payload matching.</li>
+    <li><code>sid</code>: Snort Rule Unique Identifier (IDs &ge; 1,000,000 are custom local rules).</li>
+    <li><code>rev</code>: Revision number of the rule.</li>
+  </ul>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Why can an anomaly-based IDS detect zero-day attacks while a signature-based IDS cannot?</p>
+  <div class="opts">
+    <button class="opt">Anomaly-based IDS is placed directly on the router</button>
+    <button class="opt">Signature-based IDS only works on Linux machines</button>
+    <button class="opt">Anomaly-based IDS uses 2048-bit RSA encryption</button>
+    <button class="opt" data-ok="1">Anomaly-based IDS detects deviations from normal behavior rather than pre-stored patterns</button>
+  </div>
+  <p class="why">Novel exploits do not have existing signatures, but their unusual activity deviates from the baseline profile.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. What is a key limitation of a Network-based IDS (NIDS) compared to a Host-based IDS (HIDS)?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A NIDS cannot inspect payload data carried inside encrypted TLS/HTTPS sessions</button>
+    <button class="opt">A NIDS uses excessive CPU on endpoint client machines</button>
+    <button class="opt">A NIDS is visible to attackers through open ping ports</button>
+    <button class="opt">A NIDS cannot monitor TCP traffic</button>
+  </div>
+  <p class="why">End-to-end encryption conceals payload contents from network taps; only the endpoint HIDS can inspect unencrypted data.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In a Snort rule, the string to search for inside packet payloads is specified using:</p>
+  <div class="opts">
+    <button class="opt">The proto field</button>
+    <button class="opt" data-ok="1">The content keyword</button>
+    <button class="opt">The sid parameter</button>
+    <button class="opt">The rev identifier</button>
+  </div>
+  <p class="why">The `content` option searches for specific ASCII or hex patterns within the payload stream.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Signature vs anomaly detection: trade-off in false positives/negatives.</summary>
+    <p class="ans">Signature: low false positives, high false negatives for zero-days. Anomaly: high false positives (benign anomalies flagged), low false negatives for zero-days.</p></details>
+  <details class="card"><summary>Name two advantages and two disadvantages of NIDS over HIDS.</summary>
+    <p class="ans">Advantages: 1. Single sensor covers entire subnet. 2. Zero CPU overhead on endpoints. Disadvantages: 1. Blinded by TLS/HTTPS encrypted traffic. 2. Cannot verify if exploit succeeded on target OS.</p></details>
+  <details class="card"><summary>What is a honeypot and why are its false positives virtually zero?</summary>
+    <p class="ans">A honeypot has no valid production users or services; any connection attempt to it is inherently unauthorized or malicious.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0026-malicious-software-viruses-worms-trojans.html">&larr; Previous: Malicious Software</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0028-firewalls-and-vpns.html">Next: Firewalls and VPNs &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

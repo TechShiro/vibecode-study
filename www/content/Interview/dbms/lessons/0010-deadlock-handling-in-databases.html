@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 10 – Deadlock Handling in Databases</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module C · Lesson 10 of 17 · Resolving Cyclic Lock Wait</div>
+  <h1>Deadlock Handling in Databases</h1>
+  <p class="subtitle">How database engines dynamically detect and preempt mutual blocking among transactions.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Transactions & Concurrency</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Under lock-based protocols (like Strict 2PL), transactions hold acquired locks while requesting additional locks held by competitors. When a cyclic wait condition arises (<code>T1</code> holds row A waiting for row B, while <code>T2</code> holds row B waiting for row A), neither can proceed. This is a <strong>Database Deadlock</strong>. Unlike operating systems which may hang indefinitely, DBMS engines are designed to dynamically detect deadlocks, abort a victim transaction, and roll it back cleanly.</p>
+
+  <h2>2 · Wait-For Graph (WFG) & Cycle Detection</h2>
+  <p>The DBMS Lock Manager maintains a directed graph called the <strong>Wait-For Graph (WFG)</strong>:</p>
+  <ul>
+    <li><strong>Nodes</strong> represent active transactions (<code>T1, T2, ..., Tn</code>).</li>
+    <li>A directed edge <code>Ti &rarr; Tj</code> exists if <code>Ti</code> is currently blocked waiting for a lock held by <code>Tj</code>.</li>
+  </ul>
+
+  <div class="callout danger">
+    <h4>Deadlock Theorem</h4>
+    <p>A deadlock exists in the database system if and only if the Wait-For Graph contains a <strong>directed cycle</strong> (e.g., <code>T1 &rarr; T2 &rarr; T3 &rarr; T1</code>). A background engine thread periodically executes a cycle-detection algorithm (Depth-First Search / Tarjan's algorithm) to find cycles.</p>
+  </div>
+
+  <h2>3 · Deadlock Recovery: Victim Selection</h2>
+  <p>Once a cycle is detected, the DBMS must break the cycle by aborting one of the participating transactions (the <strong>Victim</strong>). How is the victim chosen?</p>
+  <ul>
+    <li><strong>Rollback Cost</strong>: Abort the transaction that has modified the fewest rows (minimizing undo log replay).</li>
+    <li><strong>Age / Timestamp</strong>: Abort the youngest transaction to allow older, long-running batch transactions to complete.</li>
+    <li><strong>Lock Count</strong>: Abort the transaction holding the fewest locks.</li>
+    <li><strong>Starvation Prevention</strong>: If a victim is aborted and restarted with a fresh timestamp, it might repeatedly be selected as victim. The DBMS avoids starvation by <strong>preserving the transaction's original birth timestamp</strong> upon retry.</li>
+  </ul>
+
+  <h2>4 · Deadlock Prevention: Timestamp Schemes</h2>
+  <p>Rather than detecting deadlocks after they happen, databases can preemptively prevent cycles from ever forming using monotonic transaction timestamps (<code>TS(Ti)</code> = system clock when transaction started):</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr><th>Scheme</th><th>Mechanism (Older Ti requests lock held by Younger Tj)</th><th>Mechanism (Younger Tj requests lock held by Older Ti)</th><th>Preemptive?</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Wait-Die</strong> (Non-preemptive)</td>
+        <td><strong>Ti WAITS</strong> (Older is allowed to wait for younger).</td>
+        <td><strong>Tj DIES</strong> (Younger is aborted, rolled back, and restarted).</td>
+        <td>No; transactions die on lock request.</td>
+      </tr>
+      <tr>
+        <td><strong>Wound-Wait</strong> (Preemptive)</td>
+        <td><strong>Ti WOUNDS Tj</strong> (Older preempts and aborts younger transaction <code>Tj</code> immediately).</td>
+        <td><strong>Tj WAITS</strong> (Younger is allowed to wait for older).</td>
+        <td>Yes; older violently preempts younger.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5 · Lock Timeout (The Practical Industry Solution)</h2>
+  <p>While WFG cycle detection is exact, maintaining global WFGs across distributed nodes is expensive. In production systems (e.g., MySQL InnoDB <code>innodb_lock_wait_timeout=50</code>), the database sets a timeout threshold. If a transaction waits for a lock longer than 50 seconds, the DBMS assumes deadlock, aborts the transaction, and throws: <code>ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</code>.</p>
+
+  <nav class="bottom-nav">
+    <a href="0009-concurrency-control-and-2pl.html">← Lesson 09: Concurrency Control & 2PL</a>
+    <a href="0011-mvcc-and-sql-isolation-levels.html">Lesson 11: MVCC & SQL Isolation Levels →</a>
+  </nav>
+</body>
+</html>

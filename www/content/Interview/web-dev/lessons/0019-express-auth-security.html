@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 19 — Express: Auth, Validation &amp; Security</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 19 of 24 · JWT, bcrypt, CORS, security</div>
+<h1>Express: Auth, Validation &amp; Security</h1>
+<p class="subtitle">Your notes API currently lets anyone do anything — today you add identity, permissions, and armour, and collect the interview answers behind "sessions vs JWT" and "how does CORS actually work".</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 19 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Authentication vs authorization — the bouncer analogy</h2>
+<p>
+Two different questions, constantly confused:
+</p>
+<ul>
+  <li><strong>Authentication (authn)</strong> — <em>who are you?</em> The club bouncer checking your ID at the door.</li>
+  <li><strong>Authorization (authz)</strong> — <em>what are you allowed to do?</em> Inside the club, your wristband decides whether you get into the VIP area.</li>
+</ul>
+<p>
+They even map to different status codes from Lesson 18: failing authentication → <strong>401</strong>
+(we don't know who you are); failing authorization → <strong>403</strong> (we know exactly who you are, and no).
+Every auth system is these two steps: first establish identity, then check permissions.
+</p>
+
+<h2>2 · The core problem: HTTP is stateless</h2>
+<p>
+From Lesson 17 you know each HTTP request is an independent envelope — the server keeps no memory between requests.
+So after a successful login, how does request #2 prove it's still you? You can't send the password every time.
+Two industry answers exist, and "compare them" is a guaranteed interview question.
+</p>
+
+<h3>Answer A — sessions + cookies (state on the server)</h3>
+<p>
+On login, the server creates a record — a <strong>session</strong> — in its memory or a store (Redis, Postgres), and
+hands the browser only the record's random ID inside a cookie. Browsers automatically re-attach cookies to every
+subsequent request to that site, so each request carries the claim ticket; the server looks the session up and knows who you are.
+</p>
+
+<pre><code><span class="cmt">// sketch with express-session (npm i express-session)</span>
+import session from "express-session";
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,   <span class="cmt">// signs the cookie so clients can't forge IDs</span>
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, sameSite: "lax", secure: true },  <span class="cmt">// secure = HTTPS only</span>
+}));
+
+app.post("/login", (req, res) =&gt; {
+  <span class="cmt">// ...verify credentials, then:</span>
+  req.session.userId = user.id;         <span class="cmt">// stored SERVER-side; browser gets only the session ID</span>
+  res.json({ ok: true });
+});
+
+app.get("/me", (req, res) =&gt; {
+  if (!req.session.userId) return res.sendStatus(401);
+  res.json({ userId: req.session.userId });
+});</code></pre>
+
+<h3>Answer B — JWT (state inside the token)</h3>
+<p>
+A <strong>JSON Web Token</strong> flips the design: the server stores nothing. On login it issues a token that
+<em>itself contains</em> the identity claims, cryptographically <strong>signed</strong> so it can't be altered.
+The client sends it back on each request (usually <code>Authorization: Bearer &lt;token&gt;</code>); the server just
+verifies the signature — no lookup needed.
+</p>
+
+<pre><code><span class="cmt">// A JWT is three base64url parts joined by dots:  header.payload.signature</span>
+eyJhbGciOiJIUzI1NiJ9 . eyJzdWIiOjcsInJvbGUiOiJ1c2VyIiwiZXhwIjoxNzUzNTUwMDAwfQ . 4x7T...
+
+<span class="cmt">// decoded header:   { "alg": "HS256", "typ": "JWT" }        — which algorithm signed it</span>
+<span class="cmt">// decoded payload:  { "sub": 7, "role": "user", "exp": ... } — the CLAIMS (sub = subject = user id)</span>
+<span class="cmt">// signature: HMAC-SHA256( header + "." + payload, SECRET )   — proves nobody tampered</span></code></pre>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  Signing is <strong>not</strong> encryption. The payload is only base64-encoded — anyone can decode and read it
+  (paste any JWT into jwt.io). The signature guarantees <em>integrity</em> (untampered) and <em>authenticity</em>
+  (issued by whoever holds the secret), never <em>secrecy</em>. So: no passwords, no sensitive data in a JWT payload. Ever.
+</div>
+
+<p>
+Tokens carry an <code>exp</code> (expiry) claim — keep access tokens short-lived (say 15 min). The
+<strong>refresh-token</strong> idea: alongside the short access token, issue a long-lived refresh token stored
+extra-safely (httpOnly cookie, revocable server-side); when the access token expires, the client silently exchanges the
+refresh token for a fresh one. Short window if stolen, no constant re-logins.
+</p>
+
+<h3>Where does the client keep the token?</h3>
+<ul>
+  <li><strong>localStorage</strong> — easy to use from JS, survives tabs... and is readable by <em>any JS on the page</em>. One successful XSS injection and the token is stolen.</li>
+  <li><strong>httpOnly cookie</strong> — JavaScript cannot read it at all (immune to XSS theft), auto-sent by the browser. Trade-off: auto-sending is exactly what CSRF exploits, so pair it with <code>SameSite</code> (section 8).</li>
+</ul>
+
+<table>
+  <thead><tr><th></th><th>Sessions + cookies</th><th>JWT</th></tr></thead>
+  <tbody>
+    <tr><td>Where the state lives</td><td>Server (memory / Redis / DB)</td><td>Inside the token — server stores nothing</td></tr>
+    <tr><td>Per-request cost</td><td>Store lookup</td><td>Signature verification (CPU only)</td></tr>
+    <tr><td>Instant revocation ("log out everywhere")</td><td>Trivial — delete the session</td><td>Hard — token is valid until <code>exp</code>; needs a denylist, which reintroduces state</td></tr>
+    <tr><td>Horizontal scaling</td><td>Needs shared store or sticky sessions</td><td>Free — any server with the secret can verify</td></tr>
+    <tr><td>Non-browser clients (mobile, other services)</td><td>Awkward (cookies are a browser thing)</td><td>Natural — just a header</td></tr>
+    <tr><td>Typical fit</td><td>Classic server-rendered web apps</td><td>SPAs, mobile apps, microservices, public APIs</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Sessions keep state on the server and give the client a claim-ticket cookie — easy revocation, but scaling needs a
+  shared store. JWTs keep signed state on the client — stateless and scale-friendly, but revocation before expiry is hard.
+  Signed ≠ encrypted: JWT payloads are readable by anyone."
+</div>
+
+<h2>3 · Passwords — hash, never encrypt, never store</h2>
+<p>
+Rule zero: <strong>never store plaintext passwords</strong>. But also: never <em>encrypt</em> them.
+Encryption is two-way — whoever holds the key can decrypt every password, so a leaked key = every account burned.
+<strong>Hashing</strong> is one-way: you can compute <code>hash(password)</code> but not invert it. At login you hash
+the attempt and compare hashes; nobody, including you, can recover the original.
+</p>
+<p>
+Plain fast hashes (SHA-256) are still wrong for passwords — attackers brute-force billions per second on GPUs.
+<strong>bcrypt</strong> fixes this with two weapons:
+</p>
+<ul>
+  <li><strong>Salt</strong> — a random string mixed into each hash, stored inside the output. Two users with the password <code>hello123</code> get totally different hashes, and precomputed "rainbow tables" become useless.</li>
+  <li><strong>Cost rounds</strong> — bcrypt is <em>deliberately slow</em>, and the cost is tunable: rounds 10 ≈ 2¹⁰ internal iterations, each +1 doubles the time. Milliseconds per login for you; centuries per dictionary for an attacker.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  This is exactly Spring Security's <code>BCryptPasswordEncoder</code> — <code>encode()</code> ↔ <code>bcrypt.hash()</code>,
+  <code>matches()</code> ↔ <code>bcrypt.compare()</code>. Same algorithm, same salted <code>$2b$10$...</code> output format.
+</div>
+
+<h2>4 · The full register + login flow</h2>
+<pre><code>npm install bcrypt jsonwebtoken</code></pre>
+
+<pre><code><span class="cmt">// src/services/auth.service.js</span>
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { ApiError } from "../middleware/error.js";
+
+const users = [];        <span class="cmt">// in-memory for now — becomes a Postgres table in Lesson 21</span>
+let nextId = 1;
+
+export const authService = {
+  async register({ email, password }) {
+    if (users.some(u =&gt; u.email === email))
+      throw new ApiError(409, "Email already registered");        <span class="cmt">// 409 Conflict, Lesson 18</span>
+
+    const passwordHash = await bcrypt.hash(password, 10);         <span class="cmt">// 10 = cost rounds; salt auto-generated</span>
+    const user = { id: nextId++, email, passwordHash, role: "user" };
+    users.push(user);
+    return { id: user.id, email: user.email };                    <span class="cmt">// NEVER return the hash</span>
+  },
+
+  async login({ email, password }) {
+    const user = users.find(u =&gt; u.email === email);
+    <span class="cmt">// same message for wrong email and wrong password — don't leak which emails exist</span>
+    if (!user) throw new ApiError(401, "Invalid credentials");
+
+    const ok = await bcrypt.compare(password, user.passwordHash); <span class="cmt">// re-hash attempt with stored salt, compare</span>
+    if (!ok) throw new ApiError(401, "Invalid credentials");
+
+    const token = jwt.sign(
+      { sub: user.id, role: user.role },                          <span class="cmt">// claims — public, remember!</span>
+      process.env.JWT_SECRET,                                     <span class="cmt">// from .env, section 9</span>
+      { expiresIn: "15m" }
+    );
+    return { token };
+  },
+};
+
+<span class="cmt">// routes (with zod validation from Lesson 18):</span>
+<span class="cmt">//   router.post("/register", validate(credentialsSchema), registerController)  → 201</span>
+<span class="cmt">//   router.post("/login",    validate(credentialsSchema), loginController)     → 200 { token }</span></code></pre>
+
+<h2>5 · Auth middleware + role-based authorization</h2>
+<p>
+Protection is just middleware from Lesson 18: verify the token, attach the identity to <code>req</code>, and let the
+pipeline continue — or stop it with 401/403.
+</p>
+
+<pre><code><span class="cmt">// src/middleware/auth.js</span>
+import jwt from "jsonwebtoken";
+import { ApiError } from "./error.js";
+
+export function requireAuth(req, res, next) {
+  const header = req.get("Authorization") ?? "";        <span class="cmt">// "Bearer eyJhbGci..."</span>
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  if (!token) return next(new ApiError(401, "Missing token"));
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET); <span class="cmt">// throws if forged OR expired</span>
+    req.user = { id: payload.sub, role: payload.role };        <span class="cmt">// downstream handlers just read req.user</span>
+    next();
+  } catch {
+    next(new ApiError(401, "Invalid or expired token"));
+  }
+}
+
+<span class="cmt">// Authorization: a middleware FACTORY — takes allowed roles, returns middleware</span>
+export const requireRole = (...roles) =&gt; (req, res, next) =&gt; {
+  if (!req.user) return next(new ApiError(401, "Not authenticated"));
+  if (!roles.includes(req.user.role))
+    return next(new ApiError(403, "Insufficient permissions"));  <span class="cmt">// 403: known, but not allowed</span>
+  next();
+};
+
+<span class="cmt">// usage — note the ORDER: authenticate first, then authorize</span>
+router.get("/notes", requireAuth, listNotes);                        <span class="cmt">// any logged-in user</span>
+router.delete("/users/:id", requireAuth, requireRole("admin"), deleteUser); <span class="cmt">// admins only</span></code></pre>
+
+<div class="callout tip">
+  <span class="label">Spring parallel</span>
+  <code>requireAuth</code> is Spring Security's JWT filter in the filter chain; <code>requireRole("admin")</code> is
+  <code>@PreAuthorize("hasRole('ADMIN')")</code>; <code>req.user</code> plays the role of the <code>SecurityContext</code> principal.
+</div>
+
+<h2>6 · CORS — the classic interview topic, explained properly</h2>
+<p>
+Browsers enforce the <strong>same-origin policy</strong>: JavaScript on origin A (scheme + host + port, e.g.
+<code>http://localhost:5173</code> — your React dev server) may not read responses from origin B
+(<code>http://localhost:3000</code> — your API) unless B explicitly opts in. Why? Because your browser attaches your
+cookies to requests automatically — without this rule, <code>evil.com</code>'s scripts could call your bank's API
+<em>as you</em> and read the response.
+</p>
+<p>
+Three facts that untangle every CORS confusion:
+</p>
+<ul>
+  <li>It's a <strong>browser</strong> rule. curl, Postman, and server-to-server calls never see CORS errors.</li>
+  <li>The request usually <strong>reaches the server fine</strong> — the browser blocks JS from <em>reading the response</em>. (For state-changing requests, preflight blocks sending too.)</li>
+  <li>The <strong>server</strong> opts in via response headers — <code>Access-Control-Allow-Origin</code> and friends. The fix always lives on the server, not in your fetch call.</li>
+</ul>
+<p>
+For "non-simple" requests (e.g. <code>Content-Type: application/json</code>, custom headers, PUT/DELETE) the browser first
+sends a <strong>preflight</strong>: an <code>OPTIONS</code> request asking "may I send POST with these headers?" Only if
+the server answers with permitting headers does the real request go out.
+</p>
+
+<pre><code>npm install cors</code></pre>
+<pre><code>import cors from "cors";
+
+app.use(cors({
+  origin: "http://localhost:5173",   <span class="cmt">// exact allowed origin(s); "*" = anyone (fine for public read-only APIs,</span>
+                                     <span class="cmt">// but incompatible with credentials)</span>
+  credentials: true,                 <span class="cmt">// allow cookies/Authorization across origins — requires an exact origin</span>
+}));
+<span class="cmt">// the package answers preflights and sets Access-Control-Allow-* headers for you</span></code></pre>
+
+<h2>7 · Security essentials — the armour checklist</h2>
+
+<h3>helmet — sane security headers</h3>
+<pre><code>import helmet from "helmet";
+app.use(helmet());   <span class="cmt">// one line, ~a dozen protective response headers</span></code></pre>
+<ul>
+  <li><code>Content-Security-Policy</code> — whitelists where scripts/styles may load from (blunts XSS).</li>
+  <li><code>Strict-Transport-Security</code> — tells browsers "HTTPS only from now on".</li>
+  <li><code>X-Content-Type-Options: nosniff</code> — stops browsers guessing (and mis-executing) content types.</li>
+  <li>Hides <code>X-Powered-By: Express</code> — no free recon for attackers.</li>
+</ul>
+
+<h3>Rate limiting</h3>
+<pre><code>import rateLimit from "express-rate-limit";
+
+app.use("/api/auth/login", rateLimit({
+  windowMs: 15 * 60 * 1000,   <span class="cmt">// 15-minute window</span>
+  limit: 10,                  <span class="cmt">// max 10 attempts per IP → then 429 Too Many Requests</span>
+}));
+<span class="cmt">// stops brute-forcing passwords and blunts cheap DoS; login/OTP routes get the strictest limits</span></code></pre>
+
+<h3>Input sanitization &amp; the injection idea</h3>
+<p>
+The <strong>injection</strong> family of attacks is one idea wearing many masks: <em>user input gets interpreted as
+code/commands instead of data</em>. String-concatenated SQL → SQL injection (in depth with the fix — parameterized
+queries — in Lesson 22). User text echoed into HTML → XSS. Input passed to a shell → command injection. The defence is
+always the same shape: validate at the boundary (your zod middleware from Lesson 18 already strips unknown fields and
+enforces types) and use APIs that keep data and code separate — parameterized queries, escaped output — rather than
+gluing strings.
+</p>
+
+<h3>Secrets with dotenv</h3>
+<pre><code><span class="cmt"># .env  — real secrets, NEVER committed (add .env to .gitignore immediately)</span>
+JWT_SECRET=change-me-to-64-random-chars
+PORT=3000
+
+<span class="cmt"># .env.example — committed: names only, no values, so teammates know what to set</span></code></pre>
+<pre><code>import "dotenv/config";        <span class="cmt">// first import in server.js: loads .env into process.env</span>
+<span class="cmt">// (Node 20+: `node --env-file=.env server.js` does it with zero deps)</span>
+const secret = process.env.JWT_SECRET;</code></pre>
+<p>A secret committed once lives in git history forever — treat it as leaked and rotate it.</p>
+
+<h3>OWASP top concepts, in brief</h3>
+<table>
+  <thead><tr><th>Attack</th><th>One-line mechanism</th><th>Main defence</th></tr></thead>
+  <tbody>
+    <tr><td><strong>XSS</strong> (cross-site scripting)</td><td>Attacker's JS ends up executing in victims' browsers (e.g. a note containing <code>&lt;script&gt;</code> rendered as HTML)</td><td>Escape output (React does by default), CSP via helmet, httpOnly cookies limit the loot</td></tr>
+    <tr><td><strong>SQL injection</strong></td><td>Input concatenated into SQL rewrites the query (<code>' OR 1=1 --</code>)</td><td>Parameterized queries — full treatment in Lesson 22</td></tr>
+    <tr><td><strong>CSRF</strong> (cross-site request forgery)</td><td>evil.com auto-submits a request to your API; the browser helpfully attaches the victim's cookie</td><td><code>SameSite=Lax/Strict</code> cookies (browser won't attach the cookie on cross-site requests), CSRF tokens. Header-borne JWTs are naturally immune — evil.com can't set your Authorization header</td></tr>
+  </tbody>
+</table>
+
+<h2>8 · File uploads with multer, in brief</h2>
+<p>
+JSON can't carry files; browsers send them as <code>multipart/form-data</code>, which <code>express.json()</code> ignores.
+<strong>multer</strong> is the middleware that parses it:
+</p>
+<pre><code>import multer from "multer";
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 5 * 1024 * 1024 },     <span class="cmt">// always cap size — uploads are a DoS vector</span>
+});
+
+app.post("/avatar", requireAuth, upload.single("avatar"), (req, res) =&gt; {
+  <span class="cmt">// req.file = { path, mimetype, size, originalname... }; other form fields land in req.body</span>
+  res.status(201).json({ path: req.file.path });
+});
+<span class="cmt">// validate mimetype server-side; in production files go to S3-style storage, not local disk</span></code></pre>
+
+<h2>9 · Logging — morgan, and why logs matter</h2>
+<pre><code>app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+<span class="cmt">// dev:      "POST /login 401 12.3ms" — short + colored, for your terminal</span>
+<span class="cmt">// combined: Apache-style with IP, timestamp, user-agent — machine-parseable for prod</span></code></pre>
+<p>
+Logs are how you answer "what happened at 3 a.m.?" — debugging in production, spotting attacks
+(1000 failed logins from one IP), and audit trails. No logs = flying blind. Bigger apps graduate to structured JSON
+loggers (pino, winston); the habit starts here.
+</p>
+
+<h2>10 · Testing glance — jest + supertest</h2>
+<p>
+<strong>supertest</strong> fires real HTTP requests at your <code>app</code> object in-process — no port, no running
+server. This is the JS equivalent of Spring's <code>MockMvc</code>. One structural change: export <code>app</code>
+separately from <code>listen</code>.
+</p>
+
+<pre><code><span class="cmt">// app.js exports the app; server.js just does: app.listen(PORT)</span>
+
+<span class="cmt">// __tests__/auth.test.js   (npm i -D jest supertest)</span>
+import request from "supertest";
+import app from "../app.js";
+
+describe("auth", () =&gt; {
+  test("register → login → access a protected route", async () =&gt; {
+    await request(app)
+      .post("/api/auth/register")
+      .send({ email: "k@test.dev", password: "secret123" })
+      .expect(201);
+
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "k@test.dev", password: "secret123" })
+      .expect(200);
+
+    await request(app)
+      .get("/api/v1/notes")
+      .set("Authorization", `Bearer ${res.body.token}`)   <span class="cmt">// attach the JWT</span>
+      .expect(200);
+  });
+
+  test("wrong password → 401", async () =&gt; {
+    await request(app).post("/api/auth/login")
+      .send({ email: "k@test.dev", password: "nope" })
+      .expect(401);
+  });
+});</code></pre>
+
+<h2>11 · When REST isn't enough — WebSockets &amp; socket.io</h2>
+<p>
+HTTP is request → response: the server can never speak first. For chat, live notifications, multiplayer
+(hello, Qhess) that's fatal — you'd be stuck polling on a timer. A <strong>WebSocket</strong> starts as an HTTP request
+that <em>upgrades</em> into a persistent two-way TCP connection; after that, either side pushes messages any time.
+<strong>socket.io</strong> wraps it with auto-reconnection, rooms, and fallbacks:
+</p>
+
+<pre><code><span class="cmt">// server (npm i socket.io) — attaches to the same http server as Express</span>
+import { createServer } from "node:http";
+import { Server } from "socket.io";
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, { cors: { origin: "http://localhost:5173" } });
+
+io.on("connection", (socket) =&gt; {              <span class="cmt">// EventEmitter pattern from Lesson 17</span>
+  socket.on("chat", (msg) =&gt; {
+    io.emit("chat", msg);                      <span class="cmt">// broadcast to EVERY connected client — server pushes!</span>
+  });
+});
+httpServer.listen(3000);
+
+<span class="cmt">// browser client</span>
+const socket = io("http://localhost:3000");
+socket.emit("chat", "hello room");
+socket.on("chat", (msg) =&gt; render(msg));</code></pre>
+<p>Rule of thumb: REST for resources and CRUD; WebSockets only for genuinely realtime, server-initiated streams.</p>
+
+<h2>12 · Production notes</h2>
+<ul>
+  <li><strong><code>NODE_ENV=production</code></strong> — Express skips dev niceties (and hides error details); many libraries key off it. Your code can too: verbose logs in dev, terse in prod.</li>
+  <li><strong>Process manager (PM2 / systemd / containers)</strong> — Node is one process; an uncaught crash kills the whole server. <code>pm2 start server.js -i max</code> auto-restarts on crash and runs one instance per CPU core in cluster mode (Lesson 17: one thread per process — this is how Node uses 8 cores).</li>
+  <li><strong>Reverse proxy (nginx / Caddy)</strong> — sits in front of Node: terminates HTTPS, serves static files, load-balances across instances, absorbs slow clients. Node apps rarely face the internet naked. (Set <code>app.set("trust proxy", 1)</code> so <code>req.ip</code> and rate limiting see real client IPs.)</li>
+</ul>
+
+<h2>13 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"Authentication vs authorization?"</strong><br>
+  Authentication establishes identity (who are you → 401 on failure); authorization checks permissions
+  (what may you do → 403 on failure). Authn always comes first.</li>
+  <li><strong>"Sessions vs JWT — which and why?"</strong><br>
+  Sessions: server-side state + cookie ID; instant revocation, but scaling needs a shared store, and cookies are
+  browser-centric. JWT: signed claims on the client; stateless and great for SPAs/mobile/microservices, but revocation
+  before expiry needs a denylist. Mitigate with short-lived access tokens + refresh tokens.</li>
+  <li><strong>"Is a JWT encrypted? What does the signature give you?"</strong><br>
+  No — the payload is readable base64. The signature gives integrity and authenticity: it proves the token was issued
+  by the secret-holder and hasn't been modified. Never put sensitive data in the payload.</li>
+  <li><strong>"How do you store passwords?"</strong><br>
+  bcrypt-hash them (salted, tunable cost) and compare hashes at login. Not plaintext, not encrypted (keys leak),
+  not fast hashes like SHA-256 (GPU brute-force). Salting kills rainbow tables; cost rounds make guessing expensive.</li>
+  <li><strong>"Explain CORS. Why does my fetch fail but Postman works?"</strong><br>
+  The browser's same-origin policy blocks JS from reading cross-origin responses unless the server sends
+  <code>Access-Control-Allow-Origin</code>; non-simple requests trigger an OPTIONS preflight first. Postman isn't a
+  browser, so no CORS. The fix is server-side headers (the <code>cors</code> middleware).</li>
+  <li><strong>"What is CSRF and how does SameSite help?"</strong><br>
+  A malicious site triggers a request to your API and the browser auto-attaches the victim's cookie.
+  <code>SameSite=Lax/Strict</code> stops the browser attaching cookies on cross-site requests, killing the trick;
+  header-borne JWTs are inherently immune since attackers can't set headers cross-origin.</li>
+  <li><strong>"How would you protect a login endpoint?"</strong><br>
+  Rate limiting per IP, bcrypt with decent cost, identical error messages for unknown email vs wrong password,
+  input validation, helmet headers, HTTPS everywhere, and logging of failed attempts.</li>
+</ul>
+
+<h2>14 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A logged-in admin calls <code>DELETE /users/7</code> but lacks the <code>superadmin</code> role required. Correct status?</div>
+  <button class="opt">401 Unauthorized — the credentials aren't good enough</button>
+  <button class="opt">403 Forbidden — identity is known, permission is denied</button>
+  <button class="opt">404 Not Found — pretend the endpoint doesn't exist</button>
+  <div class="fb" data-correct="Authentication succeeded (we know who it is) but authorization failed — that's exactly 403. 401 is for missing/invalid credentials. (404 IS sometimes used deliberately to hide a resource's existence, but the semantically correct default is 403.)" data-wrong="401 = we don't know who you are (authn failure). Here identity is established and only the permission check fails — that's 403 Forbidden, the authorization status."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why is storing a JWT in <code>localStorage</code> riskier than in an <code>httpOnly</code> cookie?</div>
+  <button class="opt">Any XSS-injected script can read localStorage and exfiltrate the token; httpOnly cookies are invisible to JS</button>
+  <button class="opt">localStorage is wiped every time the tab closes, logging users out</button>
+  <button class="opt">Browsers cap localStorage at 4 KB, too small for a JWT</button>
+  <div class="fb" data-correct="httpOnly means JavaScript cannot touch the cookie at all, so XSS can't steal it. The trade: cookies are auto-sent, which is the CSRF vector — mitigated with SameSite. Security is picking your trade-offs consciously." data-wrong="localStorage persists across sessions and holds ~5MB. The real issue is exposure: it's fully readable by any script on the page, so one XSS hole leaks every user's token. httpOnly cookies are unreadable from JS."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Your React app at <code>localhost:5173</code> gets a CORS error calling your API at <code>localhost:3000</code>, but curl works. Where's the fix?</div>
+  <button class="opt">In the fetch call — add <code>mode: "no-cors"</code> so the browser stops complaining</button>
+  <button class="opt">Nowhere — different ports can never communicate in browsers</button>
+  <button class="opt">On the server — send <code>Access-Control-Allow-Origin</code> (e.g. via the cors middleware), since the browser blocks reading responses until the server opts in</button>
+  <div class="fb" data-correct="CORS is browser-enforced (curl skips it) and server-relaxed. Different port = different origin, so the browser demands the server's permission headers. no-cors doesn't fix anything — it just makes the response unreadable." data-wrong="curl works because CORS lives only in browsers; and no-cors merely hides the response from your JS. The server must opt in with Access-Control-Allow-Origin headers — that's what the cors middleware does."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Two users both choose the password <code>hello123</code>. With bcrypt, their stored hashes are…</div>
+  <button class="opt">Identical — the same input always produces the same hash, that's what hashing means</button>
+  <button class="opt">Different — bcrypt mixes a random salt into each hash, so equal passwords produce unequal hashes</button>
+  <button class="opt">Different only if the server sets distinct secret keys per user</button>
+  <div class="fb" data-correct="Each hash gets its own random salt (stored inside the bcrypt string itself), so identical passwords yield different hashes — and precomputed rainbow tables become useless. bcrypt.compare extracts the salt to re-verify." data-wrong="Plain hashes (SHA-256) would match — which is exactly the weakness. bcrypt salts every hash with fresh randomness stored in the output, so equal passwords produce different hashes and rainbow tables die. No per-user keys involved."></div>
+</div>
+
+<h2>15 · Do this next</h2>
+<ul>
+  <li>Bolt auth onto your Lesson 18 notes API: <code>/api/auth/register</code> and <code>/api/auth/login</code> with bcrypt + JWT, then put <code>requireAuth</code> on all note routes. Filter notes per user: on create, stamp <code>userId: req.user.id</code>; on list, return only the caller's notes.</li>
+  <li>Add an <code>admin</code> role and a <code>GET /api/admin/users</code> route behind <code>requireRole("admin")</code>. Verify with curl that a normal user's token gets 403 and no token gets 401.</li>
+  <li>Wire helmet, a strict rate limit on <code>/login</code> (test it: 11 rapid curls → 429), and move every secret to <code>.env</code> with a committed <code>.env.example</code>. Bonus: write the supertest from section 10 and make it pass.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Hazy on why the refresh token isn't just as stealable, what exactly a preflight request contains, or why 401 vs 403
+  keeps flipping in your head? Ask in the chat. When you can whiteboard sessions-vs-JWT, walk through the login flow,
+  and explain CORS to a friend, say <strong>"next"</strong> for Lesson 20: NestJS — Modules, DI &amp; the Request Pipeline.
+</div>
+
+<div class="nav">
+  <span><a href="0018-express-rest-middleware.html">← Express: REST &amp; Middleware</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0020-nestjs-architecture.html">NestJS →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

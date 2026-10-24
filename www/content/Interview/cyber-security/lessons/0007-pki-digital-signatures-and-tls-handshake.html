@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 07 – PKI, Digital Signatures & TLS 1.3</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module C · Lesson 7 of 17 · Cryptography</div>
+  <h1>PKI, Digital Signatures & The TLS 1.3 Handshake</h1>
+  <p class="subtitle">Certificate Authorities, Web of Trust, Certificate Transparency, and the 1-RTT encrypted TLS handshake.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module C – Cryptography & PKI</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Even with RSA and Diffie-Hellman, an attacker can position themselves in the middle (MITM) and replace Alice's public key with their own. How do you know a public key genuinely belongs to <code>google.com</code> and not an imposter? <strong>Public Key Infrastructure (PKI)</strong> solves this via <strong>Digital Certificates (X.509)</strong> issued and cryptographically signed by globally trusted <strong>Certificate Authorities (CAs)</strong>.</p>
+
+  <h2>2 · Digital Signatures: Integrity & Non-Repudiation</h2>
+  <div class="arch-flow">
+    <div class="box">Message &rarr; SHA-256 Hash</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Encrypt Hash with SENDER's Private Key</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Digital Signature Attached</div>
+  </div>
+  <p>To verify: The recipient decrypts the signature using the <strong>Sender's Public Key</strong> to retrieve the original hash, hashes the received message themselves, and compares the two. If a single byte was altered in transit, the hashes will not match.</p>
+
+  <h2>3 · Public Key Infrastructure (PKI) & Chain of Trust</h2>
+  <ol>
+    <li><strong>Root CA</strong>: Embedded directly inside your Operating System and Browser (e.g. DigiCert, Let's Encrypt). Kept offline in an air-gapped vault.</li>
+    <li><strong>Intermediate CA</strong>: Signed by the Root CA; issues everyday end-entity certificates.</li>
+    <li><strong>Server Certificate</strong>: Presented by the web server containing its public key, domain name, validity dates, and signed by the Intermediate CA.</li>
+    <li><strong>Revocation</strong>: CRL (Certificate Revocation Lists) and <strong>OCSP Stapling</strong> (Online Certificate Status Protocol) check if a stolen certificate was revoked before expiration.</li>
+  </ol>
+
+  <h2>4 · The Modern TLS 1.3 Handshake (1-RTT)</h2>
+  <p>TLS 1.3 overhauled web security: it deprecated obsolete insecure ciphers (RSA key exchange, CBC mode, RC4, MD5), mandated <strong>Perfect Forward Secrecy (PFS)</strong> via Ephemeral Diffie-Hellman (ECDHE), and reduced handshake latency to a single round-trip (1-RTT):</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">Step 1</div>
+      <h3>ClientHello</h3>
+      <p>Browser sends supported cipher suites (e.g. <code>TLS_AES_256_GCM_SHA384</code>), supported TLS version (1.3), SNI (domain name), and its <strong>Ephemeral Diffie-Hellman key share</strong>.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Step 2</div>
+      <h3>ServerHello & Handshake</h3>
+      <p>Server selects cipher suite, sends its Diffie-Hellman key share, server certificate, and digital signature. Both parties compute shared master secret. Handshake is complete!</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Step 3</div>
+      <h3>Encrypted Application Data</h3>
+      <p>All subsequent HTTP traffic (GET/POST requests, cookies, payloads) is encrypted using symmetric AES-256-GCM. Fast, secure, and immune to retroactive decryption if server private key is stolen later.</p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0006-asymmetric-cryptography-rsa-and-diffie-hellman.html">← Lesson 06: Asymmetric Cryptography</a>
+    <a href="0008-web-security-injection-attacks-and-sql-injection.html">Lesson 08: SQL Injection & Injection Attacks →</a>
+  </nav>
+</body>
+</html>

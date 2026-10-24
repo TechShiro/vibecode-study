@@ -1,0 +1,563 @@
+<title>Scheduling Algorithms — Worked</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit II &middot; Lesson 9 of 14</p>
+<h1>CPU Scheduling Algorithms &mdash; the Full Drill</h1>
+<p class="deck">FCFS, SJF, SRTF, priority in both forms and Round Robin at three quantum values &mdash; twelve problems, every Gantt chart drawn and every average computed, plus the convoy effect, starvation and ageing.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>This is the guaranteed question in the paper &mdash; 10 to 15 marks, every single year, and it is purely mechanical.</strong> Work every problem below <em>with a pen</em> before checking the answer; reading them does nothing. The examiner almost always gives a table of arrival and burst times and asks for <strong>two or three algorithms on the same data</strong>, then asks which is best. The comparison table at the end of this lesson answers that last part in one sentence.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Scheduling Algorithms Gantt Chart Comparison & Convoy Effect</div>
+  <div class="flow-col">
+    <div class="flow-box warn" style="max-width:34rem;">
+      <strong>FCFS & Convoy Effect: P1(24ms), P2(3ms), P3(3ms) arriving at t=0</strong>
+      <span class="sub">Gantt: [ P1: 0&ndash;24 | P2: 24&ndash;27 | P3: 27&ndash;30 ] &bull; Avg Waiting Time = (0 + 24 + 27)/3 = <strong>17 ms</strong> (Poor!)</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Optimal SJF Reordering</div>
+    <div class="flow-box ok" style="max-width:34rem;">
+      <strong>Shortest Job First (SJF): P2(3ms), P3(3ms), P1(24ms)</strong>
+      <span class="sub">Gantt: [ P2: 0&ndash;3 | P3: 3&ndash;6 | P1: 6&ndash;30 ] &bull; Avg Waiting Time = (0 + 3 + 6)/3 = <strong>3 ms</strong> (Minimum possible!)</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 19 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Scheduling Numericals</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-2.3 & Lec-2.4: FCFS and SJF Scheduling Algorithms with Examples</div>
+    <div class="v-desc">Exhaustive worked examples drawing Gantt charts, computing average turnaround and waiting times, and comparing SRTF with Round Robin.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=MZdVAVMgNpA" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<div class="formula">
+  <span class="name">Keep these in view for every problem below</span>
+  <strong>TAT = CT &minus; AT</strong> &nbsp;&nbsp;&nbsp; <strong>WT = TAT &minus; BT</strong> &nbsp;&nbsp;&nbsp; <strong>RT = first CPU time &minus; AT</strong>
+</div>
+
+<h2>1. First Come First Served (FCFS)</h2>
+
+<p><strong>Non-preemptive.</strong> The process that requests the CPU first gets it first. Implemented with a simple <strong>FIFO queue</strong>: a new PCB joins the tail, the CPU is given to the head. It is the simplest algorithm to write and the easiest to reason about &mdash; and usually the worst performer.</p>
+
+<div class="solve">
+  <span class="lbl">Numerical 1 &mdash; the classic convoy demonstration. P1 = 24, P2 = 3, P3 = 3, all arriving at time 0.</span>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; P1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | P2 | P3 |<br>0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 24 &nbsp;&nbsp; 27 &nbsp;&nbsp; 30</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">24</td><td class="num">24</td><td class="num">24</td><td class="num">0</td></tr>
+  <tr><td>P2</td><td class="num">0</td><td class="num">3</td><td class="num">27</td><td class="num">27</td><td class="num">24</td></tr>
+  <tr><td>P3</td><td class="num">0</td><td class="num">3</td><td class="num">30</td><td class="num">30</td><td class="num">27</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average WT = (0 + 24 + 27)/3 = 51/3 = 17.00</strong> &nbsp;&nbsp; <strong>Average TAT = 81/3 = 27.00</strong></p>
+  <p><em>Now reverse the order</em> &mdash; P2, P3, P1 &mdash; and the average waiting time becomes (0 + 3 + 6)/3 = <strong>3.00</strong>. Same processes, same total work, <strong>waiting time cut by more than 80 % purely by ordering.</strong> Say this in the exam; it is the point of the question.</p>
+</div>
+
+<div class="box">
+  <span class="lbl">The convoy effect &mdash; name it in every FCFS answer</span>
+  <p>When one <strong>CPU-bound process</strong> holds the CPU, all the short <strong>I/O-bound processes</strong> queue behind it. The devices sit idle. When the long process finally releases the CPU and moves to I/O, the short processes rush through the CPU quickly and pile up on the devices instead, leaving the CPU idle. <strong>Lower CPU and device utilisation than if the short processes went first.</strong> This is the <strong>convoy effect</strong>, and it is FCFS's defining weakness.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2 &mdash; FCFS with different arrival times.</span>
+  <p><strong>Given:</strong> P1 (AT 0, BT 8), P2 (AT 1, BT 4), P3 (AT 2, BT 9), P4 (AT 3, BT 5).</p>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">| &nbsp; P1 &nbsp; | &nbsp;P2&nbsp; | &nbsp;&nbsp; P3 &nbsp;&nbsp; | &nbsp;P4&nbsp; |<br>0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 &nbsp;&nbsp;&nbsp;&nbsp; 12 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 21 &nbsp;&nbsp;&nbsp;&nbsp; 26</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT = CT&minus;AT</th><th class="num">WT = TAT&minus;BT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">8</td><td class="num">8</td><td class="num">8</td><td class="num">0</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">4</td><td class="num">12</td><td class="num">11</td><td class="num">7</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">9</td><td class="num">21</td><td class="num">19</td><td class="num">10</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">5</td><td class="num">26</td><td class="num">23</td><td class="num">18</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 61/4 = 15.25</strong> &nbsp;&nbsp; <strong>Average WT = 35/4 = 8.75</strong></p>
+  <p><em>Keep this data set.</em> Numericals 3 and 4 use exactly the same processes, so you can compare the three algorithms directly.</p>
+</div>
+
+<h2>2. Shortest Job First (SJF) &mdash; non-preemptive</h2>
+
+<p>Associate with each process the <strong>length of its next CPU burst</strong>; give the CPU to the process with the smallest. Ties are broken by FCFS. The proper name is <strong>shortest-next-CPU-burst</strong> scheduling, because it is the next burst that matters, not the total process length.</p>
+
+<div class="box win">
+  <span class="lbl">The property to quote</span>
+  <p><strong>SJF is provably optimal</strong> &mdash; it gives the <strong>minimum average waiting time for a given set of processes</strong>. Moving a short process ahead of a long one always reduces the short process's waiting time by more than it increases the long one's. <strong>But it cannot be implemented for short-term scheduling, because there is no way to know the length of the next CPU burst.</strong> Both halves of that sentence carry marks.</p>
+</div>
+
+<div class="formula">
+  <span class="name">Predicting the next burst &mdash; exponential averaging</span>
+  <strong>&tau;<sub>n+1</sub> = &alpha; t<sub>n</sub> + (1 &minus; &alpha;) &tau;<sub>n</sub></strong><br><br>
+  <strong>t<sub>n</sub></strong> = the actual length of the n-th CPU burst; <strong>&tau;<sub>n</sub></strong> = the predicted value for it; <strong>&alpha;</strong>, with 0 &le; &alpha; &le; 1, weights recent history.<br><br>
+  <strong>&alpha; = 0</strong> &rarr; &tau;<sub>n+1</sub> = &tau;<sub>n</sub>: recent history has <em>no</em> effect.<br>
+  <strong>&alpha; = 1</strong> &rarr; &tau;<sub>n+1</sub> = t<sub>n</sub>: <em>only</em> the most recent burst counts.<br>
+  <strong>&alpha; = 1/2</strong> is the usual choice &mdash; recent and past history weighted equally.
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 3 &mdash; SJF on the same data as Numerical 2.</span>
+  <p><strong>Given:</strong> P1 (0, 8), P2 (1, 4), P3 (2, 9), P4 (3, 5).</p>
+  <p><strong>Decision by decision:</strong></p>
+  <ul>
+    <li><strong>t = 0:</strong> only P1 has arrived &rarr; run P1, 0 to 8.</li>
+    <li><strong>t = 8:</strong> P2 (4), P3 (9), P4 (5) are all waiting. Shortest is <strong>P2</strong> &rarr; run 8 to 12.</li>
+    <li><strong>t = 12:</strong> P3 (9), P4 (5) remain. Shortest is <strong>P4</strong> &rarr; run 12 to 17.</li>
+    <li><strong>t = 17:</strong> only P3 &rarr; run 17 to 26.</li>
+  </ul>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">| &nbsp; P1 &nbsp; | &nbsp;P2&nbsp; | &nbsp;P4&nbsp; | &nbsp;&nbsp; P3 &nbsp;&nbsp; |<br>0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 &nbsp;&nbsp;&nbsp;&nbsp; 12 &nbsp;&nbsp;&nbsp; 17 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 26</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">8</td><td class="num">8</td><td class="num">8</td><td class="num">0</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">4</td><td class="num">12</td><td class="num">11</td><td class="num">7</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">9</td><td class="num">26</td><td class="num">24</td><td class="num">15</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">5</td><td class="num">17</td><td class="num">14</td><td class="num">9</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 57/4 = 14.25</strong> &nbsp;&nbsp; <strong>Average WT = 31/4 = 7.75</strong></p>
+  <p><em>Compare with FCFS:</em> TAT falls from 15.25 to 14.25 and WT from 8.75 to 7.75 &mdash; a full unit better on both, from reordering alone.</p>
+</div>
+
+<h2>3. Shortest Remaining Time First (SRTF) &mdash; preemptive SJF</h2>
+
+<p>Same rule, but re-evaluated <strong>every time a new process arrives</strong>. If the newcomer's burst is shorter than the <strong>remaining time</strong> of the running process, the running process is preempted. This is the hardest algorithm to trace by hand, so work it in a strict discipline: <strong>at every arrival instant, list every remaining time and pick the smallest.</strong></p>
+
+<div class="solve">
+  <span class="lbl">Numerical 4 &mdash; SRTF on the same data again.</span>
+  <p><strong>Given:</strong> P1 (0, 8), P2 (1, 4), P3 (2, 9), P4 (3, 5).</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Time</th><th>Event</th><th>Remaining times</th><th>Decision</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td>P1 arrives</td><td>P1 = 8</td><td>Run P1</td></tr>
+  <tr><td class="num">1</td><td>P2 arrives (4)</td><td>P1 = 7, P2 = 4</td><td><strong>4 &lt; 7 &rarr; preempt P1, run P2</strong></td></tr>
+  <tr><td class="num">2</td><td>P3 arrives (9)</td><td>P1 = 7, P2 = 3, P3 = 9</td><td>3 is still smallest &rarr; P2 continues</td></tr>
+  <tr><td class="num">3</td><td>P4 arrives (5)</td><td>P1 = 7, P2 = 2, P3 = 9, P4 = 5</td><td>2 is smallest &rarr; P2 continues</td></tr>
+  <tr><td class="num">5</td><td>P2 finishes</td><td>P1 = 7, P3 = 9, P4 = 5</td><td>5 smallest &rarr; <strong>run P4</strong></td></tr>
+  <tr><td class="num">10</td><td>P4 finishes</td><td>P1 = 7, P3 = 9</td><td>7 smallest &rarr; <strong>run P1</strong></td></tr>
+  <tr><td class="num">17</td><td>P1 finishes</td><td>P3 = 9</td><td>Run P3 to 26</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">|P1| &nbsp;P2&nbsp; | &nbsp;&nbsp;P4&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;P1&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;P3&nbsp;&nbsp;&nbsp; |<br>0 &nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 17 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 26</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">8</td><td class="num">17</td><td class="num">17</td><td class="num">9</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">4</td><td class="num">5</td><td class="num">4</td><td class="num">0</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">9</td><td class="num">26</td><td class="num">24</td><td class="num">15</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">5</td><td class="num">10</td><td class="num">7</td><td class="num">2</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 52/4 = 13.00</strong> &nbsp;&nbsp; <strong>Average WT = 26/4 = 6.50</strong></p>
+  <p><strong>The three-way comparison on identical data &mdash; the sentence to end with:</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Algorithm</th><th class="num">Avg TAT</th><th class="num">Avg WT</th></tr></thead>
+  <tbody>
+  <tr><td>FCFS</td><td class="num">15.25</td><td class="num">8.75</td></tr>
+  <tr><td>SJF (non-preemptive)</td><td class="num">14.25</td><td class="num">7.75</td></tr>
+  <tr><td><strong>SRTF (preemptive)</strong></td><td class="num"><strong>13.00</strong></td><td class="num"><strong>6.50</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>Sanity check:</em> SRTF must never be worse than SJF, and SJF must never be worse than FCFS on average waiting time. If your numbers break that ordering, you have made an arithmetic slip &mdash; go back and re-check the Gantt chart.</p>
+</div>
+
+<h2>4. Priority scheduling</h2>
+
+<p>A <strong>priority number</strong> is associated with each process, and the CPU goes to the highest-priority one. <strong>Convention: a smaller integer means a higher priority</strong> &mdash; but always state your convention, because some questions reverse it.</p>
+
+<p><strong>SJF is a special case of priority scheduling</strong>, in which the priority is the inverse of the predicted next CPU burst. Say that; it is a free mark.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Priorities defined</th><th>By</th></tr></thead>
+<tbody>
+<tr><td><strong>Internally</strong></td><td>Measurable quantities &mdash; time limits, memory requirements, number of open files, the ratio of average I/O burst to average CPU burst</td></tr>
+<tr><td><strong>Externally</strong></td><td>Criteria outside the OS &mdash; the importance of the process, the type or amount of funds paid, the department sponsoring the work, politics</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 5 &mdash; non-preemptive priority. All arrive at time 0; smaller number = higher priority.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">BT</th><th class="num">Priority</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">10</td><td class="num">3</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">1</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">4</td></tr>
+  <tr><td>P4</td><td class="num">1</td><td class="num">5</td></tr>
+  <tr><td>P5</td><td class="num">5</td><td class="num">2</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Execution order by priority:</strong> P2 (1), P5 (2), P1 (3), P3 (4), P4 (5).</p>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">|P2| &nbsp;&nbsp;P5&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; P1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp;P3&nbsp;|P4|<br>0 &nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 16 &nbsp;&nbsp;&nbsp; 18 &nbsp; 19</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">10</td><td class="num">16</td><td class="num">16</td><td class="num">6</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">0</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">18</td><td class="num">18</td><td class="num">16</td></tr>
+  <tr><td>P4</td><td class="num">1</td><td class="num">19</td><td class="num">19</td><td class="num">18</td></tr>
+  <tr><td>P5</td><td class="num">5</td><td class="num">6</td><td class="num">6</td><td class="num">1</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 60/5 = 12.00</strong> &nbsp;&nbsp; <strong>Average WT = 41/5 = 8.20</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 6 &mdash; preemptive priority with arrival times.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">Priority</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">4</td><td class="num">2</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">2</td><td class="num">1</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">3</td><td class="num">3</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">5</td><td class="num">5</td></tr>
+  <tr><td>P5</td><td class="num">4</td><td class="num">1</td><td class="num">4</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <ul>
+    <li><strong>t = 0:</strong> only P1 &rarr; run P1 (remaining 4).</li>
+    <li><strong>t = 1:</strong> P2 arrives with priority 1, better than P1's 2 &rarr; <strong>preempt</strong>. P1 has 3 left. Run P2.</li>
+    <li><strong>t = 2:</strong> P3 arrives, priority 3, worse &rarr; P2 continues.</li>
+    <li><strong>t = 3:</strong> P2 finishes. Waiting: P1 (pr 2, 3 left), P3 (pr 3), P4 (pr 5). Best is <strong>P1</strong> &rarr; run.</li>
+    <li><strong>t = 4:</strong> P5 arrives, priority 4, worse than 2 &rarr; P1 continues to t = 6.</li>
+    <li><strong>t = 6:</strong> P3 (3), P5 (4), P4 (5) &rarr; run <strong>P3</strong> to 9.</li>
+    <li><strong>t = 9:</strong> P5 (4) beats P4 (5) &rarr; run <strong>P5</strong> to 10. Then <strong>P4</strong> from 10 to 15.</li>
+  </ul>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">|P1|&nbsp;P2&nbsp;| &nbsp;P1&nbsp; | &nbsp;P3&nbsp; |P5| &nbsp;&nbsp;P4&nbsp;&nbsp; |<br>0 &nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp; 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9 &nbsp; 10 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 15</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">4</td><td class="num">6</td><td class="num">6</td><td class="num">2</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">2</td><td class="num">3</td><td class="num">2</td><td class="num">0</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">3</td><td class="num">9</td><td class="num">7</td><td class="num">4</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">5</td><td class="num">15</td><td class="num">12</td><td class="num">7</td></tr>
+  <tr><td>P5</td><td class="num">4</td><td class="num">1</td><td class="num">10</td><td class="num">6</td><td class="num">5</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 33/5 = 6.60</strong> &nbsp;&nbsp; <strong>Average WT = 18/5 = 3.60</strong></p>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Starvation and ageing &mdash; always mention both</span>
+  <p><strong>The problem:</strong> <em>indefinite blocking</em>, or <strong>starvation</strong>. A low-priority process may wait for ever if high-priority processes keep arriving. The famous anecdote is worth a line: when MIT's IBM 7094 was shut down in 1973, a low-priority process submitted in <strong>1967</strong> was found still waiting.</p>
+  <p><strong>The solution: ageing</strong> &mdash; gradually increase the priority of processes that have been waiting a long time. If priorities run 127 (low) to 0 (high), incrementing the priority of every waiting process by 1 every 15 minutes means even a priority-127 process reaches priority 0 within 32 hours.</p>
+</div>
+
+<h2>5. Round Robin (RR)</h2>
+
+<p><strong>FCFS with preemption.</strong> A small unit of time &mdash; the <strong>time quantum</strong> or <strong>time slice</strong>, typically 10 to 100 milliseconds &mdash; is defined. The ready queue is circular: the scheduler gives the CPU to the head process for at most one quantum. If the process finishes first, it releases the CPU voluntarily; otherwise the timer interrupts, the process is preempted and <strong>put at the tail of the ready queue</strong>.</p>
+
+<div class="box win">
+  <span class="lbl">The queue rule that decides the whole answer</span>
+  <p><strong>When a process is preempted, any process that arrived <em>during</em> its quantum joins the ready queue <em>before</em> the preempted process does.</strong> Getting this order wrong is the single most common error in Round Robin numericals. Write the queue contents beside each step, and update it in that order: <em>arrivals first, then the preempted process.</em></p>
+</div>
+
+<div class="formula">
+  <span class="name">The waiting-time bound</span>
+  With <strong>n</strong> processes in the ready queue and a quantum of <strong>q</strong>, each process gets 1/n of the CPU time in chunks of at most q. <strong>No process waits more than (n &minus; 1) &times; q time units</strong> for its next turn. That bound is why Round Robin gives good <em>response</em> time.
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 7 &mdash; RR with q = 4 on the classic set: P1 = 24, P2 = 3, P3 = 3, all at time 0.</span>
+  <p>P1 runs 4 units and is preempted with 20 left; P2 runs 3 and finishes; P3 runs 3 and finishes; then P1 has the CPU to itself.</p>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">| P1 |P2 |P3 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; P1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |<br>0 &nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp; 7 &nbsp;&nbsp; 10 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 30</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th><th class="num">RT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">24</td><td class="num">30</td><td class="num">30</td><td class="num">6</td><td class="num">0</td></tr>
+  <tr><td>P2</td><td class="num">3</td><td class="num">7</td><td class="num">7</td><td class="num">4</td><td class="num">4</td></tr>
+  <tr><td>P3</td><td class="num">3</td><td class="num">10</td><td class="num">10</td><td class="num">7</td><td class="num">7</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 47/3 = 15.67</strong> &nbsp;&nbsp; <strong>Average WT = 17/3 = 5.67</strong></p>
+  <p><em>Compare with FCFS on the same data</em> (Numerical 1): average WT falls from <strong>17.00 to 5.67</strong>, and P2 &mdash; which waited 24 units under FCFS &mdash; now waits 4. Round Robin destroys the convoy effect.</p>
+</div>
+
+<h2>6. The quantum comparison &mdash; the same data at three quantum values</h2>
+
+<p>This is the most instructive exercise in the whole unit. <strong>Given:</strong> P1 (AT 0, BT 5), P2 (AT 1, BT 4), P3 (AT 2, BT 2), P4 (AT 3, BT 1).</p>
+
+<div class="solve">
+  <span class="lbl">Numerical 8 &mdash; Round Robin, q = 2. Track the ready queue at every step.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Time</th><th>Running</th><th>Arrivals during</th><th>Queue after (arrivals first, then preempted)</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0&ndash;2</td><td>P1 (5 &rarr; 3 left)</td><td>P2 at 1, P3 at 2</td><td>P2, P3, <strong>P1</strong></td></tr>
+  <tr><td class="num">2&ndash;4</td><td>P2 (4 &rarr; 2 left)</td><td>P4 at 3</td><td>P3, P1, P4, <strong>P2</strong></td></tr>
+  <tr><td class="num">4&ndash;6</td><td>P3 (2 &rarr; 0) <strong>done</strong></td><td>&mdash;</td><td>P1, P4, P2</td></tr>
+  <tr><td class="num">6&ndash;8</td><td>P1 (3 &rarr; 1 left)</td><td>&mdash;</td><td>P4, P2, <strong>P1</strong></td></tr>
+  <tr><td class="num">8&ndash;9</td><td>P4 (1 &rarr; 0) <strong>done</strong></td><td>&mdash;</td><td>P2, P1</td></tr>
+  <tr><td class="num">9&ndash;11</td><td>P2 (2 &rarr; 0) <strong>done</strong></td><td>&mdash;</td><td>P1</td></tr>
+  <tr><td class="num">11&ndash;12</td><td>P1 (1 &rarr; 0) <strong>done</strong></td><td>&mdash;</td><td>empty</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">|P1|P2|P3|P1|P4|P2|P1|<br>0 &nbsp; 2 &nbsp; 4 &nbsp; 6 &nbsp; 8 &nbsp; 9 &nbsp; 11 12</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">5</td><td class="num">12</td><td class="num">12</td><td class="num">7</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">4</td><td class="num">11</td><td class="num">10</td><td class="num">6</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">2</td><td class="num">6</td><td class="num">4</td><td class="num">2</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">1</td><td class="num">9</td><td class="num">6</td><td class="num">5</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 32/4 = 8.00</strong> &nbsp;&nbsp; <strong>Average WT = 20/4 = 5.00</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 9 &mdash; the same data with q = 4.</span>
+  <p>P1 runs 0&ndash;4 (1 left); P2, P3, P4 have all arrived by then, so the queue is P2, P3, P4, P1.</p>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">| P1 | P2 |P3|P4|P1|<br>0 &nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp; 8 &nbsp; 10 11 12</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">5</td><td class="num">12</td><td class="num">12</td><td class="num">7</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">4</td><td class="num">8</td><td class="num">7</td><td class="num">3</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">2</td><td class="num">10</td><td class="num">8</td><td class="num">6</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">1</td><td class="num">11</td><td class="num">8</td><td class="num">7</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 35/4 = 8.75</strong> &nbsp;&nbsp; <strong>Average WT = 23/4 = 5.75</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 10 &mdash; the same data with q = 1.</span>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.8rem">|P1|P2|P1|P3|P2|P4|P1|P3|P2|P1|P2|P1|<br>0 &nbsp; 1 &nbsp; 2 &nbsp; 3 &nbsp; 4 &nbsp; 5 &nbsp; 6 &nbsp; 7 &nbsp; 8 &nbsp; 9 &nbsp;10 11 12</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">5</td><td class="num">12</td><td class="num">12</td><td class="num">7</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">4</td><td class="num">11</td><td class="num">10</td><td class="num">6</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">2</td><td class="num">8</td><td class="num">6</td><td class="num">4</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">1</td><td class="num">6</td><td class="num">3</td><td class="num">2</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 31/4 = 7.75</strong> &nbsp;&nbsp; <strong>Average WT = 19/4 = 4.75</strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numericals 11 and 12 &mdash; FCFS and SJF on that same data, for the full comparison.</span>
+  <p><strong>FCFS:</strong> P1 0&ndash;5, P2 5&ndash;9, P3 9&ndash;11, P4 11&ndash;12. TAT = 5, 8, 9, 9 &rarr; <strong>31/4 = 7.75</strong>. WT = 0, 4, 7, 8 &rarr; <strong>19/4 = 4.75</strong>.</p>
+  <p><strong>SJF (non-preemptive):</strong> at t = 0 only P1 exists, so it runs 0&ndash;5; then P4 (1) at 5&ndash;6, P3 (2) at 6&ndash;8, P2 (4) at 8&ndash;12. TAT = 5, 11, 6, 3 &rarr; <strong>25/4 = 6.25</strong>. WT = 0, 7, 4, 2 &rarr; <strong>13/4 = 3.25</strong>.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Algorithm</th><th class="num">Avg TAT</th><th class="num">Avg WT</th><th>Comment</th></tr></thead>
+  <tbody>
+  <tr><td><strong>SJF</strong></td><td class="num"><strong>6.25</strong></td><td class="num"><strong>3.25</strong></td><td><strong>Best</strong> &mdash; as theory guarantees</td></tr>
+  <tr><td>RR, q = 1</td><td class="num">7.75</td><td class="num">4.75</td><td>Best response time; most context switches (11 of them)</td></tr>
+  <tr><td>FCFS</td><td class="num">7.75</td><td class="num">4.75</td><td>Ties RR q = 1 here by coincidence; only 3 switches</td></tr>
+  <tr><td>RR, q = 2</td><td class="num">8.00</td><td class="num">5.00</td><td>&nbsp;</td></tr>
+  <tr><td>RR, q = 4</td><td class="num">8.75</td><td class="num">5.75</td><td>Worst &mdash; a large quantum turns RR into FCFS with extra delay</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>The conclusion to write:</strong> SJF minimises average waiting time, as it must. Round Robin does not compete on averages &mdash; <strong>it buys response time and fairness, and pays for them in turnaround time and context switches.</strong></p>
+</div>
+
+<h2>Choosing the time quantum &mdash; the rule</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Quantum</th><th>Behaviour</th><th>Problem</th></tr></thead>
+<tbody>
+<tr><td><strong>Very large</strong> (&ge; the longest burst)</td><td>Degenerates into <strong>FCFS</strong></td><td>Convoy effect returns; poor response time</td></tr>
+<tr><td><strong>Very small</strong></td><td>Approaches <strong>processor sharing</strong> &mdash; n processes each appear to have their own CPU running at 1/n speed</td><td><strong>Context-switch overhead dominates</strong>; almost no useful work gets done</td></tr>
+<tr><td><strong>Correct</strong></td><td>The rule of thumb: <strong>80 % of CPU bursts should be shorter than the time quantum</strong></td><td>&mdash;</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; the effect of quantum on context-switch count.</span>
+  <p>A process has a burst of 10 units, and a context switch costs 0.1 units.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">q</th><th class="num">Context switches</th><th class="num">Switch overhead</th><th class="num">Overhead as % of the 10 units</th></tr></thead>
+  <tbody>
+  <tr><td class="num">12</td><td class="num">0</td><td class="num">0</td><td class="num">0 %</td></tr>
+  <tr><td class="num">6</td><td class="num">1</td><td class="num">0.1</td><td class="num">1 %</td></tr>
+  <tr><td class="num">1</td><td class="num">9</td><td class="num">0.9</td><td class="num">9 %</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>Reading:</em> a quantum larger than the burst needs no switch at all; a quantum of 1 forces nine of them. <strong>Turnaround time improves as the quantum grows &mdash; but only up to the point where the quantum exceeds most bursts</strong>, after which it is just FCFS. This non-monotonic behaviour is why textbooks say average turnaround time does <em>not</em> necessarily improve with a larger quantum.</p>
+</div>
+
+<h2>The master comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Preemptive</th><th>Selects on</th><th>Strength</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td><strong>FCFS</strong></td><td>No</td><td>Arrival time</td><td>Simplest; no starvation</td><td><strong>Convoy effect</strong>; high average waiting time; bad for interactive use</td></tr>
+<tr><td><strong>SJF</strong></td><td>No</td><td>Shortest next burst</td><td><strong>Provably optimal</strong> average waiting time</td><td>Burst length is <strong>unknowable</strong>; <strong>starves long processes</strong></td></tr>
+<tr><td><strong>SRTF</strong></td><td><strong>Yes</strong></td><td>Shortest remaining time</td><td>Better than SJF on average waiting time</td><td>Same unknowability; more context switches; worse starvation</td></tr>
+<tr><td><strong>Priority</strong></td><td>Either</td><td>Priority number</td><td>Flexible; expresses real importance</td><td><strong>Indefinite blocking / starvation</strong> &mdash; fix with <strong>ageing</strong></td></tr>
+<tr><td><strong>Round Robin</strong></td><td><strong>Yes</strong></td><td>Arrival, with a time quantum</td><td><strong>Fair; bounded response time</strong>; no starvation; ideal for time sharing</td><td>Higher average turnaround; context-switch overhead; quantum choice is critical</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The convoy effect occurs in FCFS when:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">One CPU-bound process holds the CPU while many short I/O-bound processes queue behind it</button>
+    <button class="opt">The time quantum is too small</button>
+    <button class="opt">A low-priority process never runs</button>
+    <button class="opt">Too many context switches occur</button>
+  </div>
+  <p class="why">The result is that both the CPU and the devices end up under-utilised, alternately idle. It is the defining weakness of FCFS.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. SJF is optimal in the sense that it:</p>
+  <div class="opts">
+    <button class="opt">Gives the minimum response time</button>
+    <button class="opt" data-ok="1">Gives the minimum average waiting time for a given set of processes</button>
+    <button class="opt">Requires no knowledge of burst lengths</button>
+    <button class="opt">Never causes starvation</button>
+  </div>
+  <p class="why">And the same answer must add: it cannot be implemented for short-term scheduling, because the next burst length is not knowable. Prediction by exponential averaging is the practical substitute.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In exponential averaging with α = 0, the prediction:</p>
+  <div class="opts">
+    <button class="opt">Always predicts zero</button>
+    <button class="opt">Weights past and recent equally</button>
+    <button class="opt" data-ok="1">Ignores recent history entirely — τₙ₊₁ = τₙ</button>
+    <button class="opt">Ignores past history entirely — τₙ₊₁ = tₙ</button>
+  </div>
+  <p class="why">α = 1 is the other extreme, where only the most recent actual burst counts. α = ½ is the usual compromise.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In Round Robin, when a process is preempted at the end of its quantum, it:</p>
+  <div class="opts">
+    <button class="opt">Is moved to the waiting state</button>
+    <button class="opt" data-ok="1">Goes to the tail of the ready queue, behind any process that arrived during that quantum</button>
+    <button class="opt">Is placed ahead of newly arrived processes</button>
+    <button class="opt">Goes to the head of the ready queue</button>
+  </div>
+  <p class="why">Arrivals first, then the preempted process. Getting this order wrong changes every subsequent number in the Gantt chart.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. With n processes and quantum q, the maximum a process waits for its next turn is:</p>
+  <div class="opts">
+    <button class="opt">n × q</button>
+    <button class="opt" data-ok="1">(n − 1) × q</button>
+    <button class="opt">Unbounded</button>
+    <button class="opt">q / n</button>
+  </div>
+  <p class="why">Every other process runs at most one quantum before your turn comes round again. That bound is exactly why Round Robin is the algorithm of choice for time-sharing systems.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. If the time quantum is made very large, Round Robin degenerates into:</p>
+  <div class="opts">
+    <button class="opt">SJF</button>
+    <button class="opt">SRTF</button>
+    <button class="opt">Priority scheduling</button>
+    <button class="opt" data-ok="1">FCFS</button>
+  </div>
+  <p class="why">Every process finishes within its first quantum, so nothing is ever preempted. At the other extreme, a very small quantum approaches processor sharing but drowns in context-switch overhead.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Ageing solves which problem, in which algorithm?</p>
+  <div class="opts">
+    <button class="opt">Context-switch overhead in Round Robin</button>
+    <button class="opt">The convoy effect in FCFS</button>
+    <button class="opt" data-ok="1">Starvation (indefinite blocking) in priority scheduling</button>
+    <button class="opt">Burst-length prediction in SJF</button>
+  </div>
+  <p class="why">Ageing gradually raises the priority of long-waiting processes, so even the lowest-priority job eventually runs.</p>
+</div>
+
+<div class="q">
+  <p class="stem">8. For the data P1 (0, 8), P2 (1, 4), P3 (2, 9), P4 (3, 5), which ordering of average waiting times is correct?</p>
+  <div class="opts">
+    <button class="opt">SJF 6.5 &lt; SRTF 7.75 &lt; FCFS 8.75</button>
+    <button class="opt">FCFS 6.5 &lt; SJF 7.75 &lt; SRTF 8.75</button>
+    <button class="opt" data-ok="1">SRTF 6.5 &lt; SJF 7.75 &lt; FCFS 8.75</button>
+    <button class="opt">All three are equal</button>
+  </div>
+  <p class="why">SRTF can never be worse than SJF, and SJF can never be worse than FCFS on average waiting time. Use that ordering as a check on your own arithmetic.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define the convoy effect and say which algorithm suffers it.</summary>
+    <p class="ans">In FCFS, one long CPU-bound process holds the CPU while short I/O-bound processes queue behind it. The devices idle; then when the long process moves to I/O the short ones rush through and pile up on the devices, leaving the CPU idle. The result is lower utilisation of both.</p></details>
+  <details class="card"><summary>State the two halves of the SJF result.</summary>
+    <p class="ans">SJF is provably optimal — it gives the minimum average waiting time for a given set of processes. But it cannot be implemented for short-term scheduling, because there is no way to know the length of the next CPU burst; it is estimated by exponential averaging instead.</p></details>
+  <details class="card"><summary>Write the exponential averaging formula and the meaning of its extremes.</summary>
+    <p class="ans">&tau;&#8345;&#8330;&#8321; = &alpha;t&#8345; + (1 − &alpha;)&tau;&#8345;. With &alpha; = 0 recent history has no effect and the prediction never changes; with &alpha; = 1 only the most recent burst counts; &alpha; = &frac12; weights recent and past history equally.</p></details>
+  <details class="card"><summary>Define starvation and ageing.</summary>
+    <p class="ans">Starvation, or indefinite blocking, is a low-priority process waiting for ever because higher-priority processes keep arriving. Ageing gradually increases the priority of processes that have waited a long time, guaranteeing that every process eventually runs.</p></details>
+  <details class="card"><summary>Give the Round Robin queue rule and the waiting bound.</summary>
+    <p class="ans">A preempted process joins the tail of the ready queue behind any process that arrived during its quantum. With n processes and quantum q, no process waits more than (n − 1) &times; q for its next turn.</p></details>
+  <details class="card"><summary>What happens to Round Robin at each extreme of quantum size, and what is the rule of thumb?</summary>
+    <p class="ans">A very large quantum makes it FCFS; a very small one approaches processor sharing but is dominated by context-switch overhead. The rule of thumb is that 80 % of CPU bursts should be shorter than the quantum.</p></details>
+  <details class="card"><summary>Give the master comparison of the five algorithms.</summary>
+    <p class="ans">FCFS: non-preemptive, selects on arrival, simplest and starvation-free, but suffers the convoy effect. SJF: non-preemptive, shortest next burst, optimal average waiting time, but unknowable and starves long jobs. SRTF: preemptive version, better still but more switches. Priority: either form, flexible but starves low-priority jobs unless aged. Round Robin: preemptive with a quantum, fair with bounded response time and no starvation, at the cost of turnaround time and context switches.</p></details>
+</div>
+
+<p class="ask">Next: what happens when one ready queue is not enough &mdash; multilevel queues, feedback queues, and scheduling across several processors.</p>
+
+<div class="nav">
+  <a href="0008-cpu-scheduling-concepts.html">&larr; Scheduling Concepts</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0010-multilevel-and-multiprocessor-scheduling.html">Next: Multilevel and Multiprocessor &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

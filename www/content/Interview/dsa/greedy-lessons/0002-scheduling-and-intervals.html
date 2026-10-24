@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greedy Lesson 02 — Scheduling &amp; Intervals</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Greedy Track · Lesson 2 of 3 · interval selection, rooms, and cooldowns</div>
+<h1>Scheduling &amp; Intervals</h1>
+<p class="subtitle">One sorting decision — by end, not by start — turns "which meetings do I keep?" from a combinatorial nightmare into a single sweep. This is greedy's most famous provably-optimal win.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> interval scheduling is the single most re-skinned OA problem in India — "maximum
+  non-clashing deliveries" (Flipkart), "minimum servers" (PhonePe), "driver shift overlap" (Uber) are all this lesson.
+  Lesson 2 of the 3-lesson greedy track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+When you must <strong>select</strong> as many non-overlapping intervals as possible, sort by <strong>end time</strong>
+and always keep the interval that <strong>finishes earliest</strong>. Why is that safe? Exchange argument: take any
+optimal schedule; its first meeting can be swapped for the earliest-finishing meeting overall, because finishing
+earlier can only leave <em>more</em> room for everything after — never less. Repeat down the schedule and you land
+exactly on the greedy answer. Ending early is pure upside; starting early promises nothing (a meeting that starts at
+9:00 and ends at 18:00 blocks your whole day).
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  Intervals / meetings / jobs / balloons with a start and end, and a question that is one of:
+  <strong>"maximum you can keep"</strong> or <strong>"minimum you must remove"</strong> (same problem — sort by end,
+  count keeps), <strong>"minimum resources to serve all"</strong> (rooms/servers — sweep the timeline), or
+  <strong>"minimum actions covering overlaps"</strong> (arrows). The word "non-overlapping" plus a min/max count is
+  a near-certain sort-by-end greedy.
+</div>
+
+<h2>2 · Core template — sort by end, keep what fits</h2>
+<pre><code><span class="cmt">// LC 435 Non-overlapping Intervals: minimum removals so none overlap.</span>
+<span class="cmt">// Equivalent question: keep the MAXIMUM set of non-overlapping intervals.</span>
+int eraseOverlapIntervals(int[][] intervals) {
+    Arrays.sort(intervals, (a, b) -&gt; Integer.compare(a[1], b[1])); <span class="cmt">// sort by END</span>
+    int kept = 0;
+    int lastEnd = Integer.MIN_VALUE;     <span class="cmt">// finish time of the last kept interval</span>
+    for (int[] iv : intervals) {
+        if (iv[0] &gt;= lastEnd) {          <span class="cmt">// starts after last kept ends → compatible</span>
+            kept++;
+            lastEnd = iv[1];             <span class="cmt">// COMMIT to the earliest-finishing choice</span>
+        }                                <span class="cmt">// else: overlaps → this one is a removal</span>
+    }
+    return intervals.length - kept;      <span class="cmt">// removals = total − max kept</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log n) for the sort, O(n) sweep. <strong>Space</strong> O(1) beyond sorting.
+Note the comparator: <code>Integer.compare(a[1], b[1])</code>, not subtraction — <code>a[1] - b[1]</code> can
+overflow on large coordinates.</p>
+
+<div class="callout tip">
+  <span class="label">Sort by START vs sort by END — the decision rule</span>
+  <strong>Merging or covering</strong> intervals (LC 56 Merge Intervals, insert, union length)? Sort by
+  <strong>start</strong> — you're gluing everything together and need to encounter each interval's left edge in
+  order. <strong>Selecting</strong> a maximum compatible subset, or minimizing removals/arrows? Sort by
+  <strong>end</strong> — you're choosing winners, and the earliest finisher is the provably safe pick.
+  One mnemonic: <em>merge looks left (starts), select looks right (ends)</em>. Sorting LC 435 by start is the
+  classic wrong answer: [1,100] would get kept first and force out [2,3],[4,5],[6,7].
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Min removals / max keep</td><td>LC 435</td><td>The core template verbatim; answer = n − kept.</td></tr>
+    <tr><td>Min arrows through overlaps</td><td>LC 452</td><td>Same sort-by-end; new arrow only when a balloon starts <em>after</em> the arrow position. Touching counts as hit (<code>&gt;</code> not <code>&gt;=</code>).</td></tr>
+    <tr><td>Min resources (rooms)</td><td>LC 253</td><td>Not selection — you must serve ALL. Sort by start + min-heap of end times (or event sweep).</td></tr>
+    <tr><td>Cooldown scheduling</td><td>LC 621</td><td>No intervals at all — greedy on the most frequent task; closed-form frame formula.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Minimum Arrows to Burst Balloons (LC 452)</h3>
+<p>
+Balloons are intervals on the x-axis; one vertical arrow pops every balloon it passes through. Minimum arrows =
+group balloons that share a common point. Greedy: sort by end; shoot the first arrow at the first balloon's
+<strong>end</strong> (the latest position that still hits it, maximizing how many later balloons it can catch);
+any balloon starting at or before that position is already popped.
+</p>
+<pre><code>int findMinArrowShots(int[][] points) {
+    Arrays.sort(points, (a, b) -&gt; Integer.compare(a[1], b[1])); <span class="cmt">// by end; compare() avoids overflow</span>
+    int arrows = 1;
+    int arrowAt = points[0][1];          <span class="cmt">// shoot at the earliest end</span>
+    for (int[] p : points) {
+        if (p[0] &gt; arrowAt) {            <span class="cmt">// starts strictly after the arrow → not hit</span>
+            arrows++;
+            arrowAt = p[1];              <span class="cmt">// new arrow at this balloon's end</span>
+        }
+    }
+    return arrows;
+}</code></pre>
+<p>
+Spot the family resemblance: LC 435 asks how many intervals you can keep pairwise-disjoint; LC 452 asks how many
+disjoint <em>groups</em> the intervals form. Same sort, same sweep — only the comparison flips from
+<code>&gt;=</code> (touching is OK to keep) to <code>&gt;</code> (touching balloons share the arrow).
+</p>
+
+<h3>Case: Meeting Rooms II (LC 253) — min resources, not selection</h3>
+<p>
+"Minimum rooms so every meeting runs" is a different question: you can't drop meetings, so sort-by-end selection
+doesn't apply. Sweep meetings <strong>by start time</strong>, keeping a <strong>min-heap of end times</strong> of
+rooms in use. If the next meeting starts at or after the earliest-ending room frees up, reuse that room (pop);
+otherwise open a new one (push). The heap's peak size is the answer — it equals the maximum number of meetings
+overlapping at any instant.
+</p>
+<pre><code>int minMeetingRooms(int[][] intervals) {
+    Arrays.sort(intervals, (a, b) -&gt; Integer.compare(a[0], b[0])); <span class="cmt">// by START: process chronologically</span>
+    PriorityQueue&lt;Integer&gt; ends = new PriorityQueue&lt;&gt;();           <span class="cmt">// min-heap of room end times</span>
+    for (int[] iv : intervals) {
+        if (!ends.isEmpty() &amp;&amp; ends.peek() &lt;= iv[0])
+            ends.poll();                 <span class="cmt">// earliest room is free by now → reuse it</span>
+        ends.offer(iv[1]);               <span class="cmt">// this meeting occupies a room until iv[1]</span>
+    }
+    return ends.size();                  <span class="cmt">// rooms simultaneously needed at the peak</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log n). <strong>Space</strong> O(n) for the heap. An equivalent event-sweep exists
+(sort all starts and ends separately, +1 on start, −1 on end, track the max) — mention it if the interviewer asks
+for an alternative.</p>
+
+<h3>Case: Task Scheduler (LC 621) — greedy on the bottleneck</h3>
+<p>
+Tasks A–Z, identical tasks need a cooldown of <code>n</code> slots between runs; minimize total time. Greedy
+insight: <strong>the most frequent task is the bottleneck</strong>. Lay out its <code>maxFreq</code> occurrences
+first — that creates <code>maxFreq − 1</code> gaps, each <code>n</code> slots wide — then pour every other task
+into the gaps (always filling from the currently-most-frequent, which is why this is greedy). Two regimes:
+</p>
+<pre><code>int leastInterval(char[] tasks, int n) {
+    int[] freq = new int[26];
+    for (char t : tasks) freq[t - 'A']++;
+    int maxFreq = 0, tiedForMax = 0;
+    for (int f : freq) {
+        if (f &gt; maxFreq) { maxFreq = f; tiedForMax = 1; }
+        else if (f == maxFreq) tiedForMax++;
+    }
+    <span class="cmt">// frame: (maxFreq-1) blocks of size (n+1), plus one final row of the tied-for-max tasks</span>
+    int framed = (maxFreq - 1) * (n + 1) + tiedForMax;
+    return Math.max(framed, tasks.length); <span class="cmt">// if gaps overflow, tasks.length wins (no idle at all)</span>
+}</code></pre>
+<div class="trace">
+<span class="step">tasks = A A A B B C, n = 2 → freq A=3, B=2, C=1; maxFreq=<span class="ptr">3</span>, ties=1</span>
+<span class="step now">frame from A: A _ _ A _ _ A → (3−1)×(2+1) + 1 = <span class="ptr">7</span> slots</span>
+<span class="step now">fill gaps most-frequent-first: A B C A B <span class="ptr">idle</span> A → length 7 ✓</span>
+<span class="step">if there were many distinct tasks, the gaps overflow and the answer is just tasks.length</span>
+</div>
+<p><strong>Time</strong> O(n) over tasks (the 26-way scan is constant). <strong>Space</strong> O(1).
+The <code>Math.max(..., tasks.length)</code> is the line everyone forgets: with enough task variety there is never
+an idle slot, and the frame formula would <em>undercount</em>.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Touching intervals.</strong> [1,2] and [2,3]: NOT overlapping in LC 435 (<code>iv[0] &gt;= lastEnd</code> keeps both) but the balloons DO share an arrow in LC 452 (<code>p[0] &gt; arrowAt</code> starts a new one). Read the problem's definition of overlap every time.</li>
+  <li><strong>Comparator overflow.</strong> LC 452 has coordinates near ±2³¹ — <code>a[1] - b[1]</code> overflows. Always <code>Integer.compare</code>.</li>
+  <li><strong>Empty input.</strong> LC 452's <code>points[0][1]</code> assumes at least one balloon; guard or rely on constraints.</li>
+  <li><strong>Selection vs coverage.</strong> "Keep the most / remove the fewest" → sort by end. "Serve them all with fewest resources" → heap/event sweep. Confusing these gives a clean-compiling wrong answer.</li>
+  <li><strong>Heap reuse condition.</strong> LC 253: a room ending exactly at the new start IS free — <code>ends.peek() &lt;= iv[0]</code>, not <code>&lt;</code>.</li>
+  <li><strong>LC 621 with n = 0.</strong> The frame formula gives maxFreq−1+ties which can undercount; <code>Math.max</code> with <code>tasks.length</code> rescues it (answer is simply tasks.length).</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does sorting by END time (not start) make the LC 435 greedy provably optimal?</div>
+  <button class="opt">Because end times are unique while start times can repeat, so the sort is deterministic</button>
+  <button class="opt">Because the earliest-finishing interval can replace any optimal schedule's first pick without reducing what fits afterward</button>
+  <button class="opt">Because sorting by end makes the sweep run in O(n) instead of O(n log n)</button>
+  <div class="fb" data-correct="That's the exchange argument: swapping any optimal first choice for the earliest finisher frees at least as much timeline for the rest, so greedy is never worse." data-wrong="Uniqueness and running time aren't the point. The earliest end leaves maximal room for later intervals — swap it into any optimal schedule and nothing is lost."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Intervals: [1,2], [2,3], [3,4]. What do LC 435 (min removals) and LC 452 (min arrows) each answer?</div>
+  <button class="opt">Removals = 0 and arrows = 2, because touching intervals don't overlap but a single arrow can't reach all three</button>
+  <button class="opt">Removals = 2 and arrows = 1, because only one interval can survive and one arrow at x = 2 pops everything</button>
+  <button class="opt">Removals = 0 and arrows = 1, because if nothing overlaps then a single arrow must suffice for all balloons</button>
+  <div class="fb" data-correct="Right — [1,2],[2,3],[3,4] merely touch, so all three can be kept (removals 0). Arrows: shoot at x=2, hitting [1,2] and [2,3]; [3,4] starts at 3 &gt; 2, so it needs a second arrow. Touching is compatible for keeping but an arrow only covers balloons whose start ≤ its position." data-wrong="Work the boundaries: for LC 435, start ≥ lastEnd means touching intervals are all keepable (removals 0). For LC 452, an arrow at x=2 hits [1,2] and [2,3] but not [3,4] (3 &gt; 2), and no single x lies inside all three — arrows = 2."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Meeting Rooms II, why is the min-heap keyed on END times rather than start times?</div>
+  <button class="opt">The soonest-ending active meeting is the only room that could be free for the next meeting to reuse</button>
+  <button class="opt">End times are always larger than start times, so the heap stays balanced</button>
+  <button class="opt">Java's PriorityQueue can only order by the second element of an interval array</button>
+  <div class="fb" data-correct="Right — meetings arrive in start order; the question at each arrival is 'has ANY room freed up?', and the earliest end time answers it in O(log n) at the heap top." data-wrong="Heap balance and PriorityQueue mechanics are red herrings. You process meetings by start; the heap's job is to surface the earliest-ending room so you know whether to reuse or open a new one."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/non-overlapping-intervals">NeetCode — Non-overlapping Intervals</a> and <a href="https://neetcode.io/problems/meeting-schedule-ii">NeetCode — Meeting Rooms II</a>. Together they cement the selection-vs-resources split.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 56 (Merge — sort by start, feel the contrast) → LC 435 (core template) → LC 452 (boundary flip) → LC 253 (heap of ends) → LC 621 (frame formula) → LC 1024 (Video Stitching — coverage greedy, previews Lesson 3's frontier) → LC 646 (Maximum Length of Pair Chain — LC 435 in disguise).</li>
+  <li>Drill until "keep max / remove min → sort by end" is reflexive; that reflex alone solves a startling fraction of Indian OA interval questions.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the event-sweep version of Meeting Rooms II, a dry run of the LC 621 frame on your own task list, or more
+  sort-by-start vs sort-by-end drills? Ask in the chat. When you can explain why earliest-end is exchange-safe and
+  when a heap replaces selection, say <strong>"next"</strong> for Lesson 3: Reachability &amp; Heap Greedy — plus
+  the track cheat sheet.
+</div>
+
+<div class="nav">
+  <span><a href="0001-greedy-foundations.html">← Greedy Foundations</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-reachability-and-heap-greedy.html">Reachability &amp; Heap Greedy →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

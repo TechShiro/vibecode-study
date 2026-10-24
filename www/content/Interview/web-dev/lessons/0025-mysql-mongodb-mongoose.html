@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 25 — MySQL, MongoDB &amp; Mongoose</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Bonus Lesson · MySQL, MongoDB, Mongoose, why-this-not-that</div>
+<h1>MySQL, MongoDB &amp; Mongoose</h1>
+<p class="subtitle">You know Postgres deeply — now meet the other two databases every interviewer assumes you've seen, and learn to defend any choice with a straight face.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is the Bonus Lesson (after 24).
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Why this lesson exists</h2>
+<p>
+Lessons 21–23 made you dangerous with PostgreSQL and Drizzle. But the industry's top three databases are
+<strong>PostgreSQL, MySQL, and MongoDB</strong> — and interviews love two things: "have you seen X?" and,
+more dangerously, <strong>"why did you use X and not Y?"</strong>. The second question is a trap for people
+who picked their stack by tutorial. After this lesson you'll answer it like someone who chose deliberately.
+</p>
+<p>
+Good news: 90% of your Postgres knowledge transfers to MySQL directly, and your JS object skills make MongoDB
+feel almost native. This lesson is about the <em>differences</em>, not starting over.
+</p>
+
+<h2>2 · MySQL — the other relational giant</h2>
+<p>
+MySQL is a relational SQL database, like Postgres. Same tables, same joins, same ACID transactions, same
+<code>SELECT / INSERT / UPDATE / DELETE</code>. It powered the early web (the "M" in the LAMP stack —
+Linux, Apache, MySQL, PHP), runs WordPress and countless older systems, and is still everywhere. If a company
+started before ~2015, odds are good there's MySQL inside.
+</p>
+<p>Everything from Lesson 21 works with small dialect changes. The differences that actually bite:</p>
+
+<pre><code><span class="cmt">-- Postgres (what you know)          -- MySQL equivalent</span>
+id serial PRIMARY KEY                 id INT AUTO_INCREMENT PRIMARY KEY
+id uuid DEFAULT gen_random_uuid()     <span class="cmt">-- UUIDs exist but are clunkier (CHAR(36) or BINARY(16))</span>
+INSERT ... RETURNING *                INSERT ...; SELECT LAST_INSERT_ID();  <span class="cmt">-- no RETURNING</span>
+INSERT ... ON CONFLICT DO UPDATE      INSERT ... ON DUPLICATE KEY UPDATE
+"column name"                         `column name`      <span class="cmt">-- backticks, not double quotes</span>
+ILIKE 'krish%'                        LIKE 'krish%'      <span class="cmt">-- MySQL LIKE is case-insensitive by default</span>
+timestamptz                           TIMESTAMP/DATETIME <span class="cmt">-- timezone handling is weaker; store UTC</span></code></pre>
+
+<table>
+  <thead><tr><th></th><th>PostgreSQL</th><th>MySQL</th></tr></thead>
+  <tbody>
+    <tr><td>Philosophy</td><td>Strict, standards-first, feature-rich</td><td>Pragmatic, fast to start, huge legacy base</td></tr>
+    <tr><td>Rich types</td><td><code>jsonb</code>, arrays, real <code>uuid</code>, ranges</td><td><code>JSON</code> type (less indexable than jsonb), no arrays</td></tr>
+    <tr><td>Strictness</td><td>Rejects bad data loudly</td><td>Historically coerced/truncated silently (strict mode is default since 5.7)</td></tr>
+    <tr><td>Advanced SQL</td><td>Window functions, CTEs, full-text — long mature</td><td>Caught up in MySQL 8.0 (has CTEs &amp; window functions now)</td></tr>
+    <tr><td>Where you'll meet it</td><td>New products, startups, serverless platforms</td><td>WordPress/PHP shops, older enterprises, some big tech (e.g. large sharded fleets)</td></tr>
+    <tr><td>From Node</td><td><code>pg</code> driver</td><td><code>mysql2</code> driver (same Pool + parameterized-query shape)</td></tr>
+    <tr><td>With Drizzle</td><td><code>pgTable</code></td><td><code>mysqlTable</code> — Drizzle supports both!</td></tr>
+  </tbody>
+</table>
+
+<pre><code><span class="cmt">// Node + MySQL looks almost identical to Node + Postgres (Lesson 22):</span>
+import mysql from 'mysql2/promise'
+const pool = mysql.createPool({ host: 'localhost', user: 'root', database: 'app' })
+
+<span class="cmt">// placeholders are ? instead of $1 — still parameterized, still injection-safe</span>
+const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email])</code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "MySQL and Postgres are siblings — same relational model, same SQL core. Postgres has the richer type
+  system (<code>jsonb</code>, arrays, uuid) and stricter defaults, which is why it's the default for new
+  projects; MySQL has the enormous installed base, so you meet it in existing systems. I'd never rewrite a
+  healthy MySQL app to Postgres — but I'd start a new one on Postgres."
+</div>
+
+<h2>3 · MongoDB — documents instead of tables</h2>
+<p>
+MongoDB throws out tables entirely. It stores <strong>documents</strong> — JSON-like objects (internally BSON,
+"binary JSON") — inside <strong>collections</strong>. No fixed schema: two documents in the same collection can
+have different fields. The vocabulary maps like this:
+</p>
+
+<table>
+  <thead><tr><th>Relational (Postgres/MySQL)</th><th>MongoDB</th></tr></thead>
+  <tbody>
+    <tr><td>Database</td><td>Database</td></tr>
+    <tr><td>Table</td><td>Collection</td></tr>
+    <tr><td>Row</td><td>Document (a BSON object)</td></tr>
+    <tr><td>Column</td><td>Field (per-document, not enforced)</td></tr>
+    <tr><td>Primary key <code>id</code></td><td><code>_id</code> (auto <code>ObjectId</code>)</td></tr>
+    <tr><td>JOIN</td><td>Embedding, or <code>$lookup</code> in aggregation (limited)</td></tr>
+    <tr><td>SQL</td><td>Query objects: <code>{ age: { $gt: 18 } }</code></td></tr>
+  </tbody>
+</table>
+
+<p>CRUD feels like handing JS objects straight to the database — that JSON affinity is why Mongo grew up with Node (the MERN stack: Mongo, Express, React, Node):</p>
+
+<pre><code><span class="cmt">// CREATE</span>
+await db.collection('users').insertOne({ name: 'Krish', age: 20, skills: ['js', 'java'] })
+
+<span class="cmt">// READ — query operators: $gt $gte $lt $in $ne $regex ...</span>
+await db.collection('users').find({ age: { $gt: 18 }, skills: 'js' })   <span class="cmt">// matches inside arrays too</span>
+        .sort({ name: 1 }).limit(10).toArray()
+
+<span class="cmt">// UPDATE — $set changes fields, $push appends to arrays, $inc increments</span>
+await db.collection('users').updateOne({ name: 'Krish' }, { $set: { age: 21 }, $push: { skills: 'sql' } })
+
+<span class="cmt">// DELETE</span>
+await db.collection('users').deleteOne({ name: 'Krish' })</code></pre>
+
+<p>
+<strong>The big design question — embed or reference?</strong> Relational modeling splits data into tables and
+joins them back. Document modeling asks: does this data live <em>inside</em> the parent document, or in its own
+collection with an id pointing across?
+</p>
+
+<pre><code><span class="cmt">// EMBEDDING — comments live inside the post document. One read gets everything.</span>
+{ _id: 1, title: 'Hello', comments: [ { by: 'Asha', text: 'Nice!' }, { by: 'Ravi', text: '+1' } ] }
+
+<span class="cmt">// REFERENCING — comments in their own collection, pointing at the post (like a FK).</span>
+{ _id: 55, postId: 1, by: 'Asha', text: 'Nice!' }</code></pre>
+
+<ul>
+  <li><strong>Embed</strong> when the child is only ever read with the parent, and the list is bounded (comments on a post, line items on an order).</li>
+  <li><strong>Reference</strong> when the child is shared, queried independently, or unbounded (users referenced by many posts; logs that grow forever — documents have a 16&nbsp;MB cap).</li>
+</ul>
+
+<p>
+Also good to name-drop: the <strong>aggregation pipeline</strong> (Mongo's GROUP BY —
+<code>[{ $match: ... }, { $group: ... }, { $sort: ... }]</code>, stages like array methods chained on the server),
+<strong>indexes</strong> (same B-tree idea as Lesson 22 — <code>createIndex({ email: 1 })</code>, unique indexes,
+compound indexes; everything you learned about when indexes help transfers directly), and that Mongo has had
+<strong>multi-document transactions</strong> since 4.0 — though needing them often is a hint your data wanted to be relational.
+</p>
+
+<div class="callout">
+  <span class="label">Gotcha</span>
+  "Schemaless" does not mean "schema-free" — it means <strong>the schema lives in your application code instead
+  of the database</strong>. The database will happily accept <code>{ nmae: 'typo' }</code>. That's exactly the
+  hole Mongoose plugs.
+</div>
+
+<h2>4 · Mongoose — the ODM that gives Mongo a schema back</h2>
+<p>
+<strong>Mongoose is to MongoDB what Drizzle/Prisma are to Postgres</strong> — with one vocabulary twist: since
+Mongo stores documents, not relations, Mongoose is an <strong>ODM</strong> (Object-<em>Document</em> Mapper), not an
+ORM. Same job: define your data's shape in code, get validation, types, and a nicer query API.
+</p>
+
+<pre><code>import mongoose from 'mongoose'
+await mongoose.connect(process.env.MONGO_URL)
+
+<span class="cmt">// 1. Schema — the shape and rules Mongo itself never enforced</span>
+const userSchema = new mongoose.Schema({
+  name:  { type: String, required: true, trim: true },
+  email: { type: String, required: true, unique: true, lowercase: true },
+  age:   { type: Number, min: 0 },
+  posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }]  <span class="cmt">// reference (like a FK)</span>
+}, { timestamps: true })                                          <span class="cmt">// auto createdAt/updatedAt</span>
+
+<span class="cmt">// 2. Model — the class you query with (collection becomes 'users', auto-pluralized)</span>
+const User = mongoose.model('User', userSchema)
+
+<span class="cmt">// 3. CRUD — validation runs automatically on save</span>
+const u = await User.create({ name: 'Krish', email: 'K@X.dev' })  <span class="cmt">// email stored lowercased</span>
+await User.find({ age: { $gte: 18 } }).sort('name').limit(10)     <span class="cmt">// same operators as raw Mongo</span>
+await User.updateOne({ _id: u._id }, { $set: { age: 21 } })
+await User.deleteOne({ _id: u._id })
+
+<span class="cmt">// populate() — Mongoose's answer to joins / Drizzle's `with` / Prisma's `include`:</span>
+const withPosts = await User.findById(u._id).populate('posts')    <span class="cmt">// swaps ObjectIds for real docs</span></code></pre>
+
+<p>
+Two more Mongoose features interviewers ask about: <strong>middleware/hooks</strong>
+(<code>userSchema.pre('save', ...)</code> — the classic use is hashing a password with bcrypt before saving,
+tying into Lesson 19) and <strong>methods/statics</strong> (attach <code>user.checkPassword()</code> to documents,
+<code>User.findByEmail()</code> to the model — very OOPS, very Java-friendly).
+</p>
+
+<table>
+  <thead><tr><th></th><th>Drizzle (SQL)</th><th>Prisma (SQL)</th><th>Mongoose (MongoDB)</th></tr></thead>
+  <tbody>
+    <tr><td>Kind</td><td>Typed query builder / ORM</td><td>ORM</td><td>ODM</td></tr>
+    <tr><td>Schema lives in</td><td>TypeScript</td><td><code>schema.prisma</code></td><td>JS/TS <code>new Schema({...})</code></tr>
+    <tr><td>Schema enforced by</td><td colspan="2">The database itself (DDL migrations)</td><td>Mongoose at runtime — Mongo doesn't care</td></tr>
+    <tr><td>Migrations</td><td>drizzle-kit</td><td>prisma migrate</td><td>Usually none — schema is app-side</td></tr>
+    <tr><td>Relations fetched via</td><td><code>with:</code></td><td><code>include:</code></td><td><code>.populate()</code></td></tr>
+    <tr><td>Type safety</td><td>Full inference</td><td>Generated types</td><td>Loose by default (typegoose/TS helps)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Mongoose is an ODM — it maps JS objects to MongoDB documents and, crucially, re-introduces a schema with
+  validation at the application layer, because MongoDB itself won't enforce one. Schema, Model, then CRUD;
+  <code>populate()</code> resolves references the way an ORM resolves relations."
+</div>
+
+<h2>5 · The "why this and not that" drill</h2>
+<p>
+This is the section to reread before any interview. The pattern for every answer:
+<strong>name the tradeoff, pick a side for YOUR use case, respect the other option.</strong> Never trash-talk a
+technology — it makes you sound like a tutorial, not an engineer.
+</p>
+
+<p><strong>Q. Why PostgreSQL and not MySQL?</strong><br>
+"Both are excellent relational databases and most apps would work on either. I chose Postgres for its richer
+type system — <code>jsonb</code> for flexible fields, real <code>uuid</code>, arrays — its stricter defaults, and
+because the modern hosting ecosystem (Neon, Supabase, RDS) and ORMs treat it as the first-class target. If I
+joined a MySQL shop, nearly everything transfers."</p>
+
+<p><strong>Q. Why would anyone still pick MySQL then?</strong><br>
+"Existing systems and team experience. MySQL runs a huge share of the web, MySQL 8 closed most feature gaps
+(CTEs, window functions), and migrating a healthy database is rarely worth it. New greenfield project — Postgres;
+existing MySQL infrastructure — MySQL, happily."</p>
+
+<p><strong>Q. Why SQL (Postgres) and not MongoDB for your project?</strong><br>
+"My data is relational — users, notes, tags with relationships and integrity rules — and I want the database to
+enforce those with foreign keys and transactions. Joins are natural in SQL. Mongo would make me either duplicate
+data or fake joins in application code, and I'd lose schema enforcement."</p>
+
+<p><strong>Q. Then when IS MongoDB the right call?</strong><br>
+"Document-shaped data read as a unit — a product catalog where every item has different attributes, CMS content,
+event payloads — especially with a rapidly evolving schema. One document read replaces a five-way join, and
+horizontal scaling via sharding is built into its design. Also: prototyping speed with Node, since documents are
+basically JS objects."</p>
+
+<p><strong>Q. Postgres has JSONB — doesn't that make MongoDB pointless?</strong><br>
+"It covers a lot of Mongo's ground — I'd use a <code>jsonb</code> column for a flexible corner of an otherwise
+relational model, and that's usually enough. Mongo still wins when the <em>entire</em> model is documents and you
+want its sharding story, its aggregation pipeline, and a schema-flexible workflow end to end — not just one
+flexible column."</p>
+
+<p><strong>Q. Why an ORM/ODM at all — why not raw SQL everywhere?</strong><br>
+"Type safety, validation, and productivity: the compiler catches a renamed column at build time instead of a
+runtime 500. The cost is a leaky abstraction — N+1 queries, unpredictable SQL in heavy ORMs — so I picked a thin
+one (Drizzle) where each call maps to predictable SQL, and I can always drop to raw SQL for the hot path."</p>
+
+<p><strong>Q. Why Drizzle and not Prisma?</strong><br>
+"Both are solid. Drizzle: schema in plain TypeScript with instant inference, no codegen step, SQL-transparent
+queries, tiny runtime — great for serverless. Prisma: more batteries (Studio, mature migrate tooling) and a
+friendlier API if the team doesn't think in SQL. I value seeing the SQL through the API, so Drizzle — but I can
+read a Prisma codebase fine, the concepts map one-to-one."</p>
+
+<p><strong>Q. Why Mongoose if MongoDB is schemaless — isn't that contradictory?</strong><br>
+"It's the point, actually: Mongo's flexibility is a feature at the database layer and a liability at the app
+layer. Mongoose lets ME decide where the strictness lives — validation, defaults, hooks in code — while keeping
+Mongo's storage flexibility. Schemaless databases still have schemas; the only question is whether anything
+enforces them."</p>
+
+<p><strong>Q. ORM vs ODM — difference?</strong><br>
+"Same idea, different target: an ORM maps objects to relational tables (Drizzle, Prisma, Hibernate), an ODM maps
+objects to documents (Mongoose). ODMs don't need joins or table migrations; ORMs don't need runtime schema
+enforcement because the database already has one."</p>
+
+<p><strong>Q. Why not Redis as your database — it's the fastest, right?</strong><br>
+"Redis is in-memory key-value — perfect as a cache, session store, or queue in front of a primary database, but
+it's not designed to be the durable source of truth: no relational queries, and memory is the capacity limit.
+Fast at its job; its job isn't primary storage."</p>
+
+<table>
+  <thead><tr><th>Choice</th><th>One-breath justification</th></tr></thead>
+  <tbody>
+    <tr><td>Postgres over MySQL</td><td>Richer types + stricter defaults + modern ecosystem; new projects</td></tr>
+    <tr><td>MySQL over Postgres</td><td>Existing infrastructure and team experience; it's everywhere</td></tr>
+    <tr><td>Postgres over Mongo</td><td>Relational data, integrity enforced by the DB, real joins</td></tr>
+    <tr><td>Mongo over Postgres</td><td>Document-shaped data, fast-evolving schema, built-in sharding</td></tr>
+    <tr><td>Drizzle over Prisma</td><td>TS-native, no codegen, SQL-transparent, serverless-light</td></tr>
+    <tr><td>Prisma over Drizzle</td><td>Batteries included, friendlier for non-SQL-thinkers</td></tr>
+    <tr><td>Mongoose over raw driver</td><td>App-layer schema, validation, hooks, populate</td></tr>
+    <tr><td>Redis alongside, never instead</td><td>Cache/sessions/queues — not the durable source of truth</td></tr>
+  </tbody>
+</table>
+
+<h2>6 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What are the most used databases in industry?"</strong><br>
+  PostgreSQL (developer-survey #1, default for new work), MySQL (largest web install base), MongoDB (leading NoSQL/document store) — with Oracle/SQL Server in enterprise, SQLite embedded, Redis as the standard cache.</li>
+  <li><strong>"What is the difference between SQL and NoSQL databases?"</strong><br>
+  SQL: fixed schema, tables, joins, ACID — integrity enforced by the database. NoSQL (documents/key-value/wide-column/graph): flexible schema, data shaped for its access pattern, horizontal scaling emphasized. Choose by data shape and integrity needs.</li>
+  <li><strong>"What is MongoDB's _id?"</strong><br>
+  Every document gets an <code>_id</code>, by default an <code>ObjectId</code> — 12 bytes encoding timestamp + random + counter, generated client-side, globally unique without a central sequence.</li>
+  <li><strong>"Embedding vs referencing in MongoDB?"</strong><br>
+  Embed bounded, always-read-together children inside the parent (one read, atomic updates); reference shared or unbounded data across collections (16&nbsp;MB document cap, independent querying).</li>
+  <li><strong>"What is Mongoose and why use it?"</strong><br>
+  An ODM for MongoDB: schemas with validation/defaults/hooks at the app layer, models for querying, <code>populate()</code> for references — restoring the guarantees Mongo deliberately doesn't enforce.</li>
+  <li><strong>"What is the difference between an ORM and an ODM?"</strong><br>
+  ORM ↔ relational tables (Drizzle/Prisma/Hibernate); ODM ↔ documents (Mongoose). Same object-mapping idea, different storage model underneath.</li>
+</ul>
+
+<h2>7 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A teammate says "let's use MongoDB because our data has lots of relationships between users, orders and products." What's the sharpest response?</div>
+  <button class="opt">Agree — MongoDB's $lookup handles relationships just as well as SQL joins</button>
+  <button class="opt">Push back — heavily relational data with integrity rules is exactly what SQL databases enforce natively; Mongo would move that burden into app code</button>
+  <button class="opt">Agree, but only if Mongoose is used, since Mongoose adds foreign keys to MongoDB</button>
+  <div class="fb" data-correct="Many relationships + integrity rules = the relational sweet spot. Mongo can reference across collections, but nothing enforces those references — no FK constraints — and $lookup is a limited, aggregation-only join." data-wrong="Mongo's $lookup is not a general-purpose join, and neither Mongo nor Mongoose enforces referential integrity like a FOREIGN KEY does. Relational shape → relational database."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">MongoDB is "schemaless". What does Mongoose's <code>Schema</code> actually do about that?</div>
+  <button class="opt">It sends the schema to MongoDB, which then enforces it like Postgres DDL</button>
+  <button class="opt">Nothing — it's only for editor autocomplete</button>
+  <button class="opt">It enforces shape, validation and defaults in the application layer at save/query time; the database itself stays flexible</button>
+  <div class="fb" data-correct="Exactly — the schema lives and is enforced in your Node process (validation, casting, defaults, hooks), not in MongoDB. That's the ODM's whole value proposition." data-wrong="Mongoose never teaches MongoDB to enforce anything — Mongo will still accept any document from another client. Mongoose enforces the schema app-side, on the way in and out."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Which Mongoose feature answers the same need as Drizzle's <code>with:</code> and Prisma's <code>include:</code>?</div>
+  <button class="opt"><code>.populate()</code> — it replaces stored ObjectId references with the actual documents</button>
+  <button class="opt"><code>.aggregate()</code> — it merges collections into one result</button>
+  <button class="opt"><code>timestamps: true</code> — it links documents by creation time</button>
+  <div class="fb" data-correct="populate() follows ref fields and swaps ids for full documents — the document-world equivalent of resolving relations in one call." data-wrong="Aggregation is Mongo's GROUP-BY pipeline and timestamps just add createdAt/updatedAt. Resolving references to full documents is populate()'s job."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Interviewer: "Postgres has JSONB, so MongoDB is obsolete, right?" Best answer?</div>
+  <button class="opt">Yes — JSONB does everything MongoDB does with full SQL power on top</button>
+  <button class="opt">No — JSONB is ideal for a flexible corner of a relational model, but a fully document-shaped model still benefits from Mongo's sharding, aggregation pipeline and schema-flexible workflow end to end</button>
+  <button class="opt">No — JSONB columns can't be indexed, so MongoDB is always faster for JSON</button>
+  <div class="fb" data-correct="The nuanced take: JSONB shrinks Mongo's territory (and is the right call for hybrid models), but doesn't erase it — whole-model document workloads and Mongo's horizontal-scaling design still stand." data-wrong="JSONB IS indexable (GIN indexes — Lesson 22), so the last option is factually wrong; and 'obsolete' ignores genuinely document-shaped, shard-heavy workloads. Tradeoffs, not knockouts."></div>
+</div>
+
+<h2>8 · Do this next</h2>
+<ul>
+  <li>Spin up MongoDB free on Atlas (or <code>docker run mongo</code>), then rebuild Lesson 18's notes API with <strong>Mongoose</strong> instead of the in-memory array: a <code>Note</code> schema with <code>required</code> validation, plus one <code>pre('save')</code> hook that trims the title. Notice which parts of your Express code didn't change at all.</li>
+  <li>Take your Lesson 21 users/posts/tags schema and sketch it as MongoDB documents twice: once embedding, once referencing. Write one sentence per version on what breaks at 1&nbsp;million posts.</li>
+  <li>Out loud, no notes: answer "why Postgres over Mongo for your DevLog capstone?" and "when would you flip that answer?" — thirty seconds each, tradeoff first.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on embed-vs-reference, why an ODM exists at all, or how you'd defend Drizzle-over-Prisma to a skeptical
+  interviewer? Ask in the chat. When you can argue BOTH sides of every row in the "why this and not that" table,
+  you're done with the database module for real — say <strong>"next"</strong> to return to the
+  <a href="../INDEX.md">Index</a>, or jump into the System Design track.
+</div>
+
+<div class="nav">
+  <span><a href="0024-fullstack-capstone-interview.html">← Capstone</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="../INDEX.md">Track complete →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

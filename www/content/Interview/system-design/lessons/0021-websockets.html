@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 21 - WebSockets | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 21 of 66 · Full-Duplex, Upgrade Handshake, Redis Pub/Sub</div>
+  
+  <h1>WebSockets &amp; Real-Time Communication</h1>
+  <p class="subtitle">Building low-latency, two-way interactive connections for chat, trading, and collaboration apps.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module E — Networking</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Standard HTTP is strictly <strong>unidirectional</strong>: the client asks, the server answers, and the connection closes. If a friend sends you a WhatsApp message, the server cannot push it to your phone under plain HTTP without your phone constantly asking "Any new messages?" every second (polling). <strong>WebSockets</strong> establish a single, persistent, <strong>bidirectional (full-duplex) TCP connection</strong> where either the client or the server can push data at any microsecond with virtually zero header overhead.</p>
+
+  <h2>2 · How a WebSocket Connection Starts: The Upgrade Handshake</h2>
+  <p>WebSockets are designed to work seamlessly through standard firewalls and HTTP ports (80/443). They start as a regular HTTP request with special upgrade headers:</p>
+
+  <pre><code>GET /chat HTTP/1.1
+Host: chat.example.com
+<span class="cmt">Upgrade: websocket</span>
+<span class="cmt">Connection: Upgrade</span>
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13</code></pre>
+
+  <p>The server replies with HTTP status <code>101 Switching Protocols</code>:</p>
+  <pre><code>HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</code></pre>
+
+  <p>From that exact moment onward, HTTP is discarded! The TCP socket remains wide open, exchanging lightweight binary/text frames with only 2–10 bytes of frame overhead (compared to 1,000+ bytes of HTTP headers).</p>
+
+  <h2>3 · The Distributed WebSocket Problem: Scaling Across Multiple Servers</h2>
+  <p>In a production system with 1 million users, you have 10 backend WebSocket servers behind a load balancer.</p>
+  <p><strong>The problem:</strong> User Alice is connected to WebSocket Server 1. User Bob is connected to WebSocket Server 3. When Alice sends a message to Bob, Server 1 has no open socket to Bob! How does Server 1 deliver the message to Server 3?</p>
+
+  <div class="arch-flow">
+    <div class="box">Alice → Server 1</div>
+    <div class="arrow-right"></div>
+    <div class="box queue">Redis Pub/Sub or Kafka</div>
+    <div class="arrow-right"></div>
+    <div class="box">Server 3 → Bob</div>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">Architecture Solution</span>
+    Connect all WebSocket servers to a distributed message broker (like <strong>Redis Pub/Sub</strong>). When Server 1 receives Alice's message for Bob, it publishes to channel <code>user:bob:messages</code>. Server 3 is subscribed to that channel, receives the payload, and writes it directly into Bob's active WebSocket connection!
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>WebSockets handle text and JSON events. What about real-time audio, high-definition video, and streaming? Next: WebRTC &amp; Video Streaming.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0020-http-vs-https.html">← Previous: HTTP vs HTTPS</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0022-webrtc-video-streaming.html">Next: WebRTC &amp; Video Streaming →</a>
+  </div>
+</body>
+</html>

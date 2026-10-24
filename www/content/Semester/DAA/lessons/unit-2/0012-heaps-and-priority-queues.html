@@ -1,0 +1,356 @@
+<title>Heaps and Priority Queues</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 12 of 15</p>
+<h1>Heaps and Priority Queues</h1>
+<p class="deck">The heap property, the array representation and its index formulas, heapify, the O(n) build-heap proof, insertion and extraction, the counting formulas, and what a priority queue is used for.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two questions, both certain. <strong>&ldquo;Build a max-heap from the given array&rdquo;</strong> &mdash; work bottom-up from index &lfloor;n/2&rfloor;, and <strong>show the array after every heapify call</strong>. <strong>&ldquo;Prove that build-heap runs in O(n) time&rdquo;</strong> &mdash; a 5-mark derivation that most students cannot do, so it is worth learning outright; the whole proof is the sum &Sigma; h/2<sup>h</sup> = 2. Also learn the <strong>index formulas</strong> and the <strong>counting formulas</strong> (leaves, internal nodes, height), which appear as objective questions.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Binary Max-Heap Tree Structure & Array Representation</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Max-Heap Property: Parent A[i] &ge; Left A[2i+1] and Right A[2i+2]</strong>
+      <span class="sub">Complete binary tree stored compactly in contiguous 0-indexed array</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>Heapify(i): O(log n)</strong><span class="sub">Compares node with children; bubbles violation down to restore property</span></div>
+    <div class="flow-box ok"><strong>Build-Heap: O(n)</strong><span class="sub">Bottom-up heapify from last non-leaf (n/2 - 1) to root 0 &bull; Linear time!</span></div>
+    <div class="flow-box warn"><strong>Heap Sort: O(n log n)</strong><span class="sub">Swap root with last, decrement size, heapify root; repeat n times</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 20 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Heaps & Heap Sort</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">2.6.3 Heap &mdash; Heap Sort, Heapify, Priority Queues</div>
+    <div class="v-desc">The classic derivation proving why Build-Heap runs in linear O(n) time and how priority queues perform in logarithmic time.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=HqPJF2L5h9U" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>The definition</h2>
+
+<div class="formula">
+  <span class="name">A binary heap</span>
+  A <strong>binary heap</strong> is a <strong>complete binary tree</strong> &mdash; every level is completely filled except possibly the last, which is filled <strong>from left to right</strong> &mdash; that satisfies the <strong>heap property</strong>:<br><br>
+  <strong>MAX-HEAP:</strong> &nbsp; A[parent(i)] &ge; A[i] &nbsp; for every node i &ne; root<br>
+  <strong>MIN-HEAP:</strong> &nbsp; A[parent(i)] &le; A[i] &nbsp; for every node i &ne; root
+</div>
+
+<div class="box win">
+  <span class="lbl">The two things a heap is NOT &mdash; both are exam traps</span>
+  <p><strong>1. A heap is not a binary search tree.</strong> There is <em>no</em> ordering between siblings, and no left/right rule. Only the <strong>parent&ndash;child</strong> relation is constrained. An inorder traversal of a heap is <strong>not</strong> sorted.</p>
+  <p><strong>2. The largest element is at the root, but the second largest is NOT necessarily at depth 1.</strong> It is, however, always one of the root's two children &mdash; a fact worth knowing, since &ldquo;where can the second largest be?&rdquo; is a common objective question. The <strong>smallest element of a max-heap can be any leaf</strong>, so finding it costs &Theta;(n).</p>
+</div>
+
+<h2>The array representation</h2>
+
+<p>A heap needs no pointers &mdash; the tree structure is implied by the array indices. That is its great practical advantage.</p>
+
+<div class="formula">
+  <span class="name">The index formulas &mdash; know both conventions</span>
+  <strong>1-based indexing</strong> (the textbook convention):<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>parent(i) = &lfloor;i / 2&rfloor;</strong> &nbsp;&nbsp; <strong>left(i) = 2i</strong> &nbsp;&nbsp; <strong>right(i) = 2i + 1</strong><br><br>
+  <strong>0-based indexing</strong> (the programming convention):<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>parent(i) = &lfloor;(i &minus; 1) / 2&rfloor;</strong> &nbsp;&nbsp; <strong>left(i) = 2i + 1</strong> &nbsp;&nbsp; <strong>right(i) = 2i + 2</strong><br><br>
+  <em>State which you are using at the top of the answer. This page uses 1-based.</em>
+</div>
+
+<div class="formula">
+  <span class="name">The counting formulas &mdash; for a heap of n nodes</span>
+  <strong>Height of the heap</strong> = <strong>&lfloor;log<sub>2</sub> n&rfloor;</strong><br>
+  <strong>Number of leaves</strong> = <strong>&lceil;n / 2&rceil;</strong> &mdash; and they occupy indices <strong>&lfloor;n/2&rfloor; + 1 through n</strong><br>
+  <strong>Number of internal (non-leaf) nodes</strong> = <strong>&lfloor;n / 2&rfloor;</strong><br>
+  <strong>Number of nodes at height h</strong> &le; <strong>&lceil;n / 2<sup>h+1</sup>&rceil;</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Quick numerical. A max-heap holds 100 elements. Give its height, its number of leaves, and the index range of its leaves.</span>
+  <p><strong>Height</strong> = &lfloor;log<sub>2</sub>100&rfloor; = &lfloor;6.64&rfloor; = <strong>6</strong></p>
+  <p><strong>Leaves</strong> = &lceil;100/2&rceil; = <strong>50</strong>, at indices <strong>51 to 100</strong></p>
+  <p><strong>Internal nodes</strong> = &lfloor;100/2&rfloor; = <strong>50</strong>, at indices 1 to 50</p>
+  <p><em>Sanity check:</em> 50 + 50 = 100 &check;. And a complete tree of height 6 holds between 2<sup>6</sup> = 64 and 2<sup>7</sup> &minus; 1 = 127 nodes; 100 lies in that range &check;.</p>
+</div>
+
+<h2>Heapify &mdash; the core operation</h2>
+
+<div class="formula">
+  <span class="name">MAX-HEAPIFY(A, i) &mdash; assumes the subtrees of i are already heaps</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  MAX-HEAPIFY(A, i)<br>
+  &nbsp;&nbsp; l = 2i; &nbsp; r = 2i + 1;<br>
+  &nbsp;&nbsp; largest = i;<br>
+  &nbsp;&nbsp; if (l &le; heap-size and A[l] &gt; A[largest]) largest = l;<br>
+  &nbsp;&nbsp; if (r &le; heap-size and A[r] &gt; A[largest]) largest = r;<br>
+  &nbsp;&nbsp; if (largest &ne; i) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; <strong>swap A[i] and A[largest];</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp; <strong>MAX-HEAPIFY(A, largest);</strong>&nbsp;&nbsp;/* the violation may have moved down */<br>
+  &nbsp;&nbsp; }
+  </div>
+  <span style="font-size:.85em"><strong>Cost: O(log n)</strong> &mdash; it can travel at most the height of the tree. Also called <strong>sift-down</strong>, <strong>percolate-down</strong> or <strong>trickle-down</strong>.</span>
+</div>
+
+<div class="formula">
+  <span class="name">BUILD-MAX-HEAP(A) &mdash; turn an arbitrary array into a heap</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  BUILD-MAX-HEAP(A, n)<br>
+  &nbsp;&nbsp; <strong>for i = &lfloor;n/2&rfloor; down to 1</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp; MAX-HEAPIFY(A, i);
+  </div>
+  <span style="font-size:.85em">Start at <strong>&lfloor;n/2&rfloor;</strong> because <strong>every index above that is already a leaf</strong>, and a leaf is trivially a heap. Work <strong>downward in index</strong>, which means <strong>bottom-up in the tree</strong>, so that both subtrees of i are heaps by the time i is processed.</span>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Build a max-heap from A = [4, 10, 3, 5, 1].</span>
+  <p>n = 5, so start at i = &lfloor;5/2&rfloor; = <strong>2</strong> and count down to 1.</p>
+
+  <p><strong>i = 2</strong> &mdash; node A[2] = 10, children A[4] = 5 and A[5] = 1.</p>
+  <p>The largest of 10, 5, 1 is <strong>10 itself</strong>, so nothing changes. Array: <strong>[4, 10, 3, 5, 1]</strong></p>
+
+  <p><strong>i = 1</strong> &mdash; node A[1] = 4, children A[2] = 10 and A[3] = 3.</p>
+  <p>The largest is <strong>10 at index 2</strong> &rarr; <strong>swap A[1] and A[2]</strong>. Array: <strong>[10, 4, 3, 5, 1]</strong></p>
+  <p>Recurse at index 2: node A[2] = 4, children A[4] = 5 and A[5] = 1. Largest is <strong>5 at index 4</strong> &rarr; <strong>swap</strong>. Array: <strong>[10, 5, 3, 4, 1]</strong></p>
+  <p>Recurse at index 4: it is a leaf, so stop.</p>
+
+  <div class="formula">
+    <span class="name">The max-heap: A = [10, 5, 3, 4, 1]</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>10</strong>&nbsp;&nbsp;(index 1)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<strong>5</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>3</strong>&nbsp;&nbsp;(2, 3)<br>
+    &nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;<strong>4</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>1</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(4, 5)
+    </div>
+  </div>
+  <p><strong>Check:</strong> 10 &ge; 5 and 10 &ge; 3 &check;; 5 &ge; 4 and 5 &ge; 1 &check;. <strong>Note that 3 &lt; 4 &mdash; and that is perfectly legal</strong>, because they are not in a parent&ndash;child relation. This is the point where students wrongly &ldquo;fix&rdquo; the heap.</p>
+</div>
+
+<h2>The O(n) build-heap proof</h2>
+
+<div class="box exam">
+  <span class="lbl">Why the naive bound is wrong, and what the right one is</span>
+  <p><strong>The naive argument:</strong> n/2 calls to heapify, each O(log n), gives <strong>O(n log n)</strong>. That bound is <em>correct but not tight</em>.</p>
+  <p><strong>Why it is loose:</strong> heapify costs O(h) for a node at <em>height h</em> &mdash; and <strong>most nodes are near the bottom, where h is small</strong>. Half the nodes are leaves with h = 0; a quarter have h = 1; and so on. The expensive calls are rare.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">The derivation &mdash; write it exactly like this.</span>
+  <p><strong>Step 1.</strong> The number of nodes at height h is at most <strong>&lceil;n / 2<sup>h+1</sup>&rceil;</strong>.</p>
+  <p><strong>Step 2.</strong> MAX-HEAPIFY on a node at height h costs <strong>O(h)</strong>.</p>
+  <p><strong>Step 3.</strong> Total cost:</p>
+  <p style="text-align:center"><strong>T(n) = &Sigma;<sub>h=0</sub><sup>&lfloor;log n&rfloor;</sup> &lceil;n / 2<sup>h+1</sup>&rceil; &middot; O(h) = O( n &middot; &Sigma;<sub>h=0</sub><sup>&lfloor;log n&rfloor;</sup> h / 2<sup>h</sup> )</strong></p>
+  <p><strong>Step 4 &mdash; the key sum.</strong> Extend the sum to infinity, which only makes it larger:</p>
+  <p style="text-align:center"><strong>&Sigma;<sub>h=0</sub><sup>&infin;</sup> h / 2<sup>h</sup> = 2</strong></p>
+  <p><em>Why:</em> the standard identity &Sigma;<sub>k=0</sub><sup>&infin;</sup> k x<sup>k</sup> = x / (1 &minus; x)&sup2; for |x| &lt; 1. At x = &frac12; this is (&frac12;) / (&frac14;) = <strong>2</strong>.</p>
+  <p><strong>Step 5.</strong> Therefore</p>
+  <p style="text-align:center"><strong>T(n) = O(n &middot; 2) = O(n)</strong> &nbsp;&#8718;</p>
+  <p><em>Sanity check on the sum:</em> 0/1 + 1/2 + 2/4 + 3/8 + 4/16 + 5/32 = 0 + 0.5 + 0.5 + 0.375 + 0.25 + 0.156 = 1.78, and the remaining terms carry it to 2. &check;</p>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-sentence version, if you are short of time</span>
+  <p><strong>&ldquo;Heapify costs O(h), and there are at most n/2<sup>h+1</sup> nodes at height h, so the total is n &middot; &Sigma; h/2<sup>h</sup> = 2n = O(n).&rdquo;</strong> Even that single line earns most of the marks.</p>
+</div>
+
+<h2>Insertion and extraction</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>Method</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td><strong>MAXIMUM(A)</strong></td><td>Return A[1]</td><td><strong>&Theta;(1)</strong></td></tr>
+<tr><td><strong>INSERT(A, key)</strong></td><td>Place the key at the <strong>end</strong> of the array, then <strong>sift UP</strong>: while it is larger than its parent, swap</td><td>O(log n)</td></tr>
+<tr><td><strong>EXTRACT-MAX(A)</strong></td><td>Save A[1]; <strong>move the LAST element to the root</strong>; decrease the heap size by 1; <strong>MAX-HEAPIFY(A, 1)</strong></td><td>O(log n)</td></tr>
+<tr><td><strong>INCREASE-KEY(A, i, key)</strong></td><td>Raise A[i], then <strong>sift up</strong></td><td>O(log n)</td></tr>
+<tr><td><strong>BUILD-MAX-HEAP(A)</strong></td><td>Heapify from &lfloor;n/2&rfloor; down to 1</td><td><strong>O(n)</strong></td></tr>
+<tr><td><strong>DELETE(A, i)</strong></td><td>Replace A[i] by the last element, then sift up or down as needed</td><td>O(log n)</td></tr>
+<tr><td><strong>SEARCH(A, key)</strong></td><td>Linear scan &mdash; a heap gives no help</td><td><strong>&Theta;(n)</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Insert 15 into the max-heap [10, 5, 3, 4, 1], then extract the maximum.</span>
+  <p><strong>Insert 15.</strong></p>
+  <ul>
+    <li>Append at index 6: <strong>[10, 5, 3, 4, 1, 15]</strong></li>
+    <li>Parent of index 6 is &lfloor;6/2&rfloor; = 3, holding 3. Since 15 &gt; 3, <strong>swap</strong>: [10, 5, <strong>15</strong>, 4, 1, <strong>3</strong>]</li>
+    <li>Parent of index 3 is &lfloor;3/2&rfloor; = 1, holding 10. Since 15 &gt; 10, <strong>swap</strong>: [<strong>15</strong>, 5, <strong>10</strong>, 4, 1, 3]</li>
+    <li>Index 1 is the root &mdash; stop.</li>
+  </ul>
+  <p><strong>Result: [15, 5, 10, 4, 1, 3]</strong> &mdash; 2 swaps, which is O(log n).</p>
+
+  <p><strong>Extract the maximum.</strong></p>
+  <ul>
+    <li>The maximum is <strong>15</strong>. Save it.</li>
+    <li>Move the last element, 3, to the root and shrink the heap to 5: <strong>[3, 5, 10, 4, 1]</strong></li>
+    <li>MAX-HEAPIFY at index 1: children are A[2] = 5 and A[3] = 10; the largest is <strong>10 at index 3</strong> &rarr; swap: <strong>[10, 5, 3, 4, 1]</strong></li>
+    <li>Recurse at index 3: its children would be indices 6 and 7, both beyond the heap &mdash; it is a leaf. Stop.</li>
+  </ul>
+  <p><strong>Result: maximum = 15, heap = [10, 5, 3, 4, 1]</strong> &mdash; back to where we started, as it must be. &check;</p>
+</div>
+
+<h2>Priority queues</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>priority queue</strong> is an abstract data type maintaining a set S of elements, each with an associated value called a <strong>key</strong> (its priority), supporting <strong>INSERT</strong>, <strong>MAXIMUM</strong> (or MINIMUM), <strong>EXTRACT-MAX</strong> and <strong>INCREASE-KEY</strong>.<br><br>
+  <em>Unlike an ordinary queue, elements leave in order of <strong>priority</strong>, not in order of arrival.</em>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Implementation</th><th>Insert</th><th>Extract-max</th><th>Find-max</th></tr></thead>
+<tbody>
+<tr><td>Unsorted array or list</td><td><strong>O(1)</strong></td><td>O(n)</td><td>O(n)</td></tr>
+<tr><td>Sorted array or list</td><td>O(n)</td><td><strong>O(1)</strong></td><td><strong>O(1)</strong></td></tr>
+<tr><td><strong>Binary heap</strong></td><td><strong>O(log n)</strong></td><td><strong>O(log n)</strong></td><td><strong>O(1)</strong></td></tr>
+<tr><td>Binary search tree (balanced)</td><td>O(log n)</td><td>O(log n)</td><td>O(log n)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The binary heap is the standard implementation</strong>, because it is the only one with logarithmic cost for <em>both</em> operations, and it needs no pointers.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Application</th><th>How the priority queue is used</th></tr></thead>
+<tbody>
+<tr><td><strong>Heap sort</strong> (Lesson 13)</td><td>Build a heap, then repeatedly extract the maximum</td></tr>
+<tr><td><strong>Dijkstra's shortest path</strong></td><td>A min-priority queue of vertices keyed by tentative distance. Using a heap improves the running time from O(V&sup2;) to <strong>O((V + E) log V)</strong></td></tr>
+<tr><td><strong>Prim's minimum spanning tree</strong></td><td>A min-priority queue of vertices keyed by the cheapest connecting edge</td></tr>
+<tr><td><strong>Huffman coding</strong></td><td>A min-priority queue of trees keyed by frequency; repeatedly extract the two smallest and merge</td></tr>
+<tr><td><strong>CPU scheduling</strong></td><td>The ready queue in a priority-scheduling operating system</td></tr>
+<tr><td><strong>Branch and bound</strong></td><td>Least-cost search expands the node with the best bound first</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">Where else heaps appear in this syllabus</span>
+  <p>Unit IV asks for <strong>&ldquo;Dijkstra's shortest path using arrays and heaps&rdquo;</strong> and <strong>&ldquo;Huffman coding (use of priority queue)&rdquo;</strong> explicitly. So the priority queue you learn here is used <em>again</em> there &mdash; understanding it now pays twice.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In a max-heap, an inorder traversal produces:</p>
+  <div class="opts">
+    <button class="opt">Level order</button>
+    <button class="opt">Sorted ascending order</button>
+    <button class="opt" data-ok="1">No particular order — a heap is not a search tree</button>
+    <button class="opt">Sorted descending order</button>
+  </div>
+  <p class="why">Only the parent–child relation is constrained; siblings have no ordering at all. In the heap [10, 5, 3, 4, 1], node 3 is less than node 4 — and that is legal.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. With 1-based indexing, the children of node i are at:</p>
+  <div class="opts">
+    <button class="opt">i/2 and i/2 + 1</button>
+    <button class="opt">2i + 1 and 2i + 2</button>
+    <button class="opt" data-ok="1">2i and 2i + 1</button>
+    <button class="opt">i + 1 and i + 2</button>
+  </div>
+  <p class="why">2i+1 and 2i+2 is the 0-based convention, where the parent is ⌊(i−1)/2⌋. State which convention you use at the top of the answer.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. BUILD-MAX-HEAP starts heapifying at index:</p>
+  <div class="opts">
+    <button class="opt">⌈n/2⌉, working up to n</button>
+    <button class="opt">n, working down to 1</button>
+    <button class="opt">1, working up to n</button>
+    <button class="opt" data-ok="1">⌊n/2⌋, working down to 1</button>
+  </div>
+  <p class="why">Every index above ⌊n/2⌋ is a leaf, and a leaf is already a heap. Working downward in index means working bottom-up in the tree, so both subtrees are heaps when a node is processed.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Building a heap from an arbitrary array of n elements costs:</p>
+  <div class="opts">
+    <button class="opt">O(n log n)</button>
+    <button class="opt" data-ok="1">O(n)</button>
+    <button class="opt">O(n²)</button>
+    <button class="opt">O(log n)</button>
+  </div>
+  <p class="why">O(n log n) is correct but not tight. Heapify costs O(h) and there are at most n/2^(h+1) nodes at height h, so the total is n·Σh/2^h = 2n.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The sum Σ h/2^h for h = 0 to ∞ equals:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">2</button>
+    <button class="opt">log n</button>
+    <button class="opt">n</button>
+    <button class="opt">1</button>
+  </div>
+  <p class="why">From Σ k·x^k = x/(1−x)² at x = ½: (½)/(¼) = 2. This single fact is the whole build-heap proof.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. EXTRACT-MAX works by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Moving the last element to the root, shrinking the heap, then heapifying at the root</button>
+    <button class="opt">Sorting the array first</button>
+    <button class="opt">Scanning all n elements</button>
+    <button class="opt">Removing the root and promoting its larger child, recursively</button>
+  </div>
+  <p class="why">The second option would leave a hole in the middle of the array and break completeness. Moving the last element up keeps the tree complete, at the cost of one sift-down.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. In a max-heap of 100 elements, the number of leaves is:</p>
+  <div class="opts">
+    <button class="opt">99</button>
+    <button class="opt" data-ok="1">50, at indices 51 to 100</button>
+    <button class="opt">64</button>
+    <button class="opt">6</button>
+  </div>
+  <p class="why">Leaves = ⌈n/2⌉ and internal nodes = ⌊n/2⌋, so 50 each. The height is ⌊log₂100⌋ = 6, which is what 6 refers to.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a binary heap and state the two things it is not.</summary>
+    <p class="ans">A complete binary tree — every level filled except possibly the last, which fills left to right — satisfying A[parent(i)] &ge; A[i] for a max-heap or &le; for a min-heap. It is not a binary search tree: siblings have no ordering and an inorder traversal is not sorted. And the second-largest element is not at a fixed position, though it is always a child of the root; the smallest can be any leaf, so finding it costs &Theta;(n).</p></details>
+  <details class="card"><summary>Give the index formulas in both conventions and the counting formulas.</summary>
+    <p class="ans">1-based: parent ⌊i/2⌋, left 2i, right 2i+1. 0-based: parent ⌊(i−1)/2⌋, left 2i+1, right 2i+2. Height = ⌊log₂n⌋; leaves = ⌈n/2⌉ at indices ⌊n/2⌋+1 to n; internal nodes = ⌊n/2⌋; nodes at height h &le; ⌈n/2^(h+1)⌉.</p></details>
+  <details class="card"><summary>Describe MAX-HEAPIFY and BUILD-MAX-HEAP.</summary>
+    <p class="ans">MAX-HEAPIFY(A, i) assumes both subtrees of i are heaps; it finds the largest of A[i] and its two children, and if that is not A[i] it swaps and recurses on the affected child. It costs O(log n). BUILD-MAX-HEAP calls it for i from ⌊n/2⌋ down to 1, because every index above ⌊n/2⌋ is already a leaf.</p></details>
+  <details class="card"><summary>Prove that BUILD-MAX-HEAP runs in O(n).</summary>
+    <p class="ans">There are at most ⌈n/2^(h+1)⌉ nodes at height h and heapify costs O(h) there, so the total is Σ ⌈n/2^(h+1)⌉·O(h) = O(n · Σ h/2^h). Extending the sum to infinity, Σ h/2^h = 2 by the identity Σ k x^k = x/(1−x)² at x = ½. So the total is O(2n) = O(n). The naive n/2 × O(log n) bound is correct but not tight, because most nodes are near the bottom where h is small.</p></details>
+  <details class="card"><summary>Give the cost of every heap operation.</summary>
+    <p class="ans">MAXIMUM &Theta;(1); INSERT O(log n) by appending and sifting up; EXTRACT-MAX O(log n) by moving the last element to the root, shrinking, and heapifying; INCREASE-KEY O(log n); BUILD-MAX-HEAP O(n); DELETE O(log n); SEARCH &Theta;(n), since a heap gives no help in finding an arbitrary key.</p></details>
+  <details class="card"><summary>Define a priority queue and compare its implementations.</summary>
+    <p class="ans">An ADT maintaining elements with priorities, supporting insert, maximum, extract-max and increase-key; elements leave by priority rather than by arrival. Unsorted array: O(1) insert but O(n) extract. Sorted array: O(n) insert but O(1) extract. Binary heap: O(log n) for both plus O(1) find-max, and no pointers — which is why it is the standard choice.</p></details>
+  <details class="card"><summary>Name five applications of priority queues.</summary>
+    <p class="ans">Heap sort; Dijkstra's shortest path, where a heap improves O(V²) to O((V+E) log V); Prim's minimum spanning tree; Huffman coding, repeatedly extracting the two smallest frequencies; CPU priority scheduling; and least-cost branch and bound.</p></details>
+</div>
+
+<p class="ask">Next: the three comparison-based sorts, their analyses, and the proof that no comparison sort can beat n log n.</p>
+
+<div class="nav">
+  <a href="0011-hashing.html">&larr; Hashing</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0013-comparison-based-sorting.html">Next: Comparison-Based Sorting &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

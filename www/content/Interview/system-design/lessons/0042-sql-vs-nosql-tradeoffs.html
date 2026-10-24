@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 42 - SQL vs NoSQL Trade-offs | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 42 of 66 · B-Trees vs LSM-Trees, Storage Engines</div>
+  
+  <h1>SQL vs NoSQL: Storage Engine Deep Dive</h1>
+  <p class="subtitle">Looking under the hood at disk layouts, B-Trees, and Log-Structured Merge Trees.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module K — System Design Trade-offs</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>The difference between SQL and NoSQL is not just "tables vs JSON documents". At the fundamental engineering level, the difference lies in their <strong>Storage Engines</strong>: how they organize bits on physical disk platters and NVMe flash drives. Relational SQL databases are optimized for <strong>fast reads and complex relational range scans</strong> using <strong>B-Trees</strong>. Write-heavy NoSQL databases (Cassandra, RocksDB, ScyllaDB) are optimized for <strong>blazing write throughput</strong> using <strong>LSM-Trees</strong>.</p>
+
+  <h2>2 · B-Trees (SQL) vs LSM-Trees (NoSQL)</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>B-Tree / B+Tree (PostgreSQL, MySQL, Oracle)</th>
+        <th>LSM-Tree (Cassandra, RocksDB, BigTable)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Disk Write Mechanism</strong></td>
+        <td><strong>In-Place Updates:</strong> Overwrites existing 4KB/8KB disk pages in place. Requires random disk writes.</td>
+        <td><strong>Append-Only Writes:</strong> Writes sequentially to an in-memory <code>MemTable</code> and appends to an immutable disk <code>SSTable</code>. Zero random disk I/O!</td>
+      </tr>
+      <tr>
+        <td><strong>Write Performance</strong></td>
+        <td>Moderate (slowed down by random disk seeking and updating secondary index pages).</td>
+        <td><strong>Extremely Fast:</strong> Sequential writes match the maximum raw throughput of physical NVMe drives.</td>
+      </tr>
+      <tr>
+        <td><strong>Read Performance</strong></td>
+        <td><strong>Extremely Fast:</strong> Point lookups and range scans take $O(\log N)$ with predictable single disk seeks.</td>
+        <td>Slower: Must check MemTable, Bloom Filters, and potentially multiple SSTable disk levels.</td>
+      </tr>
+      <tr>
+        <td><strong>Background Maintenance</strong></td>
+        <td>Vacuuming / defragmentation.</td>
+        <td><strong>Compaction:</strong> Background threads constantly merge and deduplicate older SSTables, causing periodic write amplification.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The Decision Framework</h2>
+  <div class="callout tip">
+    <span class="label">When to pick what</span>
+    <ul>
+      <li><strong>Pick SQL (PostgreSQL / MySQL):</strong> When data has strict relations, requires ACID guarantees, needs multi-table JOINs, or your read-to-write ratio is high (90% reads, 10% writes).</li>
+      <li><strong>Pick NoSQL (Cassandra / DynamoDB / MongoDB):</strong> When write volume is astronomical (100k+ writes/sec: IoT telemetry, chat messages, financial audit logs), schema changes daily, or data must be horizontally sharded across multiple continents with zero downtime.</li>
+    </ul>
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Hardware limits govern architecture. What are the speed limits of CPU, RAM, and SSD? Next: Memory vs Latency.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0041-consistency-vs-availability.html">← Previous: Consistency vs Availability</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0043-memory-vs-latency.html">Next: Memory vs Latency →</a>
+  </div>
+</body>
+</html>

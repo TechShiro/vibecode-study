@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 23 - Load Balancing Algorithms | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 23 of 66 · L4 vs L7, Round Robin, Least Connections</div>
+  
+  <h1>Load Balancing Algorithms &amp; Architecture</h1>
+  <p class="subtitle">Distributing incoming user traffic uniformly across server pools to eliminate bottlenecks.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module F — Load Balancers &amp; Traffic Management</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>If 100,000 users connect to a single web server, that server crashes. If you add 10 web servers, you need a smart traffic cop standing at the front door to inspect each incoming request and route it to an available, healthy backend server. That traffic cop is a <strong>Load Balancer (LB)</strong>.</p>
+
+  <div class="arch-flow">
+    <div class="box">Clients (Web / Mobile)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Load Balancer (Nginx / ALB)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Server 1</div>
+    <div class="box">Server 2</div>
+    <div class="box">Server 3</div>
+  </div>
+
+  <h2>2 · Layer 4 vs Layer 7 Load Balancing</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Layer 4 Load Balancer (Transport)</th>
+        <th>Layer 7 Load Balancer (Application)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>What it inspects</strong></td>
+        <td>IP addresses and TCP/UDP ports only. Cannot see HTTP headers, cookies, or URLs.</td>
+        <td>Full HTTP payload: URLs, cookies, HTTP headers, request body.</td>
+      </tr>
+      <tr>
+        <td><strong>Routing capability</strong></td>
+        <td>Pure packet forwarding. Cannot route by path (e.g. <code>/api</code> vs <code>/images</code>).</td>
+        <td>Smart routing (e.g., <code>/video</code> to Video microservice, <code>/pay</code> to Payment service).</td>
+      </tr>
+      <tr>
+        <td><strong>Performance</strong></td>
+        <td>Blazing fast (minimal CPU overhead, line-rate throughput).</td>
+        <td>Slightly more CPU-intensive (must decrypt TLS and parse HTTP text).</td>
+      </tr>
+      <tr>
+        <td><strong>Examples</strong></td>
+        <td>AWS NLB (Network Load Balancer), HAProxy (TCP mode), IPVS.</td>
+        <td>AWS ALB (Application Load Balancer), Nginx, Envoy, Traefik.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The Core Balancing Algorithms</h2>
+  <ol>
+    <li><strong>Round Robin:</strong> Sends Request 1 to Server A, Request 2 to Server B, Request 3 to Server C, then loops back. Great when all servers have identical hardware and requests take equal processing time.</li>
+    <li><strong>Weighted Round Robin:</strong> Assigns weights based on server specs (e.g., Server A has 32 cores = weight 3; Server B has 8 cores = weight 1). Server A receives 3 requests for every 1 request Server B gets.</li>
+    <li><strong>Least Connections:</strong> Directs traffic to the server currently handling the fewest active connections. Ideal for long-lived sessions (e.g., chat apps, file uploads) where round robin would cause uneven pile-ups.</li>
+    <li><strong>IP Hash:</strong> Computes <code>Hash(Client_IP) % N</code> to ensure a given user consistently routes to the same backend server (useful for session affinity, though modern apps prefer stateless JWTs).</li>
+    <li><strong>Power of Two Random Choices:</strong> Picks two random servers and routes to whichever of the two has fewer connections. Surprisingly outperforms Least Connections in large distributed clusters by eliminating herd behavior!</li>
+  </ol>
+
+  <h2>4 · Health Checks: Removing Dead Servers</h2>
+  <p>A load balancer continuously pings each backend server (e.g., <code>GET /healthz</code> every 5 seconds). If a server returns an error or times out 3 times in a row, the LB instantly cuts it from the pool with zero dropped user requests!</p>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>What happens when a cache or database server is added or removed under standard modulo hashing? The entire cluster breaks. Next: Consistent Hashing.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0022-webrtc-video-streaming.html">← Previous: WebRTC &amp; Video</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0024-consistent-hashing.html">Next: Consistent Hashing →</a>
+  </div>
+</body>
+</html>

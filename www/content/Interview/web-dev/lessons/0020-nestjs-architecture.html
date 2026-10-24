@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 20 — NestJS: Modules, DI &amp; the Request Pipeline</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 20 of 24 · TypeScript, NestJS, DI, pipeline</div>
+<h1>NestJS: Modules, DI &amp; the Request Pipeline</h1>
+<p class="subtitle">Express gave you total freedom; Nest takes some back and hands you Spring Boot for Node in exchange — for a Java developer, this is the framework where everything suddenly feels like home.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 20 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · A compact TypeScript primer — enough to read Nest</h2>
+<p>
+Nest is TypeScript-first, and so is Drizzle in Lesson 23 — so ten minutes here pays twice.
+TypeScript = JavaScript + a static type layer that is <strong>erased at compile time</strong>: <code>tsc</code>
+type-checks, then emits plain JS. Nothing about the runtime changes; you already know the runtime.
+For your Java brain: it's the compile-time safety of <code>javac</code> bolted onto the JS you learned in Lessons 1–10 —
+but structural ("has the right shape") rather than nominal ("declared as the right class").
+</p>
+
+<pre><code><span class="cmt">// Type annotations — after the name, unlike Java's before</span>
+let title: string = "Qhess";
+let count: number = 3;                <span class="cmt">// one number type — no int/double split</span>
+let tags: string[] = ["chess", "quantum"];
+let maybe: string | null = null;      <span class="cmt">// UNION types — no Java equivalent; like Optional but built into the type</span>
+
+<span class="cmt">// Functions: parameter types + return type. ? marks optional params.</span>
+function clamp(x: number, max: number, min?: number): number {
+  return Math.min(max, Math.max(min ?? 0, x));
+}
+
+<span class="cmt">// Interfaces describe SHAPES (like Java interfaces, but no class needs to 'implements' them —</span>
+<span class="cmt">// any object with matching members qualifies: structural typing, "duck typing checked at compile time")</span>
+interface Note {
+  id: number;
+  text: string;
+  done: boolean;
+}
+const n: Note = { id: 1, text: "hi", done: false };  <span class="cmt">// ✓ shape matches</span>
+
+<span class="cmt">// Generics — same idea and even similar syntax as Java's &lt;T&gt;</span>
+function firstOrNull&lt;T&gt;(arr: T[]): T | null {
+  return arr.length ? arr[0] : null;
+}
+const x = firstOrNull&lt;Note&gt;([n]);     <span class="cmt">// x: Note | null — usually inferred, no need to write &lt;Note&gt;</span>
+
+<span class="cmt">// Enums — a glance; Nest code prefers union-of-literals, which does the same job lighter</span>
+enum Role { User = "user", Admin = "admin" }
+type RoleLite = "user" | "admin";</code></pre>
+
+<h3>Decorators — the syntax Nest is built on</h3>
+<p>
+A <strong>decorator</strong> — <code>@Something()</code> above a class, method, property, or parameter — is just a
+<em>function that receives the thing it decorates</em> and may register metadata about it or wrap it. If it looks exactly
+like Java annotations, that's the point: <code>@Controller()</code> plays the role of <code>@RestController</code>.
+One real difference: Java annotations are passive metadata read via reflection; TS decorators are <em>functions that
+execute</em> when the class is defined.
+</p>
+
+<pre><code>function Logged(target: any, key: string, desc: PropertyDescriptor) {
+  const original = desc.value;                    <span class="cmt">// the method being decorated</span>
+  desc.value = function (...args: any[]) {        <span class="cmt">// replace it with a wrapper</span>
+    console.log(`calling ${key}`);
+    return original.apply(this, args);
+  };
+}
+
+class Greeter {
+  @Logged                                          <span class="cmt">// applied once, at class-definition time</span>
+  hello(name: string) { return `hi ${name}`; }
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Java parallel</span>
+  Annotation-driven frameworks translate one-to-one: <code>@Component</code>→<code>@Injectable()</code>,
+  <code>@RestController</code>→<code>@Controller()</code>, <code>@GetMapping</code>→<code>@Get()</code>,
+  <code>@RequestBody</code>→<code>@Body()</code>, <code>@PathVariable</code>→<code>@Param()</code>. When Nest code
+  looks foreign, ask "what would this be in Spring?" — the answer is almost always right.
+</div>
+
+<h2>2 · Why Nest exists</h2>
+<p>
+Express is deliberately unopinionated: it gives you routing and middleware and <em>no</em> answer to "where does code go,
+how do classes get their dependencies, how do we test this?" Every Express team invents its own architecture — you
+hand-built one in Lesson 18 (routes/controllers/services), and you also hand-wired every dependency yourself.
+On a 10-person team, five private conventions collide.
+</p>
+<p>
+NestJS ships the opinions: an Angular/Spring-style architecture on top of Express (or Fastify) with
+<strong>modules</strong> for organization, a <strong>dependency-injection container</strong> for wiring,
+first-class <strong>TypeScript</strong>, and dedicated slots (pipes/guards/interceptors/filters) for every
+cross-cutting concern. If Express is a bag of excellent parts, Nest is Spring Boot: the parts pre-arranged,
+opinionated, and test-friendly.
+</p>
+
+<h2>3 · The CLI</h2>
+<pre><code>npm i -g @nestjs/cli
+nest new notes-api          <span class="cmt">// scaffolds project: src/main.ts, app.module.ts, tsconfig, jest</span>
+cd notes-api &amp;&amp; npm run start:dev    <span class="cmt">// watch mode</span>
+
+nest generate module notes           <span class="cmt">// short: nest g mo notes</span>
+nest g controller notes             <span class="cmt">// creates the class AND registers it in notes.module</span>
+nest g service notes                <span class="cmt">// like Spring Initializr, but incremental — it edits wiring for you</span></code></pre>
+
+<pre><code><span class="cmt">// src/main.ts — the bootstrap (your Application.main() + SpringApplication.run())</span>
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);   <span class="cmt">// builds the IoC container from the module graph</span>
+  await app.listen(3000);
+}
+bootstrap();</code></pre>
+
+<h2>4 · Building blocks: modules, controllers, providers</h2>
+
+<h3>Modules — the unit of organization</h3>
+<pre><code>import { Module } from "@nestjs/common";
+
+@Module({
+  imports: [],                    <span class="cmt">// other modules whose EXPORTS we want to use</span>
+  controllers: [NotesController], <span class="cmt">// HTTP endpoints owned by this module</span>
+  providers: [NotesService],      <span class="cmt">// injectable classes the container should instantiate</span>
+  exports: [NotesService],        <span class="cmt">// what other modules may inject — everything else is PRIVATE</span>
+})
+export class NotesModule {}</code></pre>
+<p>
+Every Nest app is a graph of modules with <code>AppModule</code> at the root. Providers are
+<em>encapsulated</em>: <code>UsersModule</code> can inject <code>NotesService</code> only if <code>NotesModule</code>
+exports it <em>and</em> UsersModule imports NotesModule. That's enforced architecture — Java packages plus JPMS-style
+explicit exports, per feature.
+</p>
+
+<h3>Controllers — routing via decorators</h3>
+<pre><code>import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
+
+@Controller("notes")                         <span class="cmt">// base path: /notes</span>
+export class NotesController {
+  constructor(private readonly notesService: NotesService) {}  <span class="cmt">// DI — next section</span>
+
+  @Get()                                     <span class="cmt">// GET /notes</span>
+  list(@Query("done") done?: string) {       <span class="cmt">// @Query pulls from the query string</span>
+    return this.notesService.list();         <span class="cmt">// return a value — Nest serializes to JSON, sets 200</span>
+  }
+
+  @Get(":id")                                <span class="cmt">// GET /notes/42</span>
+  getOne(@Param("id") id: string) {
+    return this.notesService.getById(Number(id));
+  }
+
+  @Post()                                    <span class="cmt">// POST /notes → Nest defaults POST to 201 automatically</span>
+  create(@Body() dto: CreateNoteDto) {
+    return this.notesService.create(dto);
+  }
+}</code></pre>
+<p>
+Note the shift from Express: no <code>req</code>/<code>res</code> in sight. Parameter decorators
+(<code>@Body()</code>, <code>@Param()</code>, <code>@Query()</code>) extract exactly what you declare, and
+<em>returning</em> a value replaces <code>res.json(...)</code>. Handlers become plain, easily-tested methods —
+exactly Spring MVC's <code>@RequestBody</code>/<code>@PathVariable</code> model.
+</p>
+
+<h3>Providers — anything injectable</h3>
+<pre><code>import { Injectable, NotFoundException } from "@nestjs/common";
+
+@Injectable()                                <span class="cmt">// marks the class as container-managed — Spring's @Service/@Component</span>
+export class NotesService {
+  private notes = [{ id: 1, text: "Learn Nest", done: false }];
+
+  getById(id: number) {
+    const note = this.notes.find(n =&gt; n.id === id);
+    if (!note) throw new NotFoundException(`Note ${id} not found`);  <span class="cmt">// → 404, see filters</span>
+    return note;
+  }
+}</code></pre>
+
+<h2>5 · Dependency injection, deeply</h2>
+<p>
+In Lesson 18 your controller <em>imported</em> its service directly — the controller chose and constructed its own
+dependency. <strong>Inversion of Control</strong> flips that: classes only <em>declare</em> what they need
+(in the constructor), and a container — Nest's IoC container, same job as Spring's ApplicationContext — builds the
+object graph and hands each class its dependencies. "Don't call us, we'll call you."
+</p>
+
+<pre><code>constructor(private readonly notesService: NotesService) {}
+<span class="cmt">// TS shorthand: declares the field AND assigns it. The TYPE ANNOTATION is the lookup token —</span>
+<span class="cmt">// decorator metadata lets Nest read "NotesService" at runtime and inject the singleton instance.</span></code></pre>
+
+<p>What actually happens at bootstrap:</p>
+<ul>
+  <li>Nest walks the module graph and collects every class listed in <code>providers</code>.</li>
+  <li>For each, it inspects constructor parameter types, resolves those first (recursively), then instantiates — by default one <strong>singleton</strong> per provider, like Spring's default bean scope.</li>
+  <li>Circular or missing dependencies fail loudly at startup — wiring bugs die before the first request.</li>
+</ul>
+
+<p>
+<strong>Why does DI matter for testing?</strong> Because the class never hard-codes <code>new NotesService()</code>,
+tests can hand it a fake:
+</p>
+
+<pre><code><span class="cmt">// notes.controller.spec.ts — swap the real provider for a stub, zero HTTP involved</span>
+const moduleRef = await Test.createTestingModule({
+  controllers: [NotesController],
+  providers: [{
+    provide: NotesService,                             <span class="cmt">// the token...</span>
+    useValue: { list: () =&gt; [{ id: 1, text: "fake", done: false }] },  <span class="cmt">// ...bound to a mock</span>
+  }],
+}).compile();
+
+const controller = moduleRef.get(NotesController);
+expect(controller.list()).toHaveLength(1);             <span class="cmt">// pure unit test — no server, no real service</span></code></pre>
+
+<table>
+  <thead><tr><th>Concept</th><th>Spring</th><th>NestJS</th></tr></thead>
+  <tbody>
+    <tr><td>Injectable class</td><td><code>@Component</code> / <code>@Service</code></td><td><code>@Injectable()</code></td></tr>
+    <tr><td>Container</td><td>ApplicationContext</td><td>Nest IoC container (built from modules)</td></tr>
+    <tr><td>Registration</td><td>Component scan / <code>@Bean</code> config</td><td>Explicit <code>providers: []</code> arrays</td></tr>
+    <tr><td>Injection style</td><td>Constructor injection (recommended)</td><td>Constructor injection (the default and norm)</td></tr>
+    <tr><td>Default scope</td><td>Singleton</td><td>Singleton (<code>REQUEST</code>/<code>TRANSIENT</code> opt-in)</td></tr>
+    <tr><td>Visibility control</td><td>Public beans app-wide</td><td>Module-scoped unless exported — stricter</td></tr>
+    <tr><td>Test doubles</td><td><code>@MockBean</code> / test contexts</td><td><code>Test.createTestingModule</code> + <code>useValue/useClass</code></td></tr>
+  </tbody>
+</table>
+
+<h2>6 · DTOs, ValidationPipe &amp; pipes in general</h2>
+<p>
+A <strong>DTO</strong> (data-transfer object — the term is straight from Java) is a class that defines a request body's
+shape, with validation rules as decorators from <code>class-validator</code>:
+</p>
+
+<pre><code>npm i class-validator class-transformer</code></pre>
+
+<pre><code><span class="cmt">// src/notes/dto/create-note.dto.ts — Bean Validation vibes: @NotBlank/@Size → @IsString/@Length</span>
+import { IsString, Length, IsBoolean, IsOptional } from "class-validator";
+
+export class CreateNoteDto {
+  @IsString()
+  @Length(1, 500)
+  text: string;
+
+  @IsOptional()
+  @IsBoolean()
+  done?: boolean;
+}
+
+<span class="cmt">// update DTO: same fields, all optional — PartialType does it in one line</span>
+<span class="cmt">// export class UpdateNoteDto extends PartialType(CreateNoteDto) {}   (from @nestjs/mapped-types)</span></code></pre>
+
+<pre><code><span class="cmt">// main.ts — one global pipe replaces Lesson 18's hand-written zod middleware</span>
+app.useGlobalPipes(new ValidationPipe({
+  whitelist: true,             <span class="cmt">// strip properties not declared in the DTO (mass-assignment defence)</span>
+  forbidNonWhitelisted: true,  <span class="cmt">// ...or reject the request outright when extras appear</span>
+  transform: true,             <span class="cmt">// convert payloads into real DTO class instances (+ type coercion)</span>
+}));
+<span class="cmt">// invalid body → automatic 400 with per-field messages. You wrote this by hand last lesson.</span></code></pre>
+
+<p>
+Generalizing: a <strong>pipe</strong> is a class that <em>transforms or validates</em> a handler's input just before the
+handler runs. <code>ValidationPipe</code> is one; <code>ParseIntPipe</code> is the other everyday one:
+</p>
+
+<pre><code>@Get(":id")
+getOne(@Param("id", ParseIntPipe) id: number) {   <span class="cmt">// "42" → 42; "abc" → automatic 400 Bad Request</span>
+  return this.notesService.getById(id);           <span class="cmt">// Lesson 18's parseId() helper, now declarative</span>
+}</code></pre>
+
+<h2>7 · Guards — where auth lives</h2>
+<p>
+A <strong>guard</strong> answers one boolean question before the handler runs: <em>may this request proceed?</em>
+It implements <code>CanActivate</code> — this is Nest's slot for the JWT check you wrote as <code>requireAuth</code>
+middleware in Lesson 19, and the direct cousin of a Spring Security filter + <code>@PreAuthorize</code>.
+</p>
+
+<pre><code>import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from "@nestjs/common";
+import * as jwt from "jsonwebtoken";
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest();       <span class="cmt">// the underlying Express req</span>
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) throw new UnauthorizedException();          <span class="cmt">// → 401</span>
+    try {
+      req.user = jwt.verify(token, process.env.JWT_SECRET!); <span class="cmt">// attach identity, like Lesson 19</span>
+      return true;                                          <span class="cmt">// true = proceed; false/throw = blocked</span>
+    } catch {
+      throw new UnauthorizedException("Invalid or expired token");
+    }
+  }
+}
+
+@UseGuards(AuthGuard)          <span class="cmt">// per-handler, per-controller, or global — role guards read</span>
+@Get("secret")                 <span class="cmt">// custom @Roles() decorator metadata via Reflector, same slot</span>
+secret() { return "vip"; }</code></pre>
+
+<h2>8 · Interceptors — around the handler</h2>
+<p>
+An <strong>interceptor</strong> wraps the handler like an around-advice in Spring AOP: code before, code after, and the
+power to transform the response. Classic uses: timing/logging, mapping every response into an envelope, caching.
+</p>
+
+<pre><code>import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from "@nestjs/common";
+import { map, tap } from "rxjs/operators";
+
+@Injectable()
+export class TimingInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler) {
+    const start = Date.now();                       <span class="cmt">// BEFORE the handler</span>
+    return next.handle().pipe(                      <span class="cmt">// handle() runs the rest of the pipeline</span>
+      tap(() =&gt; console.log(`took ${Date.now() - start}ms`)),   <span class="cmt">// AFTER</span>
+      map(data =&gt; ({ data, timestamp: Date.now() })),           <span class="cmt">// reshape every response body</span>
+    );
+  }
+}
+<span class="cmt">// (next.handle() returns an RxJS Observable — think "a Promise with operators"; tap/map is all you need here)</span></code></pre>
+
+<h2>9 · Exception filters — centralized errors</h2>
+<p>
+Nest ships <code>HttpException</code> subclasses — <code>NotFoundException</code>, <code>UnauthorizedException</code>,
+<code>ConflictException</code>… Throw them <em>anywhere</em> (service included) and the built-in global filter converts
+them to proper JSON responses; unrecognized errors become a safe 500. This replaces Lesson 18's hand-written
+<code>ApiError</code> + 4-arg error middleware, and mirrors Spring's <code>@ControllerAdvice</code>. A custom filter
+lets you own the format:
+</p>
+
+<pre><code>import { Catch, ExceptionFilter, ArgumentsHost, HttpException } from "@nestjs/common";
+
+@Catch(HttpException)                          <span class="cmt">// which exception types this filter handles</span>
+export class ApiExceptionFilter implements ExceptionFilter {
+  catch(exception: HttpException, host: ArgumentsHost) {
+    const res = host.switchToHttp().getResponse();
+    res.status(exception.getStatus()).json({
+      error: exception.message,
+      at: new Date().toISOString(),            <span class="cmt">// your envelope, your rules</span>
+    });
+  }
+}
+<span class="cmt">// app.useGlobalFilters(new ApiExceptionFilter());</span></code></pre>
+
+<h2>10 · Middleware in Nest — and how it differs</h2>
+<p>
+Express-style <code>(req, res, next)</code> middleware still exists in Nest, but it's demoted: it runs <em>before
+routing</em>, knows nothing about which handler will run, and can't use execution context metadata. Use it only for raw
+HTTP concerns (request logging, compression, helmet); use guards/pipes/interceptors for anything route-aware.
+Configuration happens in a module:
+</p>
+
+<pre><code>export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggerMiddleware).forRoutes("*");   <span class="cmt">// or specific paths/methods</span>
+  }
+}</code></pre>
+
+<h2>11 · THE interview question: the full request lifecycle</h2>
+<p>
+Every request walks a fixed pipeline. Memorize the order — Nest interviews ask it almost every time:
+</p>
+
+<pre><code>  Request
+    │
+    ▼
+  1. MIDDLEWARE            <span class="cmt">// raw req/res work, before routing (logging, helmet)</span>
+    │
+    ▼
+  2. GUARDS                <span class="cmt">// may you enter? auth/roles → 401/403 stop here</span>
+    │
+    ▼
+  3. INTERCEPTORS (pre)    <span class="cmt">// wrap begins — start timers, open spans</span>
+    │
+    ▼
+  4. PIPES                 <span class="cmt">// validate + transform the handler's inputs (DTOs, ParseIntPipe)</span>
+    │
+    ▼
+  5. HANDLER → SERVICE     <span class="cmt">// your controller method calls business logic</span>
+    │
+    ▼
+  6. INTERCEPTORS (post)   <span class="cmt">// wrap ends — stop timers, map/reshape the response</span>
+    │
+    ▼
+  7. EXCEPTION FILTERS     <span class="cmt">// only on a thrown exception, from ANY stage → error response</span>
+    │
+    ▼
+  Response</code></pre>
+
+<p>Walk one request through it: <code>POST /notes</code> with a JWT and <code>{"text":"hi","hacker":"x"}</code>:</p>
+<ul>
+  <li><strong>Middleware</strong> logs <code>POST /notes</code>.</li>
+  <li><strong>AuthGuard</strong> verifies the JWT, attaches <code>req.user</code>. Bad token? <code>UnauthorizedException</code> → straight to the filter, 401, stages 3–6 never run.</li>
+  <li><strong>TimingInterceptor</strong> starts its stopwatch, calls <code>next.handle()</code>.</li>
+  <li><strong>ValidationPipe</strong> checks the body against <code>CreateNoteDto</code>, strips <code>hacker</code> (whitelist).</li>
+  <li><strong>Handler</strong> runs, service creates the note, returns it.</li>
+  <li><strong>Interceptor (post)</strong> logs the elapsed time, wraps the body in its envelope. Response: 201.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Middleware → guards → interceptors (pre) → pipes → handler → interceptors (post) → exception filters.
+  Sanity check: it's need-order — you can't authorize before raw processing, can't validate input for a handler
+  you're not allowed to reach, and errors from any stage short-circuit into the filters."
+</div>
+
+<h2>12 · Config — <code>@nestjs/config</code></h2>
+<pre><code>npm i @nestjs/config
+
+<span class="cmt">// app.module.ts</span>
+@Module({
+  imports: [ConfigModule.forRoot({ isGlobal: true })],  <span class="cmt">// loads .env (dotenv inside), injectable app-wide</span>
+})
+export class AppModule {}
+
+<span class="cmt">// anywhere — injected, hence mockable in tests (unlike raw process.env reads)</span>
+constructor(private readonly config: ConfigService) {}
+this.config.get&lt;string&gt;("JWT_SECRET");
+<span class="cmt">// Spring parallel: application.properties + @Value / @ConfigurationProperties</span></code></pre>
+
+<h2>13 · The notes CRUD in Nest — compare with Lesson 18 line-by-line</h2>
+<p>Same resource you built in Express. Four files, generated by <code>nest g resource notes</code> in real life:</p>
+
+<pre><code><span class="cmt">// ── src/notes/dto/create-note.dto.ts  (≙ Lesson 18's zod schema)</span>
+export class CreateNoteDto {
+  @IsString() @Length(1, 500) text: string;
+  @IsOptional() @IsBoolean() done?: boolean;
+}
+export class UpdateNoteDto extends PartialType(CreateNoteDto) {}
+
+<span class="cmt">// ── src/notes/notes.service.ts  (≙ notes.service.js — logic is nearly identical)</span>
+@Injectable()
+export class NotesService {
+  private notes: Note[] = [{ id: 1, text: "Learn Nest", done: false }];
+  private nextId = 2;
+
+  list() { return this.notes; }
+  getById(id: number) {
+    const note = this.notes.find(n =&gt; n.id === id);
+    if (!note) throw new NotFoundException(`Note ${id} not found`);  <span class="cmt">// was: throw new ApiError(404,...)</span>
+    return note;
+  }
+  create(dto: CreateNoteDto) {
+    const note = { id: this.nextId++, done: false, ...dto };
+    this.notes.push(note);
+    return note;
+  }
+  update(id: number, dto: UpdateNoteDto) { return Object.assign(this.getById(id), dto); }
+  remove(id: number) { this.getById(id); this.notes = this.notes.filter(n =&gt; n.id !== id); }
+}
+
+<span class="cmt">// ── src/notes/notes.controller.ts  (≙ routes file + controller file COMBINED — decorators route)</span>
+@Controller("notes")
+export class NotesController {
+  constructor(private readonly notesService: NotesService) {}   <span class="cmt">// was: import { notesService }</span>
+
+  @Get()    list() { return this.notesService.list(); }
+  @Get(":id")  getOne(@Param("id", ParseIntPipe) id: number) { return this.notesService.getById(id); }
+  @Post()   create(@Body() dto: CreateNoteDto) { return this.notesService.create(dto); }  <span class="cmt">// 201 auto</span>
+  @Patch(":id") update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateNoteDto) {
+    return this.notesService.update(id, dto);
+  }
+  @Delete(":id") @HttpCode(204)
+  remove(@Param("id", ParseIntPipe) id: number) { this.notesService.remove(id); }
+
+<span class="cmt">// ── src/notes/notes.module.ts  (≙ the app.use("/api/v1/notes", router) wiring)</span>
+@Module({ controllers: [NotesController], providers: [NotesService] })
+export class NotesModule {}   <span class="cmt">// imported into AppModule; global prefix: app.setGlobalPrefix("api/v1")</span></code></pre>
+
+<p>What vanished from the Express version: manual body parsing setup, the zod middleware, <code>parseId</code>,
+the ApiError class, the 4-arg error handler, the 404 catcher, the asyncWrap — all replaced by framework slots.
+What appeared: classes, decorators, and one module file. That's the trade in miniature.</p>
+
+<h2>14 · Express vs NestJS — the honest comparison</h2>
+<table>
+  <thead><tr><th></th><th>Express</th><th>NestJS</th></tr></thead>
+  <tbody>
+    <tr><td>Philosophy</td><td>Minimal library — you architect</td><td>Full framework — architecture included</td></tr>
+    <tr><td>Structure</td><td>Whatever you invent (Lesson 18's layering was our invention)</td><td>Enforced: modules, controllers, providers</td></tr>
+    <tr><td>DI</td><td>None — manual imports</td><td>Built-in IoC container</td></tr>
+    <tr><td>Language</td><td>JS (TS optional, self-configured)</td><td>TypeScript-first</td></tr>
+    <tr><td>Cross-cutting slots</td><td>One hammer: middleware</td><td>Middleware, guards, pipes, interceptors, filters — each with a role</td></tr>
+    <tr><td>Learning curve</td><td>Hours</td><td>Days–weeks (much less if you know Spring)</td></tr>
+    <tr><td>Boilerplate</td><td>Low to start, grows ad hoc</td><td>Higher upfront, consistent forever</td></tr>
+    <tr><td>Testing story</td><td>DIY (supertest, manual fakes)</td><td>First-class: TestingModule, DI-powered mocking</td></tr>
+    <tr><td>Best for</td><td>Small services, prototypes, learning HTTP itself</td><td>Large/long-lived APIs, bigger teams, enterprise</td></tr>
+    <tr><td>Under the hood</td><td>—</td><td>Express (default) or Fastify — Nest is a layer above</td></tr>
+  </tbody>
+</table>
+<p>
+What interviewers expect you to say: Express for small, fast-moving services and full control; Nest when team size and
+codebase lifetime make structure, DI, and testability worth the ceremony. And the kicker that shows depth:
+<em>Nest runs on Express by default</em> — it's organization, not replacement.
+</p>
+
+<h2>15 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What is dependency injection and why does Nest use it?"</strong><br>
+  Classes declare dependencies in their constructors; the IoC container instantiates and wires them (singletons by
+  default). Benefits: decoupling, one obvious wiring mechanism, and testability — tests substitute providers via the
+  container instead of monkey-patching imports. Same design as Spring's ApplicationContext.</li>
+  <li><strong>"Explain the Nest request lifecycle."</strong><br>
+  Middleware → guards → interceptors (pre) → pipes → handler → interceptors (post) → exception filters.
+  Guards gate access, pipes validate/transform input, interceptors wrap around, filters catch anything thrown at any stage.</li>
+  <li><strong>"Guard vs middleware vs interceptor vs pipe — when which?"</strong><br>
+  Middleware: raw pre-routing req/res work (logging, helmet). Guard: boolean access decision (auth/roles).
+  Pipe: validate/transform handler inputs (DTO validation, ParseIntPipe). Interceptor: around-logic — timing, response
+  mapping, caching. Filter: exception → HTTP response.</li>
+  <li><strong>"What does a decorator actually do?"</strong><br>
+  It's a function applied to a class/method/property/parameter at definition time; it can attach metadata or wrap
+  behavior. Nest's decorators mostly record metadata the framework reads to build routing and injection — like Java
+  annotations, except decorators are executable functions rather than passive markers.</li>
+  <li><strong>"What does <code>ValidationPipe({ whitelist: true })</code> protect against?"</strong><br>
+  Mass assignment: extra fields not declared in the DTO are stripped (or rejected with forbidNonWhitelisted), so a
+  client can't smuggle <code>role: "admin"</code> into a create-user body.</li>
+  <li><strong>"Why can't module B use a provider from module A?"</strong><br>
+  Providers are module-scoped: A must list it in <code>exports</code>, and B must list A in <code>imports</code>.
+  Encapsulation at the architecture level, enforced by the framework.</li>
+</ul>
+
+<h2>16 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In which order does Nest run these for one successful request?</div>
+  <button class="opt">Pipes → guards → middleware → handler → interceptors</button>
+  <button class="opt">Middleware → guards → interceptors (pre) → pipes → handler → interceptors (post)</button>
+  <button class="opt">Guards → middleware → pipes → interceptors → handler</button>
+  <div class="fb" data-correct="Need-order: raw middleware first, then the access decision (guards), then the around-wrap opens (interceptors), then input validation (pipes), then your handler — and the interceptor closes around the response. Filters only fire on exceptions." data-wrong="Think need-order: middleware (raw, pre-routing) → guards (may you enter?) → interceptors open → pipes (validate what you're sending in) → handler → interceptors close. No point validating input for a handler you can't access — so guards precede pipes."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A client POSTs <code>{"text":"hi","role":"admin"}</code> but <code>CreateNoteDto</code> only declares <code>text</code>. With <code>ValidationPipe({ whitelist: true })</code>, what reaches the handler?</div>
+  <button class="opt">The full body — validation only checks declared fields, extras pass through</button>
+  <button class="opt">Nothing — any undeclared field always rejects the request with 400</button>
+  <button class="opt"><code>{"text":"hi"}</code> — undeclared properties are silently stripped</button>
+  <div class="fb" data-correct="whitelist: true strips unknown properties — the mass-assignment defence. Add forbidNonWhitelisted: true if you'd rather 400 the request when extras appear." data-wrong="whitelist: true means only DTO-declared properties survive; role is stripped silently. Rejecting outright is opt-in via forbidNonWhitelisted: true. Without whitelist, extras would flow through — the mass-assignment risk."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does constructor injection make <code>NotesController</code> easier to unit-test than Lesson 18's Express controller that imported its service?</div>
+  <button class="opt">The test builds the controller with a fake service via the testing module — no real service, no HTTP needed</button>
+  <button class="opt">Injected classes run faster because the container caches their methods</button>
+  <button class="opt">It doesn't — both are equally testable since both call the same service</button>
+  <div class="fb" data-correct="The controller only declares 'I need a NotesService-shaped thing'; the container (or Test.createTestingModule with useValue) decides which instance. Swap in a stub and you test the controller in pure isolation. A hard import welds you to the real implementation." data-wrong="It's about substitution, not speed: a hard import means the real service always loads; with DI the test binds the NotesService token to a stub (useValue) and tests the controller alone. That substitution point is DI's testing superpower."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Where does the JWT verification check belong in idiomatic NestJS?</div>
+  <button class="opt">In an exception filter, since bad tokens produce errors</button>
+  <button class="opt">In a guard implementing <code>CanActivate</code> — it answers "may this request proceed?"</button>
+  <button class="opt">Inside each service method, so business logic stays protected everywhere</button>
+  <div class="fb" data-correct="Access decisions are exactly what guards exist for: verify the token, attach req.user, return true — or throw UnauthorizedException. Filters only translate already-thrown exceptions; services should stay HTTP-ignorant." data-wrong="Filters react to exceptions after the fact, and services shouldn't know HTTP exists. The boolean 'is this request allowed in?' decision is the guard's single job — Nest's slot for Lesson 19's requireAuth middleware."></div>
+</div>
+
+<h2>17 · Do this next</h2>
+<ul>
+  <li><code>nest new notes-api</code>, then rebuild section 13 for real: module, controller, service, DTOs, global ValidationPipe with whitelist. Hit it with the same curl commands as Lesson 18 and confirm identical behaviour — including 404, 400 from ParseIntPipe, and stripped extra fields.</li>
+  <li>Add the <code>TimingInterceptor</code> and <code>AuthGuard</code> from sections 7–8. Protect POST/PATCH/DELETE with the guard while leaving GETs public, and prove the lifecycle order by logging one line at each stage for a single request.</li>
+  <li>Write the controller unit test from section 5 with a stubbed <code>NotesService</code>, and run <code>npm test</code>. Then, in one paragraph in your notes file, answer as if interviewing: "When would you pick Express over Nest?"</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Decorators still feel like magic, or unsure why guards precede pipes, or want the RxJS bit of interceptors unpacked?
+  Ask in the chat — with your Spring intuition we can map every piece. When you can recite the request lifecycle and
+  defend Express-vs-Nest both ways, say <strong>"next"</strong> for Lesson 21: PostgreSQL — SQL Fundamentals.
+  That opens <strong>Module E, the database module</strong> — your APIs finally stop forgetting everything on restart.
+</div>
+
+<div class="nav">
+  <span><a href="0019-express-auth-security.html">← Auth &amp; Security</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0021-postgres-sql-fundamentals.html">PostgreSQL: SQL Fundamentals →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

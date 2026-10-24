@@ -1,0 +1,389 @@
+<title>Monitors</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit II &middot; Lesson 14 of 14</p>
+<h1>Monitors</h1>
+<p class="deck">Why semaphores were not enough, the monitor construct and its automatic mutual exclusion, condition variables with wait and signal, the signal-and-wait versus signal-and-continue question, the dining-philosophers monitor, and implementing a monitor with semaphores.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;What is a monitor? How does it differ from a semaphore?&rdquo;</strong> is the question, and it is worth 5&ndash;10 marks. The winning line is: <strong>a monitor provides mutual exclusion automatically, so the programmer cannot forget it; a semaphore relies entirely on the programmer.</strong> Draw the <strong>schematic view</strong> &mdash; shared data, procedures, entry queue &mdash; and know that <strong><code>x.signal()</code> on a condition variable with nobody waiting has no effect</strong>, which is exactly where it differs from a semaphore's <code>signal()</code>. The <strong>dining-philosophers monitor</strong> is the standard long answer.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Monitor High-Level Language Synchronization Architecture</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Monitor Entry Queue: Only ONE thread can execute inside Monitor at any time!</strong>
+    </div>
+    <div class="flow-arrow-down">&darr; Enters monitor</div>
+    <div class="flow-row">
+      <div class="flow-box ok"><strong>Active Thread</strong><span class="sub">Executes synchronized procedure &bull; Releases lock if blocked on condition</span></div>
+      <div class="flow-arrow-right">&rarr; x.wait() &rarr;</div>
+      <div class="flow-box warn"><strong>Condition Queue (x.wait)</strong><span class="sub">Suspended until another thread invokes <strong>x.signal()</strong></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Monitors</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Monitors in Operating Systems & Condition Variables Explained</div>
+    <div class="v-desc">High-level programming language construct providing automatic mutual exclusion and condition variables (Hoare vs Mesa semantics).</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=ufdQ0GR855M" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Why monitors exist</h2>
+
+<p>Semaphores are powerful, but <strong>timing errors caused by their incorrect use are extremely hard to detect</strong>, because they only appear under particular interleavings. Recall the four failure modes from Lesson 12:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Programmer error</th><th>Consequence</th></tr></thead>
+<tbody>
+<tr><td><code>signal(mutex)</code> &hellip; <code>wait(mutex)</code> &mdash; the order reversed</td><td><strong>Mutual exclusion violated</strong> &mdash; several processes in the critical section</td></tr>
+<tr><td><code>wait(mutex)</code> &hellip; <code>wait(mutex)</code> &mdash; signal written as wait</td><td><strong>Deadlock</strong></td></tr>
+<tr><td><code>wait(mutex)</code> omitted</td><td>Mutual exclusion violated</td></tr>
+<tr><td><code>signal(mutex)</code> omitted</td><td>Deadlock</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Every one of these is a <strong>silent</strong> error. The compiler cannot see it. <strong>A monitor is a high-level language construct that makes these errors impossible to write.</strong></p>
+
+<h2>The monitor construct</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>monitor</strong> is an <strong>abstract data type</strong> that encapsulates <strong>shared data</strong> together with the <strong>procedures that operate on it</strong>, and guarantees that <strong>only one process at a time can be active inside the monitor.</strong>
+</div>
+
+<div class="formula">
+  <span class="name">Syntax</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  monitor monitor_name<br>
+  {<br>
+  &nbsp;&nbsp;<strong>/* shared variable declarations */</strong><br><br>
+  &nbsp;&nbsp;function P1 ( &hellip; ) { &hellip; }<br>
+  &nbsp;&nbsp;function P2 ( &hellip; ) { &hellip; }<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&hellip;<br>
+  &nbsp;&nbsp;function Pn ( &hellip; ) { &hellip; }<br><br>
+  &nbsp;&nbsp;<strong>initialization_code ( &hellip; ) { &hellip; }</strong><br>
+  }
+  </div>
+</div>
+
+<h3>The three rules that define a monitor</h3>
+
+<ol>
+<li><strong>The shared variables are accessible only by the monitor's own procedures.</strong> A process outside the monitor cannot touch them. This is ordinary data encapsulation, and it removes the possibility of an unprotected access.</li>
+<li><strong>Only one process may be active inside the monitor at any time.</strong> The compiler inserts the mutual exclusion &mdash; <strong>the programmer does not write it and cannot forget it.</strong></li>
+<li>A process wanting to enter a busy monitor is placed in the monitor's <strong>entry queue</strong>.</li>
+</ol>
+
+<div class="formula">
+  <span class="name">Schematic view of a monitor &mdash; draw this</span>
+  <table style="width:100%; border-collapse:collapse; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.82rem; margin-top:.4rem">
+  <tr>
+    <td style="border:1px solid var(--rule); padding:.5rem; text-align:center; width:28%"><strong>ENTRY QUEUE</strong><br><span style="font-size:.85em">processes waiting to enter</span></td>
+    <td style="text-align:center; width:6%">&rarr;</td>
+    <td style="border:1px solid var(--rule); padding:.5rem; text-align:center">
+      <strong>SHARED DATA</strong><br>
+      <span style="font-size:.85em">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span><br>
+      <strong>operations</strong> &nbsp; P1 &nbsp; P2 &nbsp; &hellip; &nbsp; Pn<br>
+      <span style="font-size:.85em">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span><br>
+      <strong>initialization code</strong>
+    </td>
+  </tr>
+  </table>
+  <span style="font-size:.8em; display:block; margin-top:.4rem">Add, at the side, one <strong>queue per condition variable</strong> &mdash; x and y &mdash; for the fuller diagram.</span>
+</div>
+
+<h2>Condition variables</h2>
+
+<p>The monitor construct as described is <strong>not sufficiently powerful</strong> on its own. It gives mutual exclusion, but there is no way for a process to say &ldquo;I cannot proceed until some condition becomes true &mdash; let someone else in meanwhile.&rdquo; That requires <strong>condition variables</strong>.</p>
+
+<div class="formula">
+  <span class="name">Declaration and the two operations</span>
+  <strong>condition x, y;</strong><br><br>
+  <strong>x.wait()</strong> &mdash; the process invoking it is <strong>suspended</strong> on x's queue, and <strong>releases the monitor</strong>, so another process may enter.<br>
+  <strong>x.signal()</strong> &mdash; <strong>resumes exactly one</strong> process suspended on x. <strong>If no process is suspended on x, the operation has no effect whatsoever &mdash; the state of x is unchanged.</strong>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The difference from a semaphore &mdash; this is the exam's favourite distinction</span>
+  <p><strong>A semaphore's <code>signal()</code> always increments the counter, so its effect is <em>remembered</em>: a later <code>wait()</code> will pass because of it.</strong></p>
+  <p><strong>A condition variable's <code>x.signal()</code> on an empty queue does <em>nothing at all</em>, and is forgotten.</strong> Condition variables have <strong>no stored value</strong> &mdash; they are not counters, only queues.</p>
+</div>
+
+<h3>Signal and wait, or signal and continue?</h3>
+
+<p>Suppose process P executes <code>x.signal()</code> and process Q is suspended on x. <strong>Both cannot be active in the monitor at once</strong>, so one must give way. There are two possibilities, and naming them is worth a mark:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Signal and wait</strong></th><th><strong>Signal and continue</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Who runs on</strong></td><td><strong>Q</strong> resumes immediately; <strong>P waits</strong> until Q leaves the monitor or waits on another condition</td><td><strong>P continues</strong>; <strong>Q waits</strong> until P leaves the monitor or waits on another condition</td></tr>
+<tr><td><strong>Argument for</strong></td><td>The condition Q was waiting for is <em>known</em> to hold right now</td><td>P is already running, so no extra switch is needed; and it is illogical for P to wait when it has more to do</td></tr>
+<tr><td><strong>Argument against</strong></td><td>An extra context switch, and P is penalised for being helpful</td><td>The condition may have <strong>changed again</strong> by the time Q runs &mdash; so Q must <strong>re-test it in a <code>while</code> loop</strong>, not an <code>if</code></td></tr>
+<tr><td><strong>Used by</strong></td><td>Hoare's original monitors</td><td><strong>Java, C#, Pthreads condition variables</strong> &mdash; the practical choice</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>A third option, adopted in <strong>Concurrent Pascal</strong>, sidesteps the question: <strong><code>signal()</code> must be the last statement a monitor procedure executes</strong>, so P leaves the monitor immediately and Q resumes at once.</p>
+
+<h2>The dining-philosophers monitor solution</h2>
+
+<p>This is the standard long answer, and it also completes Lesson 13's fourth remedy.</p>
+
+<div class="formula">
+  <span class="name">monitor DiningPhilosophers</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left">
+  monitor DiningPhilosophers<br>
+  {<br>
+  &nbsp;&nbsp;enum { THINKING, HUNGRY, EATING } <strong>state[5];</strong><br>
+  &nbsp;&nbsp;<strong>condition self[5];</strong>&nbsp;&nbsp;/* one per philosopher */<br><br>
+  &nbsp;&nbsp;void <strong>pickup</strong>(int i) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;state[i] = HUNGRY;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>test(i);</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;if (state[i] != EATING) <strong>self[i].wait();</strong><br>
+  &nbsp;&nbsp;}<br><br>
+  &nbsp;&nbsp;void <strong>putdown</strong>(int i) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;state[i] = THINKING;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>test((i + 4) % 5);</strong>&nbsp;&nbsp;/* left neighbour */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>test((i + 1) % 5);</strong>&nbsp;&nbsp;/* right neighbour */<br>
+  &nbsp;&nbsp;}<br><br>
+  &nbsp;&nbsp;void <strong>test</strong>(int i) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;if ( (state[(i + 4) % 5] != EATING) &amp;&amp;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(state[i] == HUNGRY) &amp;&amp;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(state[(i + 1) % 5] != EATING) ) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;state[i] = EATING;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>self[i].signal();</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+  &nbsp;&nbsp;}<br><br>
+  &nbsp;&nbsp;initialization_code() {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;for (int i = 0; i &lt; 5; i++) state[i] = THINKING;<br>
+  &nbsp;&nbsp;}<br>
+  }
+  </div>
+</div>
+
+<p><strong>Each philosopher must call:</strong> <code>DiningPhilosophers.pickup(i);</code> &hellip; eat &hellip; <code>DiningPhilosophers.putdown(i);</code></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Explanation</th></tr></thead>
+<tbody>
+<tr><td><strong>Why <code>test</code> is the heart</strong></td><td>A philosopher may move to EATING only if she is HUNGRY <strong>and neither neighbour is EATING</strong> &mdash; which means both her chopsticks are free. She takes <strong>both or neither</strong></td></tr>
+<tr><td><strong>Why <code>putdown</code> tests both neighbours</strong></td><td>Finishing may have released a chopstick each neighbour was waiting for, so both must be given the chance to proceed</td></tr>
+<tr><td><strong>Why it cannot deadlock</strong></td><td>No philosopher ever holds one chopstick while waiting for the other &mdash; hold-and-wait is broken</td></tr>
+<tr><td><strong>Why it can still starve</strong></td><td>Nothing prevents a philosopher's two neighbours from alternating for ever, so that <code>test</code> never finds both free at the moment she is hungry. <strong>Deadlock-free is not starvation-free</strong> &mdash; end the answer with this</td></tr>
+<tr><td><strong>Why <code>self[i].signal()</code> is safe</strong></td><td>If nobody is waiting on <code>self[i]</code>, the signal simply has no effect &mdash; unlike a semaphore, it leaves nothing behind to cause an error later</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Implementing a monitor using semaphores</h2>
+
+<p>Asked when the paper wants to test whether the two constructs are understood as equivalent in power.</p>
+
+<div class="formula">
+  <span class="name">The monitor's own mutual exclusion</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left">
+  semaphore <strong>mutex = 1;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* one process inside the monitor */<br>
+  semaphore <strong>next = 0;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* signallers suspended here */<br>
+  int <strong>next_count = 0;</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* how many are suspended on next */<br><br>
+  /* every monitor procedure F is compiled as: */<br>
+  <strong>wait(mutex);</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&hellip; body of F &hellip;<br>
+  if (next_count &gt; 0) <strong>signal(next);</strong><br>
+  else <strong>signal(mutex);</strong>
+  </div>
+</div>
+
+<div class="formula">
+  <span class="name">Each condition variable x, with semaphore x_sem = 0 and int x_count = 0</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left">
+  <strong>x.wait():</strong><br>
+  &nbsp;&nbsp;x_count++;<br>
+  &nbsp;&nbsp;if (next_count &gt; 0) signal(next); else <strong>signal(mutex);</strong>&nbsp;&nbsp;/* release the monitor */<br>
+  &nbsp;&nbsp;<strong>wait(x_sem);</strong><br>
+  &nbsp;&nbsp;x_count--;<br><br>
+  <strong>x.signal():</strong><br>
+  &nbsp;&nbsp;<strong>if (x_count &gt; 0) {</strong>&nbsp;&nbsp;/* the whole point — do nothing if nobody waits */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;next_count++;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>signal(x_sem);</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>wait(next);</strong>&nbsp;&nbsp;/* the signaller now waits — this is signal-and-wait */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;next_count--;<br>
+  &nbsp;&nbsp;}<br>
+  </div>
+</div>
+
+<p>Notice the <strong><code>if (x_count &gt; 0)</code></strong> guard: it is precisely what makes <code>x.signal()</code> a no-op when nobody is waiting, which is the semantic difference from a plain semaphore.</p>
+
+<h2>Monitor vs semaphore &mdash; the comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Semaphore</strong></th><th><strong>Monitor</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>What it is</strong></td><td>An <strong>integer variable</strong> with two atomic operations</td><td>An <strong>abstract data type</strong> &mdash; a language construct</td></tr>
+<tr><td><strong>Mutual exclusion</strong></td><td><strong>The programmer must write it</strong> and can get it wrong</td><td><strong>Automatic</strong> &mdash; inserted by the compiler</td></tr>
+<tr><td><strong>Level</strong></td><td>Low level</td><td>High level</td></tr>
+<tr><td><strong>Data encapsulation</strong></td><td>None &mdash; shared data is global</td><td><strong>Yes</strong> &mdash; shared data is private to the monitor</td></tr>
+<tr><td><strong>signal on an empty queue</strong></td><td><strong>Remembered</strong> &mdash; the counter is incremented</td><td><strong>Ignored</strong> &mdash; it has no effect at all</td></tr>
+<tr><td><strong>Holds a value</strong></td><td><strong>Yes</strong> &mdash; an integer count</td><td>No &mdash; a condition variable is only a queue</td></tr>
+<tr><td><strong>Error-proneness</strong></td><td><strong>High</strong> &mdash; swapped, omitted or duplicated calls fail silently</td><td><strong>Low</strong> &mdash; those errors cannot be written</td></tr>
+<tr><td><strong>Language support</strong></td><td>Available as an OS-provided library on any system</td><td>Needs support in the programming language</td></tr>
+<tr><td><strong>Found in</strong></td><td>POSIX, most kernels</td><td><strong>Java</strong> (<code>synchronized</code>, <code>wait</code>, <code>notify</code>), C#, Concurrent Pascal</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-line answer</span>
+  <p><strong>A semaphore is a mechanism the programmer must use correctly; a monitor is a construct that uses the mechanism correctly on the programmer's behalf.</strong></p>
+</div>
+
+<h3>Monitors in Java &mdash; worth a sentence</h3>
+
+<p><strong>Every object in Java has an associated monitor lock.</strong> Declaring a method <code>synchronized</code> makes the compiler acquire that lock on entry and release it on exit &mdash; exactly rule 2 above. <code>wait()</code>, <code>notify()</code> and <code>notifyAll()</code> are the condition-variable operations, and Java uses <strong>signal and continue</strong>, which is why every Java textbook insists that <code>wait()</code> be called inside a <strong><code>while</code> loop</strong> and never an <code>if</code>.</p>
+
+<h2>Resuming processes within a monitor</h2>
+
+<p>If several processes are suspended on the same condition x, which one does <code>x.signal()</code> resume? The simple answer is <strong>FCFS</strong> &mdash; the longest waiting. When that is not adequate, the <strong>conditional-wait</strong> construct is used:</p>
+
+<div class="formula">
+  <span class="name">Conditional wait</span>
+  <strong>x.wait(c);</strong><br><br>
+  where <strong>c</strong> is an integer expression evaluated when <code>wait</code> is executed &mdash; the <strong>priority number</strong>, stored with the suspended process. When <code>x.signal()</code> is executed, <strong>the process with the smallest priority number is resumed.</strong>
+</div>
+
+<p>The standard illustration is a <strong>resource allocator</strong> whose <code>acquire(time)</code> operation passes the <em>expected duration of use</em> as the priority number, so the shortest job gets the resource first.</p>
+
+<div class="box">
+  <span class="lbl">The limitation to name at the end</span>
+  <p>A monitor still cannot force correct <em>use</em>. A process may access the resource without asking, never release it, ask twice, or ask for one it already holds. The monitor guarantees only that <strong>access to the monitor's own data is correctly serialised</strong> &mdash; the protocol around it remains the programmer's responsibility.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The defining guarantee of a monitor is that:</p>
+  <div class="opts">
+    <button class="opt">It replaces the need for a scheduler</button>
+    <button class="opt" data-ok="1">Only one process may be active inside the monitor at any time, enforced by the compiler</button>
+    <button class="opt">Its shared variables may be read by any process</button>
+    <button class="opt">It never deadlocks</button>
+  </div>
+  <p class="why">The programmer never writes the mutual exclusion, so cannot forget it, reverse it or duplicate it — which is exactly the class of semaphore errors monitors were invented to remove.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. x.signal() on a condition variable with no process suspended on x:</p>
+  <div class="opts">
+    <button class="opt">Causes a deadlock</button>
+    <button class="opt">Increments a counter, so a later wait will pass</button>
+    <button class="opt" data-ok="1">Has no effect at all — the state of x is unchanged</button>
+    <button class="opt">Resumes an arbitrary process</button>
+  </div>
+  <p class="why">This is the sharpest difference from a semaphore, whose signal() always increments and is therefore remembered. A condition variable holds no value; it is only a queue.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Under signal-and-continue semantics, a waiting process must re-test its condition because:</p>
+  <div class="opts">
+    <button class="opt">Condition variables are unreliable</button>
+    <button class="opt">The monitor lock is never released</button>
+    <button class="opt" data-ok="1">The signaller keeps running, so the condition may have changed again before the waiter resumes</button>
+    <button class="opt">The compiler requires it</button>
+  </div>
+  <p class="why">That is why Java's wait() must sit inside a while loop, not an if. Under Hoare's signal-and-wait the condition is known to hold on resumption, but the signaller pays with an extra switch.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In the dining-philosophers monitor, test(i) sets state[i] to EATING only when:</p>
+  <div class="opts">
+    <button class="opt">Philosopher i is THINKING</button>
+    <button class="opt" data-ok="1">Philosopher i is HUNGRY and neither neighbour is EATING</button>
+    <button class="opt">Philosopher i is HUNGRY, regardless of the neighbours</button>
+    <button class="opt">Both neighbours are HUNGRY</button>
+  </div>
+  <p class="why">Both chopsticks must be free, so she takes both or neither. That is what breaks hold-and-wait and makes the solution deadlock-free — though not starvation-free.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Why does putdown(i) call test on both neighbours?</p>
+  <div class="opts">
+    <button class="opt">To release the monitor lock</button>
+    <button class="opt" data-ok="1">Finishing may have freed a chopstick either neighbour was waiting for</button>
+    <button class="opt">To wake philosopher i again</button>
+    <button class="opt">To recompute the priority numbers</button>
+  </div>
+  <p class="why">The left neighbour is (i+4)%5 and the right is (i+1)%5. Each is given the chance to move to EATING, and test's signal is a no-op if that philosopher is not actually waiting.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The conditional-wait construct x.wait(c) resumes, on signal:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The process with the smallest priority number c</button>
+    <button class="opt">All suspended processes</button>
+    <button class="opt">The process with the largest c</button>
+    <button class="opt">The most recently suspended process</button>
+  </div>
+  <p class="why">Without it, the default is FCFS. The resource-allocator example passes the expected duration of use as c, so the shortest job is served first.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Which error is possible with a semaphore but not with a monitor?</p>
+  <div class="opts">
+    <button class="opt">Deadlock between two different monitors</button>
+    <button class="opt">Starvation of a waiting process</button>
+    <button class="opt" data-ok="1">Omitting the release operation and deadlocking the system</button>
+    <button class="opt">A process using a resource it never requested</button>
+  </div>
+  <p class="why">Mutual exclusion is compiler-inserted in a monitor, so it cannot be omitted. Starvation, protocol misuse and cross-monitor deadlock all remain possible — the monitor guarantees serialised access to its own data, nothing more.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a monitor and give its three rules.</summary>
+    <p class="ans">A monitor is an abstract data type encapsulating shared data with the procedures that operate on it, guaranteeing that only one process is active inside it at a time. The shared variables are accessible only through the monitor's procedures; mutual exclusion is inserted by the compiler, not the programmer; and processes wanting to enter a busy monitor queue in the entry queue.</p></details>
+  <details class="card"><summary>Why were monitors invented?</summary>
+    <p class="ans">Because semaphore misuse fails silently. Reversing wait and signal loses mutual exclusion; writing wait twice deadlocks; omitting wait loses mutual exclusion; omitting signal deadlocks. None of these can be detected by a compiler, and all are timing-dependent and hard to reproduce.</p></details>
+  <details class="card"><summary>Define the two condition-variable operations and their key semantic.</summary>
+    <p class="ans">x.wait() suspends the calling process on x's queue and releases the monitor so another process may enter. x.signal() resumes exactly one process suspended on x, and if none is suspended it has no effect at all. Condition variables hold no value; they are only queues.</p></details>
+  <details class="card"><summary>Contrast signal-and-wait with signal-and-continue.</summary>
+    <p class="ans">Signal-and-wait: the signalled process resumes immediately and the signaller waits — the condition is known to hold, at the cost of an extra context switch; this was Hoare's original semantics. Signal-and-continue: the signaller keeps running and the signalled process waits — no extra switch, but the condition may change again, so the waiter must re-test in a while loop. Java, C# and Pthreads use signal-and-continue.</p></details>
+  <details class="card"><summary>Write the dining-philosophers monitor and explain why it is deadlock-free but not starvation-free.</summary>
+    <p class="ans">State array of THINKING, HUNGRY, EATING plus one condition variable per philosopher. pickup sets HUNGRY, calls test, and waits if not EATING. putdown sets THINKING and tests both neighbours. test sets EATING and signals only if the philosopher is HUNGRY and neither neighbour is EATING. No philosopher ever holds one chopstick while waiting for the other, so hold-and-wait is broken — but the two neighbours can alternate for ever, so starvation remains possible.</p></details>
+  <details class="card"><summary>Compare monitors and semaphores on six points.</summary>
+    <p class="ans">A semaphore is a low-level integer with two atomic operations, requires the programmer to write mutual exclusion, encapsulates nothing, remembers a signal to an empty queue, holds a value, and is highly error-prone. A monitor is a high-level abstract data type, has automatic compiler-inserted mutual exclusion, encapsulates its shared data, ignores a signal to an empty queue, holds no value, and makes those errors unwritable — but needs language support.</p></details>
+  <details class="card"><summary>What remains the programmer's responsibility even with a monitor?</summary>
+    <p class="ans">The protocol around the monitor. A process may still access a resource without requesting it, never release it, request it twice, or request one it already holds. The monitor guarantees only that access to its own data is correctly serialised — and starvation and cross-monitor deadlock remain possible.</p></details>
+</div>
+
+<p class="ask">That completes Unit II. Both unit exam sheets are linked below &mdash; use them for the final pass before the paper.</p>
+
+<div class="nav">
+  <a href="0013-classic-synchronization-problems.html">&larr; Classic Problems</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-3/0015-deadlock-characterisation.html">Next: Deadlocks &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,292 @@
+<title>Line Coding</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 9 of 27</p>
+<h1>Line Coding</h1>
+<p class="deck">Converting bits into signals. Eight schemes, the four characteristics used to judge them, and the one skill the exam actually tests: drawing the waveform for a given bit stream without making an error.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>The question is almost always <strong>"encode the bit stream 10110010 using NRZ-L, NRZ-I, Manchester and Differential Manchester"</strong> &mdash; a drawing question worth 5&ndash;10 marks. Marks come from the <strong>waveform being right</strong>, not from prose. Draw a labelled time axis, mark the bit boundaries with dotted vertical lines, and state your convention (which level is 1) before you start. An unstated convention is the commonest reason a correct-looking answer loses marks.</p>
+</div>
+
+<h2>What line coding is</h2>
+
+<p><em class="term">Line coding</em> is the process of converting <strong>digital data into a digital signal</strong>. The sender encodes bits into signal elements; the receiver decodes signal elements back into bits.</p>
+
+<div class="formula">
+  <span class="name">The ratio that runs through the whole topic</span>
+  r = number of data elements (bits) carried by each signal element<br>
+  Signal rate S = c &times; N &times; (1/r) &nbsp;&nbsp; baud<br>
+  N = data rate in bps &nbsp;&middot;&nbsp; c = case factor &nbsp;&middot;&nbsp; S = signal rate in baud
+</div>
+
+<p><strong>Data rate</strong> (bit rate, bps) is how many <em>bits</em> are sent per second. <strong>Signal rate</strong> (baud rate, baud) is how many <em>signal elements</em> are sent per second. The goal is always to <strong>increase the data rate while decreasing the signal rate</strong>, because the signal rate determines the bandwidth needed.</p>
+
+<h2>The four characteristics used to judge a scheme</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Characteristic</th><th>What it means</th><th>Why it matters</th></tr></thead>
+<tbody>
+<tr><td><strong>Baseline wandering</strong></td><td>The receiver averages the received signal power to form a <em>baseline</em> against which it decides 0 or 1. A long run of identical bits drifts this baseline.</td><td>Drift causes the receiver to misread bits. A good scheme prevents it.</td></tr>
+<tr><td><strong>DC component</strong></td><td>A constant (zero-frequency) component appears when the signal level stays unchanged for a long time.</td><td>Some media &mdash; transformers, telephone lines &mdash; <strong>cannot pass DC</strong>. A scheme with a DC component cannot be used on them.</td></tr>
+<tr><td><strong>Self-synchronisation</strong></td><td>The signal itself contains <strong>transitions</strong> that let the receiver re-align its clock with the sender's.</td><td>Without it, a slight clock mismatch accumulates and the receiver reads the wrong number of bits.</td></tr>
+<tr><td><strong>Error detection &amp; noise immunity</strong></td><td>Whether the scheme lets errors be detected, and how well it resists noise.</td><td>Bipolar schemes detect violations of their own alternation rule.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The schemes</h2>
+
+<h3>1. Unipolar NRZ</h3>
+<p>All signal levels are <strong>on one side of the time axis</strong> &mdash; either above or below it.</p>
+<ul>
+<li><strong>1 &rarr; positive voltage &nbsp;|&nbsp; 0 &rarr; zero voltage.</strong></li>
+<li><strong>Problems:</strong> costly in power (twice the average power of a polar scheme), and it has a <strong>large DC component</strong>. Essentially obsolete, but it is asked as the baseline case.</li>
+</ul>
+
+<h3>2. Polar NRZ-L (Non-Return-to-Zero, Level)</h3>
+<ul>
+<li><strong>The level of the voltage determines the bit.</strong> Typically 1 &rarr; negative (or high), 0 &rarr; positive (or low). <em>State your convention.</em></li>
+<li><strong>Problem:</strong> a long run of 0s or 1s produces no transitions at all &mdash; so both <strong>baseline wandering</strong> and <strong>loss of synchronisation</strong> occur, and there is a DC component.</li>
+</ul>
+
+<h3>3. Polar NRZ-I (Non-Return-to-Zero, Invert)</h3>
+<ul>
+<li><strong>The <em>presence or absence of a transition</em> at the start of the bit determines the bit</strong>, not the level.</li>
+<li><strong>1 &rarr; invert (transition) &nbsp;|&nbsp; 0 &rarr; no change.</strong></li>
+<li><strong>Better than NRZ-L</strong> for a run of 1s (each 1 gives a transition, so synchronisation is kept), but still fails on a long run of 0s.</li>
+</ul>
+
+<div class="box win">
+  <span class="lbl">The NRZ-L vs NRZ-I distinction &mdash; state it exactly like this</span>
+  <p><strong>In NRZ-L the <em>level</em> of the signal carries the bit; in NRZ-I the <em>change</em> of the signal carries the bit.</strong> NRZ-I therefore handles a long sequence of 1s well and a long sequence of 0s badly, while NRZ-L handles neither.</p>
+</div>
+
+<h3>4. Return-to-Zero (RZ)</h3>
+<ul>
+<li><strong>Three levels</strong> &mdash; positive, negative and zero. The signal <strong>returns to zero in the middle of every bit</strong>.</li>
+<li>1 &rarr; positive then zero; 0 &rarr; negative then zero.</li>
+<li><strong>Advantage:</strong> a transition in every bit, so synchronisation is guaranteed. <strong>Disadvantage:</strong> it uses <strong>two signal elements per bit</strong>, so it needs <strong>twice the bandwidth</strong>. That cost is why RZ was superseded by Manchester.</li>
+</ul>
+
+<h3>5. Manchester encoding</h3>
+<ul>
+<li>Combines the idea of RZ with NRZ-L: <strong>there is always a transition at the middle of the bit</strong>, and that middle transition carries the data.</li>
+<li><strong>Convention (IEEE 802.3, the one to use): 0 &rarr; high-to-low transition at mid-bit; 1 &rarr; low-to-high transition at mid-bit.</strong></li>
+<li><strong>Advantages:</strong> self-synchronising, no DC component, no baseline wandering.</li>
+<li><strong>Disadvantage:</strong> needs <strong>twice the bandwidth</strong> of NRZ, because the signal rate is twice the data rate.</li>
+<li>Used in <strong>standard 10 Mbps Ethernet (10BASE-T)</strong>.</li>
+</ul>
+
+<h3>6. Differential Manchester</h3>
+<ul>
+<li><strong>There is always a transition at the middle of the bit</strong> &mdash; but that one is used <em>only</em> for synchronisation. The <strong>data is carried by whether there is a transition at the <em>start</em> of the bit</strong>.</li>
+<li><strong>0 &rarr; transition at the start of the bit; 1 &rarr; no transition at the start.</strong></li>
+<li>Same advantages as Manchester, and it is <strong>differential</strong>, so it survives a polarity reversal of the wires.</li>
+<li>Used in <strong>Token Ring (IEEE 802.5)</strong>.</li>
+</ul>
+
+<div class="box exam">
+  <span class="lbl">Manchester vs Differential Manchester &mdash; the sentence to write</span>
+  <p><strong>In Manchester, the mid-bit transition carries the data. In Differential Manchester, the mid-bit transition is only for synchronisation and the data is carried by the presence or absence of a transition at the beginning of the bit.</strong> If you write only one sentence about these two schemes, write that one.</p>
+</div>
+
+<h3>7. Bipolar AMI and pseudoternary</h3>
+<ul>
+<li><strong>Bipolar</strong> uses <strong>three levels</strong>: positive, negative and zero.</li>
+<li><strong>AMI (Alternate Mark Inversion):</strong> <strong>0 &rarr; zero voltage; 1 &rarr; alternating positive and negative voltages.</strong> ("Mark" means 1 in telegraphy.)</li>
+<li><strong>Pseudoternary</strong> is AMI with the roles swapped: 1 &rarr; zero voltage, 0 &rarr; alternating positive and negative.</li>
+<li><strong>Advantage:</strong> <strong>no DC component</strong>, because consecutive 1s cancel each other out; and a broken alternation reveals an error. <strong>Disadvantage:</strong> a long run of 0s still loses synchronisation.</li>
+</ul>
+
+<h3>8. Scrambling: B8ZS and HDB3</h3>
+<p>The fix for AMI's long-run-of-zeros problem. Both replace a run of zeros with a deliberate <strong>violation</strong> of the alternation rule, which the receiver recognises and converts back.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Scheme</th><th>Rule</th><th>Used in</th></tr></thead>
+<tbody>
+<tr><td><strong>B8ZS</strong> (Bipolar with 8-Zero Substitution)</td><td>Eight consecutive zeros are replaced by <code>000VB0VB</code>, where V is a violation (same polarity as the previous 1) and B is a normal, correct-polarity pulse.</td><td>North America</td></tr>
+<tr><td><strong>HDB3</strong> (High Density Bipolar 3-zero)</td><td>Four consecutive zeros are replaced by a pattern containing a violation. Which pattern (<code>000V</code> or <code>B00V</code>) depends on the <strong>number of non-zero pulses since the last substitution</strong> &mdash; odd or even.</td><td>Europe and Japan</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Block coding: 4B/5B</h3>
+<p>The other approach to guaranteeing synchronisation. <strong>Block coding</strong> changes a block of <em>m</em> bits into a block of <em>n</em> bits, where n &gt; m, adding redundancy.</p>
+<ul>
+<li><strong>4B/5B:</strong> every 4-bit group is mapped to a 5-bit code chosen so that no code has more than <strong>three consecutive 0s</strong>. Combined with NRZ-I, this guarantees enough transitions.</li>
+<li><strong>Cost:</strong> 25% overhead &mdash; a 100 Mbps data rate needs a 125 Mbps signal rate. Used in <strong>100 Mbps Fast Ethernet (100BASE-TX)</strong> and FDDI.</li>
+<li>The three steps of block coding: <strong>division</strong> (into m-bit groups), <strong>substitution</strong> (m-bit to n-bit), <strong>combination</strong> (back into a stream).</li>
+</ul>
+
+<h2>The comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Scheme</th><th>Rule</th><th>DC component</th><th>Self-synchronising</th><th>Bandwidth</th></tr></thead>
+<tbody>
+<tr><td><strong>Unipolar NRZ</strong></td><td>1 = positive, 0 = zero</td><td><strong>Yes</strong> (large)</td><td>No</td><td>N/2</td></tr>
+<tr><td><strong>NRZ-L</strong></td><td>Level carries the bit</td><td>Yes</td><td>No</td><td>N/2</td></tr>
+<tr><td><strong>NRZ-I</strong></td><td>1 = transition, 0 = none</td><td>Yes</td><td>Partly &mdash; only for 1s</td><td>N/2</td></tr>
+<tr><td><strong>RZ</strong></td><td>Returns to zero mid-bit</td><td>No</td><td><strong>Yes</strong></td><td>N</td></tr>
+<tr><td><strong>Manchester</strong></td><td>Mid-bit transition carries the bit</td><td><strong>No</strong></td><td><strong>Yes</strong></td><td>N</td></tr>
+<tr><td><strong>Diff. Manchester</strong></td><td>Start-of-bit transition carries the bit; mid-bit for sync</td><td><strong>No</strong></td><td><strong>Yes</strong></td><td>N</td></tr>
+<tr><td><strong>Bipolar AMI</strong></td><td>0 = zero, 1 = alternating &plusmn;</td><td><strong>No</strong></td><td>No (fails on zeros)</td><td>N/2</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; encode 0 1 0 0 1 1 0 0</span>
+  <p>Take the bit stream <strong>01001100</strong> and encode it four ways. Assume positive = high, negative = low, and that the signal starts at the <strong>low (negative)</strong> level.</p>
+
+  <p><strong>NRZ-L</strong> (1 = low, 0 = high &mdash; state your convention):<br>
+  bits &nbsp;0&nbsp; 1&nbsp; 0&nbsp; 0&nbsp; 1&nbsp; 1&nbsp; 0&nbsp; 0<br>
+  level &nbsp;H&nbsp; L&nbsp; H&nbsp; H&nbsp; L&nbsp; L&nbsp; H&nbsp; H<br>
+  Transitions occur only where the bit value changes: after bits 1, 2, 4, 6.</p>
+
+  <p><strong>NRZ-I</strong> (1 = invert, 0 = keep; start at low):<br>
+  bit 1 = 0 &rarr; stay <strong>L</strong><br>
+  bit 2 = 1 &rarr; invert to <strong>H</strong><br>
+  bit 3 = 0 &rarr; stay <strong>H</strong><br>
+  bit 4 = 0 &rarr; stay <strong>H</strong><br>
+  bit 5 = 1 &rarr; invert to <strong>L</strong><br>
+  bit 6 = 1 &rarr; invert to <strong>H</strong><br>
+  bit 7 = 0 &rarr; stay <strong>H</strong><br>
+  bit 8 = 0 &rarr; stay <strong>H</strong></p>
+
+  <p><strong>Manchester</strong> (IEEE convention: 0 = high&rarr;low mid-bit, 1 = low&rarr;high mid-bit). Every bit has a mid-bit transition; the direction of that transition <em>is</em> the data:<br>
+  0 &rarr; HL &nbsp;|&nbsp; 1 &rarr; LH &nbsp;|&nbsp; 0 &rarr; HL &nbsp;|&nbsp; 0 &rarr; HL &nbsp;|&nbsp; 1 &rarr; LH &nbsp;|&nbsp; 1 &rarr; LH &nbsp;|&nbsp; 0 &rarr; HL &nbsp;|&nbsp; 0 &rarr; HL</p>
+
+  <p><strong>Differential Manchester</strong> (0 = transition at start of bit, 1 = no transition at start; mid-bit transition always present):<br>
+  bit 1 = 0 &rarr; transition at start, then mid-bit transition<br>
+  bit 2 = 1 &rarr; <em>no</em> transition at start, then mid-bit transition<br>
+  bit 3 = 0 &rarr; transition at start<br>
+  bit 4 = 0 &rarr; transition at start<br>
+  bit 5 = 1 &rarr; no transition at start<br>
+  bit 6 = 1 &rarr; no transition at start<br>
+  bit 7 = 0 &rarr; transition at start<br>
+  bit 8 = 0 &rarr; transition at start</p>
+
+  <p><em>Sanity check that catches most mistakes:</em> in <strong>both Manchester schemes every single bit must contain a mid-bit transition</strong>. If any bit in your drawing is a flat line for its whole duration, you have made an error. And in Differential Manchester, count the start-of-bit transitions &mdash; there must be exactly as many as there are 0s in the data.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Digital Line Coding Schemes & Transition Rules</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>NRZ-L & NRZ-I</strong><span class="sub">NRZ-L: Level represents bit<br>NRZ-I: Inversion at start of bit 1; DC component problem</span></div>
+    <div class="flow-box highlight"><strong>Manchester (IEEE 802.3)</strong><span class="sub">Mid-bit transition: High&rarr;Low = Bit 0, Low&rarr;High = Bit 1<br>Self-clocking, 0 DC baseline wander</span></div>
+    <div class="flow-box ok"><strong>Differential Manchester</strong><span class="sub">Mid-bit transition always; transition at start for 0, no transition for 1</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Line Coding Schemes</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-8: Manchester and Differential Manchester Encoding</div>
+    <div class="v-desc">Masterclass on drawing clock and encoded waveforms with guaranteed self-synchronization and zero DC-component derivations.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=3IaB2a8tXLA" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In NRZ-I, a bit value of 1 is represented by:</p>
+  <div class="opts">
+    <button class="opt">A constant high voltage level for the whole bit</button>
+    <button class="opt">A transition at the middle of the bit interval</button>
+    <button class="opt" data-ok="1">A transition (inversion) at the start of the bit</button>
+    <button class="opt">A return to the zero level halfway through the bit</button>
+  </div>
+  <p class="why">NRZ-I encodes in the <em>change</em>, not the level: 1 inverts, 0 leaves the level alone. A mid-bit transition would be Manchester; a return to zero would be RZ.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which scheme carries its data in the transition at the <em>beginning</em> of the bit?</p>
+  <div class="opts">
+    <button class="opt">Manchester &mdash; the mid-bit transition encodes the data</button>
+    <button class="opt">Bipolar AMI &mdash; ones alternate between the two polarities</button>
+    <button class="opt" data-ok="1">Differential Manchester &mdash; the mid-bit transition is only for sync</button>
+    <button class="opt">Return-to-Zero &mdash; every bit returns to the zero level</button>
+  </div>
+  <p class="why">This is the single distinction between the two Manchester schemes. Manchester: mid-bit transition = data. Differential Manchester: mid-bit transition = clock only, start-of-bit transition = data.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Manchester encoding requires twice the bandwidth of NRZ because:</p>
+  <div class="opts">
+    <button class="opt">It adds a redundant fifth bit to every four data bits</button>
+    <button class="opt">It transmits every bit of the message twice over for safety</button>
+    <button class="opt" data-ok="1">Its signal rate is twice its data rate &mdash; two elements per bit</button>
+    <button class="opt">It uses three voltage levels rather than only two levels</button>
+  </div>
+  <p class="why">Bandwidth is driven by the signal rate. A guaranteed mid-bit transition means two signal elements per bit, so S = N rather than N/2. Three levels describes bipolar; the 4-to-5-bit expansion describes 4B/5B block coding.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Bipolar AMI has no DC component because:</p>
+  <div class="opts">
+    <button class="opt">Zeros are encoded as a transition rather than as a level</button>
+    <button class="opt">Every bit returns to the zero voltage level at its midpoint</button>
+    <button class="opt">Each four-bit group is substituted by a five-bit codeword</button>
+    <button class="opt" data-ok="1">Successive 1s alternate in polarity and cancel out on average</button>
+  </div>
+  <p class="why">AMI's alternation means the positive and negative pulses average to zero, killing the DC component. What it does <em>not</em> fix is a long run of 0s — all at zero volts, no transitions, no synchronisation. That is exactly the gap B8ZS and HDB3 close.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. HDB3 and B8ZS both work by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Substituting a run of zeros with a deliberate polarity violation</button>
+    <button class="opt">Returning the signal to zero in the middle of every bit</button>
+    <button class="opt">Expanding every block of four bits into a block of five bits</button>
+    <button class="opt">Adding a parity bit at the end of every transmitted frame</button>
+  </div>
+  <p class="why">Both are scrambling techniques: the run of zeros is replaced by a pattern containing an intentional violation of the alternation rule, which the receiver spots and reverses. B8ZS handles eight zeros, HDB3 four. Block coding (4B/5B) is the other, separate approach.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define line coding, data rate and signal rate.</summary>
+    <p class="ans">Line coding converts digital data into a digital signal. Data rate (bit rate, bps) is bits per second. Signal rate (baud rate, baud) is signal elements per second: S = c × N × 1/r. The aim is to increase the data rate while decreasing the signal rate, because signal rate sets the bandwidth needed.</p></details>
+  <details class="card"><summary>Name the four characteristics used to judge a line coding scheme.</summary>
+    <p class="ans">Baseline wandering, DC component, self-synchronisation, and error detection/noise immunity.</p></details>
+  <details class="card"><summary>Why is a DC component a problem?</summary>
+    <p class="ans">Some media — transformers, telephone lines — cannot pass frequencies at or near zero, so a scheme with a DC component cannot be used on them.</p></details>
+  <details class="card"><summary>NRZ-L vs NRZ-I in one sentence.</summary>
+    <p class="ans">In NRZ-L the level of the signal carries the bit; in NRZ-I the change (inversion) of the signal carries the bit — 1 inverts, 0 does not.</p></details>
+  <details class="card"><summary>Manchester vs Differential Manchester in one sentence.</summary>
+    <p class="ans">In Manchester the mid-bit transition carries the data; in Differential Manchester the mid-bit transition provides only synchronisation and the data is carried by the presence (0) or absence (1) of a transition at the start of the bit.</p></details>
+  <details class="card"><summary>State the AMI rule and its one weakness.</summary>
+    <p class="ans">0 is zero voltage; 1 alternates between positive and negative. No DC component, and a broken alternation reveals an error. Weakness: a long run of 0s gives no transitions, so synchronisation is lost — fixed by B8ZS or HDB3.</p></details>
+  <details class="card"><summary>What is 4B/5B and what does it cost?</summary>
+    <p class="ans">A block coding scheme mapping each 4-bit group to a 5-bit code chosen so no code has more than three consecutive 0s; combined with NRZ-I it guarantees transitions. Cost: 25% overhead — 100 Mbps of data needs a 125 Mbps signal rate. Used in 100BASE-TX and FDDI.</p></details>
+</div>
+
+<p class="ask">Want five bit streams to encode as a drill, with the correct waveforms to check against? Ask &mdash; this is a drawing skill, and reading about it does not build it.</p>
+
+<div class="nav">
+  <a href="0008-data-rate-limits.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0010-bandwidth-utilization.html">Next: Bandwidth Utilization &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

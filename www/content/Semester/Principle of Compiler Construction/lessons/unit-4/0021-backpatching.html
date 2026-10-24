@@ -1,0 +1,403 @@
+<title>Control Flow Translation — Backpatching</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit IV &middot; Lesson 21 of 22</p>
+<h1>Control Flow Translation &mdash; Backpatching</h1>
+<p class="deck">The forward-jump dilemma in single-pass compilers, the backpatching technique, makelist, merge, and backpatch primitives, SDD rules for boolean expressions and control structures, with a fully worked quad trace.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain the backpatching technique with functions makelist, merge, and backpatch&rdquo;</strong> is a standard 10-marker. <strong>&ldquo;Translate a given boolean expression and if-else / while statement using backpatching&rdquo;</strong> is a frequent 15-mark numerical. State the marker non-terminals $M$ and $N$, write the emitted quad table with blanks, and trace list merges and backpatch steps explicitly.</p>
+</div>
+
+<!-- CURATED VIDEO MASTERCLASS -->
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Backpatching Mechanics &amp; Three Primitives</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Backpatching in Compiler Design with Solved Example</a>
+    <span class="v-meta">Gate Smashers &middot; 16:05</span>
+    <div class="v-why">Step-by-step demonstration of emitting jumps with empty target slots and filling them once destination quad addresses are generated.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Boolean SDD Rules &amp; Control Flow</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Backpatching for Boolean Expressions and Flow of Control</a>
+    <span class="v-meta">Neso Academy &middot; 18:20</span>
+    <div class="v-why">Rigorous explanation of marker non-terminals M and N, managing truelist, falselist, and nextlist during single-pass translation.</div>
+  </div>
+</div>
+
+<h2>1. The Forward Jump Dilemma in Single-Pass Compilers</h2>
+
+<p>In a single-pass compiler, syntax analysis, intermediate code generation, and target code emission occur concurrently in one pass over the source program.</p>
+<p>When translating conditional statements such as:</p>
+<pre class="mono">if (a &lt; b) x = 1; else x = 0;</pre>
+<p>The compiler generates a conditional jump on <code>a &lt; b</code> to reach the <code>else</code> branch. However, at the moment <code>a &lt; b</code> is parsed, the instruction address of the <code>else</code> block has <strong>not been generated yet</strong>! It is a <strong>forward reference</strong>.</p>
+
+<div class="formula">
+  <span class="name">The Core Problem of Forward References</span>
+  100: if a &lt; b goto ___ &emsp; <em>(What label goes here? Target instruction address is unknown!)</em><br>
+  101: goto ___ &emsp;&emsp;&emsp;&emsp;&emsp;&nbsp; <em>(Target instruction address is unknown!)</em>
+</div>
+
+<h2>2. The Backpatching Solution</h2>
+
+<p><strong>Backpatching</strong> solves this dilemma by:</p>
+<ol>
+  <li>Emitting jump instructions with their target address fields left <strong>blank (unspecified)</strong>.</li>
+  <li>Maintaining <strong>lists of instruction indices</strong> that jump to the same destination.</li>
+  <li>Passing these lists up the parse tree as synthesized attributes.</li>
+  <li>When the correct target instruction index is finally determined, <strong>backpatching</strong> the target address into every instruction on the list in a single step!</li>
+</ol>
+
+<!-- FLOWCHART: BACKPATCHING ARCHITECTURE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">The Backpatching Lifecycle</span>
+  
+  <div class="flow-col">
+    <div class="flow-box warn" style="min-width:18rem;">
+      <strong style="color:var(--warn);">1. Emit Incomplete Quad</strong><br>
+      <code>100: if a &lt; b goto _</code><br>
+      <span class="sub">Leaves target slot blank; index added to truelist = {100}</span>
+    </div>
+
+    <div class="flow-arrow-down"></div>
+
+    <div class="flow-box highlight" style="min-width:18rem;">
+      <strong>2. Merge Lists via Syntax Tree</strong><br>
+      <code>B.truelist = merge(B₁.truelist, B₂.truelist)</code><br>
+      <span class="sub">Combines pending jump targets across operators</span>
+    </div>
+
+    <div class="flow-arrow-down"></div>
+
+    <div class="flow-box ok" style="min-width:18rem; border-color:var(--ok);">
+      <strong style="color:var(--ok);">3. Backpatch when Target Resolved</strong><br>
+      <code>backpatch({100}, 104) &rArr; 100: if a &lt; b goto 104</code><br>
+      <span class="sub">Fills target label into all linked instructions simultaneously</span>
+    </div>
+  </div>
+</div>
+
+<h2>3. The Three Core Primitive Functions</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Function Signature</th><th>Formal Operation</th><th>Implementation Mechanism</th></tr></thead>
+<tbody>
+<tr>
+  <td><code><strong>makelist(i)</strong></code></td>
+  <td>Creates a new list containing only instruction index $i$.</td>
+  <td>Allocates a single node with value $i$ and returns a pointer to the list.</td>
+</tr>
+<tr>
+  <td><code><strong>merge(p1, p2)</strong></code></td>
+  <td>Concatenates the two lists pointed to by $p_1$ and $p_2$.</td>
+  <td>Returns a pointer to the concatenated list containing all indices of $p_1$ and $p_2$.</td>
+</tr>
+<tr>
+  <td><code><strong>backpatch(p, L)</strong></code></td>
+  <td>Fills target address $L$ into all instructions on list $p$.</td>
+  <td>Traverses list $p$; for each index $i$ on the list, updates instruction $i$ so its target slot holds $L$.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<p>The compiler maintains a global integer counter <code><strong>nextquad</strong></code> that stores the index of the next instruction to be emitted.</p>
+
+<h2>4. Synthesized Attributes for Boolean Expressions</h2>
+
+<p>Every boolean expression $B$ maintains two synthesized list attributes:</p>
+<ul>
+  <li><code><strong>B.truelist:</strong></code> List of instruction indices whose target field must be backpatched with the label to jump to when $B$ is <strong>true</strong>.</li>
+  <li><code><strong>B.falselist:</strong></code> List of instruction indices whose target field must be backpatched with the label to jump to when $B$ is <strong>false</strong>.</li>
+</ul>
+
+<h3>Marker Non-Terminal $M$</h3>
+<p>To capture the instruction address where an operand begins, we introduce a marker non-terminal $M \to \epsilon$ with semantic rule:</p>
+<div class="formula">
+  M &rarr; &epsilon; &emsp; { M.quad = nextquad; }
+</div>
+
+<h3>SDD Translation Rules for Boolean Expressions</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Production Rule</th><th>Semantic Actions</th></tr></thead>
+<tbody>
+<tr>
+  <td>$B \to B_1 \textbf{ or } M\ B_2$</td>
+  <td>
+    <code>backpatch(B1.falselist, M.quad);</code><br>
+    <code>B.truelist = merge(B1.truelist, B2.truelist);</code><br>
+    <code>B.falselist = B2.falselist;</code>
+  </td>
+</tr>
+<tr>
+  <td>$B \to B_1 \textbf{ and } M\ B_2$</td>
+  <td>
+    <code>backpatch(B1.truelist, M.quad);</code><br>
+    <code>B.truelist = B2.truelist;</code><br>
+    <code>B.falselist = merge(B1.falselist, B2.falselist);</code>
+  </td>
+</tr>
+<tr>
+  <td>$B \to \textbf{not } B_1$</td>
+  <td>
+    <code>B.truelist = B1.falselist;</code><br>
+    <code>B.falselist = B1.truelist;</code>
+  </td>
+</tr>
+<tr>
+  <td>$B \to ( B_1 )$</td>
+  <td>
+    <code>B.truelist = B1.truelist;</code><br>
+    <code>B.falselist = B1.falselist;</code>
+  </td>
+</tr>
+<tr>
+  <td>$B \to E_1\ \textbf{relop}\ E_2$</td>
+  <td>
+    <code>B.truelist = makelist(nextquad);</code><br>
+    <code>B.falselist = makelist(nextquad + 1);</code><br>
+    <code>emit("if " E1.addr relop.op E2.addr " goto _");</code><br>
+    <code>emit("goto _");</code>
+  </td>
+</tr>
+<tr>
+  <td>$B \to \textbf{true}$</td>
+  <td>
+    <code>B.truelist = makelist(nextquad);</code><br>
+    <code>emit("goto _");</code>
+  </td>
+</tr>
+<tr>
+  <td>$B \to \textbf{false}$</td>
+  <td>
+    <code>B.falselist = makelist(nextquad);</code><br>
+    <code>emit("goto _");</code>
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. Backpatching Control Flow Statements</h2>
+
+<p>Every statement $S$ maintains attribute <code><strong>S.nextlist</strong></code>: the list of instruction indices that jump to the instruction immediately following $S$.</p>
+
+<p>To bypass the <code>else</code> body, we introduce marker $N \to \epsilon$:</p>
+<div class="formula">
+  N &rarr; &epsilon; &emsp; { N.nextlist = makelist(nextquad); emit(&quot;goto _&quot;); }
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Grammar Rule</th><th>Semantic Actions</th></tr></thead>
+<tbody>
+<tr>
+  <td>$S \to \textbf{if } B\ \textbf{then } M\ S_1$</td>
+  <td>
+    <code>backpatch(B.truelist, M.quad);</code><br>
+    <code>S.nextlist = merge(B.falselist, S1.nextlist);</code>
+  </td>
+</tr>
+<tr>
+  <td>$S \to \textbf{if } B\ \textbf{then } M_1\ S_1\ N\ \textbf{else } M_2\ S_2$</td>
+  <td>
+    <code>backpatch(B.truelist, M1.quad);</code><br>
+    <code>backpatch(B.falselist, M2.quad);</code><br>
+    <code>S.nextlist = merge(S1.nextlist, merge(N.nextlist, S2.nextlist));</code>
+  </td>
+</tr>
+<tr>
+  <td>$S \to \textbf{while } M_1\ B\ \textbf{do } M_2\ S_1$</td>
+  <td>
+    <code>backpatch(S1.nextlist, M1.quad);</code><br>
+    <code>backpatch(B.truelist, M2.quad);</code><br>
+    <code>S.nextlist = B.falselist;</code><br>
+    <code>emit("goto " M1.quad);</code>
+  </td>
+</tr>
+<tr>
+  <td>$S \to S_1\ ;\ M\ S_2$</td>
+  <td>
+    <code>backpatch(S1.nextlist, M.quad);</code><br>
+    <code>S.nextlist = S2.nextlist;</code>
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>6. Full Worked Numerical Exam Problem</h2>
+
+<div class="solve">
+  <span class="lbl">Complete Worked Problem: Backpatching Boolean Expression</span>
+  <p>Translate the expression into Three-Address Code using backpatching, beginning at <code>nextquad = 100</code>:</p>
+  <div class="formula" style="font-weight:700;">
+    if (a &lt; b || c &lt; d) and e &lt; f then x = 1 else x = 0
+  </div>
+
+  <p><strong>Step 1: Translate subexpression $(a &lt; b \text{ or } c &lt; d)$:</strong></p>
+  <ul>
+    <li>For $a &lt; b$:
+      <pre class="mono">100: if a &lt; b goto _   // truelist = {100}
+101: goto _             // falselist = {101}</pre>
+    </li>
+    <li>Marker $M_1$: $M_1.quad = 102$. Backpatch $(a &lt; b)\text{.falselist} \longrightarrow \mathbf{102}$.<br>
+      Instruction 101 becomes: <code>101: goto 102</code>.
+    </li>
+    <li>For $c &lt; d$:
+      <pre class="mono">102: if c &lt; d goto _   // truelist = {102}
+103: goto _             // falselist = {103}</pre>
+    </li>
+    <li>Result of OR ($B_1$):
+      <ul>
+        <li>$B_1.truelist = merge(\{100\}, \{102\}) = \mathbf{\{100, 102\}}$.</li>
+        <li>$B_1.falselist = \mathbf{\{103\}}$.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <p><strong>Step 2: Translate AND with $e &lt; f$:</strong></p>
+  <ul>
+    <li>Marker $M_2$: $M_2.quad = 104$. Backpatch $B_1.truelist \longrightarrow \mathbf{104}$.<br>
+      Instructions 100 and 102 become: <code>100: if a &lt; b goto 104</code>, <code>102: if c &lt; d goto 104</code>.
+    </li>
+    <li>For $e &lt; f$:
+      <pre class="mono">104: if e &lt; f goto _   // truelist = {104}
+105: goto _             // falselist = {105}</pre>
+    </li>
+    <li>Compound boolean expression ($B$):
+      <ul>
+        <li>$B.truelist = \mathbf{\{104\}}$.</li>
+        <li>$B.falselist = merge(B_1.falselist, \{105\}) = merge(\{103\}, \{105\}) = \mathbf{\{103, 105\}}$.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <p><strong>Step 3: Translate Statements and Backpatch Branches:</strong></p>
+  <ul>
+    <li>Marker $M_3$: $M_3.quad = 106$. Backpatch $B.truelist \longrightarrow \mathbf{106}$.<br>
+      Instruction 104 becomes: <code>104: if e &lt; f goto 106</code>.
+    </li>
+    <li>Then body ($x = 1$):
+      <pre class="mono">106: x = 1</pre>
+    </li>
+    <li>Marker $N$ emits skip jump:
+      <pre class="mono">107: goto _             // N.nextlist = {107}</pre>
+    </li>
+    <li>Marker $M_4$: $M_4.quad = 108$. Backpatch $B.falselist = \{103, 105\} \longrightarrow \mathbf{108}$.<br>
+      Instructions 103 and 105 become: <code>103: goto 108</code>, <code>105: goto 108</code>.
+    </li>
+    <li>Else body ($x = 0$):
+      <pre class="mono">108: x = 0</pre>
+    </li>
+    <li>Nextquad is now 109. Backpatch $N.nextlist = \{107\} \longrightarrow \mathbf{109}$.<br>
+      Instruction 107 becomes: <code>107: goto 109</code>.
+    </li>
+  </ul>
+
+  <p><strong>Final Patched Instruction Matrix:</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Quad #</th><th>Generated Three-Address Instruction</th><th>Origin &amp; Resolution</th></tr></thead>
+  <tbody>
+  <tr><td class="num">100</td><td><code>if a &lt; b goto 104</code></td><td>Short-circuit $a &lt; b \implies$ evaluate $e &lt; f$</td></tr>
+  <tr><td class="num">101</td><td><code>goto 102</code></td><td>$a \ge b \implies$ evaluate next OR term $c &lt; d$</td></tr>
+  <tr><td class="num">102</td><td><code>if c &lt; d goto 104</code></td><td>$c &lt; d \implies$ evaluate $e &lt; f$</td></tr>
+  <tr><td class="num">103</td><td><code>goto 108</code></td><td>$c \ge d \implies$ whole OR false $\implies$ else branch</td></tr>
+  <tr><td class="num">104</td><td><code>if e &lt; f goto 106</code></td><td>$e &lt; f \implies$ condition satisfied $\implies$ then branch</td></tr>
+  <tr><td class="num">105</td><td><code>goto 108</code></td><td>$e \ge f \implies$ condition failed $\implies$ else branch</td></tr>
+  <tr><td class="num">106</td><td><code>x = 1</code></td><td><strong>Then-Branch Body</strong></td></tr>
+  <tr><td class="num">107</td><td><code>goto 109</code></td><td>Jump over else-branch to statement exit</td></tr>
+  <tr><td class="num">108</td><td><code>x = 0</code></td><td><strong>Else-Branch Body</strong></td></tr>
+  <tr><td class="num">109</td><td><code>...</code></td><td>Next program instruction</td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. What specific problem does backpatching eliminate in a single-pass compiler?</p>
+  <div class="opts">
+    <button class="opt">Syntax errors during parsing</button>
+    <button class="opt">Backward jumps in recursive functions</button>
+    <button class="opt" data-ok="1">Forward jumps where the target instruction label has not yet been generated</button>
+    <button class="opt">Memory leaks in the heap</button>
+  </div>
+  <p class="why">In single-pass compilation, when a branch is emitted, its destination address is often forward in the source code. Backpatching leaves the slot blank and fills it when the destination is generated.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. For the expression $B_1 \textbf{ and } M\ B_2$, what does `backpatch(B1.truelist, M.quad)` do?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Directs execution to evaluate $B_2$ whenever $B_1$ is true</button>
+    <button class="opt">Terminates execution if $B_1$ is false</button>
+    <button class="opt">Swaps the truth values</button>
+    <button class="opt">Merges the false lists of $B_1$ and $B_2$</button>
+  </div>
+  <p class="why">In a boolean AND, if the first operand $B_1$ is true, the overall result depends on $B_2$. Hence, jumps on $B_1$ true are directed to $M.quad$, the start of $B_2$.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The function `merge(p1, p2)` returns:</p>
+  <div class="opts">
+    <button class="opt">A newly emitted quad instruction</button>
+    <button class="opt">An integer count of the merged instructions</button>
+    <button class="opt" data-ok="1">A pointer to the concatenation of lists p1 and p2</button>
+    <button class="opt">The intersection of lists p1 and p2</button>
+  </div>
+  <p class="why">`merge(p1, p2)` takes two pointers to lists of instruction indices and joins them into a single combined list.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In the translation rule for `while M1 B do M2 S1`, what instruction is backpatched with `M1.quad`?</p>
+  <div class="opts">
+    <button class="opt">All jumps on B.truelist</button>
+    <button class="opt" data-ok="1">All jumps on S1.nextlist (loop back to condition test M1)</button>
+    <button class="opt">All jumps on B.falselist</button>
+    <button class="opt">No instructions are backpatched with M1</button>
+  </div>
+  <p class="why">When body $S_1$ finishes execution, control must loop back to test the condition at $M_1.quad$. Hence, $backpatch(S_1.nextlist, M_1.quad)$.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the three primitive operations of backpatching and their purposes.</summary>
+    <p class="ans">`makelist(i)`: Creates a new list containing index $i$.<br>
+    `merge(p1, p2)`: Concatenates lists $p_1$ and $p_2$.<br>
+    `backpatch(p, L)`: Fills label/address $L$ into the target slot of each instruction indexed on list $p$.</p></details>
+  <details class="card"><summary>What are the `truelist` and `falselist` of $B_1 \textbf{ or } M\ B_2$?</summary>
+    <p class="ans">$B.truelist = merge(B_1.truelist, B_2.truelist)$ (true if either is true).<br>
+    $B.falselist = B_2.falselist$ ($B_1$'s false jumps are backpatched to $M.quad$; false only if $B_2$ is also false).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0020-translation-of-expressions.html">&larr; Previous: Translation of Expressions</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0022-runtime-environment.html">Next: Runtime Environment &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 06 – Decision Trees & Ensemble Learning</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module B · Lesson 6 of 17 · Tree-Based Models</div>
+  <h1>Decision Trees & Ensemble Learning</h1>
+  <p class="subtitle">From greedy recursive binary splitting to production-grade Random Forests, XGBoost, and LightGBM.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Classical Machine Learning</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>A single <strong>Decision Tree</strong> breaks down complex decisions by recursively partitioning feature space along orthogonal splits (<code>if age > 30 and income > 50k</code>). While highly interpretable, individual decision trees suffer from high variance and severe overfitting. <strong>Ensemble Methods</strong> combine hundreds of trees using two powerful paradigms: <strong>Bagging</strong> (averaging independent diverse trees to reduce variance, like Random Forests) and <strong>Boosting</strong> (training sequential trees to correct previous errors, like XGBoost).</p>
+
+  <h2>2 · Recommended Deep-Dive Lecture</h2>
+  <p>To master the intuitive mechanics of Bootstrap Aggregation (Bagging) and Random Forests, watch Josh Starmer's StatQuest:</p>
+  <div class="video-container">
+    <iframe src="https://www.youtube-nocookie.com/embed/J4Wdy0Wc_xQ" title="Random Forests - StatQuest" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+
+  <h2>3 · Splitting Mathematics: Entropy vs Gini Impurity</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">Gini</div>
+      <h3>Gini Impurity (CART Algorithm)</h3>
+      <p><code>Gini = 1 - &sum;<sub>i=1..C</sub> (p<sub>i</sub>)<sup>2</sup></code><br>Measures the probability of misclassifying a randomly chosen element. Pure node = 0.0; maximum impurity (50/50 binary) = 0.5. Computationally faster because it avoids logarithms.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Entropy</div>
+      <h3>Shannon Entropy & Info Gain (ID3)</h3>
+      <p><code>H(S) = - &sum; p<sub>i</sub> log<sub>2</sub>(p<sub>i</sub>)</code><br>Measures disorder in bits. <strong>Information Gain</strong> is the reduction in entropy achieved by partitioning: <code>IG(S, A) = H(S) - &sum; (|S<sub>v</sub>| / |S|) H(S<sub>v</sub>)</code>.</p>
+    </div>
+  </div>
+
+  <h2>4 · Bagging (Random Forest) vs Boosting (GBDT / XGBoost)</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Property</th><th>Random Forests (Bagging)</th><th>Gradient Boosted Trees (Boosting)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Tree Construction</strong></td><td>Parallel & Independent.</td><td>Sequential: each new tree fits on the <strong>pseudo-residuals</strong> of previous trees.</td></tr>
+      <tr><td><strong>Diversity Mechanism</strong></td><td>Bootstrap sampling of rows + random subset of features at each split (<code>&radic;D</code>).</td><td>Learning rate shrinkage (&eta;) + gradient descent in function space.</td></tr>
+      <tr><td><strong>Variance vs Bias</strong></td><td>Primarily reduces <strong>Variance</strong> (overfitting).</td><td>Primarily reduces <strong>Bias</strong> (underfitting), creates razor-sharp decision boundaries.</td></tr>
+      <tr><td><strong>Production Leaders</strong></td><td>Scikit-Learn <code>RandomForestClassifier</code></td><td><strong>XGBoost, LightGBM, CatBoost</strong> (dominate tabular Kaggle competitions).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5 · Production XGBoost / LightGBM Training Pipeline</h2>
+  <pre><code>import xgboost as xgb
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, roc_auc_score
+
+# 1. Generate realistic synthetic tabular data
+X, y = make_classification(n_samples=10000, n_features=20, n_informative=12, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 2. Configure XGBoost Classifier with Early Stopping
+model = xgb.XGBClassifier(
+    n_estimators=1000,
+    learning_rate=0.05,
+    max_depth=6,
+    subsample=0.8,             # Row subsampling prevents overfitting
+    colsample_bytree=0.8,      # Feature subsampling
+    eval_metric="logloss",
+    early_stopping_rounds=50,  # Halts training if validation loss plateaus
+    random_state=42
+)
+
+# 3. Train with Validation Set
+model.fit(
+    X_train, y_train,
+    eval_set=[(X_test, y_test)],
+    verbose=False
+)
+
+# 4. Evaluation
+preds = model.predict(X_test)
+probs = model.predict_proba(X_test)[:, 1]
+print(f"XGBoost Test ROC-AUC: {roc_auc_score(y_test, probs):.4f}")
+print(classification_report(y_test, preds))</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0005-logistic-regression-and-classification-metrics.html">← Lesson 05: Logistic Regression</a>
+    <a href="0007-support-vector-machines-and-knn.html">Lesson 07: SVM & KNN →</a>
+  </nav>
+</body>
+</html>

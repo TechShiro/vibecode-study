@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cyclic Sort Lesson 01 — Swap Into Place</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Cyclic Sort Track · Lesson 1 of 1 · values in [1..n] → every number has a home index</div>
+<h1>Cyclic Sort</h1>
+<p class="subtitle">When an array of n numbers only contains values from 1 to n, each value has exactly one home: index value−1. Swap everything home in O(n), and the missing and duplicate numbers expose themselves.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "find the missing/duplicate number in O(n) time and O(1) space" is an OA
+  staple precisely because sorting and HashSets are the obvious — and disqualified — answers. First Missing
+  Positive (LC 41) is a genuine hard that this one pattern turns into ten lines.
+  This is the only lesson in the Cyclic Sort track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+How do you find the missing number in an array? Naive: sort it, O(n log n), then scan. Or dump everything into a
+HashSet, O(n) time but O(n) space. Cyclic sort gets O(n) time <em>and</em> O(1) space by exploiting one fact the
+general-purpose tools ignore: <strong>the values are index-sized</strong>. If every value is in
+<code>[1..n]</code> and the array has length n, then value <code>v</code> belongs at index <code>v−1</code> —
+a perfect one-to-one pairing between values and slots. So walk the array; whenever the number under your finger
+isn't home, swap it to its home. After one pass the array is sorted — and any slot whose resident is wrong
+points straight at a missing value, while the squatter sitting there is a duplicate.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The constraint line says <strong>"n integers in the range [1, n]"</strong> (or [0, n]) and the question is
+  "find the missing / duplicate / all missing / all duplicates," especially with "O(1) extra space" or "without
+  modifying... wait, you may modify the array." Range-bounded values + length-matched array = every value has a
+  home index. That sentence in the constraints IS the pattern announcement — most people skim past it.
+</div>
+
+<h2>2 · Core template — swap into place</h2>
+<p>
+The loop looks O(n²) — a while inside a for — but it isn't. Count swaps, not iterations: <em>every swap puts at
+least one value into its final home forever</em>, and there are only n homes, so at most n swaps total across the
+whole run. The for-loop adds n more steps. O(n) overall.
+</p>
+<pre><code><span class="cmt">// Cyclic sort: values 1..n, each belongs at index value-1.</span>
+void cyclicSort(int[] a) {
+    int i = 0;
+    while (i &lt; a.length) {
+        int home = a[i] - 1;             <span class="cmt">// where the value under the finger belongs</span>
+        if (a[i] != a[home]) {           <span class="cmt">// not home yet (and home doesn't already hold a copy)</span>
+            int t = a[i]; a[i] = a[home]; a[home] = t; <span class="cmt">// send it home; inspect the newcomer next</span>
+        } else {
+            i++;                         <span class="cmt">// a[i] is home (or its home is occupied by its twin) → move on</span>
+        }
+    }
+}                                        <span class="cmt">// afterwards: a[i] == i+1 wherever possible</span></code></pre>
+<p><strong>Time</strong> O(n) — each swap homes a value permanently; ≤ n swaps + n pointer advances.
+<strong>Space</strong> O(1) — all swapping happens inside the input array.</p>
+
+<div class="callout trap">
+  <span class="label">Why the guard is <code>a[i] != a[home]</code> and not <code>a[i] != i + 1</code></span>
+  With duplicates, checking "is the current value in the right slot" infinite-loops: two copies of 3 will swap
+  with each other forever. Checking "does my home already hold my value" breaks the cycle — if your twin is
+  already home, you stop trying and step past. This one guard is what lets the same template power every
+  duplicate-finding problem below.
+</div>
+
+<h3>Worked example — dry run</h3>
+<p><code>a = [3, 1, 5, 4, 2]</code>:</p>
+<div class="trace">
+<span class="step now">i=<span class="ptr">0</span>: a[0]=3, home=2, a[2]=5 ≠ 3 → swap → [5, 1, 3, 4, 2]</span>
+<span class="step now">i=<span class="ptr">0</span>: a[0]=5, home=4, a[4]=2 ≠ 5 → swap → [2, 1, 3, 4, 5]</span>
+<span class="step now">i=<span class="ptr">0</span>: a[0]=2, home=1, a[1]=1 ≠ 2 → swap → [1, 2, 3, 4, 5]</span>
+<span class="step">i=<span class="ptr">0</span>: a[0]=1 is home → i++ … indexes 1–4 all home already → done</span>
+<span class="step">3 swaps for 5 elements — i stalled at 0, but every swap homed someone for good</span>
+</div>
+
+<h2>3 · All the cases</h2>
+<p>Every problem below is "cyclic-sort first, then read the answer off the misplaced slots." The variation is only in what range the values span and what you report.</p>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>One missing, range [0..n]</td><td>LC 268</td><td>Home is index <code>value</code> (0-based); value n has no home — park it and skip.</td></tr>
+    <tr><td>All missing, dups exist</td><td>LC 448</td><td>Sort, then every slot with <code>a[i] != i+1</code> reports missing <code>i+1</code>.</td></tr>
+    <tr><td>All duplicates</td><td>LC 442</td><td>Same sort; the wrong residents <code>a[i]</code> themselves are the duplicates.</td></tr>
+    <tr><td>One duplicate, read-only-ish</td><td>LC 287</td><td>Sort; the intruder at a wrong slot is the answer (or Floyd if truly read-only).</td></tr>
+    <tr><td>One dup + one missing</td><td>LC 645</td><td>Sort; the single wrong slot holds the dup, its index+1 is the missing.</td></tr>
+    <tr><td>Boss: unbounded values</td><td>LC 41</td><td>Ignore everything outside [1..n] — the answer is always within [1..n+1].</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Missing Number (LC 268) — range [0..n], one value homeless</h3>
+<p>
+n distinct numbers drawn from <code>[0..n]</code> — one is missing. Range starts at 0, so home is index
+<code>value</code> itself. The quirk: value <code>n</code> exists but there's no index n. Let it sit wherever;
+it never satisfies the swap condition anyway (its home is out of bounds — treat it as "can't go home, skip").
+After sorting, the first index whose resident is wrong is the missing number; if all match, the missing one is n.
+</p>
+<pre><code>int missingNumber(int[] a) {
+    int i = 0, n = a.length;
+    while (i &lt; n) {
+        if (a[i] &lt; n &amp;&amp; a[i] != a[a[i]]) {  <span class="cmt">// a[i]==n has no home — skip it</span>
+            int t = a[i]; a[i] = a[t]; a[t] = t; <span class="cmt">// home for value v is index v (0-based range)</span>
+        } else i++;
+    }
+    for (i = 0; i &lt; n; i++)
+        if (a[i] != i) return i;         <span class="cmt">// slot i lacks its owner → i is missing</span>
+    return n;                            <span class="cmt">// 0..n-1 all present → n is the missing one</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). (XOR and Gauss-sum also solve 268 — you saw XOR in the
+Bit Manipulation track — but cyclic sort is the version that scales to "find ALL missing" where XOR can't.)</p>
+
+<h3>Case: Find All Numbers Disappeared (LC 448)</h3>
+<p>
+Values in <code>[1..n]</code>, some appear twice, some never. Cyclic-sort, then sweep: every slot that doesn't
+hold its owner names a missing value.
+</p>
+<pre><code>List&lt;Integer&gt; findDisappearedNumbers(int[] a) {
+    int i = 0;
+    while (i &lt; a.length) {
+        int home = a[i] - 1;
+        if (a[i] != a[home]) { int t = a[i]; a[i] = a[home]; a[home] = t; }
+        else i++;                        <span class="cmt">// the duplicate-safe guard from the core template</span>
+    }
+    List&lt;Integer&gt; res = new ArrayList&lt;&gt;();
+    for (i = 0; i &lt; a.length; i++)
+        if (a[i] != i + 1) res.add(i + 1); <span class="cmt">// slot i is squatted by a dup → owner i+1 never arrived</span>
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) beyond the output list.</p>
+
+<h3>Case: Find All Duplicates (LC 442) — same sort, read the other column</h3>
+<p>
+Identical setup, opposite question. After the sort, a mismatched slot <code>a[i] != i+1</code> tells you two
+things at once: <code>i+1</code> is missing (LC 448's answer) and <strong>the squatter <code>a[i]</code> is a
+duplicate</strong> (LC 442's answer) — it couldn't go home because its twin was already there.
+</p>
+<pre><code>List&lt;Integer&gt; findDuplicates(int[] a) {
+    int i = 0;
+    while (i &lt; a.length) {               <span class="cmt">// sort phase: byte-for-byte the same as LC 448</span>
+        int home = a[i] - 1;
+        if (a[i] != a[home]) { int t = a[i]; a[i] = a[home]; a[home] = t; }
+        else i++;
+    }
+    List&lt;Integer&gt; res = new ArrayList&lt;&gt;();
+    for (i = 0; i &lt; a.length; i++)
+        if (a[i] != i + 1) res.add(a[i]); <span class="cmt">// report the SQUATTER this time, not the slot</span>
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) beyond output. One sort, two problems — that's the
+pattern's whole sales pitch.</p>
+
+<h3>Case: Find the Duplicate Number (LC 287) — cyclic-sort view</h3>
+<p>
+n+1 values in <code>[1..n]</code>, exactly one value repeated. If modifying the array is allowed, cyclic sort
+nails it: sort, and the value stranded at index n (or the first mismatch) is the duplicate.
+</p>
+<pre><code>int findDuplicate(int[] a) {
+    int i = 0;
+    while (i &lt; a.length) {
+        int home = a[i] - 1;
+        if (a[i] != a[home]) { int t = a[i]; a[i] = a[home]; a[home] = t; }
+        else i++;
+    }
+    for (i = 0; i &lt; a.length; i++)
+        if (a[i] != i + 1) return a[i];  <span class="cmt">// the value that couldn't go home — its twin beat it there</span>
+    return -1;                           <span class="cmt">// unreachable: a duplicate is guaranteed</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). <em>Caveat:</em> the official LC 287 forbids modifying
+the array — the by-the-book answer is Floyd's cycle detection (Fast &amp; Slow Pointers track). Know both; say the
+trade-off out loud: cyclic sort is simpler but mutates, Floyd is read-only.</p>
+
+<h3>Case: Set Mismatch (LC 645) — duplicate and missing in one shot</h3>
+<p>
+One value duplicated, one lost. After sorting, exactly one slot is wrong — and it answers both questions:
+the resident is the duplicate, the index+1 is the missing.
+</p>
+<pre><code>int[] findErrorNums(int[] a) {
+    int i = 0;
+    while (i &lt; a.length) {
+        int home = a[i] - 1;
+        if (a[i] != a[home]) { int t = a[i]; a[i] = a[home]; a[home] = t; }
+        else i++;
+    }
+    for (i = 0; i &lt; a.length; i++)
+        if (a[i] != i + 1)
+            return new int[]{a[i], i + 1}; <span class="cmt">// {duplicate squatter, missing owner}</span>
+    return new int[0];
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1).</p>
+
+<h3>Boss: First Missing Positive (LC 41)</h3>
+<p>
+Unsorted array, <strong>any</strong> int values (negatives, zeros, huge numbers), find the smallest missing
+positive in O(n)/O(1). This is a LeetCode Hard, and it's the same ten lines. The unlock: the answer must lie in
+<code>[1 .. n+1]</code> — n slots can cover at most the values 1..n, so something in that range (or n+1 exactly)
+is free. Therefore every value outside <code>[1..n]</code> is <em>noise</em>: don't swap it anywhere, just step
+past it. Cyclic-sort the values that do fit, then the first wrong slot names the answer.
+</p>
+<pre><code>int firstMissingPositive(int[] a) {
+    int n = a.length, i = 0;
+    while (i &lt; n) {
+        int v = a[i];
+        if (v &gt;= 1 &amp;&amp; v &lt;= n &amp;&amp; a[v - 1] != v) {  <span class="cmt">// in range AND home not already correct</span>
+            int t = a[v - 1]; a[v - 1] = v; a[i] = t; <span class="cmt">// send v home; re-inspect what came back</span>
+        } else i++;                      <span class="cmt">// noise (≤0, &gt;n) or already settled → skip</span>
+    }
+    for (i = 0; i &lt; n; i++)
+        if (a[i] != i + 1) return i + 1; <span class="cmt">// first unowned slot = smallest missing positive</span>
+    return n + 1;                        <span class="cmt">// perfect 1..n permutation → answer is n+1</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Interviewers accept nothing less for this problem —
+sort is O(n log n), HashSet is O(n) space; both get the follow-up "can you do better?"</p>
+
+<div class="callout tip">
+  <span class="label">One template, six problems</span>
+  Notice what actually varied: LC 268 shifts the range to [0..n]; LC 41 filters junk before swapping; everything
+  else is the identical sort followed by reading either the <em>slot index</em> (missing) or the
+  <em>squatter value</em> (duplicate) in the final sweep. Learn the swap loop once, then each problem is just
+  "which column do I report?"
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Guard with <code>a[i] != a[home]</code>, never <code>a[i] != i+1</code></strong> — the twin-already-home check is the only thing standing between you and an infinite swap loop on duplicates.</li>
+  <li><strong>After a swap, do NOT advance <code>i</code></strong> — the value that just arrived at <code>i</code> is unexamined and may itself need to travel. Only <code>i++</code> when the current slot is settled.</li>
+  <li><strong>Range off-by-one</strong> — values [1..n] → home <code>v−1</code>; values [0..n] (LC 268) → home <code>v</code>, and the value n is homeless: skip it.</li>
+  <li><strong>Bounds-check before indexing</strong> (LC 41) — <code>a[v-1]</code> with v = −5 or v = 10⁹ throws; the in-range test must come first in the condition (short-circuit order matters).</li>
+  <li><strong>All-settled input</strong> — a perfect permutation means the final sweep finds nothing: return n (LC 268) or n+1 (LC 41), not −1.</li>
+  <li><strong>Mutation allowed?</strong> — cyclic sort destroys the input order. LC 287 officially forbids it (use Floyd); OAs often don't care, but ask your interviewer before scrambling their array.</li>
+  <li><strong>n = 0 / n = 1</strong> — empty array in LC 41 must return 1; the loops handle it, but confirm your final return does too.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">The cyclic-sort loop has a while nested inside what amounts to a linear scan, yet runs in O(n). Why?</div>
+  <button class="opt">The inner while runs at most a constant number of times per index on random data</button>
+  <button class="opt">Each swap places at least one value in its final home permanently, and there are only n homes — so ≤ n swaps total across the entire run</button>
+  <button class="opt">It's actually O(n log n), but the log factor is small enough to ignore in interviews</button>
+  <div class="fb" data-correct="Right — amortized counting: charge each swap to the value it homes. n homes → ≤ n swaps, plus n pointer advances → O(n) total, worst case." data-wrong="It's a worst-case O(n) bound via amortization: every swap permanently settles a value, and only n values exist. Count swaps globally, not per-iteration."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">After cyclic-sorting an array with duplicates, slot 4 holds the value 7 (so <code>a[4] != 5</code>). What have you learned?</div>
+  <button class="opt">5 is a missing value, and 7 is a duplicate — the same mismatch answers both questions</button>
+  <button class="opt">Only that 5 is missing; finding duplicates needs a second pass with a HashSet</button>
+  <button class="opt">The sort failed and must be re-run until every slot matches</button>
+  <div class="fb" data-correct="Exactly — the owner (5) never showed up, and the squatter (7) is only there because its own home already holds another 7. LC 448, 442, and 645 all read off this one mismatch." data-wrong="No extra pass or structure needed: 7 squats at index 4 only because index 6 already holds a 7 — so 7 is duplicated AND 5 is missing, from a single glance."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In First Missing Positive (LC 41), the array contains −3, 0, and 10⁹ among its n = 6 values. How does cyclic sort handle them?</div>
+  <button class="opt">Clamp them into [1..n] first so every value has a valid home</button>
+  <button class="opt">They make cyclic sort inapplicable — fall back to sorting the array</button>
+  <button class="opt">Skip them without swapping — the answer must lie in [1..n+1], so out-of-range values are irrelevant noise</button>
+  <div class="fb" data-correct="Right — six slots can host at most the values 1..6, so the smallest missing positive is in [1..7] no matter what. Anything outside [1..n] can't affect the answer; just step past it." data-wrong="No clamping, no fallback. The pigeonhole fact — n slots ⇒ answer ∈ [1..n+1] — means out-of-range values are ignorable; the swap condition simply filters them out."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/first-missing-positive">NeetCode — First Missing Positive</a> for the boss problem, and <a href="https://neetcode.io/problems/find-the-duplicate-number">NeetCode — Find the Duplicate Number</a> to compare the cyclic view with Floyd's.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 268 → LC 448 → LC 442 → LC 645 → LC 287 (both ways: cyclic + Floyd) → LC 41. Before each, write the two-line spec: what range are the values, and do I report the slot or the squatter?</li>
+</ul>
+
+<h2>7 · Cyclic Sort cheat sheet</h2>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Core sort</td><td>n values in [1..n]</td><td>while <code>a[i] != a[a[i]-1]</code> swap; else <code>i++</code></td><td>O(n) / O(1)</td><td>—</td></tr>
+    <tr><td>One missing, [0..n]</td><td>distinct, range starts at 0</td><td>home = index <code>v</code>; skip v = n; first <code>a[i] != i</code></td><td>O(n) / O(1)</td><td>268</td></tr>
+    <tr><td>All missing</td><td>dups exist, [1..n]</td><td>sort, report every slot <code>i+1</code> where <code>a[i] != i+1</code></td><td>O(n) / O(1)</td><td>448</td></tr>
+    <tr><td>All duplicates</td><td>same input as 448</td><td>sort, report every squatter <code>a[i]</code> at a wrong slot</td><td>O(n) / O(1)</td><td>442</td></tr>
+    <tr><td>One duplicate</td><td>n+1 values in [1..n]</td><td>sort, return the stranded squatter (Floyd if read-only)</td><td>O(n) / O(1)</td><td>287</td></tr>
+    <tr><td>Dup + missing pair</td><td>"one number twice, one lost"</td><td>sort; wrong slot gives <code>{a[i], i+1}</code></td><td>O(n) / O(1)</td><td>645</td></tr>
+    <tr><td>First missing positive</td><td>ANY ints, O(1) space demanded</td><td>swap only v ∈ [1..n]; first <code>a[i] != i+1</code> → <code>i+1</code>, else n+1</td><td>O(n) / O(1)</td><td>41</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry run of LC 41 on <code>[3,4,-1,1]</code>, a deeper look at why the swap count is bounded, or a
+  refresher on the Floyd's alternative for LC 287? Ask in the chat. When you can write the swap loop from memory
+  and answer "slot or squatter?" for all six problems — congratulations: this was the final pattern.
+  You've completed the course.
+</div>
+
+<div class="nav">
+  <span><a href="../bit-manipulation-lessons/0002-xor-and-masks.html">← XOR &amp; Masks</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span>Course complete 🎉</span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

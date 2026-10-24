@@ -1,0 +1,285 @@
+<title>Message Integrity</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit I &middot; Lesson 1 of 7</p>
+<h1>Message Integrity</h1>
+<p class="deck">Why encryption alone is not enough, what a message digest is, and the document-and-fingerprint model that every later topic in this unit is built on.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>This lesson is the <strong>opening paragraph of almost every long answer in Unit I</strong>. Two questions come straight from it: <strong>&ldquo;What is message integrity? Explain with the document and fingerprint analogy&rdquo;</strong> and <strong>&ldquo;Distinguish between confidentiality, integrity, authentication and non-repudiation.&rdquo;</strong> Write the four-goal table first, then narrow to integrity &mdash; examiners reward the framing, not just the definition.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Message Integrity &amp; Modification Detection</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=iKlpwOk-DDI" target="_blank">Message Integrity in Cryptography | Message Digest &amp; Hash Verification</a>
+    <span class="v-meta">Study Table &middot; 9:34</span>
+    <div class="v-why">Clear walkthrough explaining why encryption alone cannot guarantee integrity, how hash digests detect tampering, and the fundamental differences between integrity and confidentiality.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Confidentiality vs Authentication vs Integrity</span>
+      <span class="best-tag">Top Exam Summary</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=EoAID_sCDns" target="_blank">Confidentiality, Authentication and Data Integrity Explained</a>
+    <span class="v-meta">Abhishek Sharma &middot; 3:22</span>
+    <div class="v-why">Crisp 3-way distinction clarifying which mathematical tool achieves which security service (Ciphers &rarr; Confidentiality, MAC/Signatures &rarr; Authentication, Hashes &rarr; Integrity).</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: MESSAGE INTEGRITY VERIFICATION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Cryptographic Message Integrity Verification</span>
+  <div class="flow-col">
+    <div class="flow-row" style="gap:2rem;">
+      <!-- Sender -->
+      <div style="border:1.5px solid var(--accent); border-radius:6px; padding:1rem; background:var(--panel); min-width:14rem;">
+        <div style="text-align:center; font-weight:700; color:var(--accent); font-size:0.85rem; text-transform:uppercase;">Sender Side</div>
+        <div class="flow-col" style="margin-top:0.5rem;">
+          <div class="flow-box"><strong>Message $M$</strong></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box highlight"><strong>Hash Function $H(M)$</strong></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box ok"><strong>Digest $h = H(M)$</strong></div>
+        </div>
+      </div>
+
+      <!-- Transmission -->
+      <div style="align-self:center; text-align:center;">
+        <span class="flow-arrow-right" style="font-size:1.4rem;">&rarr; Transmit $(M, h)$ &rarr;</span>
+        <div style="font-size:0.75rem; color:var(--warn); margin-top:0.3rem;">Insecure Channel</div>
+      </div>
+
+      <!-- Receiver -->
+      <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--panel); min-width:14rem;">
+        <div style="text-align:center; font-weight:700; color:var(--ok); font-size:0.85rem; text-transform:uppercase;">Receiver Verification</div>
+        <div class="flow-col" style="margin-top:0.5rem;">
+          <div class="flow-box"><strong>Received $M'$</strong></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box highlight"><strong>Recompute $h' = H(M')$</strong></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box ok"><strong>Test: $h' \stackrel{?}{=} h$</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>The gap encryption leaves</h2>
+
+<p>Encryption protects <strong>confidentiality</strong> &mdash; it stops an eavesdropper reading the message. It does <strong>not</strong> stop the eavesdropper <em>changing</em> it. A ciphertext that has been altered in transit still decrypts; it decrypts to garbage, or in some modes to a <em>usefully</em> altered plaintext. The receiver has no way to tell.</p>
+
+<div class="box">
+  <span class="lbl">The one-line justification for this whole unit</span>
+  <p><strong>Confidentiality hides the message; it does not preserve it.</strong> Some documents &mdash; a public tender notice, a software download, a bank instruction &mdash; may not need hiding at all, yet <strong>must</strong> arrive unaltered. Integrity is therefore a separate goal, needing separate machinery.</p>
+</div>
+
+<h3>The four security goals, and which one this unit is about</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Goal</th><th>Question it answers</th><th>Mechanism</th></tr></thead>
+<tbody>
+<tr><td><strong>Confidentiality</strong></td><td>Can an outsider read it?</td><td>Encryption (DES, AES, RSA)</td></tr>
+<tr><td><strong>Integrity</strong></td><td>Has it been changed on the way?</td><td><strong>Hash function &rarr; message digest (MDC)</strong></td></tr>
+<tr><td><strong>Authentication</strong></td><td>Did it really come from that sender?</td><td><strong>MAC, HMAC, CMAC</strong> (Lesson 4)</td></tr>
+<tr><td><strong>Non-repudiation</strong></td><td>Can the sender later deny sending it?</td><td>Digital signature (Unit II)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Note the ladder: <strong>integrity alone is the weakest of the three, authentication adds the sender&rsquo;s identity, and non-repudiation adds proof to a third party.</strong> A hash gives you the first, a MAC the first two, a signature all three. Stating that ladder in an answer is worth a mark on its own.</p>
+
+<h2>The document and fingerprint analogy</h2>
+
+<p>This is Forouzan&rsquo;s framing and the one your examiner expects.</p>
+
+<div class="formula">
+  <span class="name">The analogy, stated exactly</span>
+  A person&rsquo;s <strong>fingerprint</strong> is taken and filed alongside a document.<br>
+  If the document is later disputed, the fingerprint is checked again.<br>
+  A different fingerprint means <strong>the document is not the original</strong>.<br><br>
+  In cryptography: <strong>message = document</strong>, &nbsp; <strong>message digest = fingerprint</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Physical world</th><th>Electronic world</th></tr></thead>
+<tbody>
+<tr><td>Document</td><td>Message <strong>M</strong> (any length)</td></tr>
+<tr><td>Fingerprint of the document&rsquo;s owner</td><td><strong>Message digest</strong> h = H(M), fixed length</td></tr>
+<tr><td>Fingerprint is small, the document is large</td><td>Digest is 128&ndash;512 bits however large M is</td></tr>
+<tr><td>Fingerprint must be kept where nobody can swap it</td><td><strong>The digest must travel over a safe channel</strong>, or be protected by a key</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The point students miss &mdash; and examiners test</span>
+  <p><strong>The digest itself must be protected.</strong> If Eve can change the message she can simply recompute the digest and change that too. A plain hash sent alongside the message over the same channel gives <strong>no security against an active attacker</strong> &mdash; it only detects <em>accidental</em> corruption. This is precisely why Lesson 4 exists: a MAC solves it by mixing a secret key into the digest.</p>
+</div>
+
+<h2>Message digest &mdash; the definition to write down</h2>
+
+<div class="formula">
+  <span class="name">Message digest</span>
+  <strong>h = H(M)</strong><br>
+  H is a cryptographic hash function; M is a message of arbitrary length;<br>
+  h is a <strong>fixed-length</strong> digest, also called a <strong>hash value</strong>, <strong>fingerprint</strong>,<br>
+  or <strong>MDC (Modification Detection Code)</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property of the digest</th><th>Why it matters here</th></tr></thead>
+<tbody>
+<tr><td><strong>Fixed length</strong> regardless of message size</td><td>A 1 GB file and a 3-letter message both give (say) 512 bits &mdash; cheap to store, send and sign</td></tr>
+<tr><td><strong>One-way</strong> &mdash; M cannot be recovered from h</td><td>Publishing the digest reveals nothing about the message</td></tr>
+<tr><td><strong>Deterministic</strong> &mdash; same M always gives the same h</td><td>Without this, checking would be impossible</td></tr>
+<tr><td><strong>Avalanche effect</strong> &mdash; one changed input bit changes about half the output bits</td><td>Makes the comparison at the receiver a reliable yes/no test</td></tr>
+<tr><td><strong>Collision resistant</strong> &mdash; two messages with the same digest cannot feasibly be found</td><td>Otherwise Eve substitutes a different message with the same fingerprint</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Checking integrity: the procedure</h2>
+
+<div class="solve">
+  <span class="lbl">The three-step procedure, worth drawing as a diagram</span>
+  <p><strong>At the sender:</strong> compute h<sub>1</sub> = H(M). Send M over the ordinary (insecure) channel and h<sub>1</sub> over a <strong>safe</strong> channel &mdash; or store h<sub>1</sub> safely.</p>
+  <p><strong>In transit:</strong> M may be altered by an attacker or by noise, becoming M&prime;.</p>
+  <p><strong>At the receiver:</strong> compute h<sub>2</sub> = H(M&prime;) from the message actually received, and compare with the h<sub>1</sub> that arrived safely.</p>
+  <p><strong>h<sub>1</sub> = h<sub>2</sub> &rarr; integrity preserved. h<sub>1</sub> &ne; h<sub>2</sub> &rarr; the message was modified; reject it.</strong></p>
+</div>
+
+<p>Draw this as two boxes joined by two arrows &mdash; a thick arrow for the message down the insecure channel, a thin one for the digest down the safe channel &mdash; with a comparator at the receiver. That diagram, correctly labelled, is usually half the marks in an &ldquo;explain message integrity&rdquo; question.</p>
+
+<h3>Where the digest is actually kept in real systems</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Situation</th><th>How the digest is protected</th></tr></thead>
+<tbody>
+<tr><td>Software download</td><td>Digest published on the website over HTTPS; the file itself mirrored anywhere</td></tr>
+<tr><td>Message over a network</td><td><strong>Keyed</strong> digest &mdash; a MAC (Lesson 4). No separate safe channel needed.</td></tr>
+<tr><td>Legal document</td><td>Digest encrypted with the sender&rsquo;s private key &mdash; a <strong>digital signature</strong></td></tr>
+<tr><td>Password file</td><td>Only the digest is stored; the password itself is never kept</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>MDC versus MAC &mdash; name the two families now</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>MDC (Modification Detection Code)</th><th>MAC (Message Authentication Code)</th></tr></thead>
+<tbody>
+<tr><td><strong>Uses a key?</strong></td><td><strong>No</strong> &mdash; keyless hash</td><td><strong>Yes</strong> &mdash; a secret key shared by sender and receiver</td></tr>
+<tr><td><strong>Provides</strong></td><td>Integrity only</td><td>Integrity <strong>and</strong> source authentication</td></tr>
+<tr><td><strong>Digest must travel</strong></td><td>Over a <strong>safe</strong> channel</td><td>Over the <strong>same insecure</strong> channel &mdash; the key protects it</td></tr>
+<tr><td><strong>Stops an active attacker?</strong></td><td>No, if the attacker can reach the digest</td><td>Yes &mdash; the attacker cannot compute the MAC without the key</td></tr>
+<tr><td><strong>Examples</strong></td><td>MD4, MD5, SHA-512, Whirlpool</td><td>HMAC, CMAC</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Everything in Lessons 2, 3, 5, 6 and 7 builds the MDC side. Lesson 4 builds the MAC side. Keeping that split in your head is how the seven topics of this unit stop being seven unrelated things.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Encryption alone does not provide integrity because:</p>
+  <div class="opts">
+    <button class="opt">Encrypted messages cannot be hashed before they are transmitted</button>
+    <button class="opt" data-ok="1">A ciphertext can still be altered in transit, and the receiver cannot detect it</button>
+    <button class="opt">Encryption keys are usually too short to protect very long messages</button>
+    <button class="opt">Decryption always removes any changes made during transmission</button>
+  </div>
+  <p class="why">Confidentiality hides the message; it does not preserve it. Detecting change needs a digest, not a cipher.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the document-and-fingerprint analogy, the message digest corresponds to:</p>
+  <div class="opts">
+    <button class="opt">The envelope, which conceals the document during its delivery</button>
+    <button class="opt" data-ok="1">The fingerprint, which is small, fixed in size and tied to the document</button>
+    <button class="opt">The document, because both carry the full information content</button>
+    <button class="opt">The witness, who confirms the identity of the person signing</button>
+  </div>
+  <p class="why">Message = document, digest = fingerprint. The fingerprint is far smaller than the document and changes if the document does.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A message and its plain hash are sent over the same insecure channel. This provides:</p>
+  <div class="opts">
+    <button class="opt">Full integrity, because the hash is one-way and so cannot be forged</button>
+    <button class="opt">Integrity and authentication, because only the sender knows the algorithm</button>
+    <button class="opt" data-ok="1">Detection of accidental errors only — an attacker can recompute the hash</button>
+    <button class="opt">Non-repudiation, since the digest uniquely identifies its sender</button>
+  </div>
+  <p class="why">The hash function is public. Eve changes M, recomputes H(M), and sends both. The digest needs a safe channel or a secret key.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Integrity, authentication and non-repudiation differ in that:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Each adds a guarantee to the last: unchanged, then from whom, then provable to a third party</button>
+    <button class="opt">Only non-repudiation can be achieved using symmetric key cryptography</button>
+    <button class="opt">They are three names for the same service under three different standards</button>
+    <button class="opt">Integrity needs a key, while authentication and non-repudiation are keyless</button>
+  </div>
+  <p class="why">Hash gives integrity. MAC gives integrity plus authentication. Digital signature gives all three.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The avalanche effect matters for integrity checking because:</p>
+  <div class="opts">
+    <button class="opt">It keeps the digest length proportional to the length of the message</button>
+    <button class="opt">It allows the original message to be reconstructed from its digest</button>
+    <button class="opt" data-ok="1">Even a one-bit change produces a completely different digest, making tampering obvious</button>
+    <button class="opt">It guarantees that no two messages anywhere will share a digest</button>
+  </div>
+  <p class="why">Roughly half the output bits flip for one input bit. Note that no fixed-length hash can guarantee zero collisions — that is the pigeonhole principle of Lesson 3.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define message integrity and say why encryption does not provide it.</summary>
+    <p class="ans">Message integrity means the message must arrive exactly as it was sent, with any change detectable. Encryption provides confidentiality — it hides the content — but an encrypted message can still be altered in transit and the receiver cannot tell. Integrity therefore needs its own mechanism: a cryptographic hash producing a message digest.</p></details>
+  <details class="card"><summary>State the document-and-fingerprint analogy.</summary>
+    <p class="ans">A fingerprint is taken alongside a document and filed; if the document is later disputed the fingerprint is checked again, and a mismatch proves the document is not the original. In cryptography the message is the document and the message digest is the fingerprint — small, fixed in length, and different if the message changes.</p></details>
+  <details class="card"><summary>Give the procedure for checking integrity at sender and receiver.</summary>
+    <p class="ans">Sender computes h₁ = H(M), sends M over the insecure channel and h₁ over a safe channel. Receiver computes h₂ = H(M′) on the message received and compares. Equal digests mean the message is intact; unequal means it was modified and must be rejected.</p></details>
+  <details class="card"><summary>Why must the digest be sent over a safe channel?</summary>
+    <p class="ans">Because the hash function is public and keyless. An attacker who can alter the message can recompute the digest of the altered message and replace it, so an unprotected digest detects only accidental errors. Protecting it needs either a safe channel, a secret key (MAC) or the sender&rsquo;s private key (digital signature).</p></details>
+  <details class="card"><summary>Distinguish MDC from MAC.</summary>
+    <p class="ans">An MDC is a keyless digest giving integrity only, and must travel over a safe channel. A MAC mixes a shared secret key into the digest, giving integrity plus source authentication, and can travel over the same insecure channel as the message. Neither gives non-repudiation; that needs a digital signature.</p></details>
+  <details class="card"><summary>List five properties of a message digest.</summary>
+    <p class="ans">Fixed length whatever the input size; one-way, so the message cannot be recovered; deterministic, so the same message always gives the same digest; avalanche effect, where one input bit changes about half the output bits; and collision resistance, so two messages with the same digest cannot feasibly be found.</p></details>
+</div>
+
+<p class="ask">Next: the hash function itself &mdash; its formal properties, the three resistance requirements, and the Merkle&ndash;Damg&aring;rd structure that MD4, SHA-512 and Whirlpool all follow.</p>
+
+<div class="nav">
+  <a href="../../index.html">All lessons</a>
+  <a href="0002-hash-functions-and-properties.html">Next: Hash Functions and Properties &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

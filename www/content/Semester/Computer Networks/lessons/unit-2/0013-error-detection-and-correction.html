@@ -1,0 +1,415 @@
+<title>Error Detection and Correction</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 13 of 27</p>
+<h1>Error Detection and Correction</h1>
+<p class="deck">The most numerical lesson in the subject. Parity, LRC, checksum, CRC and Hamming code &mdash; each worked end to end with the arithmetic shown. CRC and Hamming between them appear in almost every paper.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Expect a CRC numerical and a Hamming code numerical.</strong> Together they are often 15&ndash;20 marks, and they are objectively markable &mdash; you either get them right or you do not. Do the division and the parity checks slowly; almost every lost mark here is arithmetic, not understanding. Always <strong>verify your own answer at the receiver end</strong>: divide the codeword again and show the remainder is zero. That verification is usually worth a mark and it catches your own mistakes.</p>
+</div>
+
+<h2>Types of error</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Definition</th><th>Where it happens</th></tr></thead>
+<tbody>
+<tr><td><strong>Single-bit error</strong></td><td><strong>Only one bit</strong> of a given data unit is changed &mdash; from 1 to 0 or 0 to 1.</td><td>Rare in serial transmission; more likely in parallel transmission</td></tr>
+<tr><td><strong>Burst error</strong></td><td><strong>Two or more bits</strong> in the data unit have changed. The <strong>length of the burst is measured from the first corrupted bit to the last</strong>, and bits in between need not all be corrupted.</td><td>The common case &mdash; noise usually lasts longer than one bit interval</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Why burst errors dominate: noise typically lasts longer than the duration of one bit, so the higher the data rate, the more bits are affected by the same burst of noise. A 1 ms noise burst corrupts 10 bits at 10 kbps but 1000 bits at 1 Mbps.</p>
+
+<h2>Redundancy, block coding and Hamming distance</h2>
+
+<p>The central idea of every scheme in this lesson: <strong>redundancy</strong> &mdash; extra bits are added by the sender and used by the receiver to detect or correct errors, then discarded.</p>
+
+<p>In <strong>block coding</strong>, the message is divided into <strong>datawords</strong> of <em>k</em> bits, and <em>r</em> redundant bits are added to make <strong>codewords</strong> of <em>n</em> = k + r bits. Of the 2<sup>n</sup> possible codewords, only 2<sup>k</sup> are <strong>valid</strong>. If the receiver gets an invalid codeword, an error has occurred.</p>
+
+<div class="formula">
+  <span class="name">Hamming distance</span>
+  d(x, y) = the number of <strong>bit positions in which x and y differ</strong><br>
+  Computed as: XOR the two words and count the 1s.
+</div>
+
+<p><strong>Minimum Hamming distance d<sub>min</sub></strong> is the smallest Hamming distance between any pair of valid codewords in the code. It determines everything the code can do:</p>
+
+<div class="formula">
+  <span class="name">The two capability rules</span>
+  To <strong>detect</strong> up to <strong>s</strong> errors: &nbsp; d<sub>min</sub> &ge; s + 1<br>
+  To <strong>correct</strong> up to <strong>t</strong> errors: &nbsp; d<sub>min</sub> &ge; 2t + 1
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; Hamming distance</span>
+  <p><strong>Q.</strong> Find d(10101, 11110). If a code has d<sub>min</sub> = 4, how many errors can it detect, and how many can it correct?</p>
+
+  <p>10101 &oplus; 11110 = 01011 &nbsp;&rarr;&nbsp; three 1s &nbsp;&rarr;&nbsp; <strong>d = 3</strong></p>
+
+  <p><strong>Detection:</strong> d<sub>min</sub> &ge; s + 1 &rarr; 4 &ge; s + 1 &rarr; <strong>s = 3 errors detectable</strong></p>
+  <p><strong>Correction:</strong> d<sub>min</sub> &ge; 2t + 1 &rarr; 4 &ge; 2t + 1 &rarr; t &le; 1.5 &rarr; <strong>t = 1 error correctable</strong></p>
+
+  <p><em>The point to state:</em> <strong>detection is always cheaper than correction.</strong> The same d<sub>min</sub> = 4 detects three errors but corrects only one, because correcting requires knowing <em>which</em> valid codeword was intended, not merely that the received one is invalid.</p>
+</div>
+
+<h2>1. Parity check (VRC)</h2>
+
+<p><strong>Vertical Redundancy Check.</strong> A single <strong>parity bit</strong> is appended so that the total number of 1s in the unit becomes even (<strong>even parity</strong>) or odd (<strong>odd parity</strong>).</p>
+
+<ul>
+<li><strong>Detects:</strong> all <strong>odd</strong> numbers of bit errors (1, 3, 5 &hellip;).</li>
+<li><strong>Fails on:</strong> any <strong>even</strong> number of errors &mdash; two flipped bits leave the parity unchanged. Since burst errors commonly affect an even number of bits, simple parity is weak in practice.</li>
+<li>d<sub>min</sub> = 2, so it detects one error and corrects none.</li>
+<li>Cheapest scheme; used where errors are rare and cost matters.</li>
+</ul>
+
+<h2>2. Two-dimensional parity (LRC)</h2>
+
+<p><strong>Longitudinal Redundancy Check.</strong> Data is organised into a <strong>table of rows and columns</strong>. A parity bit is computed for each row (as in VRC) <em>and</em> for each column, giving an extra parity <strong>row</strong> at the bottom.</p>
+
+<ul>
+<li><strong>Improvement:</strong> detects all burst errors up to a length equal to the number of columns, and can <strong>locate</strong> a single-bit error at the intersection of the failing row and the failing column &mdash; so a single error can even be corrected.</li>
+<li><strong>Still fails:</strong> if <strong>two bits in one data unit are damaged and two bits in exactly the same positions in another data unit are also damaged</strong>, the checker will not detect it. Four errors arranged in a rectangle are invisible.</li>
+</ul>
+
+<h2>3. Checksum</h2>
+
+<p>Used mainly at the <strong>network and transport layers</strong> (IP, TCP and UDP headers), not at the data link layer.</p>
+
+<div class="formula">
+  <span class="name">Checksum procedure</span>
+  <strong>Sender:</strong> divide the data into equal-size words &rarr; add all words using <strong>one's complement addition</strong> &rarr; <strong>complement the sum</strong> &rarr; that is the checksum &rarr; send it with the data.<br>
+  <strong>Receiver:</strong> add all words <em>including the checksum</em> &rarr; complement the result &rarr; if it is <strong>all zeros, accept</strong>; otherwise reject.
+</div>
+
+<p><strong>One's complement addition</strong> means: if the addition produces a carry out of the leftmost bit, that carry is <strong>added back into the rightmost bit</strong> (wrapped around).</p>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; checksum</span>
+  <p><strong>Q.</strong> Compute the checksum for the two 8-bit words <code>10101001</code> and <code>00111001</code>, and verify it at the receiver.</p>
+
+  <p><strong>At the sender:</strong></p>
+  <p>&nbsp;&nbsp;10101001<br>
+  + 00111001<br>
+  = <strong>11100010</strong> &nbsp;(no carry out of the 8th bit, so no wraparound needed)</p>
+
+  <p>Complement: <strong>checksum = 00011101</strong></p>
+  <p>Transmitted: <code>10101001 00111001 00011101</code></p>
+
+  <p><strong>At the receiver (no errors):</strong></p>
+  <p>&nbsp;&nbsp;10101001<br>
+  + 00111001<br>
+  = 11100010<br>
+  + 00011101<br>
+  = <strong>11111111</strong></p>
+  <p>Complement: <strong>00000000</strong> &rarr; all zeros &rarr; <strong>data accepted.</strong> &#10003;</p>
+
+  <p><em>Sanity check that always holds:</em> the receiver's sum before complementing must be <strong>all 1s</strong>. If it is not, either an error occurred or your arithmetic is wrong.</p>
+</div>
+
+<h2>4. Cyclic Redundancy Check (CRC)</h2>
+
+<p>The standard scheme at the <strong>data link layer</strong>, and the one most likely to be asked. Based on <strong>binary division</strong>, where subtraction is replaced by <strong>XOR</strong> &mdash; there are no borrows and no carries.</p>
+
+<div class="formula">
+  <span class="name">CRC procedure</span>
+  <strong>Sender:</strong> append <strong>(n &minus; 1) zeros</strong> to the dataword, where n is the number of bits in the divisor (generator) &rarr; divide by the generator using XOR &rarr; the <strong>remainder is the CRC</strong> &rarr; replace the appended zeros with the remainder to form the codeword.<br>
+  <strong>Receiver:</strong> divide the received codeword by the same generator &rarr; if the <strong>remainder is all zeros, accept</strong>; otherwise the data is corrupted.
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; CRC, sender side</span>
+  <p><strong>Q.</strong> Dataword = <code>1001</code>, generator (divisor) = <code>1011</code>. Find the codeword to be transmitted.</p>
+
+  <p>The divisor has <strong>4 bits</strong>, so append <strong>3 zeros</strong>: dividend = <code>1001000</code></p>
+
+  <p>Divide <code>1001000</code> by <code>1011</code> using XOR at every step:</p>
+
+  <p><strong>Step 1:</strong> leading 4 bits <code>1001</code>, leading bit is 1 &rarr; XOR with <code>1011</code><br>
+  1001 &oplus; 1011 = <code>0010</code> &nbsp;&rarr; drop the leading 0, bring down the next bit (0) &rarr; <code>0100</code></p>
+
+  <p><strong>Step 2:</strong> <code>0100</code>, leading bit is 0 &rarr; XOR with <code>0000</code><br>
+  0100 &oplus; 0000 = <code>0100</code> &nbsp;&rarr; drop the leading 0, bring down the next bit (0) &rarr; <code>1000</code></p>
+
+  <p><strong>Step 3:</strong> <code>1000</code>, leading bit is 1 &rarr; XOR with <code>1011</code><br>
+  1000 &oplus; 1011 = <code>0011</code> &nbsp;&rarr; drop the leading 0, bring down the last bit (0) &rarr; <code>0110</code></p>
+
+  <p><strong>Step 4:</strong> <code>0110</code>, leading bit is 0 &rarr; XOR with <code>0000</code><br>
+  0110 &oplus; 0000 = <code>0110</code> &nbsp;&rarr; drop the leading 0 &rarr; remainder = <code>110</code></p>
+
+  <p><strong>CRC = 110</strong></p>
+  <p><strong>Codeword transmitted = dataword + CRC = <code>1001</code> <code>110</code> = <code>1001110</code></strong></p>
+
+  <p><em>Sanity check:</em> the remainder must have <strong>exactly one fewer bit than the divisor</strong>. Divisor is 4 bits, remainder is 3 bits. &#10003;</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; CRC, receiver side</span>
+  <p><strong>Q.</strong> The receiver gets <code>1001110</code>. Verify it using the same generator <code>1011</code>.</p>
+
+  <p><strong>Step 1:</strong> 1001 &oplus; 1011 = <code>0010</code> &rarr; bring down 1 &rarr; <code>0101</code></p>
+  <p><strong>Step 2:</strong> leading 0 &rarr; 0101 &oplus; 0000 = <code>0101</code> &rarr; bring down 1 &rarr; <code>1011</code></p>
+  <p><strong>Step 3:</strong> leading 1 &rarr; 1011 &oplus; 1011 = <code>0000</code> &rarr; bring down 0 &rarr; <code>0000</code></p>
+  <p><strong>Step 4:</strong> leading 0 &rarr; 0000 &oplus; 0000 = <code>0000</code> &rarr; remainder = <code>000</code></p>
+
+  <p><strong>Remainder is zero &rarr; the data is accepted as error-free.</strong> &#10003;</p>
+  <p><em>Always show this step in the exam.</em> It proves your sender-side arithmetic and is frequently worth a mark of its own.</p>
+</div>
+
+<h3>CRC generator polynomials</h3>
+
+<p>The divisor is usually written as a <strong>polynomial</strong>. <code>1011</code> is x<sup>3</sup> + x + 1 (bits read as coefficients of x<sup>3</sup>, x<sup>2</sup>, x<sup>1</sup>, x<sup>0</sup>). Standard generators worth naming:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Name</th><th>Polynomial</th><th>Used in</th></tr></thead>
+<tbody>
+<tr><td><strong>CRC-8</strong></td><td>x<sup>8</sup> + x<sup>2</sup> + x + 1</td><td>ATM header</td></tr>
+<tr><td><strong>CRC-10</strong></td><td>x<sup>10</sup> + x<sup>9</sup> + x<sup>5</sup> + x<sup>4</sup> + x<sup>2</sup> + 1</td><td>ATM AAL</td></tr>
+<tr><td><strong>CRC-16</strong></td><td>x<sup>16</sup> + x<sup>12</sup> + x<sup>5</sup> + 1</td><td>HDLC</td></tr>
+<tr><td><strong>CRC-32</strong></td><td>x<sup>32</sup> + x<sup>26</sup> + x<sup>23</sup> + &hellip; + x + 1</td><td><strong>Ethernet (IEEE 802.3)</strong>, ZIP, PNG</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Properties of a good generator polynomial</strong> (a common 3-mark theory sub-question):</p>
+<ul>
+<li>It should have at least <strong>two terms</strong>.</li>
+<li>The <strong>coefficient of x<sup>0</sup> must be 1</strong> (the last bit must be 1).</li>
+<li>It should <strong>not divide x<sup>t</sup> + 1</strong> for any t up to the frame length &mdash; this ensures burst errors are caught.</li>
+<li>If it has the factor <strong>(x + 1)</strong>, all odd numbers of errors are detected.</li>
+</ul>
+
+<p><strong>CRC detects:</strong> all single-bit errors; all double-bit errors (with a suitable generator); all odd numbers of errors (if the generator has the factor x + 1); and <strong>all burst errors shorter than the degree of the generator</strong> &mdash; which is why CRC-32 is so effective for Ethernet frames.</p>
+
+<h2>5. Hamming code &mdash; error correction</h2>
+
+<p>Everything so far only <em>detects</em>. Hamming code <strong>corrects</strong> a single-bit error by locating exactly which bit is wrong.</p>
+
+<div class="formula">
+  <span class="name">Number of redundant bits needed</span>
+  2<sup>r</sup> &ge; m + r + 1<br>
+  m = number of data bits &nbsp;&middot;&nbsp; r = number of redundancy (parity) bits
+</div>
+
+<p><strong>Placement rule:</strong> the r parity bits go in the positions that are <strong>powers of two</strong> &mdash; positions 1, 2, 4, 8, 16 &hellip; Data bits fill the remaining positions. Positions are numbered <strong>from 1, starting at the left</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Parity bit</th><th>Checks positions</th><th>Rule of thumb</th></tr></thead>
+<tbody>
+<tr><td><strong>p<sub>1</sub></strong> (position 1)</td><td>1, 3, 5, 7, 9, 11 &hellip;</td><td>Check 1, skip 1</td></tr>
+<tr><td><strong>p<sub>2</sub></strong> (position 2)</td><td>2, 3, 6, 7, 10, 11 &hellip;</td><td>Check 2, skip 2</td></tr>
+<tr><td><strong>p<sub>4</sub></strong> (position 4)</td><td>4, 5, 6, 7, 12, 13, 14, 15 &hellip;</td><td>Check 4, skip 4</td></tr>
+<tr><td><strong>p<sub>8</sub></strong> (position 8)</td><td>8&ndash;15, 24&ndash;31 &hellip;</td><td>Check 8, skip 8</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; Hamming code, encoding</span>
+  <p><strong>Q.</strong> Encode the dataword <code>1011</code> using even-parity Hamming code.</p>
+
+  <p><strong>Step 1 &mdash; how many parity bits?</strong> m = 4. Try r = 3: 2<sup>3</sup> = 8 &ge; 4 + 3 + 1 = 8. &#10003; So <strong>r = 3</strong>, and the codeword is 7 bits.</p>
+
+  <p><strong>Step 2 &mdash; lay out the positions.</strong> Parity at 1, 2, 4; data at 3, 5, 6, 7. The data bits 1, 0, 1, 1 fill positions 3, 5, 6, 7 in order:</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Position</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Bit</strong></td><td class="num">p<sub>1</sub></td><td class="num">p<sub>2</sub></td><td class="num">1</td><td class="num">p<sub>4</sub></td><td class="num">0</td><td class="num">1</td><td class="num">1</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Step 3 &mdash; compute each parity bit for even parity.</strong></p>
+  <p><strong>p<sub>1</sub></strong> checks positions 1, 3, 5, 7 &rarr; data there is 1, 0, 1 &rarr; sum = 2, already even &rarr; <strong>p<sub>1</sub> = 0</strong></p>
+  <p><strong>p<sub>2</sub></strong> checks positions 2, 3, 6, 7 &rarr; data there is 1, 1, 1 &rarr; sum = 3, odd &rarr; <strong>p<sub>2</sub> = 1</strong></p>
+  <p><strong>p<sub>4</sub></strong> checks positions 4, 5, 6, 7 &rarr; data there is 0, 1, 1 &rarr; sum = 2, already even &rarr; <strong>p<sub>4</sub> = 0</strong></p>
+
+  <p><strong>Codeword = 0 1 1 0 0 1 1 = <code>0110011</code></strong></p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; Hamming code, detecting and correcting</span>
+  <p><strong>Q.</strong> The receiver gets <code>0110111</code>. Find and correct the error.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Position</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Received bit</strong></td><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="num">1</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p>Recompute each check. For even parity, a check gives <strong>0 if the count of 1s is even</strong> and <strong>1 if it is odd</strong>.</p>
+
+  <p><strong>c<sub>1</sub></strong> = positions 1, 3, 5, 7 = 0, 1, 1, 1 &rarr; three 1s, odd &rarr; <strong>c<sub>1</sub> = 1</strong></p>
+  <p><strong>c<sub>2</sub></strong> = positions 2, 3, 6, 7 = 1, 1, 1, 1 &rarr; four 1s, even &rarr; <strong>c<sub>2</sub> = 0</strong></p>
+  <p><strong>c<sub>4</sub></strong> = positions 4, 5, 6, 7 = 0, 1, 1, 1 &rarr; three 1s, odd &rarr; <strong>c<sub>4</sub> = 1</strong></p>
+
+  <p><strong>Syndrome</strong>, written <strong>c<sub>4</sub> c<sub>2</sub> c<sub>1</sub></strong> = <code>1 0 1</code> = <strong>5 in decimal</strong></p>
+
+  <p><strong>Therefore bit 5 is in error.</strong> Flip it: position 5 goes from 1 back to 0.</p>
+  <p><strong>Corrected codeword = <code>0110011</code></strong>, and removing the parity positions 1, 2, 4 leaves the data at positions 3, 5, 6, 7 = <strong><code>1011</code></strong>. &#10003;</p>
+
+  <p><em>Two things that cost marks here:</em> the syndrome is read <strong>c<sub>4</sub>c<sub>2</sub>c<sub>1</sub></strong>, with the highest-numbered check as the <strong>most significant bit</strong> &mdash; reversing it gives the wrong position. And a syndrome of <strong>000 means no error</strong>, not "error at position 0".</p>
+</div>
+
+<div class="box win">
+  <span class="lbl">Hamming code's limit &mdash; state it</span>
+  <p>Standard Hamming code has <strong>d<sub>min</sub> = 3</strong>, so it <strong>corrects one error and detects two</strong>. It cannot correct a burst error. The usual fix, worth a closing line, is to <strong>send the block column by column rather than row by row</strong>, so that a burst in transmission is spread across many codewords and appears as one single-bit error in each &mdash; each of which Hamming can then correct.</p>
+</div>
+
+<h2>Summary of the schemes</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Scheme</th><th>Based on</th><th>Detects</th><th>Corrects</th><th>Used at</th></tr></thead>
+<tbody>
+<tr><td><strong>Parity / VRC</strong></td><td>One parity bit</td><td>Odd numbers of errors</td><td>None</td><td>Simple links, memory</td></tr>
+<tr><td><strong>LRC (2-D parity)</strong></td><td>Row and column parity</td><td>Bursts up to the row length</td><td>Single-bit errors</td><td>Older link protocols</td></tr>
+<tr><td><strong>Checksum</strong></td><td>One's complement addition</td><td>Most errors, but not reordering</td><td>None</td><td><strong>IP, TCP, UDP headers</strong></td></tr>
+<tr><td><strong>CRC</strong></td><td>Binary (polynomial) division</td><td>All single, all odd, all bursts shorter than the generator degree</td><td>None</td><td><strong>Ethernet, HDLC, ATM</strong></td></tr>
+<tr><td><strong>Hamming code</strong></td><td>Parity bits at powers of 2</td><td>Two errors</td><td><strong>One error</strong></td><td>Memory (ECC RAM), links</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Cyclic Redundancy Check (CRC) Polynomial Engine</div>
+  <div class="flow-col">
+    <div class="flow-box highlight"><strong>Sender Side: Modulo-2 Division</strong><span class="sub">Append r zeros to data bits D &bull; Divide by generator polynomial G(x) using XOR division</span></div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box ok"><strong>Transmit Frame: D + Remainder (FCS)</strong><span class="sub">Transmitted frame length = k + r bits &bull; FCS replaces appended zeros</span></div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box"><strong>Receiver Side: Modulo-2 Verification</strong><span class="sub">Divide received frame by same G(x) &bull; If Remainder == 0: Accept &bull; If Remainder != 0: Error detected, discard!</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">CRC Error Detection</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-30: Cyclic Redundancy Check (CRC) Solved Example</div>
+    <div class="v-desc">Step-by-step modulo-2 division, polynomial representation, generator requirements, and receiver verification with zero ambiguity.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=5Q-Yv6_0Qcw" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. A code has d<sub>min</sub> = 5. How many errors can it detect and correct?</p>
+  <div class="opts">
+    <button class="opt">Detect 5, correct 2</button>
+    <button class="opt">Detect 4, correct 3</button>
+    <button class="opt" data-ok="1">Detect 4, correct 2</button>
+    <button class="opt">Detect 2, correct 4</button>
+  </div>
+  <p class="why">d<sub>min</sub> ≥ s + 1 gives s = 4. d<sub>min</sub> ≥ 2t + 1 gives 5 ≥ 2t + 1, so t = 2. Detection is always the larger number — knowing something is wrong is cheaper than knowing what was intended.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Simple parity checking fails to detect:</p>
+  <div class="opts">
+    <button class="opt">Single-bit errors occurring near the parity bit</button>
+    <button class="opt">Any odd number of bit errors in the data unit</button>
+    <button class="opt" data-ok="1">Any even number of bit errors in the data unit</button>
+    <button class="opt">Errors that occur in the parity bit itself only</button>
+  </div>
+  <p class="why">Two flipped bits restore the original parity, so the receiver sees nothing wrong. Since burst errors often flip an even number of bits, this is a serious weakness in practice — and the reason CRC replaced parity on real links.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In CRC, the number of zeros appended to the dataword equals:</p>
+  <div class="opts">
+    <button class="opt">One more than the number of bits in the divisor</button>
+    <button class="opt" data-ok="1">One less than the number of bits in the divisor</button>
+    <button class="opt">The same as the number of bits in the dataword</button>
+    <button class="opt">The same as the number of bits in the divisor</button>
+  </div>
+  <p class="why">A divisor of n bits means n − 1 appended zeros, and the remainder is n − 1 bits. Checking that the remainder has one fewer bit than the divisor is the quickest way to catch a slip in the division.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A receiver computes a Hamming syndrome of c₄c₂c₁ = 011. This means:</p>
+  <div class="opts">
+    <button class="opt">No error has occurred in transmission</button>
+    <button class="opt">Bits 1 and 2 are both in error together</button>
+    <button class="opt">Bit 6 is in error, reading the syndrome backwards</button>
+    <button class="opt" data-ok="1">Bit 3 is in error and should be flipped</button>
+  </div>
+  <p class="why">The syndrome read as a binary number gives the position directly: 011 = 3. Reading it in the reverse order (110 = 6) is the standard error — c₄ is the most significant bit. A syndrome of 000 would mean no error.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. At the receiver, a correct checksum verification produces a sum of:</p>
+  <div class="opts">
+    <button class="opt">All 0s, which complements to all 1s</button>
+    <button class="opt">A remainder equal to the generator polynomial</button>
+    <button class="opt" data-ok="1">All 1s, which complements to all 0s</button>
+    <button class="opt">The original checksum value repeated twice</button>
+  </div>
+  <p class="why">The checksum is the complement of the sender's sum, so adding it back gives all 1s; complementing that gives all 0s, which is the accept condition. A remainder relates to CRC, not checksum — the two mechanisms are different.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. How many redundancy bits are needed to Hamming-encode 7 data bits?</p>
+  <div class="opts">
+    <button class="opt">2, because two parity bits can address four positions</button>
+    <button class="opt" data-ok="1">4, because 2⁴ = 16 ≥ 7 + 4 + 1 = 12</button>
+    <button class="opt">3, because 2³ = 8 ≥ 7 + 3 + 1 = 11</button>
+    <button class="opt">7, one redundancy bit for every data bit sent</button>
+  </div>
+  <p class="why">Test 2^r ≥ m + r + 1 upward. r = 3 gives 8 ≥ 11, which is false; r = 4 gives 16 ≥ 12, which holds. So r = 4 and the codeword is 11 bits.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define single-bit error and burst error.</summary>
+    <p class="ans">Single-bit error: only one bit of the data unit is changed. Burst error: two or more bits changed; its length is measured from the first to the last corrupted bit, and bits in between need not all be corrupted. Burst errors dominate because noise usually lasts longer than one bit interval.</p></details>
+  <details class="card"><summary>Define Hamming distance and state the two capability rules.</summary>
+    <p class="ans">The number of bit positions in which two words differ — XOR them and count the 1s. To detect up to s errors, d_min ≥ s + 1. To correct up to t errors, d_min ≥ 2t + 1.</p></details>
+  <details class="card"><summary>State the CRC procedure at sender and receiver.</summary>
+    <p class="ans">Sender: append (n − 1) zeros to the dataword where n is the divisor length; divide by the generator using XOR; the remainder is the CRC; replace the appended zeros with it. Receiver: divide the received codeword by the same generator; a zero remainder means accept.</p></details>
+  <details class="card"><summary>What does CRC detect?</summary>
+    <p class="ans">All single-bit errors; all double-bit errors with a suitable generator; all odd numbers of errors if the generator has the factor (x + 1); and all burst errors shorter than the degree of the generator polynomial.</p></details>
+  <details class="card"><summary>State the checksum procedure.</summary>
+    <p class="ans">Sender: divide data into equal-size words, add them using one's complement addition (carry out of the leftmost bit is added back at the right), complement the sum, send it. Receiver: add all words including the checksum, complement; all zeros means accept.</p></details>
+  <details class="card"><summary>Give the Hamming redundancy formula and the parity placement rule.</summary>
+    <p class="ans">2^r ≥ m + r + 1. Parity bits go in positions that are powers of two — 1, 2, 4, 8 — numbering positions from 1 at the left. p1 checks 1,3,5,7…; p2 checks 2,3,6,7…; p4 checks 4,5,6,7….</p></details>
+  <details class="card"><summary>How does the receiver locate the erroneous bit in Hamming code?</summary>
+    <p class="ans">It recomputes each parity check, writing 1 where the parity fails. Reading the results as a binary number with the highest-numbered check as the most significant bit (c₄c₂c₁) gives the position of the erroneous bit directly. A syndrome of all zeros means no error.</p></details>
+  <details class="card"><summary>How can Hamming code be made to handle burst errors?</summary>
+    <p class="ans">Arrange the codewords in a table and send them column by column instead of row by row. A burst in transmission is then spread across many codewords, appearing as a single-bit error in each — which Hamming can correct.</p></details>
+</div>
+
+<p class="ask">Want a drill set: five CRC divisions and five Hamming encodings with answers to check against? Ask &mdash; these two are pure practice and reading about them does not build the skill.</p>
+
+<div class="nav">
+  <a href="0012-switching.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0014-framing-flow-and-error-control.html">Next: Framing, Flow and Error Control &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

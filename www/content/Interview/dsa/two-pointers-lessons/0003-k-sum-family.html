@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two Pointers Lesson 03 — The K-Sum Family</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Two Pointers Track · Lesson 3 of 3 · 3Sum, 3Sum Closest, 4Sum + track cheat sheet</div>
+<h1>The K-Sum Family</h1>
+<p class="subtitle">Fix the outer numbers with loops, sort once so the innermost pair falls to the Lesson-1 template — and learn the dedup-skip idiom that makes "no duplicate triplets" trivial.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> 3Sum (LC 15) is one of the most-asked interview questions in existence — Meta,
+  Amazon, and Google all use it, and the dedup handling is exactly what separates a hire from a no-hire.
+  This is Lesson 3 of the 3-lesson Two Pointers track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+You know 2Sum on a sorted array is O(n) with opposite-ends pointers (Lesson 1). Every k-sum problem reduces to
+that: <strong>sort once, fix the first k−2 numbers with nested loops, and solve the last two with the two-pointer
+template</strong>. 3Sum = one outer loop + 2Sum inside → O(n²). 4Sum = two outer loops + 2Sum → O(n³).
+Compare the naives: 3 nested loops for 3Sum is O(n³); the sort buys you a factor of n. Sorting also solves the
+"no duplicate triplets" requirement for free — equal values sit adjacent, so <em>skipping repeats</em> at each
+level guarantees uniqueness without a HashSet.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Find all <strong>triplets / quadruplets</strong> that sum to X," "no duplicate triplets allowed,"
+  "closest sum to target." Any pair/triple/k-tuple sum question where the array is unsorted but
+  <em>sorting is allowed</em> (you return values or sums, not original indices). If original indices are required
+  (LC 1, Two Sum), sorting destroys them — use a HashMap instead. That's the fork in the road.
+</div>
+
+<h2>2 · Core template — 3Sum (LC 15)</h2>
+<p>
+All unique triplets summing to 0. Sort. For each anchor <code>i</code>, run 2Sum on the suffix
+<code>(i, n−1]</code> targeting <code>−a[i]</code>. Three dedup skips keep the output unique: one at the anchor,
+and one on each inner pointer <em>after recording a hit</em>.
+</p>
+<pre><code><span class="cmt">// LC 15: sort + anchor + two pointers. O(n^2) time, O(1) extra space (ignoring output).</span>
+List&lt;List&lt;Integer&gt;&gt; threeSum(int[] a) {
+    Arrays.sort(a);                          <span class="cmt">// O(n log n), dwarfed by the O(n^2) scan</span>
+    List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; a.length - 2; i++) {
+        if (a[i] &gt; 0) break;                 <span class="cmt">// smallest element positive → no zero-sum possible; done</span>
+        if (i &gt; 0 &amp;&amp; a[i] == a[i - 1]) continue; <span class="cmt">// DEDUP anchor: same anchor value → same triplets</span>
+        int l = i + 1, r = a.length - 1;     <span class="cmt">// 2Sum on the suffix, target -a[i]</span>
+        while (l &lt; r) {
+            int sum = a[i] + a[l] + a[r];
+            if (sum &lt; 0) l++;                <span class="cmt">// Lesson-1 elimination: a[l] is dead</span>
+            else if (sum &gt; 0) r--;
+            else {
+                res.add(List.of(a[i], a[l], a[r]));
+                l++; r--;                    <span class="cmt">// keep searching — more pairs may hit the target</span>
+                while (l &lt; r &amp;&amp; a[l] == a[l - 1]) l++; <span class="cmt">// DEDUP inner: hop over repeated values</span>
+                while (l &lt; r &amp;&amp; a[r] == a[r + 1]) r--;
+            }
+        }
+    }
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n²) — n anchors × O(n) two-pointer sweep. <strong>Space</strong> O(1) beyond the
+output (sort is in place). The naive triple loop plus HashSet-of-triplets is O(n³) and a red flag in interviews.</p>
+
+<h3>Worked example — dry run</h3>
+<p><code>a = [-1, 0, 1, 2, -1, -4]</code> → sorted <code>[-4, -1, -1, 0, 1, 2]</code>:</p>
+<div class="trace">
+<span class="step">i=0 (-4): l=1(-1) r=5(2) sum=-3&lt;0→l++ … no pair reaches +4 → nothing</span>
+<span class="step now">i=1 (-1): l=2(-1) r=5(2) sum=0 → hit [-1,-1,2]; l→3, r→4; sum=-1+0+1=0 → hit [-1,0,1]</span>
+<span class="step now">i=2 (-1): a[2]==a[1] → <span class="ptr">skip anchor</span> — its triplets were already found at i=1</span>
+<span class="step">i=3 (0): l=4(1) r=5(2) sum=3&gt;0→r-- → l==r, stop. Result: [[-1,-1,2], [-1,0,1]]</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">The dedup-skip idiom — memorize its two placements</span>
+  Anchor level: <code>if (i &gt; start &amp;&amp; a[i] == a[i-1]) continue;</code> — skip a value you've already
+  anchored on. Inner level: <em>after</em> recording a hit, slide <code>l</code> and <code>r</code> past clones.
+  Never skip the anchor with <code>a[i] == a[i+1]</code> — that would forbid triplets that legitimately
+  <em>use</em> duplicates, like <code>[-1, -1, 2]</code>. Compare backwards, not forwards.
+</div>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>All unique triplets, sum = 0</td><td>LC 15</td><td>The core template: anchor + 2Sum + three dedup skips.</td></tr>
+    <tr><td>Closest sum, one answer</td><td>LC 16</td><td>No exact match needed — track the best <code>|sum − target|</code>; no dedup needed.</td></tr>
+    <tr><td>Quadruplets, arbitrary target</td><td>LC 18</td><td>One more anchor loop; dedup at both anchor levels; use <code>long</code> for the sum.</td></tr>
+    <tr><td>Generalize to kSum</td><td>—</td><td>Recursive: peel anchors until k = 2, then two pointers. Same skips.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: 3Sum Closest (LC 16)</h3>
+<p>
+Return the single triplet sum <em>closest</em> to target. Same anchor + two-pointer skeleton, but there's no
+"found it" case to collect — every step just updates the champion. Since only one number is returned, duplicate
+suppression is unnecessary. If the sum ever equals target exactly, nothing can beat it — return immediately.
+</p>
+<pre><code>int threeSumClosest(int[] a, int target) {
+    Arrays.sort(a);
+    int best = a[0] + a[1] + a[2];           <span class="cmt">// seed with a real triplet, not MAX_VALUE hacks</span>
+    for (int i = 0; i &lt; a.length - 2; i++) {
+        int l = i + 1, r = a.length - 1;
+        while (l &lt; r) {
+            int sum = a[i] + a[l] + a[r];
+            if (sum == target) return sum;   <span class="cmt">// distance 0 — can't do better</span>
+            if (Math.abs(sum - target) &lt; Math.abs(best - target))
+                best = sum;                  <span class="cmt">// new champion</span>
+            if (sum &lt; target) l++; else r--; <span class="cmt">// same elimination move as plain 3Sum</span>
+        }
+    }
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(n²), <strong>Space</strong> O(1).</p>
+
+<h3>Case: 4Sum (LC 18) — the generalization</h3>
+<p>
+Two anchor loops around the same 2Sum core. Everything you know scales: dedup-skip at <em>each</em> anchor level
+(always comparing against the previous index <em>at that level's start</em>), two pointers innermost. New danger:
+with values up to 10⁹ and a target that can be extreme, four ints can overflow — sum in <code>long</code>.
+</p>
+<pre><code>List&lt;List&lt;Integer&gt;&gt; fourSum(int[] a, int target) {
+    Arrays.sort(a);
+    List&lt;List&lt;Integer&gt;&gt; res = new ArrayList&lt;&gt;();
+    int n = a.length;
+    for (int i = 0; i &lt; n - 3; i++) {
+        if (i &gt; 0 &amp;&amp; a[i] == a[i - 1]) continue;       <span class="cmt">// dedup anchor 1</span>
+        for (int j = i + 1; j &lt; n - 2; j++) {
+            if (j &gt; i + 1 &amp;&amp; a[j] == a[j - 1]) continue; <span class="cmt">// dedup anchor 2 — note j &gt; i+1, NOT j &gt; 0</span>
+            int l = j + 1, r = n - 1;
+            while (l &lt; r) {
+                long sum = (long) a[i] + a[j] + a[l] + a[r]; <span class="cmt">// long: 4 ints can overflow int</span>
+                if (sum &lt; target) l++;
+                else if (sum &gt; target) r--;
+                else {
+                    res.add(List.of(a[i], a[j], a[l], a[r]));
+                    l++; r--;
+                    while (l &lt; r &amp;&amp; a[l] == a[l - 1]) l++; <span class="cmt">// inner dedup, same as 3Sum</span>
+                    while (l &lt; r &amp;&amp; a[r] == a[r + 1]) r--;
+                }
+            }
+        }
+    }
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n³), <strong>Space</strong> O(1) beyond output. The pattern generalizes: kSum =
+k−2 anchor loops + one two-pointer sweep = O(n<sup>k−1</sup>). Interviewers love asking "now do it for k" —
+answer: recurse, peeling one anchor per level until k = 2.</p>
+
+<div class="callout trap">
+  <span class="label">The <code>j &gt; i + 1</code> subtlety</span>
+  The second anchor's dedup guard is <code>j &gt; i + 1</code>, not <code>j &gt; 0</code>. At <code>j == i + 1</code>,
+  <code>a[j] == a[i]</code> is <em>legal</em> — the quadruplet genuinely uses two equal values (e.g.
+  <code>[2, 2, …]</code>). Only skip <code>j</code> when it repeats a value already tried <em>in the j loop
+  itself</em>. This mirrors "compare backwards at your own level" from the 3Sum tip — each loop level dedups
+  independently, starting one past its own start.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Fewer than k elements</strong> — loops with bounds like <code>i &lt; n - 2</code> handle n &lt; 3 by never running; don't add special cases that break this.</li>
+  <li><strong>All same values</strong> — <code>[0,0,0,0]</code> must yield exactly one triplet <code>[0,0,0]</code>. If your skips are misplaced you'll emit it three times (or zero times).</li>
+  <li><strong>Dedup direction</strong> — compare against the <em>previous</em> index at the same level (<code>a[i] == a[i-1]</code>, guarded by <code>i &gt; levelStart</code>); comparing forward forbids valid duplicate-using answers.</li>
+  <li><strong>Inner skips only after a hit</strong> — skipping duplicates on every iteration of the while loop can jump past the one pair that sums to target.</li>
+  <li><strong>Overflow (LC 18)</strong> — cast the first operand: <code>(long) a[i] + a[j] + …</code>; casting the finished int sum is too late.</li>
+  <li><strong>Sorting vs indices</strong> — k-sum problems return <em>values</em>, so sorting is fine. If a problem wants original indices, sorting breaks it — switch to a HashMap (LC 1).</li>
+  <li><strong>Early exits</strong> — in 3Sum, <code>a[i] &gt; 0</code> ends everything (sorted → all further sums positive). In 3Sum Closest, an exact hit returns immediately. Cheap points with the interviewer.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In 3Sum, why is the anchor dedup <code>if (i &gt; 0 &amp;&amp; a[i] == a[i-1]) continue;</code> and not <code>a[i] == a[i+1]</code>?</div>
+  <button class="opt">Comparing forward would read past the end of the array on the last anchor</button>
+  <button class="opt">Either works — the direction is a style choice as long as you're consistent</button>
+  <button class="opt">Skipping forward would discard triplets that legitimately contain two equal values, like [-1,-1,2]</button>
+  <div class="fb" data-correct="Right — looking backward skips an anchor whose triplets were ALREADY enumerated; looking forward skips them BEFORE they're found, losing duplicate-using answers." data-wrong="The direction changes the meaning entirely: backward = 'already handled this value as anchor', forward = 'refuse to ever pair equal values' — the latter drops valid triplets like [-1,-1,2]."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does sorting + two pointers give 3Sum in O(n²) when the brute force is O(n³)?</div>
+  <button class="opt">For each fixed anchor, the sorted suffix lets one two-pointer sweep replace an O(n²) pair scan with O(n)</button>
+  <button class="opt">Sorting removes duplicate elements, so the effective n is much smaller</button>
+  <button class="opt">The <code>a[i] &gt; 0</code> break prunes half the anchors on average</button>
+  <div class="fb" data-correct="Exactly — the inner two levels of the triple loop collapse into one linear converging sweep, because sortedness tells you which pointer to move." data-wrong="Dedup and pruning help constants, not the exponent. The asymptotic win is the inner pair search dropping from O(n²) to O(n) per anchor, courtesy of the sort."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In 3Sum Closest, how does the algorithm differ from plain 3Sum?</div>
+  <button class="opt">It uses three converging pointers simultaneously instead of an anchor loop</button>
+  <button class="opt">There's nothing to collect or dedup — every step just updates the best |sum − target| seen, and pointers move by comparing sum to target</button>
+  <button class="opt">It requires a second pass to verify the winning triplet is unique</button>
+  <div class="fb" data-correct="Right — same skeleton, but 'record and dedup on exact hit' becomes 'update champion every step', plus an early return on distance 0." data-wrong="The structure is identical to 3Sum (anchor + two pointers). Only the bookkeeping changes: track the closest sum instead of collecting exact matches; uniqueness is irrelevant since one number is returned."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/three-integer-sum">NeetCode — 3Sum</a>. The cleanest walkthrough of the anchor + two-pointer + dedup structure.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 167 (re-do from memory, 5 min) → LC 15 (until the three dedup skips are automatic) → LC 16 → LC 18 → then test yourself: write generic kSum recursively. Trap check: run your 3Sum mentally on <code>[0,0,0,0]</code> and <code>[-1,0,1,2,-1,-4]</code> before submitting.</li>
+</ul>
+
+<h2>7 · Two Pointers cheat sheet</h2>
+<p>The whole track on one card — print it, drill it the night before the OA.</p>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Pair sum, sorted</td><td>sorted + "two numbers sum to target"</td><td><code>while(l&lt;r)</code> sum&lt;t → <code>l++</code>, sum&gt;t → <code>r--</code></td><td>O(n) / O(1)</td><td>167</td></tr>
+    <tr><td>Palindrome check</td><td>symmetric string, "ignore non-alphanumeric"</td><td>compare <code>s[l]</code> vs <code>s[r]</code>, skip junk, both move inward</td><td>O(n) / O(1)</td><td>125</td></tr>
+    <tr><td>Maximize pair fn</td><td>"best container / max area from two ends"</td><td>track best; move the <strong>shorter</strong> (worse) side</td><td>O(n) / O(1)</td><td>11</td></tr>
+    <tr><td>Trapped water</td><td>walls + "how much water"</td><td>running <code>maxL/maxR</code>; settle the side with smaller max</td><td>O(n) / O(1)</td><td>42</td></tr>
+    <tr><td>Compact keepers</td><td>"remove X in place, return new length"</td><td>if keeper: <code>a[write++] = a[read]</code></td><td>O(n) / O(1)</td><td>26</td></tr>
+    <tr><td>Two-region partition</td><td>"move zeroes to end, keep order"</td><td>if nonzero: swap to <code>write++</code></td><td>O(n) / O(1)</td><td>283</td></tr>
+    <tr><td>Merge in place</td><td>two sorted arrays, free space at end</td><td>write <strong>backwards</strong> from <code>m+n-1</code>, loop while <code>j≥0</code></td><td>O(m+n) / O(1)</td><td>88</td></tr>
+    <tr><td>Sorted transform</td><td>sorted + negatives, "squares sorted"</td><td>converging readers at ends, writer fills result from back</td><td>O(n) / O(n)</td><td>977</td></tr>
+    <tr><td>Three-region partition</td><td>"sort array of 0/1/2 in one pass"</td><td>Dutch flag: <code>lo/mid/hi</code>; on 2-swap don't advance <code>mid</code></td><td>O(n) / O(1)</td><td>75</td></tr>
+    <tr><td>Unique triplets</td><td>"all triplets summing to 0, no dups"</td><td>sort; anchor <code>i</code> + 2Sum; skip <code>a[i]==a[i-1]</code>; inner skips after hit</td><td>O(n²) / O(1)</td><td>15</td></tr>
+    <tr><td>Closest triplet</td><td>"sum closest to target"</td><td>same sweep; update best <code>|sum-t|</code> each step; return on exact</td><td>O(n²) / O(1)</td><td>16</td></tr>
+    <tr><td>Quadruplets / kSum</td><td>"all quadruplets", huge values</td><td>k−2 anchor loops + 2Sum; dedup per level; sum in <code>long</code></td><td>O(n³) / O(1)</td><td>18</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run 3Sum's dedup on <code>[-2,0,0,2,2]</code>, walk through recursive kSum, or quiz you from the
+  cheat sheet? Ask in the chat. When 3Sum flows from your fingers with all three skips in place, say
+  <strong>"next"</strong> — the Two Pointers track is complete, and Binary Search is up next.
+</div>
+
+<div class="nav">
+  <span><a href="0002-same-direction-and-partition.html">← Same Direction &amp; Partition</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../binary-search-lessons/0001-boundary-template.html">Binary Search: Boundary Template →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

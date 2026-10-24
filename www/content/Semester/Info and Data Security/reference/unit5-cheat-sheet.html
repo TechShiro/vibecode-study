@@ -1,0 +1,100 @@
+<title>IDS Unit V Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.6rem 0 .4rem;font-size:1.12rem}
+  .formula{padding:.5rem .75rem;margin:.5rem 0;font-size:.95rem}
+  table{font-size:.85rem}
+  th,td{padding:.3rem .45rem}
+  ul,ol{margin:.35rem 0 .35rem 1.1rem}
+  li{margin:.12rem 0}
+  .tag{display:inline-block;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--paper);padding:.12rem .45rem;border-radius:3px;vertical-align:.15em;margin-left:.4rem}
+  @media print{body{font-size:9.2pt}.wrap{max-width:100%}h2{margin:.7rem 0 .25rem}}
+</style>
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Reference</p>
+<h1>Unit V &mdash; Exam Sheet</h1>
+<p class="deck">System Security, Buffer Overflows, Malicious Programs (Viruses, Worms, Trojans), IDS, Firewalls &amp; VPNs on one printable page.</p>
+
+<h2>1. Security Foundations &amp; STRIDE <span class="tag">threat model</span></h2>
+<ul>
+  <li><strong>Equation:</strong> $\text{Threat} + \text{Vulnerability} = \text{Risk}$. Assets require protection.</li>
+  <li><strong>Policy vs Mechanism:</strong> Policy specifies <em>what</em> is permitted; mechanism provides <em>how</em> to enforce it.</li>
+  <li><strong>STRIDE:</strong> <strong>S</strong>poofing (Auth), <strong>T</strong>ampering (Integrity), <strong>R</strong>epudiation (Non-repudiation), <strong>I</strong>nformation Disclosure (Confidentiality), <strong>D</strong>enial of Service (Availability), <strong>E</strong>levation of Privilege (Authorization).</li>
+  <li><strong>Saltzer-Schroeder:</strong> Least privilege, Fail-safe defaults (default deny), Complete mediation, Open design, Defense in depth.</li>
+</ul>
+
+<h2>2. Buffer Overflow Mechanics &amp; Defenses <span class="tag">guaranteed 10-marker</span></h2>
+<ul>
+  <li><strong>Process Layout (Low &rarr; High):</strong> Text (code) &rarr; Data (init globals) &rarr; BSS (uninit) &rarr; Heap (grows &uarr;) &rarr; Stack (grows &darr;) &rarr; Kernel.</li>
+  <li><strong>Stack Frame (Top/Low to Base/High):</strong> Local Buffers &rarr; Saved Frame Pointer (EBP) &rarr; <strong>Saved Return Address (RET/EIP)</strong> &rarr; Parameters.</li>
+  <li><strong>Exploit Flow:</strong> Unsafe string copy (<code>strcpy</code>, <code>gets</code>) fills buffer &rarr; overflows across EBP &rarr; overwrites RET &rarr; jumps to NOP sled (<code>0x90</code>) &rarr; executes shellcode.</li>
+  <li><strong>Three Defenses:</strong>
+    <ol>
+      <li><strong>Stack Canaries:</strong> Random compiler integer before RET; checked before return. If modified &rarr; <code>abort()</code>.</li>
+      <li><strong>ASLR:</strong> OS randomizes stack, heap, and library base addresses on every run.</li>
+      <li><strong>DEP / NX Bit (W^X):</strong> Hardware marks data pages (stack/heap) non-executable.</li>
+    </ol>
+  </li>
+</ul>
+
+<h2>3. Malicious Programs Taxonomy <span class="tag">master comparison</span></h2>
+<div class="tw">
+<table>
+<thead><tr><th>Malware</th><th>Host Required?</th><th>Replication</th><th>Key Characteristics</th></tr></thead>
+<tbody>
+<tr><td><strong>Virus</strong></td><td>Yes (parasitic)</td><td>Yes (needs user execution)</td><td>4 phases: Dormant &rarr; Propagation &rarr; Trigger &rarr; Execution. Macro, file, boot.</td></tr>
+<tr><td><strong>Worm</strong></td><td>No (standalone)</td><td>Yes (autonomous network)</td><td>Scans open ports, exploits buffer overflows. Morris, Code Red, Stuxnet.</td></tr>
+<tr><td><strong>Trojan</strong></td><td>No (standalone)</td><td>No (social engineering)</td><td>Disguised as legitimate utility; secretly opens backdoors/keylogs.</td></tr>
+<tr><td><strong>Rootkit</strong></td><td>No (system mod)</td><td>No (stealth tool)</td><td>Subverts OS audit/APIs. Kernel-mode (Ring 0) hides processes/sockets.</td></tr>
+<tr><td><strong>Ransomware</strong></td><td>No / Any</td><td>Variable</td><td>Hybrid encryption (AES for files, RSA for AES key); extorts ransom.</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Polymorphic vs Metamorphic Virus:</strong> Polymorphic uses encrypted body + mutated decryptor loop. Metamorphic completely re-engineers instruction sequence via register swaps and equivalent instructions without encryption.</p>
+
+<h2>4. Intrusion Detection Systems (IDS) <span class="tag">guaranteed</span></h2>
+<ul>
+  <li><strong>Signature-based (Misuse):</strong> Matches known attack regex/byte patterns. Fast, low false positives, <strong>cannot detect zero-day attacks</strong>.</li>
+  <li><strong>Anomaly-based (Heuristic):</strong> Flags deviations from baseline normal profile. <strong>Detects zero-days</strong>, high false positive rate.</li>
+  <li><strong>HIDS vs NIDS:</strong> HIDS monitors host logs/syscalls/file hashes (inspects TLS payloads, high host CPU). NIDS monitors raw switch traffic (one sensor covers subnet, blinded by TLS).</li>
+  <li><strong>Honeypot:</strong> Decoy system with no production value; any activity is malicious.</li>
+  <li><strong>Snort:</strong> <code>alert tcp any any -&gt; 192.168.1.0/24 80 (msg:"..."; content:"..."; sid:10001; rev:1;)</code></li>
+</ul>
+
+<h2>5. Firewalls &amp; DMZ Topologies <span class="tag">guaranteed</span></h2>
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Layer</th><th>Inspection</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td><strong>Packet Filtering</strong></td><td>L3/L4</td><td>Stateless IP, Port, Protocol</td><td>Fastest; vulnerable to IP spoofing; no payload check</td></tr>
+<tr><td><strong>Stateful Inspection</strong></td><td>L3/L4/L5</td><td>Dynamic State Table tracks TCP sessions</td><td>Blocks unsolicited probes; high throughput</td></tr>
+<tr><td><strong>Application Proxy</strong></td><td>L7</td><td>Full protocol parsing (HTTP, FTP, SMTP)</td><td>Deepest inspection; high latency; terminates TCP</td></tr>
+<tr><td><strong>Circuit Gateway</strong></td><td>L5</td><td>Validates TCP handshake (SOCKS)</td><td>Fast relay once open; no application parsing</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>DMZ Subnet:</strong> Neutral perimeter buffer between external and internal firewalls. Houses public <strong>Bastion Hosts</strong> (web, DNS, mail) to isolate internal corporate database LAN.</p>
+
+<h2>6. Virtual Private Networks (VPN)</h2>
+<ul>
+  <li><strong>Goals:</strong> Confidentiality (encryption), Integrity (HMAC), Authentication, Anti-Replay.</li>
+  <li><strong>Remote Access (Client-to-Gateway):</strong> Employees connecting into intranet (SSL/TLS or client).</li>
+  <li><strong>Site-to-Site (Gateway-to-Gateway):</strong> Branch interconnect over public Internet (IPSec).</li>
+  <li><strong>IPSec vs SSL VPN:</strong> IPSec operates at Layer 3 (all IP traffic, tricky with NAT). SSL/TLS operates at Layer 4&ndash;7 (browser-friendly, traverses NAT over port 443).</li>
+</ul>
+
+<h2>Ten-Minute Exam Final Scan</h2>
+<ol>
+  <li><strong>Stack layout:</strong> Local buffer &rarr; EBP &rarr; RET. Buffer grows up towards RET; stack grows down.</li>
+  <li><strong>Buffer overflow defenses:</strong> Stack Canaries (compiler), ASLR (OS address randomization), DEP/NX (hardware W^X).</li>
+  <li><strong>Virus 4 phases:</strong> Dormant &rarr; Propagation &rarr; Triggering &rarr; Execution.</li>
+  <li><strong>Virus vs Worm:</strong> Virus needs host executable and human launch; Worm is standalone and replicates autonomously across networks.</li>
+  <li><strong>HIDS vs NIDS:</strong> HIDS can see inside decrypted HTTPS; NIDS is blind to encryption but has zero host overhead.</li>
+  <li><strong>Firewall types:</strong> Packet filter (stateless), Stateful (tracks sessions in table), Application gateway (L7 proxy, terminates connections).</li>
+  <li><strong>DMZ:</strong> Public servers placed between two firewalls to prevent direct access to private internal LAN.</li>
+</ol>
+
+</div>

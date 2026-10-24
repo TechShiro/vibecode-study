@@ -1,0 +1,340 @@
+<title>IPv6</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 27 of 27</p>
+<h1>IPv6</h1>
+<p class="deck">128-bit addresses, the abbreviation rules, the simplified 40-byte header, extension headers, the IPv4 versus IPv6 table, and the three transition strategies. The last lesson of Unit&nbsp;III.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three questions live here, and all three are short. (1) <strong>"Compare IPv4 and IPv6"</strong> &mdash; a table of 8&ndash;10 rows, the most likely of the three. (2) <strong>"Draw and explain the IPv6 header"</strong> &mdash; only eight fields, so it is quicker than the IPv4 header question; make sure you can say <strong>which four fields were removed and why</strong>. (3) <strong>An abbreviation exercise</strong> &mdash; compress or expand an address; purely mechanical, and the <strong>"<code>::</code> only once"</strong> rule is what is being tested.</p>
+</div>
+
+<h2>Why IPv6</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Problem with IPv4</th><th>How IPv6 answers it</th></tr></thead>
+<tbody>
+<tr><td><strong>Address exhaustion</strong> &mdash; 2<sup>32</sup> is about 4.3 billion, and even that was used inefficiently</td><td><strong>2<sup>128</sup> addresses</strong> &mdash; about 3.4 &times; 10<sup>38</sup>, effectively inexhaustible</td></tr>
+<tr><td><strong>No built-in support for real-time traffic</strong> (audio, video)</td><td><strong>Flow label</strong> and <strong>traffic class</strong> fields for quality of service</td></tr>
+<tr><td><strong>No encryption or authentication</strong> in the design</td><td><strong>IPsec is built in</strong> rather than bolted on</td></tr>
+<tr><td><strong>Complex, variable-length header</strong> slows routers</td><td><strong>Fixed 40-byte header</strong>, with options moved to separate extension headers</td></tr>
+<tr><td><strong>Routers must fragment</strong>, and recompute the checksum at every hop</td><td><strong>Routers never fragment</strong>, and there is <strong>no header checksum at all</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The address</h2>
+
+<div class="formula">
+  <span class="name">IPv6 addressing</span>
+  <strong>128 bits = 16 bytes</strong>, written as <strong>8 groups of 4 hexadecimal digits separated by colons</strong><br>
+  Address space = 2<sup>128</sup> &asymp; 3.4 &times; 10<sup>38</sup> addresses
+</div>
+
+<p>Example: <code>FDEC:0074:0000:0000:0000:B0FF:0000:FFF0</code></p>
+
+<h3>The two abbreviation rules</h3>
+
+<div class="formula">
+  <span class="name">Rule 1 &mdash; drop leading zeros</span>
+  Within each group, <strong>leading</strong> zeros may be omitted. Trailing zeros may <strong>not</strong>.<br>
+  <code>0074</code> &rarr; <code>74</code> &nbsp;&middot;&nbsp; <code>0000</code> &rarr; <code>0</code> &nbsp;&middot;&nbsp; <code>FFF0</code> stays <code>FFF0</code>
+</div>
+
+<div class="formula">
+  <span class="name">Rule 2 &mdash; collapse consecutive zero groups</span>
+  A run of <strong>consecutive all-zero groups</strong> may be replaced by <strong><code>::</code></strong><br>
+  <strong>This may be done only ONCE in an address.</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; abbreviation</span>
+  <p><strong>Q.</strong> Abbreviate <code>FDEC:0074:0000:0000:0000:B0FF:0000:FFF0</code> as far as possible.</p>
+
+  <p><strong>Step 1 &mdash; drop leading zeros in each group:</strong><br>
+  <code>FDEC:74:0:0:0:B0FF:0:FFF0</code></p>
+
+  <p><strong>Step 2 &mdash; collapse the longest run of zero groups.</strong> There are two runs: three zeros in positions 3&ndash;5, and a single zero at position 7. Collapse the <strong>longer</strong> run:<br>
+  <strong><code>FDEC:74::B0FF:0:FFF0</code></strong></p>
+
+  <p><em>Why not both?</em> Because <code>::</code> may appear <strong>only once</strong>. <code>FDEC:74::B0FF::FFF0</code> is <strong>invalid</strong> &mdash; with two occurrences the reader cannot tell how many zero groups belong to each, and the address becomes ambiguous. That is the entire point of the rule, and it is what the question tests.</p>
+
+  <p><strong>Expanding back:</strong> count the groups present (6), subtract from 8, and that is how many zero groups the <code>::</code> stands for &mdash; here 2... but note we collapsed 3 groups and left one <code>0</code> written out, giving 6 groups shown plus 2 hidden. Always <strong>count to 8 groups</strong> when expanding; that check catches every mistake.</p>
+</div>
+
+<h3>The three address types</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Delivers to</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><strong>Unicast</strong></td><td>A single interface</td><td>The ordinary case</td></tr>
+<tr><td><strong>Multicast</strong></td><td>A group of interfaces &mdash; <strong>all</strong> of them</td><td>Prefix <code>FF00::/8</code></td></tr>
+<tr><td><strong>Anycast</strong></td><td>A group of interfaces &mdash; but delivered to <strong>only the nearest one</strong></td><td>Used for DNS root servers and CDNs</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The fact examiners ask for directly</span>
+  <p><strong>IPv6 has no broadcast address.</strong> Broadcast was removed entirely, because it forces every host to process a packet whether or not it is interested. Its functions are handled by <strong>multicast to a well-known group</strong> instead &mdash; for example, "all nodes on this link" is the multicast address <code>FF02::1</code>. Anycast is the genuinely new type, and its one-line definition is <strong>"delivered to the nearest member of the group"</strong>.</p>
+</div>
+
+<h3>Special addresses worth naming</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Address</th><th>Meaning</th><th>IPv4 equivalent</th></tr></thead>
+<tbody>
+<tr><td><code>::/128</code> (all zeros)</td><td>Unspecified &mdash; "I have no address yet"</td><td>0.0.0.0</td></tr>
+<tr><td><code>::1/128</code></td><td><strong>Loopback</strong></td><td>127.0.0.1</td></tr>
+<tr><td><code>FE80::/10</code></td><td><strong>Link-local</strong> &mdash; valid on one link only, never routed</td><td>169.254.0.0/16 (APIPA)</td></tr>
+<tr><td><code>FC00::/7</code></td><td><strong>Unique local</strong> &mdash; the private address range</td><td>10.0.0.0/8, 192.168.0.0/16</td></tr>
+<tr><td><code>FF00::/8</code></td><td>Multicast</td><td>Class D, 224.0.0.0/4</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The IPv6 header</h2>
+
+<div class="formula">
+  <span class="name">IPv6 base header &mdash; fixed at 40 bytes, only eight fields</span>
+  Row 1: | Version (4) | Traffic Class (8) | Flow Label (20) |<br>
+  Row 2: | Payload Length (16) | Next Header (8) | Hop Limit (8) |<br>
+  Rows 3&ndash;6: | <strong>Source Address (128 bits = 16 bytes)</strong> |<br>
+  Rows 7&ndash;10: | <strong>Destination Address (128 bits = 16 bytes)</strong> |
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Version</strong></td><td>4 bits</td><td>Always <strong>6</strong></td></tr>
+<tr><td><strong>Traffic Class</strong></td><td>8 bits</td><td>Priority and class of the packet &mdash; the equivalent of IPv4's Type of Service</td></tr>
+<tr><td><strong>Flow Label</strong></td><td>20 bits</td><td><strong>New in IPv6.</strong> Labels a sequence of packets belonging to one <em>flow</em>, so routers can give them identical special handling <strong>without inspecting the higher layers</strong>. This is what supports real-time audio and video.</td></tr>
+<tr><td><strong>Payload Length</strong></td><td>16 bits</td><td>The length of the data <strong>excluding the 40-byte base header</strong>. (In IPv4, Total Length <em>included</em> the header &mdash; a difference worth naming.)</td></tr>
+<tr><td><strong>Next Header</strong></td><td>8 bits</td><td>Identifies what follows the base header &mdash; either an <strong>extension header</strong> or the upper-layer protocol (TCP, UDP). It replaces IPv4's Protocol field and also chains the extension headers together.</td></tr>
+<tr><td><strong>Hop Limit</strong></td><td>8 bits</td><td>Exactly IPv4's TTL, honestly renamed &mdash; it always counted hops rather than time.</td></tr>
+<tr><td><strong>Source address</strong></td><td>128 bits</td><td>The sender</td></tr>
+<tr><td><strong>Destination address</strong></td><td>128 bits</td><td>The destination &mdash; or, if a routing extension header is present, the <strong>next router</strong> on the specified path</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The four fields removed from IPv4 &mdash; and why</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Removed</th><th>Reason</th></tr></thead>
+<tbody>
+<tr><td><strong>Header checksum</strong></td><td>It had to be <strong>recomputed at every router</strong> because TTL changed, which was pure overhead. The data link layer already checks with a CRC, and the transport layer checksums end to end, so the middle check was redundant.</td></tr>
+<tr><td><strong>Identification, Flags, Fragment Offset</strong></td><td><strong>Routers no longer fragment in IPv6.</strong> If a packet is too large, the router discards it and returns an ICMPv6 "packet too big"; the <strong>source</strong> must then use Path MTU Discovery and send smaller packets. Source fragmentation, when needed, uses an extension header.</td></tr>
+<tr><td><strong>HLEN (header length)</strong></td><td>Unnecessary &mdash; the base header is <strong>always exactly 40 bytes</strong>.</td></tr>
+<tr><td><strong>Options and Padding</strong></td><td>Moved out into <strong>extension headers</strong>, so the base header stays fixed and routers can process it at a predictable speed.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Extension headers</h3>
+
+<p>Optional headers placed <strong>between the base header and the payload</strong>, chained together by each one's <strong>Next Header</strong> field. Six are defined:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Extension header</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Hop-by-hop option</strong></td><td>Information that <strong>every router</strong> along the path must examine &mdash; for example jumbogram support</td></tr>
+<tr><td><strong>Routing</strong></td><td>Lists routers that must be visited &mdash; the equivalent of IPv4's source-route option</td></tr>
+<tr><td><strong>Fragmentation</strong></td><td>Fragmentation information, and <strong>only the source may use it</strong></td></tr>
+<tr><td><strong>Authentication (AH)</strong></td><td>Validates the sender and protects the data from alteration &mdash; part of IPsec</td></tr>
+<tr><td><strong>Encrypted Security Payload (ESP)</strong></td><td>Provides confidentiality &mdash; part of IPsec</td></tr>
+<tr><td><strong>Destination option</strong></td><td>Information for the <strong>destination host only</strong>; routers ignore it</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The design point worth stating: <strong>only the hop-by-hop extension header is examined by intermediate routers.</strong> All the others are read only at the destination, so routers stay fast even when many extension headers are present.</p>
+
+<h2>IPv4 vs IPv6</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>IPv4</th><th>IPv6</th></tr></thead>
+<tbody>
+<tr><td><strong>Address size</strong></td><td>32 bits</td><td><strong>128 bits</strong></td></tr>
+<tr><td><strong>Address space</strong></td><td>2<sup>32</sup> &asymp; 4.3 billion</td><td>2<sup>128</sup> &asymp; 3.4 &times; 10<sup>38</sup></td></tr>
+<tr><td><strong>Notation</strong></td><td>Dotted decimal, e.g. 192.168.1.1</td><td>Colon hexadecimal, e.g. FDEC:74::FFF0</td></tr>
+<tr><td><strong>Header size</strong></td><td><strong>Variable</strong>, 20&ndash;60 bytes</td><td><strong>Fixed 40 bytes</strong></td></tr>
+<tr><td><strong>Number of header fields</strong></td><td>13</td><td><strong>8</strong></td></tr>
+<tr><td><strong>Header checksum</strong></td><td>Present</td><td><strong>Removed</strong></td></tr>
+<tr><td><strong>Fragmentation by routers</strong></td><td><strong>Allowed</strong></td><td><strong>Not allowed</strong> &mdash; source only, via Path MTU Discovery</td></tr>
+<tr><td><strong>Options</strong></td><td>Inside the header</td><td>In separate <strong>extension headers</strong></td></tr>
+<tr><td><strong>Address types</strong></td><td>Unicast, multicast, <strong>broadcast</strong></td><td>Unicast, multicast, <strong>anycast</strong> &mdash; <strong>no broadcast</strong></td></tr>
+<tr><td><strong>Security</strong></td><td>Added afterwards (IPsec optional)</td><td><strong>IPsec built in</strong></td></tr>
+<tr><td><strong>QoS support</strong></td><td>Type of Service field only</td><td><strong>Traffic Class and Flow Label</strong></td></tr>
+<tr><td><strong>Address configuration</strong></td><td>Manual or DHCP</td><td>Also <strong>stateless autoconfiguration</strong> &mdash; a host can generate its own address</td></tr>
+<tr><td><strong>Address resolution</strong></td><td>ARP (broadcast)</td><td><strong>Neighbour Discovery</strong>, part of ICMPv6, using multicast</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The three transition strategies</h2>
+
+<p>IPv4 and IPv6 cannot simply be swapped over on a fixed date, so three coexistence mechanisms are defined. This is a reliable 5-mark question &mdash; name all three and describe each in two lines.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Strategy</th><th>How it works</th><th>Used when</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Dual stack</strong></td><td>A host or router runs <strong>both IPv4 and IPv6 simultaneously</strong>, with an address of each kind. It queries DNS: if the reply is an IPv4 address it uses IPv4, if IPv6 it uses IPv6.</td><td>The recommended first step, applied everywhere before any switchover</td></tr>
+<tr><td><strong>2. Tunnelling</strong></td><td>Two IPv6 nodes are separated by an <strong>IPv4-only region</strong>. The IPv6 packet is <strong>encapsulated inside an IPv4 packet</strong> for the crossing, and decapsulated at the far side.</td><td>IPv6 islands within an IPv4 sea</td></tr>
+<tr><td><strong>3. Header translation</strong></td><td>The header is <strong>rewritten completely</strong> from one version to the other by a translator at the boundary.</td><td><strong>Only when the receiver understands IPv4 but the sender is IPv6-only</strong> &mdash; i.e. once most of the Internet has moved and legacy hosts remain</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The distinction between tunnelling and translation</span>
+  <p><strong>Tunnelling wraps the packet and leaves it intact; translation rewrites the packet and destroys the original header.</strong> Tunnelling is used when both endpoints speak IPv6 and only the middle does not. Translation is used when the endpoints themselves speak different versions. Getting these the wrong way round is the usual mistake.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">IPv6 40-Byte Base Header & Extension Header Chain</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Fixed 40-Byte Base Header</strong>
+      <span class="sub">Ver (4b) | Traffic Class (8b) | Flow Label (20b) | Payload Length (16b) | Next Header (8b) | Hop Limit (8b) | Src IPv6 (128b) | Dest IPv6 (128b)</span>
+    </div>
+    <div class="flow-arrow-down">&darr; (Next Header pointer chain)</div>
+    <div class="flow-row">
+      <div class="flow-box"><strong>Hop-by-Hop Options</strong><span class="sub">Next Header: 0</span></div>
+      <div class="flow-arrow-right">&rarr;</div>
+      <div class="flow-box"><strong>Routing Header</strong><span class="sub">Next Header: 43</span></div>
+      <div class="flow-arrow-right">&rarr;</div>
+      <div class="flow-box ok"><strong>TCP Segment</strong><span class="sub">Next Header: 6</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">IPv6 Architecture</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-57 & Lec-58: Need for IPv6 & IPv6 Header Format vs IPv4</div>
+    <div class="v-desc">Clear comparison highlighting address space expansion, removal of checksum and fragmentation from base header, and IPv4-to-IPv6 transition strategies.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=0os5MOAKRL0" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Which abbreviation of 2001:0DB8:0000:0000:0000:0000:1428:57AB is valid?</p>
+  <div class="opts">
+    <button class="opt">2001:DB8::1428::57AB</button>
+    <button class="opt">2001:DB::1428:57AB</button>
+    <button class="opt">21:DB8::1428:57AB</button>
+    <button class="opt" data-ok="1">2001:DB8::1428:57AB</button>
+  </div>
+  <p class="why">Leading zeros drop (0DB8 → DB8) and the one run of zero groups collapses to ::. Two :: is invalid because the split becomes ambiguous; and 0DB8 → DB is wrong because only <em>leading</em> zeros may go, not trailing ones.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which address type does IPv6 NOT have?</p>
+  <div class="opts">
+    <button class="opt">Multicast</button>
+    <button class="opt">Anycast</button>
+    <button class="opt">Unicast</button>
+    <button class="opt" data-ok="1">Broadcast</button>
+  </div>
+  <p class="why">Broadcast was removed because it forces every host to process a packet regardless of interest; its jobs are done by multicast to well-known groups such as FF02::1. Anycast — delivery to the nearest member of a group — is the type IPv6 adds.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The IPv6 header has no checksum because:</p>
+  <div class="opts">
+    <button class="opt">The flow label field performs error detection instead</button>
+    <button class="opt">IPv6 packets are never corrupted in transit by routers</button>
+    <button class="opt">IPv6 headers are too short for a checksum to be meaningful</button>
+    <button class="opt" data-ok="1">The link layer and transport layer already check, making it redundant overhead</button>
+  </div>
+  <p class="why">IPv4's checksum had to be recomputed at every hop because TTL changed — pure per-router cost. The data link layer's CRC and the transport layer's end-to-end checksum already cover it, so IPv6 drops the middle check and routers get faster.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. If an IPv6 packet is too large for the next link, the router:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Discards it and sends an ICMPv6 "packet too big" back to the source</button>
+    <button class="opt">Buffers it until a link with a larger MTU becomes available</button>
+    <button class="opt">Fragments it and forwards the fragments as IPv4 routers do</button>
+    <button class="opt">Strips the extension headers to reduce the packet's size</button>
+  </div>
+  <p class="why">Routers never fragment in IPv6. The source is told and must use Path MTU Discovery to send smaller packets — which is why the identification, flags and offset fields disappeared from the header entirely.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Encapsulating an IPv6 packet inside an IPv4 packet to cross an IPv4-only region is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Tunnelling</button>
+    <button class="opt">Header translation</button>
+    <button class="opt">Dual stack operation</button>
+    <button class="opt">Stateless autoconfiguration</button>
+  </div>
+  <p class="why">Tunnelling wraps the packet and leaves the original intact, for use when both endpoints speak IPv6 but the middle does not. Translation rewrites the header outright and is for endpoints speaking different versions.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which extension header is examined by every router along the path?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Hop-by-hop option</button>
+    <button class="opt">Authentication header</button>
+    <button class="opt">Destination option</button>
+    <button class="opt">Fragmentation header</button>
+  </div>
+  <p class="why">Only the hop-by-hop header is processed at every router; everything else is read at the destination. That is deliberate — it keeps routers fast no matter how many extension headers a packet carries.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give four reasons IPv6 was created.</summary>
+    <p class="ans">IPv4 address exhaustion; no built-in support for real-time audio and video; no encryption or authentication in the original design; and a complex variable-length header requiring per-hop checksum recomputation and router fragmentation.</p></details>
+  <details class="card"><summary>State the IPv6 address size, notation and the two abbreviation rules.</summary>
+    <p class="ans">128 bits, written as eight groups of four hexadecimal digits separated by colons. Rule 1: leading zeros in a group may be dropped (trailing ones may not). Rule 2: one run of consecutive all-zero groups may be replaced by ::, and this may be done only once per address.</p></details>
+  <details class="card"><summary>Name the three IPv6 address types and the one that was removed.</summary>
+    <p class="ans">Unicast (one interface), multicast (all members of a group), anycast (the nearest member of a group). Broadcast was removed; its functions are served by multicast to well-known groups such as FF02::1.</p></details>
+  <details class="card"><summary>Draw the IPv6 header with field sizes.</summary>
+    <p class="ans">Version (4) | Traffic Class (8) | Flow Label (20); Payload Length (16) | Next Header (8) | Hop Limit (8); Source Address (128); Destination Address (128). Eight fields, fixed 40 bytes.</p></details>
+  <details class="card"><summary>Which four things were removed from the IPv4 header, and why?</summary>
+    <p class="ans">The header checksum (redundant, and costly to recompute each hop). Identification, flags and fragment offset (routers no longer fragment). HLEN (the base header is always 40 bytes). Options and padding (moved to extension headers so the base header stays fixed).</p></details>
+  <details class="card"><summary>What is the flow label for?</summary>
+    <p class="ans">It labels a sequence of packets belonging to one flow so routers can give them identical special handling without inspecting the higher layers — the mechanism that supports real-time audio and video.</p></details>
+  <details class="card"><summary>Name the six extension headers.</summary>
+    <p class="ans">Hop-by-hop option, routing, fragmentation, authentication (AH), encrypted security payload (ESP), and destination option. Only the hop-by-hop header is examined by intermediate routers.</p></details>
+  <details class="card"><summary>Give eight differences between IPv4 and IPv6.</summary>
+    <p class="ans">32 vs 128-bit addresses; dotted decimal vs colon hexadecimal; variable 20–60 byte vs fixed 40-byte header; 13 vs 8 fields; checksum present vs removed; router fragmentation allowed vs forbidden; options in-header vs extension headers; broadcast vs anycast; IPsec optional vs built in; ToS only vs traffic class and flow label; DHCP vs also stateless autoconfiguration; ARP vs Neighbour Discovery.</p></details>
+  <details class="card"><summary>Name and describe the three transition strategies.</summary>
+    <p class="ans">Dual stack — a node runs both protocols and chooses by what DNS returns. Tunnelling — an IPv6 packet is encapsulated inside an IPv4 packet to cross an IPv4-only region, then decapsulated. Header translation — the header is rewritten from one version to the other, used when the sender is IPv6-only and the receiver understands only IPv4.</p></details>
+</div>
+
+<p class="ask">That completes Units I, II and III &mdash; twenty-seven lessons. Units IV (transport layer) and V (application layer and security) are still playlist-map only; say the word when you want them.</p>
+
+<div class="nav">
+  <a href="0026-unicast-and-multicast-routing.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

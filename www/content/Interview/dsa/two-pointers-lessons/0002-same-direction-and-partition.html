@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two Pointers Lesson 02 — Same Direction &amp; Partition</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Two Pointers Track · Lesson 2 of 3 · reader/writer compaction and in-place partitioning</div>
+<h1>Same-Direction Pointers &amp; Partition</h1>
+<p class="subtitle">One pointer reads every element; a slower pointer writes only the keepers. In-place array rewrites in O(n) time, O(1) space — no shifting, no second array.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> "do it in place with O(1) extra memory" is the exact sentence OA graders use
+  to force this pattern — LC 26, 283, and 75 are among the most-asked easy/mediums at big tech.
+  This is Lesson 2 of the 3-lesson Two Pointers track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Suppose you must remove elements from an array in place. The naive move — delete one, shift everything after it
+left — costs O(n) per deletion, O(n²) total. The fix: stop shifting and start <strong>rewriting</strong>. Run a
+fast pointer <code>read</code> over every element, and keep a slow pointer <code>write</code> marking the end of
+the "good" prefix. When <code>read</code> finds a keeper, copy it to <code>write</code> and advance
+<code>write</code>. Every element is touched once — O(n) — and the invariant
+<em>"everything in <code>[0, write)</code> is exactly the answer so far"</em> holds at every step.
+The same slow/fast idea, with swaps instead of copies, <strong>partitions</strong> an array into regions
+(zeroes vs non-zeroes, three colors) in one pass.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Remove / keep / move elements <strong>in place</strong>," "return the new length," "O(1) extra space,"
+  "relative order preserved," or "sort an array of only k distinct values." Also: merging or transforming
+  <strong>two sorted arrays</strong> — same two-pointer machinery, one pointer per array. Whenever your first
+  instinct is "build a second array and copy the survivors," ask if a write pointer can do it in place.
+</div>
+
+<h2>2 · Core template — Remove Duplicates from Sorted Array (LC 26)</h2>
+<p>
+Sorted array; keep each value once, in place, return the count. Because it's sorted, duplicates are adjacent —
+so an element is a keeper exactly when it differs from the last thing we wrote.
+</p>
+<pre><code><span class="cmt">// LC 26: reader/writer compaction. Everything in [0, write) is deduped and final.</span>
+int removeDuplicates(int[] a) {
+    int write = 1;                       <span class="cmt">// a[0] is always kept; first free slot is 1</span>
+    for (int read = 1; read &lt; a.length; read++) {
+        if (a[read] != a[write - 1]) {   <span class="cmt">// differs from the LAST KEPT value → keeper</span>
+            a[write] = a[read];          <span class="cmt">// write it into the good prefix</span>
+            write++;
+        }                                <span class="cmt">// duplicate → read moves on, write stays</span>
+    }
+    return write;                        <span class="cmt">// length of the deduped prefix; a[write..] is garbage</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) — one pass. <strong>Space</strong> O(1) — the array is its own output buffer.
+Note <code>write ≤ read</code> always, so the write never clobbers something the reader still needs.</p>
+
+<h3>Worked example — dry run</h3>
+<p><code>a = [1, 1, 2, 2, 3]</code>:</p>
+<div class="trace">
+<span class="step">write=<span class="ptr">1</span>  read=1: a[1]=1 == a[0]=1 → dup, skip</span>
+<span class="step now">write=<span class="ptr">1</span>  read=2: a[2]=2 != 1 → a[1]=2, write→2   array [1,2,2,2,3]</span>
+<span class="step">write=<span class="ptr">2</span>  read=3: a[3]=2 == a[1]=2 → dup, skip</span>
+<span class="step now">write=<span class="ptr">2</span>  read=4: a[4]=3 != 2 → a[2]=3, write→3   array [1,2,3,2,3]</span>
+<span class="step">return <span class="ptr">3</span> — prefix [1,2,3] is the answer; the tail is ignored garbage</span>
+</div>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Compact keepers</td><td>LC 26</td><td>The core template — keep-if-new, copy forward.</td></tr>
+    <tr><td>Partition into two regions</td><td>LC 283</td><td>Swap instead of copy: non-zeroes to the front, zeroes fall to the back.</td></tr>
+    <tr><td>Merge two sorted arrays in place</td><td>LC 88</td><td>Write <strong>backwards</strong> from the end so nothing is overwritten.</td></tr>
+    <tr><td>Two sorted "streams" → one output</td><td>LC 977</td><td>Largest squares are at the ends → converging readers, backwards writer.</td></tr>
+    <tr><td>Partition into three regions</td><td>LC 75</td><td>Dutch National Flag: three pointers, one pass, three zones.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Move Zeroes (LC 283)</h3>
+<p>
+Push all zeroes to the back, keep the other numbers in order, in place. Same skeleton — the keeper test is now
+<code>!= 0</code> — but <strong>swap</strong> instead of copy, so the zeroes automatically end up in the tail
+and you don't need a second fill pass.
+</p>
+<pre><code>void moveZeroes(int[] a) {
+    int write = 0;                       <span class="cmt">// next slot for a non-zero</span>
+    for (int read = 0; read &lt; a.length; read++) {
+        if (a[read] != 0) {              <span class="cmt">// keeper</span>
+            int t = a[write]; a[write] = a[read]; a[read] = t; <span class="cmt">// swap: the zero (if any) jumps back</span>
+            write++;
+        }
+    }
+}                                        <span class="cmt">// invariant: [0,write) non-zero in order, [write,read) all zero</span></code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). (Copy-then-fill-zeroes also works; the swap version does it in one pass and generalizes to Sort Colors.)</p>
+
+<h3>Case: Merge Sorted Array (LC 88) — write from the back</h3>
+<p>
+<code>nums1</code> has m real values plus n empty slots; merge sorted <code>nums2</code> (n values) into it in
+place. Merging front-to-back overwrites <code>nums1</code> values you haven't read yet. The trick:
+the <em>free space is at the end</em>, so write the <strong>largest</strong> element into the <strong>last</strong>
+slot and walk backwards. The writer can never catch up to the unread data.
+</p>
+<pre><code>void merge(int[] nums1, int m, int[] nums2, int n) {
+    int i = m - 1, j = n - 1;            <span class="cmt">// last REAL element of each array</span>
+    int w = m + n - 1;                   <span class="cmt">// last slot overall — write backwards from here</span>
+    while (j &gt;= 0) {                     <span class="cmt">// when nums2 is drained, nums1's rest is already in place</span>
+        if (i &gt;= 0 &amp;&amp; nums1[i] &gt; nums2[j])
+            nums1[w--] = nums1[i--];     <span class="cmt">// bigger tail wins the slot</span>
+        else
+            nums1[w--] = nums2[j--];
+    }
+}</code></pre>
+<p><strong>Time</strong> O(m + n), <strong>Space</strong> O(1). The loop condition is <code>j &gt;= 0</code>, not
+<code>i &gt;= 0</code>: leftover <code>nums1</code> elements are already sorted in position, but leftover
+<code>nums2</code> elements still need copying.</p>
+
+<h3>Case: Squares of a Sorted Array (LC 977)</h3>
+<p>
+Square a sorted array (may contain negatives), return sorted. Naive: square then sort, O(n log n). Insight:
+after squaring, the <strong>largest</strong> values live at the two <em>ends</em> of the original array (most
+negative or most positive). So read with converging pointers from both ends, and write the winner backwards into
+a result array — largest first.
+</p>
+<pre><code>int[] sortedSquares(int[] a) {
+    int n = a.length;
+    int[] res = new int[n];
+    int l = 0, r = n - 1;
+    for (int w = n - 1; w &gt;= 0; w--) {   <span class="cmt">// fill result from the BACK (biggest square first)</span>
+        int ls = a[l] * a[l], rs = a[r] * a[r];
+        if (ls &gt; rs) { res[w] = ls; l++; }  <span class="cmt">// left end (very negative) wins</span>
+        else         { res[w] = rs; r--; }
+    }
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(n) for the output (required anyway). This one blends both
+lessons: opposite-ends <em>readers</em>, same-direction <em>writer</em>.</p>
+
+<h3>Case: Sort Colors / Dutch National Flag (LC 75)</h3>
+<p>
+Array of 0s, 1s, 2s — sort in one pass, O(1) space. Three pointers carve the array into four zones:
+<code>[0, lo)</code> all 0s, <code>[lo, mid)</code> all 1s, <code>[mid, hi]</code> <em>unknown</em>,
+<code>(hi, n)</code> all 2s. Look at <code>a[mid]</code> and shrink the unknown zone by one each step.
+</p>
+<pre><code>void sortColors(int[] a) {
+    int lo = 0, mid = 0, hi = a.length - 1;
+    while (mid &lt;= hi) {                  <span class="cmt">// unknown zone is [mid..hi]; loop until it's empty</span>
+        if (a[mid] == 0) {
+            int t = a[lo]; a[lo] = a[mid]; a[mid] = t;
+            lo++; mid++;                 <span class="cmt">// swapped-in value came from the 1s zone → already classified → mid++ OK</span>
+        } else if (a[mid] == 1) {
+            mid++;                       <span class="cmt">// 1 is already in its zone</span>
+        } else {                         <span class="cmt">// a[mid] == 2</span>
+            int t = a[mid]; a[mid] = a[hi]; a[hi] = t;
+            hi--;                        <span class="cmt">// DON'T mid++ — the value swapped in from hi is UNSEEN</span>
+        }
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Naive alternatives: any sort O(n log n), or counting
+sort O(n) but two passes — the interviewer wants this one-pass version.</p>
+
+<div class="callout trap">
+  <span class="label">The Dutch-flag bug everyone writes once</span>
+  After swapping a <code>2</code> to the back, do <strong>not</strong> advance <code>mid</code> — the element that
+  arrived from <code>hi</code> is unexamined and could be a 0 that still needs to travel left. After swapping a
+  <code>0</code> to the front, advancing <code>mid</code> IS safe, because whatever sat at <code>lo</code> was
+  already classified (it's a 1, or <code>lo == mid</code>). Asymmetric on purpose.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Empty and length-1 arrays</strong> — LC 26 with <code>write = 1</code> on an empty array would crash if you don't guard, or just start the pattern at index 0 where safe. Check constraints (LC 26 guarantees n ≥ 1).</li>
+  <li><strong>Compare against the last <em>written</em> value</strong> (<code>a[write-1]</code>), not <code>a[read-1]</code> — with "keep at most 2 duplicates" (LC 80) that distinction is the whole problem.</li>
+  <li><strong>All-keepers / all-rejects inputs</strong> — array of all zeroes for LC 283, strictly increasing array for LC 26. The pointers should just glide through; verify no swap-with-self issues (swapping <code>a[i]</code> with itself is harmless).</li>
+  <li><strong>LC 88: loop on <code>j &gt;= 0</code></strong> — if you loop while <code>i &gt;= 0</code> too and exit early, unmerged <code>nums2</code> values are silently dropped. And never merge front-to-back: you overwrite unread data.</li>
+  <li><strong>LC 75: <code>mid &lt;= hi</code>, not <code>&lt;</code></strong> — the element at <code>hi</code> itself is still unclassified.</li>
+  <li><strong>Return value vs mutation</strong> — LC 26 returns a length and the grader only reads that prefix; LC 283 returns void. Read the contract.</li>
+  <li><strong>Stability</strong> — reader/writer copy preserves relative order (LC 283 requires it); Dutch-flag swapping does not. Know which the problem demands.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the reader/writer template, why can the write pointer never overwrite a value the read pointer still needs?</div>
+  <button class="opt">Because the array is sorted, overwritten values are always duplicates</button>
+  <button class="opt">Because <code>write</code> only advances when <code>read</code> does, so <code>write ≤ read</code> at all times</button>
+  <button class="opt">Because writes go to a separate output array that is copied back at the end</button>
+  <div class="fb" data-correct="Right — write starts at or behind read and advances at most as fast, so it only ever overwrites cells the reader has already consumed." data-wrong="No second array and no reliance on sortedness — it's pure pointer arithmetic: write trails read, so every overwritten cell was already read."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In Merge Sorted Array (LC 88), why merge from the <em>back</em> instead of the front?</div>
+  <button class="opt">Because comparing the largest elements first is faster on sorted data</button>
+  <button class="opt">Because <code>nums2</code> might be longer than <code>nums1</code>'s real data</button>
+  <button class="opt">Because the free slots sit at the end of <code>nums1</code>, so a backwards writer never overwrites unread values</button>
+  <div class="fb" data-correct="Exactly — writing into the empty tail means the writer stays ahead of (to the right of) both readers, so no data is clobbered." data-wrong="Speed is identical either way; the issue is safety. Front-to-back writes into slots that still hold unread nums1 values — back-to-front writes into guaranteed-free space."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Sort Colors, you swap <code>a[mid]</code> (a 2) with <code>a[hi]</code>. What must happen next?</div>
+  <button class="opt">Decrement <code>hi</code> only — <code>mid</code> stays, because the swapped-in element is unexamined</button>
+  <button class="opt">Decrement <code>hi</code> and increment <code>mid</code>, since both elements were processed</button>
+  <button class="opt">Increment <code>mid</code> only, since the 2 is now in its final zone</button>
+  <div class="fb" data-correct="Correct — the value that arrived from hi came from the unknown zone. If you skip it, a 0 can get stranded in the middle." data-wrong="The element swapped in from hi has never been looked at — it could be a 0. Re-examine index mid on the next iteration: only hi moves."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/remove-duplicates-from-sorted-array">NeetCode — Remove Duplicates from Sorted Array</a> for the reader/writer invariant, then <a href="https://neetcode.io/problems/sort-colors">NeetCode — Sort Colors</a> for the three-zone picture.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 27 Remove Element (simplest writer) → LC 26 → LC 80 (keep-2 twist: compare to <code>a[write-2]</code>) → LC 283 → LC 977 → LC 88 → LC 75. For each, write the zone invariant as a comment <em>before</em> coding — it catches the bugs for you.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry run of Dutch National Flag on <code>[2,0,2,1,1,0]</code>, unsure why LC 80 compares against
+  <code>a[write-2]</code>, or curious how this connects to quicksort's partition step? Ask in the chat. When you
+  can state the write-prefix invariant for each problem above and explain the asymmetric <code>mid</code> rule in
+  LC 75, say <strong>"next"</strong> for Lesson 3: the k-sum family.
+</div>
+
+<div class="nav">
+  <span><a href="0001-opposite-ends.html">← Opposite Ends</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-k-sum-family.html">K-Sum Family →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

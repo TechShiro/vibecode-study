@@ -1,0 +1,254 @@
+<title>Challenge-Response and Zero-Knowledge Protocols</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit III &middot; Lesson 16 of 19</p>
+<h1>Challenge-Response and Zero-Knowledge Protocols</h1>
+<p class="deck">Nonce-based authentication, symmetric and asymmetric challenge-response, the Needham&ndash;Schroeder flaw, and zero-knowledge proofs &mdash; proving you know a secret without revealing it.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Challenge-response</strong> is a 5&ndash;10 mark question asking you to draw the protocol and explain how it defeats replay attacks. <strong>Zero-knowledge proofs</strong> are tested as definitions with the cave analogy or the Fiat&ndash;Shamir protocol. Know both.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Challenge-Response Authentication Protocols</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLmAmHQ-_5ySx_dXmOwSuGGGyE8XsbYT0n" target="_blank">Challenge-Response Protocols: Nonce-Based Mutual Authentication</a>
+    <span class="v-meta">Trouble-Free &middot; Videos #42&ndash;#44</span>
+    <div class="v-why">Step-by-step trace of how random unpredictable nonces defeat replay attacks, comparing symmetric-key challenge-response against public-key signature responses.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Zero-Knowledge Proofs (ZKP)</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PL9FuOtXibFjV77w2eyil4Xzp8eooqsPp8" target="_blank">Zero-Knowledge Proofs: Completeness, Soundness &amp; The Ali Baba Cave</a>
+    <span class="v-meta">Abhishek Sharma &middot; CNS Series</span>
+    <div class="v-why">Rigorous explanation of the three mandatory ZKP criteria: Completeness (honest prover always convinces), Soundness (cheater caught with high probability), and Zero-Knowledge.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: CHALLENGE RESPONSE HANDSHAKE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Nonce-Based Challenge-Response Handshake</span>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="min-width:20rem;">
+      <strong>Step 1 &middot; Verifier Emits Fresh Challenge Nonce</strong>
+      <span class="sub">Bob generates random number $R_B$ and transmits to Alice</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Alice Proves Possession of Shared Secret Key $K_{AB}$</span>
+    
+    <div class="flow-box warn" style="min-width:20rem;">
+      <strong>Step 2 &middot; Alice Computes Response</strong>
+      <span class="sub">$\text{Resp} = E(K_{AB}, R_B)$ or $\text{HMAC}(K_{AB}, R_B)$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Transmit Response back to Bob</span>
+    
+    <div class="flow-box ok" style="min-width:20rem;">
+      <strong>Step 3 &middot; Bob Verifies Response</strong>
+      <span class="sub">Decrypts or recomputes hash &middot; Match confirms Alice's live presence without transmitting password!</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Challenge-response authentication</h2>
+
+<p>The verifier sends a <strong>challenge</strong> (a fresh random number, called a <em class="term">nonce</em>). The claimant computes a <strong>response</strong> using their secret and the nonce. Since the nonce is different every time, a recorded response cannot be replayed.</p>
+
+<h3>Symmetric-key challenge-response</h3>
+
+<div class="formula">
+  <span class="name">Unilateral authentication (A proves identity to B)</span>
+  1. B &rarr; A: &nbsp; R<sub>B</sub> &nbsp; (random nonce)<br>
+  2. A &rarr; B: &nbsp; E<sub>K</sub>(R<sub>B</sub>) &nbsp; (encrypt nonce with shared key K)<br>
+  3. B decrypts, checks R<sub>B</sub> matches. If yes, A is authenticated.
+</div>
+
+<div class="formula">
+  <span class="name">Mutual authentication (both prove identity)</span>
+  1. A &rarr; B: &nbsp; R<sub>A</sub><br>
+  2. B &rarr; A: &nbsp; E<sub>K</sub>(R<sub>A</sub> &Verbar; R<sub>B</sub>)<br>
+  3. A &rarr; B: &nbsp; E<sub>K</sub>(R<sub>B</sub>)<br>
+  A decrypts step 2, checks R<sub>A</sub>, extracts R<sub>B</sub>, encrypts R<sub>B</sub> in step 3. B decrypts step 3, checks R<sub>B</sub>.
+</div>
+
+<h3>Asymmetric-key challenge-response</h3>
+
+<div class="formula">
+  <span class="name">Using digital signatures</span>
+  1. B &rarr; A: &nbsp; R<sub>B</sub><br>
+  2. A &rarr; B: &nbsp; Sig<sub>A</sub>(R<sub>B</sub>) &nbsp; (sign nonce with A&rsquo;s private key)<br>
+  3. B verifies with A&rsquo;s public key. If valid, A is authenticated.
+</div>
+
+<div class="box">
+  <span class="lbl">Why nonces defeat replay</span>
+  <p>A replay attacker has E<sub>K</sub>(R<sub>old</sub>) from a previous session. But next time B sends a <strong>new</strong> R<sub>new</sub> and expects E<sub>K</sub>(R<sub>new</sub>). The attacker cannot compute this without K.</p>
+</div>
+
+<h3>Timestamps as an alternative to nonces</h3>
+
+<p>Instead of a nonce, use the current time T. A sends E<sub>K</sub>(T) and B checks that T is recent. This reduces the protocol to <strong>one message</strong> but requires <strong>synchronised clocks</strong> &mdash; a practical difficulty.</p>
+
+<h3>The reflection attack</h3>
+
+<p>In a na&iuml;ve mutual protocol where both sides use the same key, an attacker can open a <strong>second session</strong> to the verifier, forward the challenge, and get the response computed for free. <strong>Defence:</strong> use different keys for each direction, or include identifiers in the encrypted response.</p>
+
+<h2>Zero-Knowledge Proofs (ZKP)</h2>
+
+<p>A zero-knowledge proof lets Alice prove to Bob that she <strong>knows a secret</strong> without revealing <strong>any information</strong> about the secret itself.</p>
+
+<div class="formula">
+  <span class="name">Three properties of a ZKP</span>
+  <strong>1. Completeness:</strong> if Alice knows the secret, Bob will always be convinced.<br>
+  <strong>2. Soundness:</strong> if Alice does NOT know the secret, she cannot convince Bob (except with negligible probability).<br>
+  <strong>3. Zero-knowledge:</strong> Bob learns NOTHING about the secret beyond the fact that Alice knows it.
+</div>
+
+<h3>The cave analogy (Ali Baba&rsquo;s cave)</h3>
+
+<p>A circular cave with a locked door at the back. Alice enters from one side (chosen randomly). Bob calls out &ldquo;come out from the left&rdquo; (or right). If Alice knows the secret word to open the door, she can always comply. If she doesn&rsquo;t, she succeeds only if she guessed correctly &mdash; probability &frac12;. After <strong>n rounds</strong>, the probability of faking drops to 2<sup>&minus;n</sup>.</p>
+
+<h3>The Fiat&ndash;Shamir protocol</h3>
+
+<div class="formula">
+  <span class="name">Fiat&ndash;Shamir identification</span>
+  <strong>Setup:</strong> n = pq (RSA modulus). Alice picks secret s, publishes v = s&sup2; mod n.<br><br>
+  <strong>Round:</strong><br>
+  1. Alice picks random r, sends x = r&sup2; mod n (commitment)<br>
+  2. Bob sends challenge bit e &isin; {0, 1}<br>
+  3. Alice sends y = r &middot; s<sup>e</sup> mod n (response)<br>
+  4. Bob checks: y&sup2; &equiv; x &middot; v<sup>e</sup> (mod n)<br><br>
+  Repeat t rounds. Probability of cheating = 2<sup>&minus;t</sup>.
+</div>
+
+<div class="box win">
+  <span class="lbl">Why it is zero-knowledge</span>
+  <p>Bob sees (x, e, y) but <strong>x is random</strong> (r&sup2; mod n) and <strong>y</strong> reveals nothing about s because r is random. A simulator can produce transcripts identical to real ones without knowing s &mdash; this is the formal definition of zero-knowledge.</p>
+</div>
+
+<h3>Interactive vs non-interactive ZKP</h3>
+
+<ul>
+<li><strong>Interactive:</strong> requires back-and-forth between prover and verifier (Fiat&ndash;Shamir protocol above).</li>
+<li><strong>Non-interactive:</strong> the challenge is derived from the commitment using a hash function (Fiat&ndash;Shamir heuristic). Used in digital signatures and blockchain.</li>
+</ul>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Challenge-response authentication defeats replay attacks because:</p>
+  <div class="opts">
+    <button class="opt">The password changes every 24 hours</button>
+    <button class="opt" data-ok="1">Each challenge uses a fresh nonce, so old responses are invalid</button>
+    <button class="opt">The communication is encrypted end-to-end</button>
+    <button class="opt">The verifier stores all previous responses</button>
+  </div>
+  <p class="why">A fresh nonce means each response is unique to that session. An attacker who records E_K(R_old) cannot produce E_K(R_new) without K.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In a symmetric challenge-response, the claimant proves identity by:</p>
+  <div class="opts">
+    <button class="opt">Sending a random number to the verifier</button>
+    <button class="opt">Sending their password in plaintext</button>
+    <button class="opt">Presenting a biometric sample</button>
+    <button class="opt" data-ok="1">Encrypting the verifier&rsquo;s nonce with the shared secret key</button>
+  </div>
+  <p class="why">The claimant encrypts the nonce with K, proving they possess K without sending K itself.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The three properties of a zero-knowledge proof are:</p>
+  <div class="opts">
+    <button class="opt">Encryption, decryption, and signing</button>
+    <button class="opt">Confidentiality, integrity, and availability</button>
+    <button class="opt" data-ok="1">Completeness, soundness, and zero-knowledge</button>
+    <button class="opt">Authentication, authorisation, and accounting</button>
+  </div>
+  <p class="why">Completeness (honest prover convinces), soundness (dishonest prover fails), zero-knowledge (verifier learns nothing beyond the claim).</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In Fiat&ndash;Shamir, after t rounds the probability of cheating is:</p>
+  <div class="opts">
+    <button class="opt">1/t</button>
+    <button class="opt">t/2</button>
+    <button class="opt" data-ok="1">2<sup>&minus;t</sup></button>
+    <button class="opt">0 (it is impossible)</button>
+  </div>
+  <p class="why">Each round the cheater has a &frac12; chance of guessing the challenge bit correctly. After t rounds, the probability is (&frac12;)<sup>t</sup> = 2<sup>&minus;t</sup>.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A reflection attack exploits:</p>
+  <div class="opts">
+    <button class="opt">A buffer overflow in the server</button>
+    <button class="opt">A weakness in the hash function</button>
+    <button class="opt">A timing side channel</button>
+    <button class="opt" data-ok="1">A protocol where the attacker opens a parallel session to get a challenge answered for free</button>
+  </div>
+  <p class="why">The attacker forwards the challenge to the same verifier in a second session, getting the response computed without knowing the key.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Using timestamps instead of nonces requires:</p>
+  <div class="opts">
+    <button class="opt">Biometric verification</button>
+    <button class="opt" data-ok="1">Synchronised clocks between both parties</button>
+    <button class="opt">Public-key infrastructure</button>
+    <button class="opt">A trusted third party</button>
+  </div>
+  <p class="why">Timestamps replace the nonce but need both parties&rsquo; clocks to agree within a tolerance. Clock drift opens a replay window.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. The Fiat&ndash;Shamir heuristic converts an interactive ZKP to non-interactive by:</p>
+  <div class="opts">
+    <button class="opt">Sending the secret directly</button>
+    <button class="opt">Using a timestamp instead of a nonce</button>
+    <button class="opt" data-ok="1">Deriving the challenge from the commitment using a hash function</button>
+    <button class="opt">Eliminating the commitment step entirely</button>
+  </div>
+  <p class="why">Instead of the verifier choosing the challenge, the prover computes e = H(x) from their own commitment. No interaction needed.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Draw the symmetric challenge-response protocol.</summary>
+    <p class="ans">B &rarr; A: R_B (nonce). A &rarr; B: E_K(R_B). B decrypts, checks match. For mutual: add A &rarr; B: R_A first, and B responds with E_K(R_A | R_B).</p></details>
+  <details class="card"><summary>State the three properties of a ZKP.</summary>
+    <p class="ans">Completeness: honest prover always convinces. Soundness: dishonest prover fails except with negligible probability. Zero-knowledge: verifier learns nothing about the secret.</p></details>
+  <details class="card"><summary>Explain the Fiat&ndash;Shamir protocol.</summary>
+    <p class="ans">Setup: v = s&sup2; mod n. Round: Alice sends x = r&sup2; mod n, Bob sends bit e, Alice sends y = r&middot;s^e mod n, Bob checks y&sup2; = x&middot;v^e mod n. Cheating probability = 2^{-t} after t rounds.</p></details>
+  <details class="card"><summary>How does a reflection attack work?</summary>
+    <p class="ans">Attacker opens a second session with the verifier, forwards the challenge, and gets the encrypted response computed for free. Defence: use directional keys or include identifiers.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0015-entity-authentication-and-passwords.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0017-biometrics.html">Next: Biometrics &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

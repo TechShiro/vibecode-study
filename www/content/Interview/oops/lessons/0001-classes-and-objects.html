@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 01 — Classes and Objects</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 1 of 8 · classes, objects, constructors, memory</div>
+<h1>Classes and Objects</h1>
+<p class="subtitle">You've been writing classes in Java for a while — now find out what a class actually <em>is</em>, and why the whole OOP idea exists in the first place.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero. This is Lesson 1 of 8.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A program is really just two things: <strong>data</strong> and <strong>functions that work on that data</strong>.
+Old-style (procedural) code keeps them in separate piles, and you must remember which function goes with which data.
+OOP's one big move is to <strong>glue related data and functions into a single unit</strong> — a class.
+Everything else in this course (encapsulation, inheritance, polymorphism) is just a consequence of that glue.
+</p>
+
+<h2>2 · Why OOP? The mess it fixes</h2>
+<p>
+Imagine you are writing a tiny banking app <em>without</em> classes. You need to track many accounts:
+each account has a holder name and a balance. The procedural way is parallel arrays plus loose functions:
+</p>
+
+<pre><code><span class="cmt">// PROCEDURAL STYLE — data and functions live apart</span>
+String[] names    = new String[100];
+double[] balances = new double[100];
+
+static void deposit(double[] balances, int i, double amt) {
+    balances[i] += amt;              <span class="cmt">// hope 'i' is the right account!</span>
+}
+static void withdraw(double[] balances, int i, double amt) {
+    balances[i] -= amt;              <span class="cmt">// nothing stops balance going negative</span>
+}</code></pre>
+
+<p>This works... until it doesn't. Three problems creep in fast:</p>
+<ul>
+  <li><strong>Data and behaviour are strangers.</strong> Nothing in the code says <code>deposit</code> belongs to accounts. Any function anywhere can poke <code>balances[i]</code> directly.</li>
+  <li><strong>No protection.</strong> One typo — <code>balances[i] = -999</code> — and your data is corrupt. There is no gatekeeper.</li>
+  <li><strong>Scaling hurts.</strong> Add a new field (say, account type)? You must add another parallel array and update every function that touches accounts.</li>
+</ul>
+
+<p>Now the same thing, the OOP way:</p>
+
+<pre><code><span class="cmt">// OOP STYLE — data + behaviour glued into one unit</span>
+class Account {
+    String holder;                   <span class="cmt">// data (fields) live INSIDE</span>
+    double balance;
+
+    void deposit(double amt) {       <span class="cmt">// behaviour (methods) live with the data</span>
+        if (amt &gt; 0) balance += amt; <span class="cmt">// the class guards its own data</span>
+    }
+    void withdraw(double amt) {
+        if (amt &gt; 0 &amp;&amp; amt &lt;= balance) balance -= amt;
+    }
+}</code></pre>
+
+<p>
+Each <code>Account</code> object carries its own name and balance, and the <em>only</em> sensible way to change
+a balance is through the account's own methods. The data has a bodyguard now.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Procedural programming organises code around <strong>functions</strong>; OOP organises it around
+  <strong>data</strong>. OOP bundles data with the functions allowed to touch it, which gives us protection
+  (encapsulation), reuse (inheritance), and flexibility (polymorphism) — things procedural code can't give cleanly."
+</div>
+
+<h2>3 · Class vs object — blueprint vs house</h2>
+<p>
+A <strong>class</strong> is a blueprint. An <strong>object</strong> is a house built from that blueprint.
+The blueprint of a house describes rooms and doors, but you cannot live in a blueprint. You build actual
+houses from it — and each house has its own paint colour, its own furniture, its own address.
+</p>
+<p>
+Same in Java. <code>class Account</code> is the design on paper. <code>new Account()</code> builds a real one in memory.
+You can build a hundred houses from one blueprint; you can create a hundred objects from one class, and each keeps
+its own copy of the fields.
+</p>
+
+<pre><code>Account a1 = new Account();   <span class="cmt">// house #1</span>
+Account a2 = new Account();   <span class="cmt">// house #2 — totally separate</span>
+a1.balance = 500;
+a2.balance = 900;             <span class="cmt">// changing a2 never touches a1</span></code></pre>
+
+<table>
+  <thead><tr><th>Class</th><th>Object</th></tr></thead>
+  <tbody>
+    <tr><td>A blueprint / template / design</td><td>A real thing built from the blueprint</td></tr>
+    <tr><td>Exists once, in your source code</td><td>Can exist many times, in memory at runtime</td></tr>
+    <tr><td>Takes no memory for fields by itself</td><td>Each object gets its own copy of the fields</td></tr>
+    <tr><td>Defined with <code>class</code></td><td>Created with <code>new</code></td></tr>
+  </tbody>
+</table>
+
+<h2>4 · Fields and methods</h2>
+<p>
+Inside a class you get two kinds of members. <strong>Fields</strong> (also called instance variables or attributes)
+are the data each object remembers — <code>holder</code>, <code>balance</code>. <strong>Methods</strong> are the
+actions an object can perform — <code>deposit</code>, <code>withdraw</code>. Together they answer the two design
+questions: <em>what does this thing know?</em> and <em>what can this thing do?</em>
+</p>
+
+<div class="callout">
+  <span class="label">Vocabulary sync</span>
+  You'll hear synonyms in interviews: fields = instance variables = attributes = properties;
+  methods = member functions = behaviour. Also, "instance" is just a fancy word for object —
+  "<code>a1</code> is an instance of <code>Account</code>" means <code>a1</code> is an object built from that class.
+</div>
+
+<h2>5 · Constructors — the setup crew</h2>
+<p>
+A <strong>constructor</strong> is a special method that runs <em>once, automatically</em>, at the moment an object is
+born with <code>new</code>. Its job: put the new object into a valid starting state. Analogy: when you check into a
+hotel room, housekeeping has already prepared it — bed made, towels ready. The constructor is housekeeping for objects.
+</p>
+<p>Rules that make it "special": its name is exactly the class name, and it has <strong>no return type</strong> (not even <code>void</code>).</p>
+
+<pre><code>class Account {
+    String holder;
+    double balance;
+
+    <span class="cmt">// 1) DEFAULT-STYLE (no-argument) constructor</span>
+    Account() {
+        this.holder = "unknown";
+        this.balance = 0;
+    }
+
+    <span class="cmt">// 2) PARAMETERIZED constructor — caller supplies starting values</span>
+    Account(String holder, double balance) {
+        this.holder = holder;
+        this.balance = balance;
+    }
+
+    <span class="cmt">// 3) COPY-CONSTRUCTOR idea — build a new object from an existing one</span>
+    Account(Account other) {
+        this.holder = other.holder;
+        this.balance = other.balance;
+    }
+}
+
+Account a = new Account();                  <span class="cmt">// runs #1</span>
+Account b = new Account("Krish", 1000);     <span class="cmt">// runs #2</span>
+Account c = new Account(b);                 <span class="cmt">// runs #3 — a fresh clone of b</span></code></pre>
+
+<p>
+Notice #1, #2 and #3 have the same name but different parameter lists. That's
+<strong>constructor overloading</strong> — several setup recipes, and Java picks the one matching your arguments.
+(This is your first taste of overloading; Lesson 4 makes it a big deal.)
+</p>
+
+<div class="callout trap">
+  <span class="label">The disappearing default constructor</span>
+  If you write <em>no</em> constructor at all, Java quietly gifts you an empty no-arg one. But the moment you
+  write <em>any</em> constructor yourself, that gift is withdrawn — <code>new Account()</code> stops compiling
+  unless you also write the no-arg version. Classic interview gotcha.
+</div>
+
+<div class="callout">
+  <span class="label">"...and destructor?"</span>
+  C++ has destructors — code that runs when an object dies, to free memory. <strong>Java has no destructors</strong>,
+  because the <strong>Garbage Collector</strong> automatically reclaims objects nobody refers to anymore.
+  If asked: mention C++ destructors, then say Java replaces them with GC.
+</div>
+
+<h2>6 · The <code>this</code> keyword</h2>
+<p>
+Inside a method, <code>this</code> means "the object I was called on." Analogy: in a classroom of students, when one
+student says "my bag," everyone knows they mean their own bag — not their neighbour's. <code>this</code> is an object
+saying "my."
+</p>
+<p>Its most common job is breaking a name tie between a parameter and a field:</p>
+
+<pre><code>Account(String holder, double balance) {
+    this.holder = holder;    <span class="cmt">// this.holder = the FIELD; holder = the PARAMETER</span>
+    this.balance = balance;  <span class="cmt">// without 'this.' you'd assign the parameter to itself</span>
+}</code></pre>
+
+<p>
+Bonus use: <code>this(...)</code> as the first line of a constructor calls a sibling constructor —
+handy to avoid repeating setup code across overloaded constructors.
+</p>
+
+<h2>7 · <code>new</code> and memory — stack vs heap</h2>
+<p>
+Where does an object actually live? Java splits memory into two areas.
+The <strong>stack</strong> is a small, fast scratchpad — each method call gets a frame holding its local variables,
+and the frame vanishes when the method returns. The <strong>heap</strong> is a big open warehouse where every object
+created by <code>new</code> is stored, and it outlives any single method call.
+</p>
+<p>
+The key sentence: <strong>objects live on the heap; your variable holds only a <em>reference</em></strong> — a small
+"address slip" on the stack pointing into the warehouse.
+</p>
+
+<pre><code>Account a1 = new Account("Krish", 500);
+Account a2 = a1;          <span class="cmt">// copies the ADDRESS SLIP, not the object!</span>
+a2.balance = 999;
+System.out.println(a1.balance);  <span class="cmt">// prints 999 — both slips point to ONE object</span></code></pre>
+
+<figure class="diagram">
+<svg viewBox="0 0 460 190" role="img" aria-label="Stack holds two reference variables a1 and a2; both arrows point to a single Account object on the heap">
+  <defs><marker id="ahMem" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" class="arrow"/></marker></defs>
+  <text class="lbl" x="90" y="22">STACK</text>
+  <rect class="cell" x="30" y="40" width="120" height="36"/><text class="lbl" x="90" y="58">a1 (ref)</text>
+  <rect class="cell" x="30" y="86" width="120" height="36"/><text class="lbl" x="90" y="104">a2 (ref)</text>
+  <text class="lbl" x="345" y="22">HEAP</text>
+  <rect class="cell done" x="260" y="48" width="170" height="66"/>
+  <text class="lbl" x="345" y="70">Account object</text>
+  <text class="wt" x="345" y="96">holder="Krish"  balance=999</text>
+  <line class="edge hl" marker-end="url(#ahMem)" x1="150" y1="58" x2="256" y2="70"/>
+  <line class="edge hl" marker-end="url(#ahMem)" x1="150" y1="104" x2="256" y2="92"/>
+  <text class="wt" x="230" y="165">a2 = a1 copied the arrow, not the box — one object, two names</text>
+</svg>
+<figcaption>References (arrows) live on the stack; the one real object lives on the heap.</figcaption>
+</figure>
+
+<p>Quick contrast to keep in your head:</p>
+<table>
+  <thead><tr><th>Stack</th><th>Heap</th></tr></thead>
+  <tbody>
+    <tr><td>Local variables, method parameters, references</td><td>All objects and arrays created with <code>new</code></td></tr>
+    <tr><td>Freed automatically when the method returns</td><td>Freed by the Garbage Collector when no reference points to it</td></tr>
+    <tr><td>Small, fast, per-thread</td><td>Big, shared by all threads</td></tr>
+    <tr><td>Overflows on deep recursion (StackOverflowError)</td><td>Fills with too many objects (OutOfMemoryError)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">"Primitives on stack, objects on heap" — say it carefully</span>
+  A primitive <em>local variable</em> (<code>int x = 5;</code>) sits on the stack. But a primitive <em>field inside an
+  object</em> (like <code>balance</code>) lives on the heap, inside its object. Location depends on where the variable
+  is declared, not just its type.
+</div>
+
+<h2>8 · Static vs instance members</h2>
+<p>
+An <strong>instance</strong> member belongs to each object separately — every account has its own <code>balance</code>.
+A <strong>static</strong> member belongs to the <em>class itself</em> — one shared copy, no matter how many objects
+exist. Analogy: in an apartment building, every flat has its own kitchen (instance), but there is one shared lift
+for the whole building (static).
+</p>
+
+<pre><code>class Account {
+    double balance;                    <span class="cmt">// instance: one per object</span>
+    static int totalAccounts = 0;      <span class="cmt">// static: ONE copy for the whole class</span>
+
+    Account() {
+        totalAccounts++;               <span class="cmt">// every birth bumps the shared counter</span>
+    }
+
+    double getBalance() { return balance; }        <span class="cmt">// instance method: needs an object</span>
+    static int getTotal() { return totalAccounts; } <span class="cmt">// static method: no object needed</span>
+}
+
+new Account(); new Account(); new Account();
+System.out.println(Account.getTotal());  <span class="cmt">// 3 — called on the CLASS, not an object</span></code></pre>
+
+<table>
+  <thead><tr><th></th><th>Instance method</th><th>Static method</th></tr></thead>
+  <tbody>
+    <tr><td>Belongs to</td><td>Each object</td><td>The class itself</td></tr>
+    <tr><td>Called via</td><td><code>obj.method()</code></td><td><code>ClassName.method()</code></td></tr>
+    <tr><td>Can use <code>this</code>?</td><td>Yes</td><td>No — there is no "current object"</td></tr>
+    <tr><td>Can touch instance fields?</td><td>Yes</td><td>No (only static ones, unless given an object)</td></tr>
+    <tr><td>Typical use</td><td>Behaviour of one object</td><td>Utilities, counters, factory helpers (<code>Math.max</code>, <code>main</code>)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Why is main static?</span>
+  Because when the program starts, <em>no objects exist yet</em>. The JVM needs an entry point it can call on the
+  class directly, without constructing anything first. Great answer to have ready — it shows you understand
+  static deeply, not just as a keyword you copy.
+</div>
+
+<h2>9 · Interview questions this lesson answers</h2>
+<p>From your senior's Top-25 list:</p>
+<ul>
+  <li><strong>Q25. "Why do we need OOPS when we already have procedural programming?"</strong><br>
+  Procedural code separates data from the functions that use it, so nothing protects the data and large codebases become tangled.
+  OOP bundles data with its behaviour (classes), enabling protection, reuse, and modelling real-world entities — which scales far better.</li>
+  <li><strong>Q2. "Difference between class and object."</strong><br>
+  A class is a blueprint written once in code; an object is a runtime instance built from it with <code>new</code>.
+  One class, many objects — each with its own copy of the fields.</li>
+  <li><strong>Q3. "What is constructor and destructor?"</strong> (constructor half)<br>
+  A constructor is a special method (same name as the class, no return type) that runs automatically on <code>new</code>
+  to initialise the object; it can be overloaded. Java has no destructor — the Garbage Collector frees unreachable objects instead.</li>
+  <li><strong>Q21. "How are objects stored in memory (stack vs heap)?"</strong><br>
+  All objects live on the heap; variables hold references, and local variables/references live in stack frames.
+  Copying a reference copies the address, not the object; unreferenced heap objects are garbage-collected.</li>
+  <li><strong>Q19. "What is the difference between static methods and instance methods?"</strong><br>
+  Instance methods belong to an object, are called on it, and can use <code>this</code> and instance fields.
+  Static methods belong to the class, are called without any object, and can only touch static state directly.</li>
+</ul>
+
+<h2>10 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You write <code>Account a2 = a1;</code> and then <code>a2.balance = 999;</code>. What happens to <code>a1.balance</code>?</div>
+  <button class="opt">Nothing — a2 is a fresh copy of the object, so a1 keeps its old balance</button>
+  <button class="opt">It becomes 999 — both variables are references pointing to the same heap object</button>
+  <button class="opt">Compile error — you cannot assign one object variable to another directly</button>
+  <div class="fb" data-correct="Assignment copies the reference (the address slip), not the object. Both names point at one heap object, so a change through either is visible through both." data-wrong="Java never copies an object on assignment — it copies the reference. To get a real copy you'd need something like a copy constructor: new Account(a1)."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You add a parameterized constructor <code>Account(String h)</code> to a class that previously had no constructors. What happens to <code>new Account()</code>?</div>
+  <button class="opt">It stops compiling — the free default constructor vanishes once you write your own</button>
+  <button class="opt">It still works — Java always keeps the no-arg constructor available for safety</button>
+  <button class="opt">It works but leaves every field as null, printing a runtime warning instead</button>
+  <div class="fb" data-correct="Java only supplies the default no-arg constructor when you write zero constructors. Write any constructor and the freebie is gone — add your own no-arg one if you still need it." data-wrong="The default constructor is a gift with a condition: it exists only if you wrote no constructor at all. Any hand-written constructor cancels it."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why can't a static method use the <code>this</code> keyword?</div>
+  <button class="opt">Because static methods run faster and <code>this</code> would slow the call down</button>
+  <button class="opt">Because <code>this</code> is reserved for constructors, never for ordinary methods</button>
+  <button class="opt">Because a static method belongs to the class, so there is no current object for <code>this</code> to name</button>
+  <div class="fb" data-correct="this means 'the object this method was called on'. A static method is called on the class — Account.getTotal() — with no object in the picture, so this has nothing to refer to." data-wrong="It's about ownership, not speed or reserved words: static methods have no receiving object, and this is precisely the name of the receiving object."></div>
+</div>
+
+<h2>11 · Do this next</h2>
+<ul>
+  <li>From a blank file, write a <code>Student</code> class: fields <code>name</code>, <code>marks</code>; a parameterized constructor using <code>this</code>; a copy constructor; and a <code>static int count</code> that every constructor increments. In <code>main</code>, create three students (one via the copy constructor) and print <code>Student.count</code>.</li>
+  <li>Then, on paper, draw the stack/heap diagram for <code>Student s1 = new Student("A", 90); Student s2 = s1;</code> and predict what <code>s2.marks = 40</code> does to <code>s1</code>. Run it and check.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on why <code>a2 = a1</code> shares one object, or when to make something static, or what <code>this</code>
+  is doing in a constructor? Ask in the chat — any question is fair game. When you can explain blueprint-vs-house,
+  the vanishing default constructor, and stack-vs-heap in your own words, say <strong>"next"</strong> and we move to
+  Lesson 2: Encapsulation and Access Modifiers.
+</div>
+
+<div class="nav">
+  <span><a href="../INDEX.md">← Index</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0002-encapsulation-and-access-modifiers.html">Encapsulation →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

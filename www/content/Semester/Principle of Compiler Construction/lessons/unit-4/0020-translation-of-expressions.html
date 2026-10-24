@@ -1,0 +1,485 @@
+<title>Translation of Declarations, Expressions, and Type Checking</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit IV &middot; Lesson 20 of 22</p>
+<h1>Translation of Declarations, Expressions, and Type Checking</h1>
+<p class="deck">Syntax-directed generation of Three-Address Code for arithmetic expressions, 1D and 2D array address formulas (Row-Major vs Column-Major), short-circuit boolean evaluation, and control flow constructs.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Derive the address calculation formula for a 2D array in Row-Major and Column-Major order and generate TAC&rdquo;</strong> is a 10&ndash;15 mark numerical question. <strong>&ldquo;Generate Three-Address Code for an if-else or while loop with short-circuit evaluation&rdquo;</strong> is a frequent 10-marker. Show compile-time constant offsets ($C$) clearly and label all jump destinations.</p>
+</div>
+
+<!-- CURATED VIDEO MASTERCLASS -->
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; TAC for 1D and 2D Array References</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Three Address Code for Arrays: Row Major &amp; Column Major</a>
+    <span class="v-meta">Gate Smashers &middot; 17:12</span>
+    <div class="v-why">Exhaustive mathematical derivation of 2D array addressing, separating compile-time invariant base offsets from runtime index multipliers.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Boolean Short-Circuit &amp; Control Flow</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Translation of Boolean Expressions &amp; Control Statements</a>
+    <span class="v-meta">Neso Academy &middot; 16:30</span>
+    <div class="v-why">Clear step-by-step translation of short-circuit AND/OR expressions into branch labels and emitting optimal while/if-else jump patterns.</div>
+  </div>
+</div>
+
+<h2>1. Translation of Arithmetic Expressions</h2>
+
+<p>Generating Three-Address Code for arithmetic expressions uses a synthesized attribute <code>.addr</code> to denote the memory location (variable or temporary) holding the result of each subexpression, with <code>newtemp()</code> returning a fresh temporary name.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Production</th><th>Semantic Action (Generating TAC)</th></tr></thead>
+<tbody>
+<tr><td>$E \to E_1 + T$</td><td><code>E.addr = newtemp(); emit(E.addr '=' E1.addr '+' T.addr);</code></td></tr>
+<tr><td>$E \to E_1 * T$</td><td><code>E.addr = newtemp(); emit(E.addr '=' E1.addr '*' T.addr);</code></td></tr>
+<tr><td>$E \to - E_1$</td><td><code>E.addr = newtemp(); emit(E.addr '= uminus' E1.addr);</code></td></tr>
+<tr><td>$E \to ( E_1 )$</td><td><code>E.addr = E1.addr;</code></td></tr>
+<tr><td>$E \to \textbf{id}$</td><td><code>E.addr = id.name;</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>2. Array Addressing &mdash; 1D and 2D Formula Derivations</h2>
+
+<!-- DIAGRAM: ARRAY LAYOUT IN MEMORY -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Memory Layouts: Row-Major vs Column-Major Storage</span>
+  
+  <div class="flow-col">
+    <div class="flow-row" style="gap:2rem;">
+      <div class="flow-box highlight" style="min-width:14rem;">
+        <strong>Row-Major Order (C / C++ / Java)</strong>
+        <span class="sub">Row 0 elements consecutive, then Row 1, ...</span>
+        <code>[A[0,0], A[0,1], A[1,0], A[1,1]]</code>
+      </div>
+
+      <div class="flow-box highlight" style="min-width:14rem;">
+        <strong>Column-Major Order (Fortran / MATLAB)</strong>
+        <span class="sub">Col 0 elements consecutive, then Col 1, ...</span>
+        <code>[A[0,0], A[1,0], A[0,1], A[1,1]]</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>1-Dimensional Array Addressing</h3>
+<p>For an array declared as $A[low \dots high]$ with element width $w$ bytes and starting base address $Base$:</p>
+<div class="formula">
+  <span class="name">1D Array Address Formula</span>
+  $$\text{Address}(A[i]) = Base + (i - low) \times w = (Base - low \times w) + i \times w$$
+  <em>The subexpression $(Base - low \times w)$ is a compile-time invariant constant $C$. At runtime, the compiler only computes $C + i \times w$.</em>
+</div>
+
+<h3>2-Dimensional Array Addressing</h3>
+<p>Let array $A$ have bounds $[low_1 \dots high_1]$ along dimension 1 (rows) and $[low_2 \dots high_2]$ along dimension 2 (columns).<br>
+Let number of columns $n_2 = (high_2 - low_2 + 1)$ and number of rows $n_1 = (high_1 - low_1 + 1)$.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Memory Storage Model</th><th>Address Calculation Formula</th><th>Compile-Time vs Runtime Breakdown</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Row-Major Order</strong><br><em>(Elements of row $i_1$ stored contiguously)</em></td>
+  <td>
+    To reach $A[i_1, i_2]$, we skip $(i_1 - low_1)$ complete rows (each having $n_2$ elements), plus $(i_2 - low_2)$ elements in the current row:<br><br>
+    $$\text{Address}(A[i_1, i_2]) = Base + ((i_1 - low_1) \times n_2 + (i_2 - low_2)) \times w$$
+  </td>
+  <td>
+    <strong>Invariant Constant $C$:</strong><br>
+    $C = Base - (low_1 \times n_2 + low_2) \times w$<br><br>
+    <strong>Runtime Address:</strong><br>
+    $\text{Address} = C + (i_1 \times n_2 + i_2) \times w$
+  </td>
+</tr>
+<tr>
+  <td><strong>Column-Major Order</strong><br><em>(Elements of column $i_2$ stored contiguously)</em></td>
+  <td>
+    To reach $A[i_1, i_2]$, we skip $(i_2 - low_2)$ complete columns (each having $n_1$ elements), plus $(i_1 - low_1)$ elements in the current column:<br><br>
+    $$\text{Address}(A[i_1, i_2]) = Base + ((i_2 - low_2) \times n_1 + (i_1 - low_1)) \times w$$
+  </td>
+  <td>
+    <strong>Invariant Constant $C$:</strong><br>
+    $C = Base - (low_2 \times n_1 + low_1) \times w$<br><br>
+    <strong>Runtime Address:</strong><br>
+    $\text{Address} = C + (i_2 \times n_1 + i_1) \times w$
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical Exam Problem: Calculating 2D Array Address</span>
+  <p><strong>Problem:</strong> An array $A[1 \dots 10, 1 \dots 20]$ of 4-byte integers ($w = 4$) is stored beginning at $Base = 1000$. Find the memory address of element <strong>$A[3, 5]$</strong> in both Row-Major and Column-Major order.</p>
+  <p><strong>Given:</strong> $low_1 = 1$, $high_1 = 10 \implies n_1 = 10$.<br>
+  $low_2 = 1$, $high_2 = 20 \implies n_2 = 20$.<br>
+  $i_1 = 3, i_2 = 5, w = 4, Base = 1000$.</p>
+
+  <p><strong>Case 1: Row-Major Order:</strong><br>
+  $$\text{Offset} = ((3 - 1) \times 20 + (5 - 1)) \times 4 = (2 \times 20 + 4) \times 4 = (40 + 4) \times 4 = 44 \times 4 = 176$$
+  $$\text{Address}(A[3, 5]) = 1000 + 176 = \mathbf{1176}$$
+  </p>
+
+  <p><strong>Case 2: Column-Major Order:</strong><br>
+  $$\text{Offset} = ((5 - 1) \times 10 + (3 - 1)) \times 4 = (4 \times 10 + 2) \times 4 = (40 + 2) \times 4 = 42 \times 4 = 168$$
+  $$\text{Address}(A[3, 5]) = 1000 + 168 = \mathbf{1168}$$
+  </p>
+</div>
+
+<h2>3. Boolean Expressions &mdash; Short-Circuit Evaluation</h2>
+
+<p>In programming languages like C, Java, and Python, boolean expressions are evaluated via <strong>short-circuit evaluation</strong>: evaluation ceases as soon as the overall truth value is definitively resolved.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Boolean Expression</th><th>Short-Circuit Semantic Rule</th><th>Generated TAC Pattern</th></tr></thead>
+<tbody>
+<tr>
+  <td><code>B₁ || B₂</code></td>
+  <td>If $B_1$ evaluates to <code>true</code>, do NOT evaluate $B_2$; jump directly to <code>L_true</code>. Evaluate $B_2$ only if $B_1$ is <code>false</code>.</td>
+  <td>
+    <pre class="mono">    if B₁ goto L_true
+    if B₂ goto L_true
+    goto L_false</pre>
+  </td>
+</tr>
+<tr>
+  <td><code>B₁ &amp;&amp; B₂</code></td>
+  <td>If $B_1$ evaluates to <code>false</code>, do NOT evaluate $B_2$; jump directly to <code>L_false</code>. Evaluate $B_2$ only if $B_1$ is <code>true</code>.</td>
+  <td>
+    <pre class="mono">    ifFalse B₁ goto L_false
+    ifFalse B₂ goto L_false
+    goto L_true</pre>
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>4. Control Flow Translation Patterns</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Construct</th><th>Syntax</th><th>Standard Three-Address Code Template</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>If-Then</strong></td>
+  <td><code>if (E) S</code></td>
+  <td>
+    <pre class="mono">    ifFalse E goto L_after
+    // Body code for S
+L_after: ...</pre>
+  </td>
+</tr>
+<tr>
+  <td><strong>If-Then-Else</strong></td>
+  <td><code>if (E) S₁ else S₂</code></td>
+  <td>
+    <pre class="mono">    if E goto L_true
+    goto L_false
+L_true:
+    // Body code for S₁
+    goto L_after
+L_false:
+    // Body code for S₂
+L_after: ...</pre>
+  </td>
+</tr>
+<tr>
+  <td><strong>While Loop</strong></td>
+  <td><code>while (E) S</code></td>
+  <td>
+    <pre class="mono">L_start:
+    ifFalse E goto L_exit
+    // Body code for S
+    goto L_start
+L_exit: ...</pre>
+  </td>
+</tr>
+<tr>
+  <td><strong>Do-While Loop</strong></td>
+  <td><code>do S while (E);</code></td>
+  <td>
+    <pre class="mono">L_body:
+    // Body code for S
+    if E goto L_body
+L_exit: ...</pre>
+  </td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. Full Master Exam Problem &mdash; Combined TAC Generation</h2>
+
+<div class="solve">
+  <span class="lbl">Complete Worked TAC: Nested Loop and Conditional Array Update</span>
+  <p>Translate the following C loop into Three-Address Code, assuming array $A$ has 4-byte integers ($w = 4$) with $low = 0$:</p>
+  <pre class="mono">
+while (i &lt; 10) {
+    if (A[i] &gt; max)
+        max = A[i];
+    i = i + 1;
+}
+  </pre>
+
+  <p><strong>Generated Three-Address Code with Instructions &amp; Labels:</strong></p>
+  <pre class="mono">
+L1: ifFalse i &lt; 10 goto L_exit    // While loop entry condition test
+    t1 = i * 4                     // Compute byte offset for A[i]
+    t2 = A[t1]                     // Load A[i] into temporary t2
+    ifFalse t2 &gt; max goto L2       // If A[i] &lt;= max, skip if-body
+    max = t2                       // If-body: update max = A[i]
+L2: t3 = i + 1                     // Loop increment: t3 = i + 1
+    i = t3                         // i = i + 1
+    goto L1                        // Jump back to loop start
+L_exit: ...                        // Execution resumes here after loop terminates
+  </pre>
+</div>
+
+<h2>6. Static Checking &middot; Type Systems and Type Equivalence (Mam's Material)</h2>
+
+<p><strong>Static checking</strong> is the validation performed by the compiler at compile-time to ensure that the source program adheres to the syntactic and semantic conventions of the language. In contrast, <strong>dynamic checking</strong> is performed at run-time by the generated target program (e.g. detecting division by zero, array index out of bounds, or null pointer dereference).</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Static Check Category</th><th>What the Compiler Enforces</th><th>Example Violation Caught at Compile-Time</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Type Checks</strong></td><td>An operator or function must only be applied to operands of compatible data types.</td><td>Applying modulo <code>%</code> to floating-point numbers; passing a <code>string</code> into a function expecting an <code>int</code> pointer.</td></tr>
+<tr><td><strong>2. Flow-of-Control Checks</strong></td><td>Statements that cause execution flow to leave a construct must have somewhere to transfer control to.</td><td>A <code>break</code> or <code>continue</code> statement placed outside a <code>for</code>/<code>while</code> loop or <code>switch</code> body; a missing <code>return</code> in a non-void function.</td></tr>
+<tr><td><strong>3. Uniqueness Checks</strong></td><td>An entity must be defined exactly once within a given scope.</td><td>Two variables with the same identifier declared in the same block; duplicate <code>case</code> constants inside the same <code>switch</code> statement.</td></tr>
+<tr><td><strong>4. Name-Related Checks</strong></td><td>Where a name must appear two or more times, names must match exactly.</td><td>In Ada/PL/I where loop or block labels must match at opening and closing: <code>LoopA: ... end LoopA;</code>.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Type Expressions &amp; Graph Representations</h3>
+<p>The compiler represents the type of any language construct using a formal <strong>type expression</strong>. A type expression is formed recursively:
+<ul>
+  <li><strong>Basic types:</strong> Atomic types such as <code>integer</code>, <code>real</code>, <code>char</code>, <code>boolean</code>, <code>void</code>, and special sentinel <code>type_error</code>.</li>
+  <li><strong>Type constructors:</strong>
+    <ul>
+      <li><strong>Array:</strong> $\text{array}(I, T)$ where $I$ is an index set/range and $T$ is the element type (e.g. $\text{array}(1..10, \text{integer})$).</li>
+      <li><strong>Product / Cartesian Product:</strong> $T_1 \times T_2$ (used for function parameter lists or pair tuples).</li>
+      <li><strong>Record / Struct:</strong> Named field-type pairs: $\text{record}((\text{field}_1 \times T_1) \times \dots \times (\text{field}_k \times T_k))$.</li>
+      <li><strong>Pointer:</strong> $\text{pointer}(T)$ denoting a memory address referencing an object of type $T$.</li>
+      <li><strong>Function / Mapping:</strong> $D \to R$ mapping domain type expression $D$ to range type expression $R$.</li>
+    </ul>
+  </li>
+</ul>
+</p>
+
+<!-- DIAGRAM: CYCLIC TYPE GRAPHS -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: DAGs and Cyclic Graph Representations of Recursive Types</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem;">
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="font-weight:700; color:var(--accent); font-size:.85rem; text-transform:uppercase; margin-bottom:.6rem; text-align:center;">Cyclic Graph for Self-Referential Types</div>
+      <div style="font-family:monospace; font-size:.82rem; line-height:1.5; background:var(--bg); padding:.8rem; border-radius:4px;">
+        struct Node {<br>
+        &nbsp;&nbsp;int val;<br>
+        &nbsp;&nbsp;struct Node *next;<br>
+        };<br><br>
+        <span style="color:var(--accent); font-weight:700;">Type Graph representation:</span><br>
+        &bull; Node (record)<br>
+        &nbsp;&nbsp;&boxur;&rarr; field 'val' &rarr; [integer]<br>
+        &nbsp;&nbsp;&boxur;&rarr; field 'next' &rarr; [pointer] &orarr; (loops back to Node!)
+      </div>
+    </div>
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="font-weight:700; color:var(--accent); font-size:.85rem; text-transform:uppercase; margin-bottom:.6rem; text-align:center;">Name vs Structural Equivalence</div>
+      <div style="font-size:.82rem; line-height:1.5; color:var(--ink-soft);">
+        <strong>Name Equivalence:</strong> Two types are equal if and only if their <em>type names</em> are identical. Fast to check ($O(1)$ string compare), but rigid (two identical structs with different names cannot be assigned).<br><br>
+        <strong>Structural Equivalence:</strong> Two types are equal if they have identical internal structures (recursively matching fields and constructors). Flexible, but requires cycle detection for recursive types.
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Master Comparison: Name Equivalence versus Structural Equivalence</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Name Equivalence</th><th>Structural Equivalence</th></tr></thead>
+<tbody>
+<tr><td><strong>Definition</strong></td><td>Two type expressions are equivalent <strong>if and only if they have the exact same name</strong>.</td><td>Two type expressions are equivalent <strong>if they have the same constructor applied to structurally equivalent components</strong>.</td></tr>
+<tr><td><strong>Implementation</strong></td><td>Very simple &mdash; symbol table lookup and direct name pointer / string comparison ($O(1)$).</td><td>Recursive tree/graph traversal algorithm; must detect and handle <strong>cycles</strong> in recursive types ($O(V+E)$).</td></tr>
+<tr><td><strong>Aliasing (<code>typedef</code>)</strong></td><td>Under <em>strict</em> name equivalence, a <code>typedef</code> creates a new distinct type incompatible with the original.</td><td>A <code>typedef</code> is purely an alias; <code>typedef int Age; Age x; int y; x = y;</code> is completely legal.</td></tr>
+<tr><td><strong>Code Example</strong></td><td><pre style="margin:0; font-size:.78rem;">type Point = record x, y: real end;
+type Vector = record x, y: real end;
+var p: Point; v: Vector;
+p = v; // ERROR under Name Equivalence!</pre></td><td><pre style="margin:0; font-size:.78rem;">type Point = record x, y: real end;
+type Vector = record x, y: real end;
+var p: Point; v: Vector;
+p = v; // LEGAL under Structural Equivalence!</pre></td></tr>
+<tr><td><strong>Adopted by</strong></td><td>Ada, Java, standard C for <code>struct</code> and <code>union</code> tags</td><td>C for basic typedefs, Algol-68, ML, TypeScript</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>7. Translation of Declarations &middot; Types, Widths &amp; Symbol Table Offsets</h2>
+
+<p>During the compilation of variable declarations, the compiler must accomplish two crucial tasks:
+<ol>
+  <li>Determine the <strong>type expression</strong> and <strong>byte width</strong> of every declared variable.</li>
+  <li>Assign each variable a <strong>relative memory address (offset)</strong> within the data segment or activation record stack frame.</li>
+</ol>
+</p>
+
+<div class="box exam">
+  <span class="lbl">Syntax-Directed Definition for Declarations (Mam's Static checking slides)</span>
+  <p>The compiler maintains a global variable <code>offset</code> initialized to $0$ before declarations start.<br><br>
+  <strong>Grammar &amp; Semantic Rules:</strong>
+  $$\begin{aligned}
+  P &\to D \; S \\
+  D &\to D \; ; \; D \\
+  D &\to \mathbf{id} : T & \{ &\text{enter}(\mathbf{id}.\text{name}, \, T.\text{type}, \, \text{offset}); \\
+    & & &\text{offset} = \text{offset} + T.\text{width}; \} \\
+  T &\to \mathbf{integer} & \{ &T.\text{type} = \text{integer}; \quad T.\text{width} = 4; \} \\
+  T &\to \mathbf{real} & \{ &T.\text{type} = \text{real}; \quad T.\text{width} = 8; \} \\
+  T &\to \mathbf{char} & \{ &T.\text{type} = \text{char}; \quad T.\text{width} = 1; \} \\
+  T &\to \mathbf{array} \, [ \, \mathbf{num} \, ] \, \mathbf{of} \, T_1 & \{ &T.\text{type} = \text{array}(\mathbf{num}.\text{val}, \, T_1.\text{type}); \\
+    & & &T.\text{width} = \mathbf{num}.\text{val} \times T_1.\text{width}; \} \\
+  T &\to \uparrow T_1 & \{ &T.\text{type} = \text{pointer}(T_1.\text{type}); \quad T.\text{width} = 4; \}
+  \end{aligned}$$
+  </p>
+</div>
+
+<h3>Worked Example &middot; Symbol Table Entry Generation</h3>
+<p>Suppose the source program contains declarations:
+<pre style="background:var(--panel); padding:.8rem 1rem; border-radius:4px; font-size:.85rem;">
+x : integer;
+y : real;
+A : array[10] of integer;
+p : ^real;
+</pre>
+The SDD calculates the following symbol table offsets sequentially:
+<ul>
+  <li><code>x</code>: Type = <code>integer</code>, width = $4$, offset assigned = $\mathbf{0}$. $\text{offset} \leftarrow 0 + 4 = 4$.</li>
+  <li><code>y</code>: Type = <code>real</code>, width = $8$, offset assigned = $\mathbf{4}$. $\text{offset} \leftarrow 4 + 8 = 12$.</li>
+  <li><code>A</code>: Type = $\text{array}(10, \text{integer})$, width = $10 \times 4 = 40$, offset assigned = $\mathbf{12}$. $\text{offset} \leftarrow 12 + 40 = 52$.</li>
+  <li><code>p</code>: Type = $\text{pointer}(\text{real})$, width = $4$, offset assigned = $\mathbf{52}$. $\text{offset} \leftarrow 52 + 4 = 56$.</li>
+</ul>
+Total memory allocated in this activation frame = <strong>56 bytes</strong>.
+</p>
+
+<h2>8. Type Checking Rules &middot; Coercion vs Conversion</h2>
+
+<p>A <strong>type system</strong> is a formal collection of rules for assigning type expressions to the various parts of a program. A type checker validates expressions and statements using type synthesis and type inference rules.</p>
+
+<div class="formula">
+  <span class="name">Type Checking Rules for Expressions and Functions</span>
+  <strong>Binary Arithmetic Operator ($E \to E_1 + E_2$):</strong><br>
+  $$E.\text{type} = \begin{cases}
+  \text{integer} & \text{if } E_1.\text{type} == \text{integer} \text{ and } E_2.\text{type} == \text{integer} \\
+  \text{real} & \text{if } E_1.\text{type} == \text{real} \text{ and } E_2.\text{type} == \text{real} \\
+  \text{type\_error} & \text{otherwise}
+  \end{cases}$$<br>
+  <strong>Function Invocations ($E \to E_1(E_2)$):</strong><br>
+  $$E.\text{type} = \begin{cases}
+  \beta & \text{if } E_1.\text{type} == (\alpha \to \beta) \text{ and } E_2.\text{type} == \alpha \\
+  \text{type\_error} & \text{otherwise}
+  \end{cases}$$
+</div>
+
+<h3>Type Conversion versus Type Coercion</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Concept</th><th>Mechanism</th><th>Example</th><th>TAC Generated</th></tr></thead>
+<tbody>
+<tr><td><strong>Explicit Conversion (Casting)</strong></td><td>Specified <strong>explicitly by the programmer</strong> in the source syntax.</td><td><code>x = (float) i;</code></td><td><code>t1 = inttofloat i<br>x = t1</code></td></tr>
+<tr><td><strong>Implicit Conversion (Coercion)</strong></td><td>Performed <strong>automatically by the compiler</strong> without user intervention when an operator encounters mixed operand types.</td><td>In mixed expression <code>x = a + i</code> where <code>a</code> is float and <code>i</code> is integer.</td><td>Compiler inserts coercion instruction:<br><code>t1 = inttofloat i<br>t2 = a + t1<br>x = t2</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Widening vs Narrowing Conversions</span>
+  <p><strong>Widening conversions</strong> preserve numeric information without loss of precision (e.g. <code>char &rarr; int &rarr; float &rarr; double</code>). Compilers safely perform widening conversions automatically via coercion.<br><br>
+  <strong>Narrowing conversions</strong> can lose information or overflow (e.g. <code>double &rarr; int</code>, truncating the fractional part). Strict compilers forbid implicit narrowing coercion and require explicit type casting.</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In Row-Major order storage of a 2D array $A[low_1 \dots high_1, low_2 \dots high_2]$, the offset of $A[i, j]$ depends on which dimension count?</p>
+  <div class="opts">
+    <button class="opt">The number of rows $n_1$</button>
+    <button class="opt">Neither; it only depends on $w$</button>
+    <button class="opt" data-ok="1">The number of columns $n_2$</button>
+    <button class="opt">The product of $n_1 \times n_2$</button>
+  </div>
+  <p class="why">In Row-Major order, each full row skipped contains $n_2$ elements (the column dimension size). Hence, row index is multiplied by $n_2$.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In short-circuit evaluation of `if (a < b && c < d)`, what happens if `a < b` evaluates to false?</p>
+  <div class="opts">
+    <button class="opt">Both branches are executed in parallel</button>
+    <button class="opt">`c < d` is evaluated anyway to verify syntax</button>
+    <button class="opt">A runtime exception is thrown</button>
+    <button class="opt" data-ok="1">Control jumps immediately to the false label without evaluating `c < d`</button>
+  </div>
+  <p class="why">In boolean AND (`&&`), if the first operand is false, the compound condition is guaranteed to be false. Evaluating the second condition is redundant and skipped.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Why does the compiler isolate the term $(Base - low \times w)$ as an invariant constant $C$ during array address calculation?</p>
+  <div class="opts">
+    <button class="opt">To allow column-major conversion</button>
+    <button class="opt" data-ok="1">It can be evaluated once at compile-time, saving subtraction at runtime</button>
+    <button class="opt">Because array bounds change during program execution</button>
+    <button class="opt">To prevent buffer overflow exploits</button>
+  </div>
+  <p class="why">Base, lower bound, and element width are all fixed at compile-time. Folding them into a single constant $C$ eliminates runtime arithmetic.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which instruction pattern correctly translates the while loop `while (E) S`?</p>
+  <div class="opts">
+    <button class="opt">if E goto L_start; [Body S]; L_exit:</button>
+    <button class="opt" data-ok="1">L_start: ifFalse E goto L_exit; [Body S]; goto L_start; L_exit:</button>
+    <button class="opt">goto L_exit; L_start: [Body S];</button>
+    <button class="opt">L_start: [Body S]; if E goto L_start; L_exit:</button>
+  </div>
+  <p class="why">A while loop evaluates condition E at loop entry. If false, it jumps past the body to L_exit. At the end of body S, it loops unconditionally back to L_start.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the Row-Major address formula for $A[i, j]$.</summary>
+    <p class="ans">$\text{Address}(A[i, j]) = Base + ((i - low_1) \times n_2 + (j - low_2)) \times w$, where $n_2 = high_2 - low_2 + 1$ is the number of columns.</p></details>
+  <details class="card"><summary>How does short-circuit evaluation of $B_1 \textbf{ or } B_2$ translate into TAC?</summary>
+    <p class="ans">`if B₁ goto L_true`<br>`if B₂ goto L_true`<br>`goto L_false`<br>If $B_1$ is true, execution branches immediately to `L_true` without evaluating $B_2$.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0019-three-address-code.html">&larr; Previous: Three-Address Code</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0021-backpatching.html">Next: Backpatching &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

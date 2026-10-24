@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intervals Lesson 01 — Merge &amp; Insert</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Intervals Track · Lesson 1 of 2 · merge, insert, intersect</div>
+<h1>Overlapping Intervals — Merge &amp; Insert</h1>
+<p class="subtitle">Sort by start, sweep once, and every "do these ranges collide?" question collapses into a single comparison: <code>cur.start &lt;= prev.end</code>.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> intervals show up constantly in big-tech OAs — calendars, bookings, CPU jobs are all
+  interval problems in costume. This is Lesson 1 of the 2-lesson intervals track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+An interval <code>[start, end]</code> is a range on a number line. Unsorted, any pair might overlap and you're stuck
+with O(n²) pairwise checks. But <strong>sort by start</strong> and overlaps can only happen between
+<em>neighbors in the sweep</em>: as you walk left to right, the current interval either overlaps the last merged one
+(<code>cur.start &lt;= prev.end</code> — it begins before the previous one has finished) or it starts a fresh block.
+One sort, one linear sweep, one comparison. That's the whole pattern.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The input is pairs <code>[start, end]</code> — meetings, bookings, ranges, tasks with start/finish times — and the
+  question says "merge", "overlap", "conflict", "insert", "intersection", or "can you attend all". If ranges are
+  involved, your first reflex is: <strong>sort by start, then sweep</strong>. (Lesson 2 covers the cases where you
+  sort by <em>end</em> instead.)
+</div>
+
+<h2>2 · Core template — Merge Intervals (LC 56)</h2>
+<p>
+Sort by start. Keep a list of merged blocks. For each interval: if it starts at or before the end of the last block,
+they overlap — extend that block's end (with <code>max</code>, because a later interval can be <em>nested</em> inside
+an earlier one). Otherwise open a new block.
+</p>
+<pre><code>int[][] merge(int[][] intervals) {
+    Arrays.sort(intervals, (a, b) -&gt; Integer.compare(a[0], b[0])); <span class="cmt">// sort by START</span>
+    List&lt;int[]&gt; out = new ArrayList&lt;&gt;();
+    for (int[] cur : intervals) {
+        if (!out.isEmpty() &amp;&amp; cur[0] &lt;= out.get(out.size() - 1)[1]) {
+            <span class="cmt">// overlap: cur begins before (or exactly when) the last block ends</span>
+            int[] prev = out.get(out.size() - 1);
+            prev[1] = Math.max(prev[1], cur[1]);   <span class="cmt">// max, NOT cur[1] — cur may be nested</span>
+        } else {
+            out.add(cur);                          <span class="cmt">// gap → start a new block</span>
+        }
+    }
+    return out.toArray(new int[0][]);
+}</code></pre>
+<p><strong>Time</strong> O(n log n) — the sort dominates; the sweep is O(n). <strong>Space</strong> O(n) for the output (O(log n) for the sort itself).</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input <code>[[1,3],[8,10],[2,6],[15,18]]</code>. After sorting by start: <code>[1,3],[2,6],[8,10],[15,18]</code>.</p>
+<div class="trace">
+<span class="step">out = [] → add [1,3]. out = [<span class="ptr">[1,3]</span>]</span>
+<span class="step now">[2,6]: 2 &lt;= 3 → overlap. prev.end = max(3,6) = <span class="ptr">6</span>. out = [[1,6]]</span>
+<span class="step now">[8,10]: 8 &gt; 6 → gap. out = [[1,6], <span class="ptr">[8,10]</span>]</span>
+<span class="step now">[15,18]: 15 &gt; 10 → gap. out = [[1,6],[8,10],<span class="ptr">[15,18]</span>]</span>
+<span class="step">answer: [[1,6],[8,10],[15,18]]</span>
+</div>
+
+<div class="callout trap">
+  <span class="label">The touching-endpoints trap: is [1,2] vs [2,3] an overlap?</span>
+  <strong>It depends on the problem — read the statement.</strong> In Merge Intervals (56), yes:
+  <code>[1,2],[2,3]</code> merge into <code>[1,3]</code>, so the test is <code>cur.start &lt;= prev.end</code>.
+  In Meeting Rooms (252), no: a meeting ending at 2 and one starting at 2 do <em>not</em> conflict, so the conflict
+  test is the strict <code>cur.start &lt; prev.end</code>. Flipping <code>&lt;=</code> vs <code>&lt;</code> is the
+  #1 wrong-answer in this pattern — decide it consciously for every problem.
+</div>
+
+<h2>3 · All the cases</h2>
+<p>All four below are the same sweep with a different read-off. The table is the map; snippets follow.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Merge all overlaps</td><td>LC 56</td><td>The core template above. Overlap test <code>&lt;=</code>; extend with <code>max</code>.</td></tr>
+    <tr><td>Insert into sorted list</td><td>LC 57</td><td>Input already sorted — no sort needed. Three phases: before / merge / after. O(n).</td></tr>
+    <tr><td>Intersect two sorted lists</td><td>LC 986</td><td>Two pointers, one per list. Intersection = <code>[max(starts), min(ends)]</code> if non-empty; advance whichever ends first.</td></tr>
+    <tr><td>Any conflict at all?</td><td>LC 252</td><td>Sort, then check each adjacent pair with the <em>strict</em> test. One bad pair → false.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Insert Interval (LC 57)</h3>
+<p>
+The list is <em>already sorted and disjoint</em>, so don't re-sort — sweep in three phases:
+(1) copy intervals that end before the new one starts; (2) absorb every interval that overlaps the new one into it;
+(3) copy the rest. Phase 2's condition is "starts before newInterval ends" — the mirrored overlap test.
+</p>
+<pre><code>int[][] insert(int[][] intervals, int[] newInterval) {
+    List&lt;int[]&gt; out = new ArrayList&lt;&gt;();
+    int i = 0, n = intervals.length;
+    while (i &lt; n &amp;&amp; intervals[i][1] &lt; newInterval[0])   <span class="cmt">// phase 1: entirely before — ends before new starts</span>
+        out.add(intervals[i++]);
+    while (i &lt; n &amp;&amp; intervals[i][0] &lt;= newInterval[1]) { <span class="cmt">// phase 2: overlaps — starts before new ends</span>
+        newInterval[0] = Math.min(newInterval[0], intervals[i][0]);
+        newInterval[1] = Math.max(newInterval[1], intervals[i][1]);
+        i++;                                             <span class="cmt">// newInterval swallows it and grows</span>
+    }
+    out.add(newInterval);                                <span class="cmt">// place the (possibly grown) new interval once</span>
+    while (i &lt; n) out.add(intervals[i++]);               <span class="cmt">// phase 3: entirely after</span>
+    return out.toArray(new int[0][]);
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(n). If an interviewer asks "can you beat re-sorting?", this three-phase sweep is the answer they want.</p>
+
+<h3>Case: Interval List Intersections (LC 986) — two pointers</h3>
+<p>
+Two sorted disjoint lists; return every pairwise intersection. Any candidate intersection is
+<code>[max(a.start, b.start), min(a.end, b.end)]</code> — real only if <code>start &lt;= end</code>. Then advance the
+pointer of whichever interval <strong>ends first</strong>: it can't intersect anything further.
+</p>
+<pre><code>int[][] intervalIntersection(int[][] A, int[][] B) {
+    List&lt;int[]&gt; out = new ArrayList&lt;&gt;();
+    int i = 0, j = 0;
+    while (i &lt; A.length &amp;&amp; j &lt; B.length) {
+        int lo = Math.max(A[i][0], B[j][0]);   <span class="cmt">// later start</span>
+        int hi = Math.min(A[i][1], B[j][1]);   <span class="cmt">// earlier end</span>
+        if (lo &lt;= hi) out.add(new int[]{lo, hi}); <span class="cmt">// closed intervals: lo == hi is a 1-point intersection</span>
+        if (A[i][1] &lt; B[j][1]) i++;            <span class="cmt">// whoever ends first is exhausted — advance it</span>
+        else j++;
+    }
+    return out.toArray(new int[0][]);
+}</code></pre>
+<p><strong>Time</strong> O(m + n), <strong>Space</strong> O(1) beyond output. No sort needed — the inputs come sorted.</p>
+
+<h3>Case: Meeting Rooms (LC 252) — can one person attend all?</h3>
+<p>Sort by start; if any meeting starts <em>strictly before</em> the previous one ends, there's a conflict. Note the strict <code>&lt;</code> — back-to-back meetings are fine.</p>
+<pre><code>boolean canAttendMeetings(int[][] intervals) {
+    Arrays.sort(intervals, (a, b) -&gt; Integer.compare(a[0], b[0]));
+    for (int i = 1; i &lt; intervals.length; i++)
+        if (intervals[i][0] &lt; intervals[i - 1][1]) <span class="cmt">// STRICT: start == prev end is OK (back-to-back)</span>
+            return false;
+    return true;
+}</code></pre>
+<p><strong>Time</strong> O(n log n), <strong>Space</strong> O(1).</p>
+
+<div class="callout tip">
+  <span class="label">Why sorting by start makes the sweep sound</span>
+  Once sorted, <code>cur.start &gt;= prev.start</code> for every later interval. So if <code>cur</code> doesn't reach
+  back to the current block (<code>cur.start &gt; blockEnd</code>), <em>nothing after it can either</em> — every later
+  start is even bigger. That's why one linear pass finds every merge: the sort makes "no overlap with the last block"
+  imply "no overlap with anything before it."
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong><code>&lt;=</code> vs <code>&lt;</code>.</strong> Merging treats touching as overlapping (<code>[1,2],[2,3]</code> → <code>[1,3]</code>); meeting-conflict treats touching as fine. Decide per problem, out loud.</li>
+  <li><strong>Nested intervals.</strong> <code>[1,10],[2,3]</code>: extend with <code>Math.max(prev.end, cur.end)</code>, never blindly <code>cur.end</code> — the classic silent bug.</li>
+  <li><strong>Empty / single-element input.</strong> 0 intervals → return empty; 1 interval → return it. For LC 57, <code>intervals</code> may be empty — the three-phase code handles it, but check yours does.</li>
+  <li><strong>Insert at the extremes (LC 57).</strong> newInterval entirely before everything, entirely after everything, or swallowing the whole list — all three must work.</li>
+  <li><strong>Comparator overflow.</strong> Use <code>Integer.compare(a[0], b[0])</code>, not <code>a[0] - b[0]</code> — subtraction overflows on values near ±2·10⁹.</li>
+  <li><strong>Don't sort what's already sorted.</strong> LC 57 and LC 986 give sorted input; re-sorting is wasted work and signals you didn't read the statement.</li>
+  <li><strong>Single-point intersections (LC 986).</strong> Closed intervals mean <code>[2,2]</code> is a valid intersection — the test is <code>lo &lt;= hi</code>, not <code>lo &lt; hi</code>.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">After sorting by start, intervals <code>[1,5]</code> and <code>[3,4]</code> arrive in that order in Merge Intervals. What should the merged block's end become?</div>
+  <button class="opt">4 — the current interval's end always becomes the block's end</button>
+  <button class="opt">5 — take <code>max(prev.end, cur.end)</code> because <code>[3,4]</code> is nested inside <code>[1,5]</code></button>
+  <button class="opt">Neither — sorted-by-start intervals can never be nested, so this input is impossible</button>
+  <div class="fb" data-correct="Exactly — a later interval can sit entirely inside an earlier one, so the block's end must be max(prev.end, cur.end). Writing prev[1] = cur[1] silently shrinks the block." data-wrong="Sorting by start says nothing about ends: [3,4] starts later but ends earlier, i.e. it's nested. The block must keep end = max(5, 4) = 5."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Meetings <code>[1,4]</code> and <code>[4,6]</code>: does one person need two rooms, and would Merge Intervals merge them?</div>
+  <button class="opt">Conflict in both — any shared endpoint counts as overlap everywhere</button>
+  <button class="opt">No conflict in both — touching endpoints never count as overlap</button>
+  <button class="opt">No conflict for meetings (strict <code>&lt;</code>), but Merge Intervals merges them (<code>&lt;=</code>)</button>
+  <div class="fb" data-correct="Right — the same pair of intervals answers differently per problem. Meetings ending at 4 free the room for a 4 o'clock start; merging treats [1,4],[4,6] as one continuous [1,6]." data-wrong="The two problems use different tests: meeting conflict is start &lt; prev.end (touching is fine); merging uses start &lt;= prev.end (touching merges). Same intervals, different answers."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Interval List Intersections (986), after emitting an intersection of <code>A[i]</code> and <code>B[j]</code>, which pointer do you advance?</div>
+  <button class="opt">The one whose interval ends first — it can't intersect anything later in the other list</button>
+  <button class="opt">The one whose interval starts first — earlier starts are processed first</button>
+  <button class="opt">Both — each pair of intervals can intersect at most once</button>
+  <div class="fb" data-correct="The earlier-ending interval is finished: every remaining interval in the other list starts at or after where we are, so it can never reach back. The later-ending one may still intersect the next interval." data-wrong="Starts don't decide it — the later-ending interval might still overlap the other list's NEXT interval, so you keep it and drop only the one that ends first."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/merge-intervals">NeetCode — Merge Intervals</a>. Then <a href="https://neetcode.io/problems/insert-new-interval">NeetCode — Insert Interval</a> for the three-phase sweep.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 252 (sort + strict adjacent check) → LC 56 (the core merge) → LC 57 (three phases, no sort) → LC 986 (two pointers, advance earlier-ender). Code each from a blank file; for every one, say out loud whether touching endpoints count as overlap <em>before</em> you write the comparison.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure why <code>max</code> is needed on the end, want a dry run of the three insert phases, or fuzzy on which
+  pointer to advance in 986? Ask in the chat. When you can write the merge sweep from memory and state the
+  <code>&lt;=</code> vs <code>&lt;</code> rule without hesitating, say <strong>"next"</strong> and we move to
+  Lesson 2: sweep line and minimum meeting rooms.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-sweep-line-and-min-rooms.html">Sweep Line &amp; Min Rooms →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,487 @@
+<title>Transition Diagrams, Bootstrapping and JIT</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit I &middot; Lesson 4 of 10</p>
+<h1>Transition Diagrams, Bootstrapping and Just-in-Time Compilation</h1>
+<p class="deck">The notation and conventions of transition diagrams, bootstrapping with T-diagrams worked through the full three-step cross-compiler problem, and how just-in-time compilation recovers the speed that interpretation gives away.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Bootstrapping is the premier examinable question here</strong> &mdash; &ldquo;What is bootstrapping? Explain with T-diagrams&rdquo; is a recurring 5&ndash;10 mark question, and examiners expect the full <strong>three-step cross-compiler construction</strong> worked below. Draw every T-diagram with its source, target, and implementation arms clearly labelled. <strong>Transition diagrams</strong> require knowing the four conventions &mdash; above all the <strong>retract asterisk (*)</strong>. <strong>JIT compilation</strong> is tested as a short note or 3-way comparison table against AOT compilation and interpretation.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Transition Diagrams</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=Z0bfXOOWdRs" target="_blank">Transition Diagrams for Lexical Analysis</a>
+    <span class="v-meta">WIT Solapur &middot; 10:46</span>
+    <div class="v-why">Visual explanation of states, transitions, accepting double circles, and why the lookahead buffer pointer must retract (*) on trailing characters.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Bootstrapping &amp; T-Diagrams</span>
+      <span class="best-tag">Top Exam Derivation</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=8kvoYKU1HRs" target="_blank">CD7: Bootstrapping in Compiler Design | T Diagram Bootstrap Method</a>
+    <span class="v-meta">University Academy &middot; 21:53</span>
+    <div class="v-why">The most thorough semester exam lecture available: proves the composition rule, solves the two-step bootstrap, and derives the complete cross-compiler construction.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 3 &middot; JIT Compilation vs AOT &amp; Interpreter</span>
+      <span class="best-tag">Top Architecture Contrast</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=5rn_MAspYFM" target="_blank">Understanding AOT Compilers, JIT Compilers, and Interpreters</a>
+    <span class="v-meta">Engineer Man &middot; 6:27</span>
+    <div class="v-why">Concise animated comparison explaining bytecode execution, runtime profiling, hot spot compilation, code caching, and startup vs peak speed tradeoffs.</div>
+  </div>
+</div>
+
+<h2>1. Transition Diagrams in Lexical Analysis</h2>
+
+<div class="formula">
+  <span class="name">Formal Definition</span>
+  A <strong>transition diagram</strong> is a stylized, flowchart-like <strong>directed graph</strong> used as an intermediate specification to design and implement a lexical analyser. Its <strong>nodes represent states</strong> (conditions during scanning), and its <strong>directed edges represent transitions</strong> triggered by specific input characters.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Graphic Convention</th><th>Visual Representation</th><th>Precise Semantic Meaning</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>State</strong></td>
+  <td>Single circle with state ID: <code>(s)</code></td>
+  <td>Represents an intermediate condition reached while scanning a sequence of characters.</td>
+</tr>
+<tr>
+  <td><strong>Start State</strong></td>
+  <td>Arrow labelled <strong>start</strong> pointing into a state from nowhere: <code>&rarr; (0)</code></td>
+  <td>The entry point where scanning begins. There is exactly one start state per token pattern.</td>
+</tr>
+<tr>
+  <td><strong>Accepting / Final State</strong></td>
+  <td>Double concentric circles: <code>((2))</code></td>
+  <td>Indicates that a complete, valid lexeme has been recognized. Associated token is returned.</td>
+</tr>
+<tr>
+  <td><strong>Retract Pointer</strong></td>
+  <td>An <strong>asterisk (*)</strong> placed beside an accepting double circle: <code>((4))*</code></td>
+  <td><strong>Lookahead overrun:</strong> The scanner read one character too far to verify lexeme boundary. The input buffer pointer must be moved back by one position (<code>forward--</code>).</td>
+</tr>
+<tr>
+  <td><strong>Directed Edge</strong></td>
+  <td>Arrow labelled with input symbol: <code>&mdash; c &rarr;</code></td>
+  <td>Transition to target state if the current lookahead character matches symbol <code>c</code>.</td>
+</tr>
+<tr>
+  <td><strong>other</strong></td>
+  <td>Edge labelled <code>other</code></td>
+  <td>Matches any input character not explicitly listed on existing edges leaving that state.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<!-- FLOWCHART: TRANSITION DIAGRAM FOR RELATIONAL OPERATORS -->
+<div class="diagram-wrap">
+  <span class="diagram-title">State Transition Diagram: Recognition of Relational Operators (relop)</span>
+  
+  <div style="display:flex; flex-direction:column; gap:.9rem; max-width:38rem; margin:0 auto; font-family:ui-monospace,monospace; font-size:.84rem;">
+    <!-- Branch 1: <, <=, <> -->
+    <div style="background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:.8rem 1rem;">
+      <div style="margin-bottom:.4rem; font-weight:700; color:var(--accent);">Branch A &middot; Initiated by <code>&lt;</code></div>
+      <div>
+        start &rarr; <strong>(0)</strong> &mdash; <code>&lt;</code> &rarr; <strong>(1)</strong>
+        <ul style="margin:.4rem 0 0 1.2rem; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.82rem;">
+          <li>&mdash; <code>=</code> &rarr; <strong>((2))</strong> &nbsp;&implies;&nbsp; <strong style="color:var(--ok);">return(relop, LE)</strong> &nbsp;<em>[No retract needed]</em></li>
+          <li>&mdash; <code>&gt;</code> &rarr; <strong>((3))</strong> &nbsp;&implies;&nbsp; <strong style="color:var(--ok);">return(relop, NE)</strong> &nbsp;<em>[No retract needed]</em></li>
+          <li>&mdash; <code>other</code> &rarr; <strong>((4))*</strong> &nbsp;&implies;&nbsp; <strong style="color:var(--warn);">return(relop, LT)</strong> &nbsp;<span style="color:var(--accent); font-weight:700;">&larr; RETRACT 1 CHAR</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Branch 2: = -->
+    <div style="background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:.8rem 1rem;">
+      <div style="margin-bottom:.4rem; font-weight:700; color:var(--accent);">Branch B &middot; Initiated by <code>=</code></div>
+      <div>
+        start &rarr; <strong>(0)</strong> &mdash; <code>=</code> &rarr; <strong>((5))</strong> &nbsp;&implies;&nbsp; <strong style="color:var(--ok);">return(relop, EQ)</strong> &nbsp;<em>[No retract needed]</em>
+      </div>
+    </div>
+
+    <!-- Branch 3: >, >= -->
+    <div style="background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:.8rem 1rem;">
+      <div style="margin-bottom:.4rem; font-weight:700; color:var(--accent);">Branch C &middot; Initiated by <code>&gt;</code></div>
+      <div>
+        start &rarr; <strong>(0)</strong> &mdash; <code>&gt;</code> &rarr; <strong>(6)</strong>
+        <ul style="margin:.4rem 0 0 1.2rem; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.82rem;">
+          <li>&mdash; <code>=</code> &rarr; <strong>((7))</strong> &nbsp;&implies;&nbsp; <strong style="color:var(--ok);">return(relop, GE)</strong> &nbsp;<em>[No retract needed]</em></li>
+          <li>&mdash; <code>other</code> &rarr; <strong>((8))*</strong> &nbsp;&implies;&nbsp; <strong style="color:var(--warn);">return(relop, GT)</strong> &nbsp;<span style="color:var(--accent); font-weight:700;">&larr; RETRACT 1 CHAR</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why the Retract Asterisk (*) is Essential</span>
+  <p>Consider scanning the code expression <code>if (a &lt; b)</code>:</p>
+  <ul>
+    <li>The scanner reads <code>&lt;</code> (moves from state 0 to state 1).</li>
+    <li>At state 1, it cannot immediately conclude the token is <code>LT</code>, because the subsequent character might be <code>=</code> (forming <code>&lt;=</code>) or <code>&gt;</code> (forming <code>&lt;&gt;</code>).</li>
+    <li>It reads ahead one character and sees space or <code>b</code>. This matches the <code>other</code> edge, moving to accepting state 4.</li>
+    <li>Because character <code>b</code> belongs to the <strong>next token</strong>, the scanner must push it back into the input buffer (decrementing the pointer). The asterisk <code>*</code> visually documents this retract action.</li>
+  </ul>
+</div>
+
+<h2>2. Bootstrapping and T-Diagrams</h2>
+
+<div class="box win">
+  <span class="lbl">The Fundamental Chicken-and-Egg Problem</span>
+  <p>Compilers are sophisticated software systems written in high-level programming languages (e.g., C, C++, Rust). However, to compile a high-level compiler program, a compiler for that language must already exist! <strong>How was the first compiler ever compiled?</strong></p>
+  <p>The solution is <strong>Bootstrapping</strong>: writing an initial tiny subset compiler in machine code, and systematically using each generated compiler to compile a larger, richer version of itself &mdash; metaphorically <em>&ldquo;pulling oneself up by one's own bootstraps.&rdquo;</em></p>
+</div>
+
+<h3>T-Diagram Notation</h3>
+<p>In 1958, H. Bratman introduced <strong>T-diagrams</strong> to represent compiler translation dependencies visually. Every compiler involves three languages:</p>
+
+<!-- T-DIAGRAM VISUAL COMPONENT -->
+<div class="diagram-wrap" style="text-align:center;">
+  <span class="diagram-title">Anatomy of a Compiler T-Diagram</span>
+  
+  <div class="tdiag-block">
+    <div class="tdiag-top">
+      <div class="tdiag-s">Source S</div>
+      <div class="tdiag-t">Target T</div>
+    </div>
+    <div class="tdiag-stem">Impl I</div>
+    <div class="tdiag-label">Notation: (S, T, I) or <sup>S</sup>C<sub>T</sub><sup>I</sup></div>
+  </div>
+
+  <div style="font-size:.85rem; color:var(--ink-soft); max-width:28rem; margin:.8rem auto 0; text-align:left; line-height:1.5;">
+    &bull; <strong>Left Arm (S):</strong> The <strong>Source Language</strong> the compiler accepts as input.<br>
+    &bull; <strong>Right Arm (T):</strong> The <strong>Target Language</strong> the compiler generates as output.<br>
+    &bull; <strong>Bottom Stem (I):</strong> The <strong>Implementation Language</strong> the compiler code is written in.
+  </div>
+</div>
+
+<div class="formula">
+  <span class="name">The Universal Composition Rule</span>
+  <strong>Fundamental Rule:</strong> To <strong>RUN</strong> a compiler on physical hardware $M$, its implementation language $I$ must be the machine code of $M$.<br><br>
+  If you have a compiler <strong>(S, T, I)</strong> and an existing host compiler <strong>(I, M, M)</strong> that runs on $M$ and translates language $I$ into machine code $M$, then compiling the first with the second yields:<br><br>
+  <div style="text-align:center; font-size:1.05rem; font-weight:700; margin:.5rem 0;">
+    (S, T, I) &nbsp;&plus;&nbsp; (I, M, M) &nbsp;&implies;&nbsp; (S, T, M)
+  </div>
+  <em>The source and target arms remain strictly unchanged; only the implementation language transforms from I to M.</em>
+</div>
+
+<!-- COMPOSITION RULE VISUAL -->
+<div class="diagram-wrap" style="text-align:center;">
+  <span class="diagram-title">Visual Derivation: Applying the Composition Rule</span>
+  
+  <div style="display:flex; align-items:center; justify-content:center; gap:.8rem; flex-wrap:wrap;">
+    <div class="tdiag-block">
+      <div class="tdiag-top">
+        <div class="tdiag-s">S</div>
+        <div class="tdiag-t">T</div>
+      </div>
+      <div class="tdiag-stem" style="background:var(--warn-bg); color:var(--warn);">I</div>
+      <div class="tdiag-label">Input Compiler</div>
+    </div>
+
+    <span style="font-size:1.3rem; font-weight:700;">&plus;</span>
+
+    <div class="tdiag-block">
+      <div class="tdiag-top">
+        <div class="tdiag-s" style="background:var(--warn-bg); color:var(--warn);">I</div>
+        <div class="tdiag-t">M</div>
+      </div>
+      <div class="tdiag-stem">M</div>
+      <div class="tdiag-label">Host Compiler</div>
+    </div>
+
+    <span style="font-size:1.3rem; font-weight:700;">&implies;</span>
+
+    <div class="tdiag-block">
+      <div class="tdiag-top">
+        <div class="tdiag-s">S</div>
+        <div class="tdiag-t">T</div>
+      </div>
+      <div class="tdiag-stem" style="background:var(--ok-bg); color:var(--ok);">M</div>
+      <div class="tdiag-label">Executable Compiler on M</div>
+    </div>
+  </div>
+</div>
+
+<h3>1. The Classic Two-Step Bootstrap</h3>
+
+<div class="solve">
+  <span class="lbl">Exam Problem &middot; Build a full compiler for language L on machine M starting with no tools</span>
+  
+  <p><strong>Step 1 &mdash; Hand-code a minimal subset compiler in machine language:</strong><br>
+  Select a small subset $S$ of language $L$ (just enough syntax to write compiler parsing routines). Hand-code a compiler for subset $S$ targeting $M$, directly in machine language $M$:</p>
+  <p style="text-align:center;"><strong style="color:var(--accent);">(S, M, M)</strong> &mdash; <em>Rudimentary and tedious to code, but fully executable on machine M.</em></p>
+
+  <p><strong>Step 2 &mdash; Write the full compiler in the subset language:</strong><br>
+  Write the compiler for the complete language $L$, targeting machine code $M$, in the comfortable subset language $S$:</p>
+  <p style="text-align:center;"><strong style="color:var(--accent);">(L, M, S)</strong> &mdash; <em>Source code only; cannot run directly on M yet.</em></p>
+
+  <p><strong>Step 3 &mdash; Compile Step 2 with Step 1:</strong><br>
+  Run $(L, M, S)$ through $(S, M, M)$ on machine $M$:</p>
+  <p style="text-align:center;">
+    (L, M, S) &nbsp;compiled by&nbsp; (S, M, M) &nbsp;&implies;&nbsp; <strong style="color:var(--ok); font-size:1.05rem;">(L, M, M)</strong>
+  </p>
+  <p><strong>Outcome:</strong> You now possess a production compiler for the full language $L$, executing natively on machine $M$ and generating native machine code for $M$!</p>
+</div>
+
+<h3>2. The Three-Step Cross-Compiler Construction</h3>
+
+<div class="solve">
+  <span class="lbl">The Guaranteed Exam 10-Marker &middot; Design of a Cross-Compiler</span>
+  <p><strong>Problem Statement:</strong> You possess an existing, fully functioning compiler for language $L$ that executes on Machine $A$ and produces code for Machine $A$ &mdash; i.e., <strong>(L, A, A)</strong>. A new machine $B$ is released. You want to generate a native compiler for $L$ that runs on Machine $B$ and produces code for Machine $B$ &mdash; i.e., <strong>(L, B, B)</strong>. Construct the step-by-step T-diagram derivation.</p>
+
+  <p><strong>Step 1 &mdash; Retarget the code generator for Machine B:</strong><br>
+  Take the compiler source code and modify its backend code generator so that it emits machine instructions for <strong>Machine B</strong> instead of Machine A. Because the compiler is written in language $L$, this produces:</p>
+  <p style="text-align:center;"><strong style="color:var(--accent); font-size:1rem;">(L, B, L)</strong> &mdash; <em>Source L, Target B, written in L. Not runnable anywhere yet.</em></p>
+
+  <p><strong>Step 2 &mdash; Compile on Machine A using the existing host compiler:</strong><br>
+  Feed $(L, B, L)$ through your working compiler $(L, A, A)$ on Machine A:</p>
+  <p style="text-align:center; font-size:1rem;">
+    (L, B, L) &nbsp;compiled by&nbsp; (L, A, A) &nbsp;&implies;&nbsp; <strong style="color:var(--warn); font-size:1.05rem;">(L, B, A)</strong>
+  </p>
+  <p style="text-align:center; font-size:.88rem; color:var(--warn);">
+    <strong>THIS IS THE CROSS-COMPILER!</strong> It runs on Machine A, but generates executable binary for Machine B.
+  </p>
+
+  <p><strong>Step 3 &mdash; Compile the compiler source again using the cross-compiler on Machine A:</strong><br>
+  Feed $(L, B, L)$ into the cross-compiler $(L, B, A)$ running on Machine A:</p>
+  <p style="text-align:center; font-size:1rem;">
+    (L, B, L) &nbsp;compiled by&nbsp; (L, B, A) &nbsp;&implies;&nbsp; <strong style="color:var(--ok); font-size:1.05rem;">(L, B, B)</strong>
+  </p>
+  <p><strong>Final Step &mdash; Transfer binary to Machine B:</strong> Move the resulting binary executable $(L, B, B)$ onto Machine B. Machine B can now compile language $L$ independently without Machine A.</p>
+</div>
+
+<!-- FLOWCHART: CROSS COMPILER DERIVATION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Derivation Flowchart: Three-Step Cross-Compiler Pipeline</span>
+  
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Operation Undertaken</th><th>Resulting Compiler</th><th>Host Machine It Runs On</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Given</strong></td><td>Existing baseline compiler</td><td><strong>(L, A, A)</strong></td><td>Runs on Machine A</td></tr>
+  <tr><td><strong>Step 1</strong></td><td>Rewrite code generator to target architecture B</td><td><strong>(L, B, L)</strong></td><td><em>Source text only (cannot run)</em></td></tr>
+  <tr><td><strong>Step 2</strong></td><td>Compile (L, B, L) with host compiler (L, A, A)</td><td><strong>(L, B, A) &mdash; Cross-Compiler</strong></td><td>Runs on Machine A (Targets B)</td></tr>
+  <tr><td><strong>Step 3</strong></td><td>Compile (L, B, L) with cross-compiler (L, B, A)</td><td><strong>(L, B, B) &mdash; Native Compiler</strong></td><td><strong>Runs natively on Machine B</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="font-size:.82rem; color:var(--accent); font-weight:600; text-align:center; margin-top:.5rem;">
+    Sanity Check: The source arm remains L in every single step! If your source arm changes, you made an error.
+  </p>
+</div>
+
+<h3>Self-Hosting Compilers and Three-Stage Verification</h3>
+<p>Modern production compilers for languages like <strong>GCC</strong>, <strong>Clang</strong>, <strong>Rust (rustc)</strong>, and <strong>Go</strong> are <strong>self-hosting</strong> &mdash; the compiler is written in the very language it compiles. To eliminate compiler bugs and verify determinism, they execute a <strong>Three-Stage Bootstrap</strong>:</p>
+<ul>
+  <li><strong>Stage 1:</strong> System compiler compiles compiler source &rarr; produces <code>compiler_stage1</code>.</li>
+  <li><strong>Stage 2:</strong> <code>compiler_stage1</code> compiles compiler source &rarr; produces <code>compiler_stage2</code>.</li>
+  <li><strong>Stage 3:</strong> <code>compiler_stage2</code> compiles compiler source &rarr; produces <code>compiler_stage3</code>.</li>
+  <li><strong>Bitwise Verification:</strong> <code>compiler_stage2</code> and <code>compiler_stage3</code> are compared byte-for-byte using <code>cmp</code>. If the binaries are identical, the compiler is proven deterministic and sound.</li>
+</ul>
+
+<h2>3. Just-In-Time (JIT) Compilation</h2>
+
+<div class="formula">
+  <span class="name">Formal Definition</span>
+  <strong>Just-In-Time (JIT) compilation</strong> (also known as <em>dynamic translation</em> or <em>run-time compilation</em>) is compilation performed <strong>during program execution at run time rather than ahead of time</strong>. A JIT compiler translates intermediate bytecode into <strong>native machine instructions dynamically</strong> immediately prior to execution and caches the translated code in RAM.
+</div>
+
+<!-- FLOWCHART: JIT COMPILATION ARCHITECTURE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">System Flowchart: The Just-In-Time Compilation Lifecycle</span>
+  
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Source Code</strong> &middot; <code>Prog.java / App.js</code>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box">
+      <strong>Ahead-of-Time Bytecode Translation</strong>
+      <span class="sub">Emits platform-neutral bytecode &middot; <code>Prog.class</code></span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box">
+      <strong>Virtual Machine Interpreter (Tier 1)</strong>
+      <span class="sub">Starts executing bytecode immediately line by line</span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box warn">
+      <strong>Runtime Profiler &amp; Hot Spot Detector</strong>
+      <span class="sub">Monitors loop iterations &amp; method invocation counters</span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box highlight" style="border:2px solid var(--accent);">
+      <strong>JIT Compiler (Tier 2 &middot; HotSpot / V8 TurboFan)</strong>
+      <span class="sub">Compiles frequently executed hot methods to native CPU code</span>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box ok">
+      <strong>Native Machine Code Cache (RAM)</strong>
+      <span class="sub">Future calls invoke native machine code directly at full CPU speed</span>
+    </div>
+  </div>
+</div>
+
+<h3>Comprehensive Comparison: AOT vs Interpretation vs JIT</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Architectural Metric</th><th>Ahead-of-Time (AOT)</th><th>Pure Interpretation</th><th>Just-In-Time (JIT) Compilation</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Translation Timing</strong></td>
+  <td>Prior to execution (at build time)</td>
+  <td>Never &mdash; executed directly</td>
+  <td><strong>Dynamically during execution</strong></td>
+</tr>
+<tr>
+  <td><strong>Startup Latency</strong></td>
+  <td>Slow build, <strong>instant startup</strong></td>
+  <td><strong>Instant startup</strong></td>
+  <td>Fast startup (interprets first, warms up)</td>
+</tr>
+<tr>
+  <td><strong>Peak Steady-State Speed</strong></td>
+  <td><strong>Maximum native speed</strong></td>
+  <td>Slowest (5&times;&ndash;20&times; slower)</td>
+  <td><strong>Near-native speed (90%&ndash;98% of AOT)</strong></td>
+</tr>
+<tr>
+  <td><strong>Cross-Platform Portability</strong></td>
+  <td>Poor &mdash; separate binary per CPU/OS</td>
+  <td><strong>Excellent</strong> &mdash; runs anywhere interpreter exists</td>
+  <td><strong>Excellent</strong> &mdash; single universal bytecode file</td>
+</tr>
+<tr>
+  <td><strong>Runtime Profile Exploitation</strong></td>
+  <td>None &mdash; cannot observe dynamic values</td>
+  <td>Possible but unused</td>
+  <td><strong>Superior &mdash; dynamic branch inlining &amp; type specialization</strong></td>
+</tr>
+<tr>
+  <td><strong>Memory Footprint</strong></td>
+  <td>Minimal runtime footprint</td>
+  <td>Minimal footprint</td>
+  <td><strong>Higher</strong> &mdash; compiler engine and native cache in RAM</td>
+</tr>
+<tr>
+  <td><strong>Real-Time Predictability</strong></td>
+  <td><strong>Deterministic</strong></td>
+  <td>Consistent</td>
+  <td><strong>Non-deterministic</strong> (unpredictable JIT pauses)</td>
+</tr>
+<tr>
+  <td><strong>Prominent Examples</strong></td>
+  <td>GCC (C/C++), Rust (rustc), Go</td>
+  <td>Standard CPython, Ruby MRI</td>
+  <td><strong>Java HotSpot JVM, Google V8 (Node/Chrome), .NET CLR, PyPy</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">Why JIT is Unsuitable for Hard Real-Time Systems</span>
+  <p>JIT compilation introduces dynamic compilation pauses and memory allocation spikes whenever execution crosses hot-spot thresholds. In hard real-time systems (such as automotive airbag controllers, pacemaker firmware, or aerospace flight control), execution latency must be strictly deterministic with sub-millisecond guarantees. JIT warm-up jitter makes it dangerous for hard real-time environments.</p>
+</div>
+
+<div class="quiz">
+<h3>Check Yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In a lexical analyser transition diagram, an asterisk (*) beside an accepting double circle indicates that:</p>
+  <div class="opts">
+    <button class="opt">The recognized token is an identifier</button>
+    <button class="opt" data-ok="1">The scanner read one extra character past the lexeme and the input buffer pointer must retract by one</button>
+    <button class="opt">A syntax error occurred</button>
+    <button class="opt">The state represents the single designated start state</button>
+  </div>
+  <p class="why">To determine that &lt; was not &lt;=, the scanner peeked at the next character. That character belongs to the subsequent token, so the buffer pointer must be retracted.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the T-diagram triple (S, T, I), the components S, T, and I represent:</p>
+  <div class="opts">
+    <button class="opt">Symbol table, Token stream, and Intermediate code</button>
+    <button class="opt">Syntax, Translation, and Instruction set</button>
+    <button class="opt">Semantic rules, Type definitions, and Interpreter</button>
+    <button class="opt" data-ok="1">Source language, Target language, and Implementation language</button>
+  </div>
+  <p class="why">Left arm S = source language, right arm T = target language, bottom stem I = implementation language.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Compiling compiler source (L, B, L) with an existing compiler (L, A, A) running on Machine A yields:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">(L, B, A) &mdash; a cross-compiler</button>
+    <button class="opt">(A, B, L)</button>
+    <button class="opt">(L, B, B) &mdash; a native compiler</button>
+    <button class="opt">(L, A, B)</button>
+  </div>
+  <p class="why">The composition rule updates only the implementation arm from L to A. The result runs on A and emits code for B, which is the exact definition of a cross-compiler.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A JIT compiler achieves near-native execution speed because it:</p>
+  <div class="opts">
+    <button class="opt">Executes bytecode instructions without CPU hardware</button>
+    <button class="opt">Skips lexical and syntax analysis entirely</button>
+    <button class="opt">Translates every line of code ahead of time prior to launch</button>
+    <button class="opt" data-ok="1">Translates frequently executed bytecode hot spots into native machine code at runtime and caches the result</button>
+  </div>
+  <p class="why">JIT begins execution via interpretation for rapid startup, dynamically profiles loop and method executions, and compiles hot spots into cached native instructions.</p>
+</div>
+
+</div>
+
+<h2>Recall Without Looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>What is a transition diagram and what are its graphical conventions?</summary>
+    <p class="ans">A directed graph used to specify lexical analysers. Conventions: Start state (incoming arrow from nowhere); State (single circle); Accepting/Final state (double circle); Retract pointer (asterisk * beside double circle indicating one character lookahead pushback); Edges (labelled transitions on character classes); other (matches unhandled characters).</p></details>
+  <details class="card"><summary>What is bootstrapping and what problem does it resolve?</summary>
+    <p class="ans">Bootstrapping is the process of constructing a compiler in the very language it compiles. It resolves the chicken-and-egg problem of needing a working compiler to compile the initial compiler, by starting with a hand-written subset compiler in machine code and iteratively compiling progressively richer versions of itself.</p></details>
+  <details class="card"><summary>State the T-diagram composition rule.</summary>
+    <p class="ans">(S, T, I) compiled by (I, M, M) &rarr; (S, T, M). To execute a compiler, its implementation language must match the host machine. The source and target arms remain strictly unchanged; only the implementation arm transforms.</p></details>
+  <details class="card"><summary>Derive the three-step cross-compiler construction from memory.</summary>
+    <p class="ans">Given (L, A, A), target is (L, B, B). Step 1: Retarget code generator, producing source (L, B, L). Step 2: Compile (L, B, L) with (L, A, A) on Machine A &rarr; produces (L, B, A), which is the cross-compiler. Step 3: Compile (L, B, L) with cross-compiler (L, B, A) on Machine A &rarr; produces (L, B, B). Move binary to Machine B.</p></details>
+  <details class="card"><summary>Explain how Just-In-Time (JIT) compilation works.</summary>
+    <p class="ans">Source is compiled to bytecode ahead of time. At runtime, the VM interpreter begins executing bytecode immediately. A runtime profiler monitors loop and method invocation counts. When code crosses an execution threshold (hot spot), the JIT compiler translates it to native CPU instructions and caches it in RAM for subsequent zero-overhead calls.</p></details>
+  <details class="card"><summary>Compare AOT, interpretation, and JIT across key metrics.</summary>
+    <p class="ans">AOT: translates prior to execution, instant startup, fastest native execution, poor binary portability, low RAM. Interpretation: translates line by line, instant startup, slowest execution, excellent portability, low RAM. JIT: translates hot spots dynamically at runtime, fast startup with warm-up, near-native speed, excellent bytecode portability, higher RAM footprint, non-deterministic timing.</p></details>
+</div>
+
+<p class="ask">That completes the complete revision of Unit I. Unit II drills lexical analysis, token recognition, input buffering with sentinels, and automata conversions.</p>
+
+<div class="nav">
+  <a href="0003-tools-evolution-and-applications.html">&larr; Tools and Applications</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-2/0005-role-of-the-lexical-analyzer.html">Next: The Role of the Lexical Analyser &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

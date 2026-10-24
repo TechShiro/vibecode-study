@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 02 – Reconnaissance, OSINT & Nmap</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module A · Lesson 2 of 17 · Reconnaissance</div>
+  <h1>Reconnaissance, OSINT & Network Scanning with Nmap</h1>
+  <p class="subtitle">Information gathering methodologies: passive intelligence, Shodan, DNS enumeration, and active port scanning with Nmap.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module A – Foundations & Reconnaissance</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In penetration testing and ethical hacking, <strong>Reconnaissance (Information Gathering)</strong> takes up 70% of an assessment. Before launching an exploit, an engineer must map out the target's entire digital footprint: IP blocks, subdomains, open ports, operating systems, running service versions, and exposed misconfigurations. Recon is split into <strong>Passive Recon (OSINT)</strong> (gathering publicly available intelligence without touching target servers) and <strong>Active Recon</strong> (directly sending packets to target machines, e.g. with <strong>Nmap</strong>).</p>
+
+  <h2>2 · Passive Reconnaissance & OSINT Tools</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>WHOIS & DNS Enumeration</h3>
+      <p>Queries registrar databases for domain owner contact, name servers, and IP allocations. Tools like <code>sublist3r</code>, <code>amass</code>, and <code>dig</code> uncover hidden subdomains (e.g. <code>dev.target.com</code>, <code>staging-api.target.com</code>).</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>Shodan & Censys</h3>
+      <p>Search engines for internet-connected devices. Continuously scans the entire IPv4 address space, indexing exposed industrial control systems, open cameras, database ports (MongoDB 27017, Redis 6379), and unpatched servers without sending a single packet yourself.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">3</div>
+      <h3>Google Dorking</h3>
+      <p>Advanced search operators that unearth unintentionally exposed sensitive files: <code>filetype:env "DB_PASSWORD"</code> or <code>site:target.com inurl:admin</code>.</p>
+    </div>
+  </div>
+
+  <h2>3 · Active Scanning: Nmap (Network Mapper)</h2>
+  <p>Nmap is the definitive tool for network inventory, port scanning, and vulnerability detection. It operates by crafting custom raw IP packets and analyzing the response flags.</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr><th>Scan Type</th><th>Nmap Flag</th><th>How It Works</th><th>Pros & Cons</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>TCP SYN Stealth Scan</strong></td>
+        <td><code>-sS</code></td>
+        <td>Sends SYN. If target responds <code>SYN-ACK</code>, port is OPEN. Nmap immediately sends <code>RST</code> to tear down connection without completing 3-way handshake.</td>
+        <td><strong>Default & Most Popular</strong>. Faster; historically evaded basic connection logging. Requires root/admin privileges.</td>
+      </tr>
+      <tr>
+        <td><strong>TCP Connect Scan</strong></td>
+        <td><code>-sT</code></td>
+        <td>Completes the full 3-way handshake (<code>SYN &rarr; SYN-ACK &rarr; ACK</code>) using OS <code>connect()</code> syscall.</td>
+        <td>Works without root privileges. Noisier; logged by application servers.</td>
+      </tr>
+      <tr>
+        <td><strong>UDP Scan</strong></td>
+        <td><code>-sU</code></td>
+        <td>Sends empty UDP packets. If ICMP Port Unreachable received &rarr; CLOSED. If no response &rarr; OPEN | FILTERED.</td>
+        <td>Much slower due to OS ICMP rate limiting, but vital for finding DNS (53), SNMP (161), DHCP (67).</td>
+      </tr>
+      <tr>
+        <td><strong>Service Version Detection</strong></td>
+        <td><code>-sV</code></td>
+        <td>Connects to open ports and probes them to determine exact software and version (e.g. <code>Apache 2.4.49</code>).</td>
+        <td>Crucial for matching known CVE vulnerability databases.</td>
+      </tr>
+      <tr>
+        <td><strong>OS Detection</strong></td>
+        <td><code>-O</code></td>
+        <td>Sends TCP/UDP probes and compares TCP window size, TTL, and DF bits against Nmap's OS fingerprint database.</td>
+        <td>Pinpoints whether target runs Linux, Windows Server, Cisco IOS, etc.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Practical Nmap Recipes for Pen-Testers</h2>
+  <pre><code># 1. Fast Full-Port Stealth Scan with Service Versions and Default Scripts
+sudo nmap -sS -sV -sC -p- -T4 --min-rate 1000 192.168.1.50 -oA initial_scan
+
+# Flags explained:
+# -sS : TCP SYN Stealth Scan
+# -sV : Probe open ports for service version information
+# -sC : Run default Nmap Scripting Engine (NSE) safe scripts
+# -p- : Scan ALL 65,535 TCP ports (not just top 1,000)
+# -T4 : Aggressive timing template for faster completion
+# -oA : Output results in 3 formats (normal, XML, grepable)
+
+# 2. Automated Vulnerability Scanning using NSE
+sudo nmap -sV --script vuln 192.168.1.50
+
+# 3. Banner Grabbing via Netcat
+nc -nv 192.168.1.50 22
+# Output: SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0001-cyber-security-foundations-cia-triad-defense-in-depth.html">← Lesson 01: Foundations & CIA</a>
+    <a href="0003-network-protocols-sniffing-and-wireshark.html">Lesson 03: Network Sniffing & Wireshark →</a>
+  </nav>
+</body>
+</html>

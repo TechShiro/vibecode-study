@@ -1,0 +1,375 @@
+<title>TCP Congestion Control</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit IV &middot; Lesson 33 of 42</p>
+<h1>TCP Congestion Control</h1>
+<p class="deck">Slow start, congestion avoidance, congestion detection, and the difference between Tahoe and Reno &mdash; with a full window-by-window trace of the congestion window through a timeout and a fast retransmit.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Explain TCP congestion control with a diagram"</strong> is a 10-mark question and among the three most likely in Unit&nbsp;IV. <strong>Draw the cwnd-versus-time graph</strong> &mdash; exponential rise, the ssthresh line, linear rise, the drop &mdash; and label every phase on it. Then trace the numbers in a table. The <strong>Tahoe vs Reno</strong> distinction is the sub-question that separates good answers, so keep two rows for it.</p>
+</div>
+
+<h2>What congestion is</h2>
+
+<p><strong>Congestion occurs when the load on the network is greater than the capacity of the network.</strong> Routers have finite queues; when packets arrive faster than they can be forwarded, queues grow, delay rises, and eventually packets are dropped.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Approach</th><th>When it acts</th><th>Examples</th></tr></thead>
+<tbody>
+<tr><td><strong>Open-loop</strong> (prevention)</td><td><strong>Before</strong> congestion happens &mdash; design the system so it does not occur</td><td>Retransmission policy, window policy, acknowledgement policy, discarding policy, admission policy</td></tr>
+<tr><td><strong>Closed-loop</strong> (removal)</td><td><strong>After</strong> congestion is detected &mdash; react to it</td><td>Backpressure, choke packet, implicit signalling, explicit signalling</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>TCP uses closed-loop, implicit signalling.</strong> No router tells TCP that it is congested. TCP <em>infers</em> congestion from <strong>packet loss</strong> &mdash; a timeout or duplicate acknowledgements. The reasoning: on a modern wired network, corruption is rare, so a lost packet almost certainly means a full router queue.</p>
+
+<div class="box win">
+  <span class="lbl">The assumption worth naming</span>
+  <p><strong>TCP treats loss as evidence of congestion.</strong> That is a sound inference on wired links, where errors are rare. It is <em>wrong</em> on wireless links, where packets are often lost to interference rather than queue overflow &mdash; and TCP responds by needlessly halving its rate. Stating this limitation shows understanding beyond the mechanism.</p>
+</div>
+
+<h2>The congestion window</h2>
+
+<div class="formula">
+  <span class="name">The two windows, again</span>
+  <strong>Send window = min ( rwnd , cwnd )</strong><br>
+  rwnd is set by the receiver &nbsp;|&nbsp; <strong>cwnd is maintained by the sender itself</strong>
+</div>
+
+<p>Congestion control is entirely about <strong>how the sender adjusts cwnd</strong>. Two other quantities matter:</p>
+
+<ul>
+<li><strong>MSS</strong> &mdash; Maximum Segment Size. cwnd is normally counted in multiples of MSS.</li>
+<li><strong>ssthresh</strong> &mdash; the <em>slow start threshold</em>. It is the boundary between the two growth phases.</li>
+</ul>
+
+<h2>Phase 1 &mdash; Slow start (exponential increase)</h2>
+
+<div class="formula">
+  <span class="name">Slow start</span>
+  Start with <strong>cwnd = 1 MSS</strong>.<br>
+  <strong>Increase cwnd by 1 MSS for every acknowledgement received.</strong><br>
+  Effect: cwnd <strong>doubles every round-trip time</strong> &mdash; 1, 2, 4, 8, 16 &hellip;<br>
+  Continue until <strong>cwnd reaches ssthresh</strong>, then switch to congestion avoidance.
+</div>
+
+<div class="box exam">
+  <span class="lbl">Why "slow" start is a misnomer &mdash; a favourite question</span>
+  <p><strong>The growth is exponential, which is not slow at all.</strong> The name refers to the <em>starting point</em>: TCP begins at one segment rather than immediately blasting a full window into a network whose capacity it does not yet know. It is a slow <em>start</em>, not slow <em>growth</em>. Examiners ask this precisely because the name is misleading.</p>
+</div>
+
+<h2>Phase 2 &mdash; Congestion avoidance (additive increase)</h2>
+
+<div class="formula">
+  <span class="name">Congestion avoidance</span>
+  Begins when <strong>cwnd &ge; ssthresh</strong>.<br>
+  <strong>Increase cwnd by 1 MSS per round-trip time</strong> (i.e. by MSS/cwnd per acknowledgement).<br>
+  Effect: cwnd grows <strong>linearly</strong> &mdash; 8, 9, 10, 11 &hellip;
+</div>
+
+<p>The rationale: exponential growth got us near the network's capacity quickly; from here on we probe cautiously, because overshooting causes loss.</p>
+
+<h2>Phase 3 &mdash; Congestion detection (multiplicative decrease)</h2>
+
+<p>Congestion is detected two ways, and TCP reacts differently to each &mdash; <strong>this asymmetry is the heart of the topic</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Event</th><th>What it implies</th><th>ssthresh becomes</th><th>cwnd becomes</th><th>Then</th></tr></thead>
+<tbody>
+<tr><td><strong>Timeout (RTO expiry)</strong></td><td><strong>Severe congestion</strong> &mdash; nothing is getting through at all</td><td>cwnd / 2</td><td><strong>1 MSS</strong></td><td>Slow start</td></tr>
+<tr><td><strong>Three duplicate ACKs</strong></td><td><strong>Mild congestion</strong> &mdash; later segments are still arriving, so the network works</td><td>cwnd / 2</td><td><strong>cwnd / 2</strong> (TCP Reno)</td><td>Congestion avoidance</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">AIMD &mdash; the principle in one line</span>
+  <strong>Additive Increase, Multiplicative Decrease</strong><br>
+  Grow cautiously by adding; retreat sharply by halving.
+</div>
+
+<p><strong>Why the asymmetry?</strong> Because the cost of the two errors is not equal. Growing too slowly wastes some bandwidth; growing too fast collapses the network for everyone. AIMD is deliberately conservative in the direction where the consequences are worse &mdash; and it is also what makes TCP <strong>fair</strong>, since competing flows converge on an equal share.</p>
+
+<h2>Tahoe and Reno</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>TCP Tahoe</th><th>TCP Reno</th></tr></thead>
+<tbody>
+<tr><td><strong>On timeout</strong></td><td>ssthresh = cwnd/2, <strong>cwnd = 1</strong>, slow start</td><td>Same &mdash; ssthresh = cwnd/2, <strong>cwnd = 1</strong>, slow start</td></tr>
+<tr><td><strong>On 3 duplicate ACKs</strong></td><td><strong>Same as a timeout</strong> &mdash; cwnd = 1, back to slow start</td><td><strong>Fast recovery</strong> &mdash; ssthresh = cwnd/2, <strong>cwnd = ssthresh</strong>, stay in congestion avoidance</td></tr>
+<tr><td><strong>Phases</strong></td><td>Slow start, congestion avoidance</td><td>Slow start, congestion avoidance, <strong>fast recovery</strong></td></tr>
+<tr><td><strong>Performance</strong></td><td>Lower &mdash; over-reacts to a single lost segment</td><td><strong>Higher</strong> &mdash; avoids collapsing to 1 when the network is clearly still working</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The one-line distinction:</strong> <strong>Tahoe treats every loss as severe; Reno distinguishes mild loss (duplicate ACKs) from severe loss (timeout) and only restarts from 1 for the severe case.</strong></p>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; trace the congestion window</span>
+  <p><strong>Q.</strong> A TCP Reno connection has MSS = 1 KB and an initial ssthresh of 8 MSS. cwnd starts at 1 MSS. A <strong>timeout occurs at the end of round 8</strong>. Trace cwnd for the first 13 round-trip times, stating the phase at each step.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>RTT</th><th>cwnd (MSS)</th><th>ssthresh</th><th>Phase</th></tr></thead>
+  <tbody>
+  <tr><td class="num">1</td><td class="num">1</td><td class="num">8</td><td>Slow start</td></tr>
+  <tr><td class="num">2</td><td class="num">2</td><td class="num">8</td><td>Slow start &mdash; doubling</td></tr>
+  <tr><td class="num">3</td><td class="num">4</td><td class="num">8</td><td>Slow start</td></tr>
+  <tr><td class="num">4</td><td class="num"><strong>8</strong></td><td class="num">8</td><td><strong>cwnd reaches ssthresh &rarr; switch to congestion avoidance</strong></td></tr>
+  <tr><td class="num">5</td><td class="num">9</td><td class="num">8</td><td>Congestion avoidance &mdash; +1 per RTT</td></tr>
+  <tr><td class="num">6</td><td class="num">10</td><td class="num">8</td><td>Congestion avoidance</td></tr>
+  <tr><td class="num">7</td><td class="num">11</td><td class="num">8</td><td>Congestion avoidance</td></tr>
+  <tr><td class="num">8</td><td class="num"><strong>12</strong></td><td class="num">8</td><td>Congestion avoidance &mdash; <strong>TIMEOUT at the end of this round</strong></td></tr>
+  <tr><td class="num">9</td><td class="num"><strong>1</strong></td><td class="num"><strong>6</strong></td><td><strong>ssthresh = 12/2 = 6; cwnd = 1; slow start again</strong></td></tr>
+  <tr><td class="num">10</td><td class="num">2</td><td class="num">6</td><td>Slow start</td></tr>
+  <tr><td class="num">11</td><td class="num">4</td><td class="num">6</td><td>Slow start</td></tr>
+  <tr><td class="num">12</td><td class="num"><strong>6</strong></td><td class="num">6</td><td><strong>Reaches the new ssthresh &rarr; congestion avoidance</strong></td></tr>
+  <tr><td class="num">13</td><td class="num">7</td><td class="num">6</td><td>Congestion avoidance</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><em>Two things to note in your answer:</em></p>
+  <ul>
+    <li>At RTT 12, slow start would double 4 to 8 &mdash; but that would <strong>overshoot ssthresh = 6</strong>. cwnd stops at ssthresh and the phase switches. Doubling past the threshold is the most common error in this trace.</li>
+    <li>ssthresh is computed from the cwnd value <strong>at the moment of loss</strong> (12), not from its current or initial value.</li>
+  </ul>
+
+  <p><strong>Follow-up:</strong> suppose that instead of a timeout at RTT 8, <strong>three duplicate ACKs</strong> had arrived. Under <strong>Reno</strong>: ssthresh = 12/2 = 6, and <strong>cwnd = 6</strong>, continuing in congestion avoidance &mdash; so RTT 9 would be 7, RTT 10 would be 8. Under <strong>Tahoe</strong>: cwnd = 1 and slow start, exactly as for a timeout. <em>That divergence is the whole difference between the two.</em></p>
+</div>
+
+<h2>The graph to draw</h2>
+
+<div class="formula">
+  <span class="name">cwnd versus time &mdash; what your sketch must show</span>
+  &bull; An <strong>exponential curve</strong> from 1, doubling each RTT &mdash; label it <strong>slow start</strong><br>
+  &bull; A <strong>horizontal dashed line</strong> at ssthresh, with the curve bending at it<br>
+  &bull; A <strong>straight line of gentle slope</strong> after that &mdash; label it <strong>congestion avoidance</strong><br>
+  &bull; A <strong>vertical drop</strong> at the loss event &mdash; to 1 for a timeout, to cwnd/2 for three duplicate ACKs<br>
+  &bull; A <strong>new dashed ssthresh line</strong> at half the old cwnd<br>
+  &bull; The pattern repeating &mdash; the characteristic <strong>sawtooth</strong>
+</div>
+
+<p>Label every one of those six features. A correctly labelled sketch is worth more than a paragraph, and it takes a third of the time.</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">TCP Congestion Control Dynamics (Slow Start, AIMD, Fast Recovery)</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>1. Slow Start (Exponential Growth): cwnd &lt; ssthresh</strong>
+      <span class="sub">Double cwnd each RTT (1 &rarr; 2 &rarr; 4 &rarr; 8 MSS) until slow start threshold ssthresh is reached</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>2. Congestion Avoidance (Additive Increase): cwnd &ge; ssthresh</strong>
+      <span class="sub">Increment cwnd by +1 MSS per RTT (linear probe for available bandwidth)</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-row">
+      <div class="flow-box warn"><strong>Timeout (Severe Loss):</strong><span class="sub">ssthresh = cwnd / 2 &bull; cwnd resets to 1 MSS (TCP Tahoe)</span></div>
+      <div class="flow-box highlight"><strong>3 Duplicate ACKs (Mild Loss):</strong><span class="sub">Fast Retransmit &bull; ssthresh = cwnd / 2 &bull; cwnd = ssthresh + 3 (TCP Reno Fast Recovery)</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">TCP Congestion Control</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-74: TCP Congestion Control Explained & AIMD Dynamics</div>
+    <div class="v-desc">The definitive visual guide to Slow Start, Congestion Avoidance, ssthresh transitions, multiplicative decrease, and Reno vs Tahoe graphs.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=0bc_T_pEZmo" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Congestion Control Taxonomy &middot; Open-Loop vs Closed-Loop</h2>
+
+<p>Congestion control mechanisms are divided broadly into two fundamental philosophies: <strong>open-loop</strong> (preventive &mdash; designs protocols so congestion never occurs) and <strong>closed-loop</strong> (reactive &mdash; detects congestion dynamically and throttles transmission).</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Mechanism Category</th><th>Approach</th><th>Policies / Techniques</th><th>How it operates</th></tr></thead>
+<tbody>
+<tr><td><strong>Open-Loop (Preventive)</strong></td><td>Acts <strong>before</strong> congestion happens; no dynamic feedback from the congested router.</td><td>&bull; <strong>Retransmission Policy</strong>: Timers set conservatively so good packets are not resent.<br>&bull; <strong>Window Policy</strong>: Selective Repeat used instead of Go-Back-N to avoid retransmitting bursts.<br>&bull; <strong>Acknowledgement Policy</strong>: Piggybacking or delayed ACKs to cut control packet traffic.<br>&bull; <strong>Discarding Policy</strong>: Discard less sensitive packets first (e.g. video audio over headers).<br>&bull; <strong>Admission Policy</strong>: Deny virtual circuit creation if network lacks capacity.</td><td>Prevention baked into protocol rules; static and conservative.</td></tr>
+<tr><td><strong>Closed-Loop (Reactive)</strong></td><td>Acts <strong>after</strong> congestion is detected in real time by intermediate nodes.</td><td>&bull; <strong>Backpressure</strong>: Congested node informs upstream neighbor node directly to stop transmitting; ripples backward hop-by-hop.<br>&bull; <strong>Choke Packet</strong>: Congested router generates a special control packet sent directly to the original source to slow down.<br>&bull; <strong>Implicit Signaling</strong>: Source deduces congestion without direct router warnings (e.g., packet delay or packet loss in TCP).<br>&bull; <strong>Explicit Signaling</strong>: Router sets header warning bits: <strong>BECN</strong> (Backward Explicit Congestion Notification &mdash; warns sender) or <strong>FECN</strong> (Forward Explicit Congestion Notification &mdash; warns receiver to throttle ACKs).</td><td>Dynamic closed-loop feedback; adapts instantaneously to network state.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Traffic Shaping &middot; Leaky Bucket vs Token Bucket</h2>
+
+<p><em class="term">Traffic shaping</em> is an open-loop mechanism used at the network edge to control the volume and the rate of the traffic sent into the network. It smooths out <strong>bursty traffic</strong> (where a host sits idle, then fires a massive burst of packets) into a steady, predictable stream.</p>
+
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Leaky Bucket vs Token Bucket Algorithms</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem;">
+    
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="font-weight:700; color:var(--accent); font-size:.85rem; text-transform:uppercase; margin-bottom:.6rem; text-align:center;">1. Leaky Bucket (Rigid Constant Rate)</div>
+      <div style="font-size:.82rem; line-height:1.45; color:var(--ink-soft);">
+        &bull; <strong>Analogy:</strong> A bucket with a small hole in the bottom. No matter how fast water is poured in, water leaks out at a <strong>strictly constant speed</strong>.<br>
+        &bull; <strong>Operation:</strong> Bursty packets enter a FIFO buffer queue. If the buffer is full, newly arriving packets overflow and are <strong>dropped (discarded)</strong>.<br>
+        &bull; <strong>Output:</strong> Generates a completely uniform, continuous stream at rate $\rho$.<br>
+        &bull; <strong>Weakness:</strong> Incapable of supporting bursts even when the network has idle spare capacity!
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="font-weight:700; color:var(--accent); font-size:.85rem; text-transform:uppercase; margin-bottom:.6rem; text-align:center;">2. Token Bucket (Controlled Bursts Allowed)</div>
+      <div style="font-size:.82rem; line-height:1.45; color:var(--ink-soft);">
+        &bull; <strong>Analogy:</strong> Tokens are dropped into a bucket at a constant rate $r$ tokens/sec up to capacity $C$.<br>
+        &bull; <strong>Operation:</strong> For a packet to transmit, it must <strong>capture and consume 1 token</strong> (or $k$ tokens for $k$ bytes). If the bucket is empty, packets must wait for new tokens.<br>
+        &bull; <strong>Output:</strong> Allows an idle host that accumulated tokens to transmit a <strong>controlled burst</strong> at full link speed $M$.<br>
+        &bull; <strong>Maximum Burst Duration:</strong> $T = \frac{C}{M - r}$ seconds.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<h3>Master Comparison: Leaky Bucket versus Token Bucket</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Leaky Bucket Algorithm</th><th>Token Bucket Algorithm</th></tr></thead>
+<tbody>
+<tr><td><strong>Output Traffic Rate</strong></td><td><strong>Strictly constant</strong>; completely smooths out all bursts</td><td>Can transmit at <strong>peak burst rate</strong> for a limited duration</td></tr>
+<tr><td><strong>Burst Handling</strong></td><td><strong>Does not allow bursts</strong>; packet rate leaving the bucket is strictly capped at leak rate</td><td><strong>Allows controlled bursts</strong> up to token capacity $C$</td></tr>
+<tr><td><strong>Idle Host Advantage</strong></td><td>None &mdash; if host is idle, capacity is lost; it cannot save transmission credits</td><td><strong>Accumulates tokens</strong> during idle periods (up to bucket capacity $C$) for future bursts</td></tr>
+<tr><td><strong>Data Dropping</strong></td><td>Drops packets if the packet buffer overflows</td><td>Discards <strong>tokens</strong> if the token bucket overflows, but does not drop packets prematurely</td></tr>
+<tr><td><strong>What is Stored</strong></td><td>Stores actual <strong>data packets</strong> in a queue</td><td>Stores <strong>tokens</strong> (small integer counter / authorization tokens)</td></tr>
+<tr><td><strong>Primary Application</strong></td><td>Traffic policing and strict constant-bit-rate (CBR) streaming</td><td>Traffic shaping in modern bursty networks (HTTP, Video-on-Demand, DiffServ)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Quality of Service (QoS) &middot; Flow Characteristics and Scheduling</h2>
+
+<p><em class="term">Quality of Service (QoS)</em> is an end-to-end performance guarantee provided by the network. A traffic flow is characterized by four primary metrics: <strong>Reliability</strong> (percentage of dropped packets), <strong>Delay</strong> (transit time across the network), <strong>Jitter</strong> (variation in delay between consecutive packets &mdash; critical in VoIP and real-time audio), and <strong>Bandwidth</strong> (sustained data rate).</p>
+
+<h3>Packet Scheduling Disciplines</h3>
+<div class="tw">
+<table>
+<thead><tr><th>Scheduling Policy</th><th>Mechanism</th><th>Pros &amp; Cons in Exams</th></tr></thead>
+<tbody>
+<tr><td><strong>FIFO (First-In, First-Out)</strong></td><td>Packets are queued in a single queue and dispatched strictly in the order they arrived.</td><td>Simplest to implement; provides zero QoS isolation &mdash; one aggressive bursty flow starves all other flows.</td></tr>
+<tr><td><strong>Priority Queuing (PQ)</strong></td><td>Packets are classified into high, medium, and low priority queues. Higher-priority queues are served until completely empty before lower queues are touched.</td><td>Guarantees low latency for real-time voice; risks <strong>starvation</strong> of low-priority traffic during prolonged high loads.</td></tr>
+<tr><td><strong>Weighted Fair Queuing (WFQ)</strong></td><td>Packets enter separate queues for each flow; a round-robin scheduler services them in proportion to assigned weights: $W_i$.</td><td><strong>Best overall fairness</strong>; guarantees minimum bandwidth to every flow while eliminating starvation.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. During slow start, the congestion window:</p>
+  <div class="opts">
+    <button class="opt">Halves every round-trip time until ssthresh is met</button>
+    <button class="opt">Increases by one MSS every round-trip time</button>
+    <button class="opt">Stays at one MSS until the first loss occurs</button>
+    <button class="opt" data-ok="1">Doubles every round-trip time &mdash; growth is exponential</button>
+  </div>
+  <p class="why">cwnd rises by 1 MSS per acknowledgement, which doubles it each RTT: 1, 2, 4, 8. "Slow" refers to the starting point of one segment, not the growth rate. Linear +1 per RTT is congestion avoidance, the phase after.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. cwnd is 16 MSS when a timeout occurs. Immediately afterwards, ssthresh and cwnd are:</p>
+  <div class="opts">
+    <button class="opt">ssthresh = 8, cwnd = 16</button>
+    <button class="opt">ssthresh = 8, cwnd = 8</button>
+    <button class="opt" data-ok="1">ssthresh = 8, cwnd = 1</button>
+    <button class="opt">ssthresh = 16, cwnd = 1</button>
+  </div>
+  <p class="why">A timeout means severe congestion: ssthresh halves to 8 and cwnd collapses to 1, restarting slow start. ssthresh = 8 with cwnd = 8 would be Reno's response to three duplicate ACKs instead.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The difference between TCP Tahoe and TCP Reno is what happens on:</p>
+  <div class="opts">
+    <button class="opt">Reaching ssthresh &mdash; Tahoe stops, Reno continues doubling</button>
+    <button class="opt">Connection setup &mdash; Tahoe starts at 1, Reno starts at ssthresh</button>
+    <button class="opt">A timeout &mdash; Tahoe drops to 1, Reno halves</button>
+    <button class="opt" data-ok="1">Three duplicate ACKs &mdash; Tahoe drops to 1, Reno halves</button>
+  </div>
+  <p class="why">Both behave identically on a timeout. Reno's addition is fast recovery: three duplicate ACKs show later segments are arriving, so it halves cwnd and stays in congestion avoidance instead of collapsing to 1.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. cwnd = 4, ssthresh = 6, and the connection is in slow start. After the next round-trip time cwnd will be:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">6 &mdash; it stops at ssthresh rather than doubling past it</button>
+    <button class="opt">4 &mdash; growth stops entirely once ssthresh is near</button>
+    <button class="opt">5 &mdash; the increase is one MSS per round trip</button>
+    <button class="opt">8 &mdash; slow start always doubles the window</button>
+  </div>
+  <p class="why">Doubling would overshoot to 8, so cwnd stops at ssthresh = 6 and the phase switches to congestion avoidance. Doubling straight past the threshold is the commonest error in a cwnd trace.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. TCP infers that the network is congested from:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Packet loss &mdash; a timeout or duplicate acknowledgements</button>
+    <button class="opt">The receiver advertising a smaller window size</button>
+    <button class="opt">An increase in the measured round-trip time alone</button>
+    <button class="opt">An explicit choke packet sent by a congested router</button>
+  </div>
+  <p class="why">TCP uses closed-loop, implicit signalling — no router tells it anything. A shrinking rwnd is flow control, a different concern. Note the assumption's weakness: on wireless links loss often means interference, not congestion, and TCP still halves its rate.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. AIMD stands for a policy of:</p>
+  <div class="opts">
+    <button class="opt">Adaptive interval, minimum delay &mdash; timing the retransmissions</button>
+    <button class="opt">Acknowledged increase, mandatory decrease &mdash; per-segment control</button>
+    <button class="opt">Additive increase, multiplicative decrease &mdash; grow sharply, retreat slowly</button>
+    <button class="opt" data-ok="1">Additive increase, multiplicative decrease &mdash; grow slowly, retreat sharply</button>
+  </div>
+  <p class="why">Add to grow, halve to retreat. The asymmetry is deliberate: growing too slowly costs a little bandwidth, growing too fast collapses the network for everyone. It is also what makes competing TCP flows converge on a fair share.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define congestion and name the two general approaches to controlling it.</summary>
+    <p class="ans">Congestion occurs when the load on the network exceeds its capacity. Open-loop (prevention) acts before congestion — retransmission, window, acknowledgement, discarding and admission policies. Closed-loop (removal) acts after detection — backpressure, choke packet, implicit and explicit signalling. TCP uses closed-loop with implicit signalling.</p></details>
+  <details class="card"><summary>Describe slow start.</summary>
+    <p class="ans">Start at cwnd = 1 MSS and increase cwnd by 1 MSS for every acknowledgement received, which doubles cwnd each round-trip time — 1, 2, 4, 8. Continue until cwnd reaches ssthresh, then switch to congestion avoidance. The name refers to the starting point, not the growth rate, which is exponential.</p></details>
+  <details class="card"><summary>Describe congestion avoidance.</summary>
+    <p class="ans">Begins when cwnd ≥ ssthresh. cwnd increases by 1 MSS per round-trip time (MSS/cwnd per acknowledgement), so growth is linear rather than exponential — probing cautiously now that the network's capacity is near.</p></details>
+  <details class="card"><summary>What happens on a timeout, and on three duplicate ACKs?</summary>
+    <p class="ans">Timeout — severe congestion: ssthresh = cwnd/2, cwnd = 1 MSS, return to slow start. Three duplicate ACKs — mild congestion, since later segments are arriving: ssthresh = cwnd/2 and, in TCP Reno, cwnd = ssthresh with congestion avoidance continuing (fast recovery).</p></details>
+  <details class="card"><summary>State AIMD and why the asymmetry exists.</summary>
+    <p class="ans">Additive Increase, Multiplicative Decrease — grow by adding, retreat by halving. The two errors differ in cost: growing too slowly wastes some bandwidth, while growing too fast collapses the network for everyone. AIMD also makes competing flows converge on an equal share.</p></details>
+  <details class="card"><summary>Compare Tahoe and Reno.</summary>
+    <p class="ans">Both set ssthresh = cwnd/2 and cwnd = 1 on a timeout. On three duplicate ACKs, Tahoe does the same — cwnd = 1 and slow start — while Reno enters fast recovery, setting cwnd = ssthresh and staying in congestion avoidance. Reno therefore performs better, because it does not over-react to a single lost segment.</p></details>
+  <details class="card"><summary>What six features must the cwnd-versus-time graph show?</summary>
+    <p class="ans">The exponential slow-start curve from 1; a dashed ssthresh line where it bends; the gentle linear congestion-avoidance slope; the vertical drop at the loss event (to 1 for a timeout, to cwnd/2 for duplicate ACKs); the new ssthresh line at half the old cwnd; and the repeating sawtooth.</p></details>
+</div>
+
+<p class="ask">Want five more cwnd traces with mixed timeouts and duplicate-ACK events, in both Tahoe and Reno? Ask &mdash; the trace is mechanical once you have done a few.</p>
+
+<div class="nav">
+  <a href="0032-tcp-flow-and-error-control.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0034-tcp-timers-options-and-sctp.html">Next: Timers, Options and SCTP &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

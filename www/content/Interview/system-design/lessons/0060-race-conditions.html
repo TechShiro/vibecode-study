@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 60 - Race Conditions &amp; CAS | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · LLD · Lesson 60 of 66 · Memory Visibility, Volatile, AtomicInteger</div>
+  
+  <h1>Race Conditions, Memory Visibility &amp; CAS</h1>
+  <p class="subtitle">Lock-free concurrency, Java Memory Model (JMM), and atomic hardware primitives.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module N — Concurrency &amp; Thread Safety</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Why is <code>count++</code> NOT thread-safe in Java? Because at the CPU assembly level, <code>count++</code> is three separate operations: <strong>1) Read</strong> <code>count</code> from RAM into CPU register; <strong>2) Add</strong> 1 in register; <strong>3) Write</strong> register back to RAM. If two threads execute this simultaneously, both read 5, both increment to 6, and both write 6. Two increments happened, but count only increased by 1! This is a <strong>Race Condition</strong>.</p>
+
+  <h2>2 · The Two Concurrency Bugs: Visibility vs Atomicity</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Problem</th>
+        <th>What Goes Wrong</th>
+        <th>The Solution</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Memory Visibility Bug</strong></td>
+        <td>Modern CPUs have private L1/L2 caches. Thread 1 updates <code>flag = true</code>, but the value sits in Core 1's cache. Thread 2 running on Core 2 continues reading <code>flag = false</code> indefinitely in an infinite loop!</td>
+        <td><strong><code>volatile</code> keyword:</strong> Guarantees that any write to a variable is immediately flushed to main memory, and reads always fetch fresh from RAM.</td>
+      </tr>
+      <tr>
+        <td><strong>Atomicity Bug</strong></td>
+        <td><code>volatile</code> guarantees visibility, but <strong>does NOT guarantee atomicity</strong>! <code>volatile int count; count++;</code> will STILL corrupt under concurrency!</td>
+        <td><strong>Atomic Classes (<code>AtomicInteger</code>)</strong> or Lock-free CAS instructions.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Lock-Free Concurrency: Compare-And-Swap (CAS)</h2>
+  <p>Locks block threads, causing heavy OS kernel context switches. <strong>Compare-And-Swap (CAS)</strong> is a single atomic instruction supported directly by modern CPU hardware (e.g. <code>CMPXCHG</code> on x86 chips):</p>
+  <ul>
+    <li>It takes three arguments: Memory address $V$, Expected old value $A$, and New value $B$.</li>
+    <li><em>"If value at $V$ is still $A$, atomically swap it to $B$ and return true. If someone else changed it, do nothing and return false."</em></li>
+  </ul>
+
+  <pre><code><span class="cmt">// Under the hood of Java's AtomicInteger</span>
+public class AtomicInteger {
+    private volatile int value;
+
+    public final int incrementAndGet() {
+        while (true) {
+            int current = get();
+            int next = current + 1;
+            if (compareAndSet(current, next)) { <span class="cmt">// Hardware CAS</span>
+                return next;
+            }
+            <span class="cmt">// If CAS failed, someone beat us; loop and retry with fresh value!</span>
+        }
+    }
+}</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We enter the final module: Module O — UML &amp; Clean API Design. First: Visualizing architectures with UML Diagrams.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0059-producer-consumer.html">← Previous: Producer-Consumer</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0061-uml-diagrams.html">Next: UML Diagrams for LLD →</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 10 — JS Interview Patterns &amp; Output Questions</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 10 of 24 · patterns, polyfills, output drills, rapid-fire</div>
+<h1>JS Interview Patterns &amp; Output Questions</h1>
+<p class="subtitle">Module A's final boss: implement the classics from scratch, survive the output-question gauntlet, and walk out with a one-page cheat sheet.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 10 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · How to use this lesson</h2>
+<p>
+Everything here reuses Lessons 1–9; nothing is new theory. Interviewers use these questions because each
+implementation proves you own a fundamental: debounce proves closures, polyfills prove <code>this</code>,
+deepClone proves reference-vs-value, output questions prove hoisting and the event loop. For every snippet:
+<strong>close the page, write it yourself, then compare</strong>. Reading is not the drill.
+</p>
+
+<h2>2 · Debounce &amp; throttle — taming event floods</h2>
+<p>
+A search box fires <code>input</code> on every keystroke; scrolling fires hundreds of events per second.
+Two strategies to avoid hammering your API:
+</p>
+<ul>
+  <li><strong>Debounce</strong> — "wait for silence": run only after the calls <em>stop</em> for N ms. Typing "hello" fast = one API call, after the last key. Analogy: the lift door — every new person entering resets the close timer.</li>
+  <li><strong>Throttle</strong> — "rate limit": run at most once per N ms, no matter how fast calls come. Scroll handler fires steadily every 200 ms during scrolling. Analogy: a machine-gun with a fixed fire rate.</li>
+</ul>
+
+<pre><code>function debounce(fn, delay) {
+  let timerId;                          <span class="cmt">// lives in the CLOSURE — survives between calls</span>
+  return function (...args) {          <span class="cmt">// regular function: preserves caller's `this`</span>
+    clearTimeout(timerId);              <span class="cmt">// a new call CANCELS the pending one</span>
+    timerId = setTimeout(() =&gt; fn.apply(this, args), delay);
+  };                                    <span class="cmt">// arrow inside → inherits this + args correctly</span>
+}
+
+const search = debounce((q) =&gt; console.log("API call:", q), 400);
+search("h"); search("he"); search("hel");   <span class="cmt">// only "hel" fires, 400 ms after the last call</span>
+
+function throttle(fn, interval) {
+  let last = 0;                         <span class="cmt">// timestamp of the last allowed run</span>
+  return function (...args) {
+    const now = Date.now();
+    if (now - last &gt;= interval) {       <span class="cmt">// enough time passed? run and stamp</span>
+      last = now;
+      fn.apply(this, args);
+    }                                   <span class="cmt">// otherwise: silently drop this call</span>
+  };
+}
+
+window.addEventListener("scroll", throttle(() =&gt; console.log("tick"), 200));</code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Debounce delays execution until calls stop for N ms — right for search-as-you-type and resize.
+  Throttle guarantees at most one execution per N ms — right for scroll/mousemove where you want steady
+  updates <em>during</em> the activity. Both are closures holding timer state across calls."
+</div>
+
+<h2>3 · once, memoize, curry</h2>
+
+<pre><code><span class="cmt">// once — fn runs a single time; later calls return the first result</span>
+function once(fn) {
+  let called = false, result;
+  return function (...args) {
+    if (!called) {
+      called = true;
+      result = fn.apply(this, args);   <span class="cmt">// closure remembers both flag and result</span>
+    }
+    return result;
+  };
+}
+const init = once(() =&gt; { console.log("connecting…"); return "conn#1"; });
+init(); init(); init();                <span class="cmt">// logs once; all three return "conn#1"</span>
+
+<span class="cmt">// memoize — cache results by argument; recompute never</span>
+function memoize(fn) {
+  const cache = new Map();             <span class="cmt">// Lesson 4's Map: any keys, fast lookup</span>
+  return function (...args) {
+    const key = JSON.stringify(args);  <span class="cmt">// simple key; fine for primitive args</span>
+    if (!cache.has(key)) cache.set(key, fn.apply(this, args));
+    return cache.get(key);
+  };
+}
+const slowSquare = (n) =&gt; { for (let i = 0; i &lt; 1e7; i++); return n * n; };
+const fastSquare = memoize(slowSquare);
+fastSquare(9);      <span class="cmt">// slow (computed)</span>
+fastSquare(9);      <span class="cmt">// instant (cached)</span>
+
+<span class="cmt">// curry — turn f(a, b, c) into f(a)(b)(c); collect args until enough arrived</span>
+function curry(fn) {
+  return function curried(...args) {
+    if (args.length &gt;= fn.length)          <span class="cmt">// fn.length = declared param count</span>
+      return fn.apply(this, args);         <span class="cmt">// enough args → actually run</span>
+    return (...more) =&gt; curried(...args, ...more);  <span class="cmt">// else → keep collecting</span>
+  };
+}
+const add3 = (a, b, c) =&gt; a + b + c;
+const c = curry(add3);
+c(1)(2)(3);      <span class="cmt">// 6</span>
+c(1, 2)(3);      <span class="cmt">// 6 — partial application in any grouping</span>
+const addTen = c(10);                      <span class="cmt">// reusable specialised function</span>
+addTen(5, 1);    <span class="cmt">// 16</span></code></pre>
+
+<p>
+The famous <strong>infinite curry</strong> variant — <code>sum(1)(2)(3)…()</code> ends on the empty
+call — a glance so it can't ambush you:
+</p>
+
+<pre><code>function sum(a) {
+  return function next(b) {
+    if (b === undefined) return a;    <span class="cmt">// empty call () → stop, return total</span>
+    a += b;                           <span class="cmt">// closure accumulates</span>
+    return next;                      <span class="cmt">// return self → chain continues</span>
+  };
+}
+sum(1)(2)(3)();     <span class="cmt">// 6</span>
+sum(5)(10)();       <span class="cmt">// 15</span></code></pre>
+
+<h2>4 · deepClone — and why the JSON trick fails</h2>
+<p>
+Lesson 5 showed spread <code>{...obj}</code> is a <em>shallow</em> copy — nested objects are still shared
+references. The lazy deep copy, <code>JSON.parse(JSON.stringify(obj))</code>, breaks on real data:
+<code>Date</code> becomes a string, <code>undefined</code> and functions vanish, <code>Map/Set</code>
+become <code>{}</code>, <code>NaN/Infinity</code> become <code>null</code>, and circular references throw.
+The hand-rolled recursive version (an interview staple):
+</p>
+
+<pre><code>function deepClone(value) {
+  <span class="cmt">// 1) primitives (and functions) — returned as-is; nothing nested to copy</span>
+  if (value === null || typeof value !== "object") return value;
+
+  <span class="cmt">// 2) special objects that need their own constructors</span>
+  if (value instanceof Date) return new Date(value.getTime());
+
+  <span class="cmt">// 3) arrays — clone each element recursively</span>
+  if (Array.isArray(value)) return value.map(deepClone);
+
+  <span class="cmt">// 4) plain objects — clone each property recursively</span>
+  const copy = {};
+  for (const key of Object.keys(value)) {
+    copy[key] = deepClone(value[key]);
+  }
+  return copy;
+}
+
+const original = { name: "Krish", joined: new Date(), tags: ["js", "java"],
+                   nested: { score: 10 } };
+const clone = deepClone(original);
+clone.nested.score = 99;
+console.log(original.nested.score);   <span class="cmt">// 10 — truly independent</span>
+console.log(clone.joined instanceof Date);  <span class="cmt">// true — JSON trick would give a string</span>
+
+<span class="cmt">// Production note: the modern built-in structuredClone(obj) handles Dates, Maps,</span>
+<span class="cmt">// Sets, even circular refs — mention it AFTER writing the manual version.</span></code></pre>
+
+<h2>5 · flatten — recursion and reduce</h2>
+
+<pre><code><span class="cmt">// Version 1: plain recursion</span>
+function flatten(arr) {
+  const out = [];
+  for (const item of arr) {
+    if (Array.isArray(item)) out.push(...flatten(item));  <span class="cmt">// dive deeper</span>
+    else out.push(item);
+  }
+  return out;
+}
+flatten([1, [2, [3, [4]], 5]]);   <span class="cmt">// [1, 2, 3, 4, 5]</span>
+
+<span class="cmt">// Version 2: reduce one-liner (same logic, folded)</span>
+const flat = (arr) =&gt;
+  arr.reduce((acc, item) =&gt;
+    acc.concat(Array.isArray(item) ? flat(item) : item), []);
+
+<span class="cmt">// Built-in (know it, mention it): arr.flat(Infinity)</span>
+<span class="cmt">// Depth-limited variant — the common follow-up:</span>
+function flattenDepth(arr, depth = 1) {
+  if (depth === 0) return arr.slice();
+  return arr.reduce((acc, item) =&gt;
+    acc.concat(Array.isArray(item) ? flattenDepth(item, depth - 1) : item), []);
+}
+flattenDepth([1, [2, [3, [4]]]], 1);   <span class="cmt">// [1, 2, [3, [4]]]</span></code></pre>
+
+<h2>6 · Polyfills — map, filter, reduce, bind, Promise.all</h2>
+<p>
+A <strong>polyfill</strong> is a hand-written implementation of a built-in, historically to support old
+browsers — today, an interview exercise proving you understand <code>this</code>, prototypes, and
+callbacks. Attaching to <code>Array.prototype</code> makes your version callable as a method, so inside it
+<code>this</code> is the array (Lesson 3's method-call rule):
+</p>
+
+<pre><code><span class="cmt">// map — build a NEW array from callback results</span>
+Array.prototype.myMap = function (callback) {
+  const result = [];
+  for (let i = 0; i &lt; this.length; i++) {       <span class="cmt">// this = the array itself</span>
+    result.push(callback(this[i], i, this));    <span class="cmt">// value, index, whole array</span>
+  }
+  return result;
+};
+
+<span class="cmt">// filter — keep elements where callback is truthy</span>
+Array.prototype.myFilter = function (callback) {
+  const result = [];
+  for (let i = 0; i &lt; this.length; i++) {
+    if (callback(this[i], i, this)) result.push(this[i]);
+  }
+  return result;
+};
+
+<span class="cmt">// reduce — fold to one value; the initialValue edge case is the marks-scorer</span>
+Array.prototype.myReduce = function (callback, initialValue) {
+  let acc = initialValue;
+  let start = 0;
+  if (acc === undefined) {                      <span class="cmt">// no seed given?</span>
+    if (this.length === 0)
+      throw new TypeError("Reduce of empty array with no initial value");
+    acc = this[0];                              <span class="cmt">// first element becomes the seed…</span>
+    start = 1;                                  <span class="cmt">// …and iteration starts at index 1</span>
+  }
+  for (let i = start; i &lt; this.length; i++) {
+    acc = callback(acc, this[i], i, this);
+  }
+  return acc;
+};
+
+[1, 2, 3].myMap(x =&gt; x * 2);              <span class="cmt">// [2, 4, 6]</span>
+[1, 2, 3, 4].myFilter(x =&gt; x % 2 === 0);  <span class="cmt">// [2, 4]</span>
+[1, 2, 3].myReduce((a, b) =&gt; a + b, 0);   <span class="cmt">// 6</span></code></pre>
+
+<pre><code><span class="cmt">// bind — return a copy of the function with `this` (and lead args) locked in</span>
+Function.prototype.myBind = function (thisArg, ...boundArgs) {
+  const fn = this;                        <span class="cmt">// here, `this` is the FUNCTION being bound</span>
+  return function (...callArgs) {
+    return fn.apply(thisArg, [...boundArgs, ...callArgs]);  <span class="cmt">// invoke with fixed this</span>
+  };
+};
+const user = { name: "Krish", hi() { return `hi, ${this.name}`; } };
+const detached = user.hi;                 <span class="cmt">// loses this (Lesson 3's classic bug)</span>
+const fixed = detached.myBind(user);
+fixed();                                  <span class="cmt">// "hi, Krish"</span></code></pre>
+
+<pre><code><span class="cmt">// Promise.all — resolve with all values IN ORDER, reject on first failure</span>
+function promiseAll(promises) {
+  return new Promise((resolve, reject) =&gt; {
+    const results = [];
+    let remaining = promises.length;
+    if (remaining === 0) return resolve([]);        <span class="cmt">// edge case: empty input</span>
+
+    promises.forEach((p, i) =&gt; {
+      Promise.resolve(p)                    <span class="cmt">// tolerate plain values in the array</span>
+        .then((value) =&gt; {
+          results[i] = value;               <span class="cmt">// store by INDEX — order preserved even</span>
+          remaining--;                      <span class="cmt">// if later promises finish first</span>
+          if (remaining === 0) resolve(results);
+        })
+        .catch(reject);                     <span class="cmt">// first rejection rejects the whole thing</span>
+    });
+  });
+}
+promiseAll([Promise.resolve(1), 2, Promise.resolve(3)])
+  .then(console.log);                       <span class="cmt">// [1, 2, 3]</span></code></pre>
+
+<h2>7 · Output-question gauntlet</h2>
+<p>
+For each: <strong>write your predicted output on paper first</strong>. The explanation follows immediately —
+cover it with your hand. Then re-test yourself in the quizzes at the end.
+</p>
+
+<pre><code><span class="cmt">// DRILL 1 — hoisting (Lesson 1)</span>
+console.log(a);
+console.log(b);
+console.log(f());
+var a = 1;
+let b = 2;
+function f() { return "hi"; }
+<span class="cmt">// ANSWER: undefined, then ReferenceError (stops execution), f never logs.</span>
+<span class="cmt">// var a is hoisted and initialised to undefined; let b is hoisted but in the</span>
+<span class="cmt">// TEMPORAL DEAD ZONE until its line → ReferenceError. Function DECLARATIONS</span>
+<span class="cmt">// hoist fully — f() alone would have worked fine.</span></code></pre>
+
+<pre><code><span class="cmt">// DRILL 2 — closures in loops (Lesson 2's celebrity bug)</span>
+for (var i = 0; i &lt; 3; i++) {
+  setTimeout(() =&gt; console.log("var:", i), 0);
+}
+for (let j = 0; j &lt; 3; j++) {
+  setTimeout(() =&gt; console.log("let:", j), 0);
+}
+<span class="cmt">// ANSWER: var: 3, 3, 3 — then let: 0, 1, 2.</span>
+<span class="cmt">// One shared function-scoped `var i`; by the time the (macrotask) callbacks run,</span>
+<span class="cmt">// the loop finished and i === 3. `let` creates a FRESH binding per iteration,</span>
+<span class="cmt">// so each closure captured its own j. Fix for var: an IIFE wrapper per iteration.</span></code></pre>
+
+<pre><code><span class="cmt">// DRILL 3 — `this` in different call forms (Lesson 3)</span>
+const obj = {
+  name: "A",
+  regular()    { console.log(this.name); },
+  arrow: () =&gt; { console.log(this?.name); },
+  delayed()    { setTimeout(function () { console.log(this?.name); }, 0); },
+  fixed()      { setTimeout(() =&gt; console.log(this.name), 0); },
+};
+obj.regular();                <span class="cmt">// "A"        — method call: this = obj</span>
+obj.arrow();                  <span class="cmt">// undefined  — arrows have NO own this; here it's</span>
+                              <span class="cmt">//              the module/global scope, not obj</span>
+const g = obj.regular; g();   <span class="cmt">// undefined  — detached plain call: this lost</span>
+obj.delayed();                <span class="cmt">// undefined  — regular callback: setTimeout calls it plainly</span>
+obj.fixed();                  <span class="cmt">// "A"        — arrow callback inherits this from fixed()</span></code></pre>
+
+<pre><code><span class="cmt">// DRILL 4 — coercion classics (Lesson 1)</span>
+console.log([] + []);         <span class="cmt">// ""        — arrays → "" and "" concatenated</span>
+console.log([] + {});         <span class="cmt">// "[object Object]" — "" + object's string form</span>
+console.log("5" - 1);         <span class="cmt">// 4         — minus is numeric-only → "5" becomes 5</span>
+console.log("5" + 1);         <span class="cmt">// "51"      — plus prefers CONCATENATION with a string</span>
+console.log(0.1 + 0.2 === 0.3);  <span class="cmt">// false  — binary floating point (0.30000000000000004)</span>
+console.log(null == undefined);  <span class="cmt">// true   — special loose-equality pairing</span>
+console.log(null === undefined); <span class="cmt">// false  — different types</span>
+console.log(NaN === NaN);        <span class="cmt">// false  — NaN equals nothing; use Number.isNaN</span>
+console.log(typeof null);        <span class="cmt">// "object" — historic bug, kept forever</span></code></pre>
+
+<pre><code><span class="cmt">// DRILL 5 — event-loop ordering I (Lessons 6–7)</span>
+async function work() {
+  console.log("1");
+  await null;
+  console.log("2");
+}
+console.log("3");
+setTimeout(() =&gt; console.log("4"), 0);
+work().then(() =&gt; console.log("5"));
+Promise.resolve().then(() =&gt; console.log("6"));
+console.log("7");
+<span class="cmt">// ANSWER: 3, 1, 7, 2, 6, 5, 4</span>
+<span class="cmt">// Sync: 3 → work() starts synchronously (1) and suspends at await → 7.</span>
+<span class="cmt">// Microtasks in queue order: work's continuation (2); then 6; resolving work's</span>
+<span class="cmt">// promise queued its .then → 5. Finally the macrotask: 4.</span></code></pre>
+
+<pre><code><span class="cmt">// DRILL 6 — event-loop ordering II: microtasks between macrotasks</span>
+setTimeout(() =&gt; {
+  console.log("timer A");
+  Promise.resolve().then(() =&gt; console.log("micro A"));
+}, 0);
+setTimeout(() =&gt; console.log("timer B"), 0);
+Promise.resolve().then(() =&gt; console.log("micro 0"));
+console.log("sync");
+<span class="cmt">// ANSWER: sync, micro 0, timer A, micro A, timer B</span>
+<span class="cmt">// After EVERY macrotask the microtask queue drains fully — so micro A (queued</span>
+<span class="cmt">// during timer A) runs BEFORE timer B, even though timer B was scheduled first.</span></code></pre>
+
+<h2>8 · Garbage collection &amp; memory leaks</h2>
+<p>
+Like Java, JS is garbage-collected: no <code>free()</code>, no destructors. The collector's rule is
+<strong>reachability</strong> — an object survives while it can be reached from a <em>root</em> (globals,
+the currently running stack, active closures) by following references; unreachable objects are reclaimed.
+Modern engines use generational mark-and-sweep, same family as the JVM's collectors. "Leaks" in JS are
+never lost pointers — they are objects you <em>accidentally kept reachable</em>. The classic sources:
+</p>
+
+<pre><code><span class="cmt">// LEAK 1 — forgotten timers: the interval root keeps the closure (and all it</span>
+<span class="cmt">// captures) alive forever</span>
+function startPolling(hugeData) {
+  setInterval(() =&gt; console.log(hugeData.length), 1000);
+  <span class="cmt">// nobody stored the id → clearInterval impossible → hugeData is immortal</span>
+}
+<span class="cmt">// FIX: const id = setInterval(...);  and clearInterval(id) on teardown.</span>
+
+<span class="cmt">// LEAK 2 — detached DOM nodes: removed from the page but still referenced by JS</span>
+let bigList = document.querySelector("#todo-list");
+document.body.replaceChildren();     <span class="cmt">// list is off the page…</span>
+<span class="cmt">// …but `bigList` still points at it → the whole subtree stays in memory.</span>
+bigList = null;                      <span class="cmt">// FIX: drop the reference</span>
+
+<span class="cmt">// LEAK 3 — closures capturing big data they don't need</span>
+function makeHandler() {
+  const giant = new Array(1e6).fill("x");   <span class="cmt">// 1M strings</span>
+  return () =&gt; console.log(giant[0]);        <span class="cmt">// closure needs ONE element,</span>
+}                                            <span class="cmt">// keeps the WHOLE array alive</span>
+const h = makeHandler();          <span class="cmt">// giant lives as long as h does</span>
+<span class="cmt">// FIX: extract only what's needed → const first = giant[0]; return () =&gt; log(first);</span>
+
+<span class="cmt">// LEAK 4 — ever-growing caches/globals: our memoize() Map from section 3</span>
+<span class="cmt">// never evicts. FIXES: bounded/LRU cache, or WeakMap for object keys —</span>
+<span class="cmt">// WeakMap holds keys WEAKLY, so entries vanish when the key object dies.</span>
+
+<span class="cmt">// LEAK 5 — listeners on long-lived targets: addEventListener on window/document</span>
+<span class="cmt">// from a component you later destroy keeps the handler + its closure alive.</span>
+<span class="cmt">// FIX: matching removeEventListener on cleanup (React's useEffect cleanup, L12).</span></code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "JS uses reachability-based GC — mark-and-sweep from roots. Leaks are objects kept accidentally
+  reachable: forgotten <code>setInterval</code>s, detached DOM nodes still referenced, closures capturing
+  large data, unbounded caches, and un-removed event listeners. DevTools' Memory tab (heap snapshots)
+  finds them."
+</div>
+
+<h2>9 · Top 20 rapid-fire — crisp model answers</h2>
+<ul>
+  <li><strong>1. let vs var vs const?</strong> <code>var</code>: function-scoped, hoisted as undefined, re-declarable. <code>let</code>: block-scoped, TDZ before declaration, reassignable. <code>const</code>: block-scoped, must initialise, no reassignment — but object <em>contents</em> stay mutable.</li>
+  <li><strong>2. == vs ===?</strong> <code>===</code> compares type and value, no conversion. <code>==</code> coerces types first (<code>"5" == 5</code> is true) with surprising rules. Default to <code>===</code>; the only idiomatic <code>==</code> is <code>x == null</code> (catches null and undefined together).</li>
+  <li><strong>3. null vs undefined?</strong> <code>undefined</code> = "no value was ever set" (missing property, no return, unassigned var). <code>null</code> = "deliberately empty", set by a programmer. <code>null == undefined</code> is true; <code>===</code> is false; <code>typeof null</code> is "object" (historic bug).</li>
+  <li><strong>4. What is a closure?</strong> A function bundled with its lexical scope — it keeps access to its birth-scope variables even after the outer function returned. Powers private state, callbacks, debounce, module patterns.</li>
+  <li><strong>5. How is <code>this</code> decided?</strong> By the <em>call site</em>, in priority order: <code>new</code> → the fresh object; explicit <code>call/apply/bind</code>; method call <code>obj.f()</code> → obj; plain call → undefined (strict) / global. Arrows skip all four and inherit <code>this</code> lexically.</li>
+  <li><strong>6. Prototypal inheritance?</strong> Objects link to a prototype object; failed property lookups walk up the chain. <code>class</code> syntax is sugar over this — methods live once on the prototype, not copied per instance (vs Java's class-based model fixed at compile time).</li>
+  <li><strong>7. Event delegation?</strong> One listener on an ancestor handles bubbled events from all descendants via <code>e.target</code>. Less memory; automatically covers future elements — essential for dynamic lists.</li>
+  <li><strong>8. Promises vs callbacks?</strong> Promises are first-class result objects: chainable, single settlement guaranteed, errors propagate to one <code>.catch</code>, combinators like <code>all</code>. Callbacks nest (pyramid of doom), repeat error checks, and trust the callee to call once.</li>
+  <li><strong>9. What does async/await do?</strong> <code>async</code> makes a function return a promise; <code>await</code> suspends the function (not the thread) until a promise settles, returning the value or throwing the rejection. Sugar over <code>.then</code>, resuming via the microtask queue.</li>
+  <li><strong>10. Hoisting?</strong> Declarations are processed before code runs. Function declarations hoist fully (callable early); <code>var</code> hoists initialised to undefined; <code>let/const</code> hoist but are unusable until their line (TDZ → ReferenceError).</li>
+  <li><strong>11. Temporal dead zone?</strong> The region from scope start to a <code>let/const</code> declaration where the variable exists but any access throws ReferenceError. Purpose: turn use-before-declare bugs into loud errors instead of silent undefined.</li>
+  <li><strong>12. Arrow vs regular functions?</strong> Arrows: no own <code>this</code>/<code>arguments</code>, can't be <code>new</code>-ed, no prototype — they inherit <code>this</code> lexically. Perfect for callbacks; wrong for object methods and anything needing its own <code>this</code>.</li>
+  <li><strong>13. map vs forEach?</strong> <code>map</code> returns a new transformed array (chainable, pure-style); <code>forEach</code> returns undefined and exists for side effects. Using map and discarding the result — or forEach to build an array — signals confusion.</li>
+  <li><strong>14. Deep vs shallow copy?</strong> Shallow (<code>{...obj}</code>, <code>slice</code>) copies one level; nested objects stay shared. Deep copies everything: <code>structuredClone</code>, or recursive clone; the JSON trick loses Dates, undefined, functions, Maps.</li>
+  <li><strong>15. Debounce vs throttle?</strong> Debounce: run after N ms of silence (search input). Throttle: at most once per N ms during activity (scroll). Both close over timer state.</li>
+  <li><strong>16. ESM vs CommonJS?</strong> ESM: <code>import/export</code>, static → tree-shaking, live bindings, async + top-level await, browser-native. CJS: <code>require/module.exports</code>, dynamic, synchronous, snapshot exports, Node-only.</li>
+  <li><strong>17. Explain the event loop.</strong> One call stack; host handles slow work; callbacks queue up; when the stack empties the loop drains <em>all</em> microtasks then runs <em>one</em> macrotask, repeat. Hence sync → <code>.then</code> → <code>setTimeout</code> ordering.</li>
+  <li><strong>18. What are microtasks?</strong> The high-priority queue: promise reactions, <code>await</code> continuations, <code>queueMicrotask</code>. Drained completely after the current script and after each macrotask — before rendering or the next timer.</li>
+  <li><strong>19. What is NaN?</strong> "Not-a-Number" — an IEEE-754 <em>number</em> value produced by invalid math (<code>0/0</code>, <code>Number("abc")</code>). Unique in not equalling itself; test with <code>Number.isNaN(x)</code> (the global <code>isNaN</code> coerces first — avoid).</li>
+  <li><strong>20. What does strict mode change?</strong> Undeclared assignment throws (no accidental globals), silent failures become errors, plain-call <code>this</code> is undefined, duplicate params banned. Modules and classes are strict automatically.</li>
+</ul>
+
+<h2>10 · The one-page cheat sheet</h2>
+<table>
+  <thead><tr><th>Topic</th><th>The sentence to remember</th></tr></thead>
+  <tbody>
+    <tr><td>Types</td><td>7 primitives copied by value; objects/arrays/functions are references. <code>typeof null === "object"</code>.</td></tr>
+    <tr><td>Equality</td><td>Use <code>===</code>. <code>NaN !== NaN</code>. <code>null == undefined</code> only each other.</td></tr>
+    <tr><td>Scope</td><td><code>var</code> function-scoped + hoisted-undefined; <code>let/const</code> block-scoped + TDZ.</td></tr>
+    <tr><td>Closures</td><td>Functions carry their birth scope. Loop bug: <code>var</code> shares one binding, <code>let</code> makes one per iteration.</td></tr>
+    <tr><td><code>this</code></td><td>Decided at call site: new &gt; bind/call/apply &gt; obj.method() &gt; plain (undefined/global). Arrows inherit.</td></tr>
+    <tr><td>Prototype</td><td>Property lookup walks the prototype chain; <code>class</code> is sugar; methods live on the prototype once.</td></tr>
+    <tr><td>Arrays</td><td><code>map/filter/reduce</code> return new; <code>push/splice/sort</code> mutate. Spread = shallow copy.</td></tr>
+    <tr><td>Event loop</td><td>Sync → drain ALL microtasks (.then/await) → ONE macrotask (timers/events) → repeat.</td></tr>
+    <tr><td>Promises</td><td>Pending → fulfilled/rejected, once. <code>.then</code> returns a new promise; return a promise to chain-wait; one <code>.catch</code> catches upstream.</td></tr>
+    <tr><td>Combinators</td><td><code>all</code>=fail-fast, <code>allSettled</code>=never rejects, <code>race</code>=first settled, <code>any</code>=first success.</td></tr>
+    <tr><td>async/await</td><td>async ⇒ returns promise; await ⇒ suspend function, value-or-throw. Parallel = start first, then <code>await Promise.all</code>.</td></tr>
+    <tr><td>fetch</td><td>Rejects only on network failure — check <code>res.ok</code>; <code>.json()</code> is a second await; abort via AbortController.</td></tr>
+    <tr><td>Modules</td><td>Named = braces &amp; matching names; default = no braces, your name. ESM static → tree-shaking.</td></tr>
+    <tr><td>npm</td><td><code>^</code> minor+patch, <code>~</code> patch; lockfile pins exact tree — commit it; node_modules is disposable.</td></tr>
+    <tr><td>DOM</td><td>User text → <code>textContent</code> (XSS!). Delegate list events to the parent. <code>preventDefault()</code> on form submit.</td></tr>
+    <tr><td>Storage</td><td>localStorage stores strings — JSON.stringify in, JSON.parse out; <code>?? "[]"</code> fallback.</td></tr>
+    <tr><td>Memory</td><td>GC = reachability. Leaks: forgotten intervals, detached DOM refs, fat closures, unbounded caches, stale listeners.</td></tr>
+    <tr><td>Patterns</td><td>Debounce = after silence; throttle = rate cap; memoize = Map cache; curry = collect args until fn.length.</td></tr>
+  </tbody>
+</table>
+
+<h2>11 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">What does this print?<br><code>for (var i = 0; i &lt; 3; i++) { setTimeout(() =&gt; console.log(i), 0); }</code></div>
+  <button class="opt">0, 1, 2</button>
+  <button class="opt">3, 3, 3</button>
+  <button class="opt">undefined, undefined, undefined</button>
+  <div class="fb" data-correct="var creates ONE function-scoped binding shared by all three closures; the callbacks run after the loop ends, when i is 3. Swap in let (fresh binding per iteration) to get 0, 1, 2." data-wrong="All three arrow functions close over the SAME var i, and they run (as macrotasks) only after the loop finished with i === 3. let would give 0, 1, 2 — one binding per iteration."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Predict the order:<br><code>console.log("a"); setTimeout(() =&gt; console.log("b"), 0); (async () =&gt; { console.log("c"); await null; console.log("d"); })(); console.log("e");</code></div>
+  <button class="opt">a, c, e, b, d</button>
+  <button class="opt">a, e, c, d, b</button>
+  <button class="opt">a, c, e, d, b</button>
+  <div class="fb" data-correct="Sync: a, then the async IIFE runs synchronously up to await (c), then e. Microtask: the continuation d. Macrotask last: b." data-wrong="An async function's body runs SYNCHRONOUSLY until the first await — so c prints between a and e. Then microtask d, then the timer b: a, c, e, d, b."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does <code>JSON.parse(JSON.stringify(obj))</code> fail as a deep-clone for <code>{ when: new Date(), fn: () =&gt; 1, x: undefined }</code>?</div>
+  <button class="opt">The Date becomes a plain string, and both fn and x are silently dropped</button>
+  <button class="opt">It throws a TypeError on any non-primitive property</button>
+  <button class="opt">It works fine — JSON preserves all JS types</button>
+  <div class="fb" data-correct="JSON only knows strings/numbers/booleans/null/arrays/objects. Dates serialise to ISO strings (type lost), functions and undefined vanish entirely. Use structuredClone or a recursive deepClone." data-wrong="It doesn't throw here — it degrades silently: the Date turns into a string, and function/undefined properties disappear. That silent data loss is exactly why the JSON trick is unsafe."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A component adds <code>window.addEventListener("resize", handler)</code> where handler closes over a large array, and is later destroyed without cleanup. What happens?</div>
+  <button class="opt">Nothing — GC detects the component is gone and collects everything</button>
+  <button class="opt">A memory leak — window (a root) references the handler, which keeps the array reachable forever</button>
+  <button class="opt">A runtime error the next time resize fires</button>
+  <div class="fb" data-correct="Reachability is the only rule: window → listener → closure → array is an unbroken chain from a root, so the GC must keep it all. Cleanup means removeEventListener with the same function reference." data-wrong="GC only frees UNREACHABLE objects. The long-lived window still references your handler, whose closure holds the array — reachable, therefore immortal. This is the classic listener leak; removeEventListener is the fix."></div>
+</div>
+
+<h2>12 · Do this next</h2>
+<ul>
+  <li>Blank-file challenge: implement <code>debounce</code>, <code>memoize</code>, <code>curry</code>, <code>deepClone</code> and <code>promiseAll</code> from memory, with a couple of console assertions each (e.g. <code>console.assert(flat([1,[2,[3]]]).length === 3)</code>). Anything you couldn't write cold, re-derive tomorrow — spaced repetition is the whole trick.</li>
+  <li>Wire debounce into Lesson 9's todo app: a "search todos" input that filters the rendered list, debounced at 300 ms. You'll feel the difference by logging inside the raw vs debounced handler.</li>
+  <li>Self-mock: read the 20 rapid-fire questions aloud and answer without looking, out loud, in full sentences (speaking ≠ recognising). Mark the shaky ones and re-open the relevant lesson. Then take the six output drills as a timed 10-minute test.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want more output questions to grind, a mock rapid-fire round in chat, or a walkthrough of any polyfill
+  line by line? Ask away — this lesson is meant to be revisited before every interview, so bookmark the
+  cheat sheet. When the drills feel boringly easy, say <strong>"next"</strong> — Module A is done, and
+  <strong>Module B begins</strong> with Lesson 11: React — Components, JSX, Props &amp; State, where
+  everything you hand-built (render functions, delegation, state-then-redraw) becomes a framework.
+</div>
+
+<div class="nav">
+  <span><a href="0009-dom-events-browser-apis.html">← DOM &amp; Events</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0011-react-components-props-state.html">React: Components &amp; State →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

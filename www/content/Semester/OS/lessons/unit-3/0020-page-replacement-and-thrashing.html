@@ -1,0 +1,242 @@
+<title>Page Replacement, Frame Allocation and Thrashing</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit III &middot; Lesson 20 of 22</p>
+<h1>Page Replacement, Frame Allocation and Thrashing</h1>
+<p class="deck">FIFO, Optimal, LRU page replacement algorithms with full worked traces, Belady&rsquo;s anomaly, frame allocation policies, the working-set model, and thrashing.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Page replacement is a guaranteed 10&ndash;15 mark numerical.</strong> You will be given a reference string and frame count. Trace FIFO, Optimal and LRU, count page faults. Know <strong>Belady&rsquo;s anomaly</strong> (FIFO can have MORE faults with MORE frames).</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Page Replacement Algorithms & Thrashing Curve</div>
+  <div class="flow-row">
+    <div class="flow-box warn"><strong>FIFO (Belady's Anomaly)</strong><span class="sub">Oldest page replaced &bull; Increasing frames can paradoxically increase page faults!</span></div>
+    <div class="flow-box highlight"><strong>LRU (Least Recently Used)</strong><span class="sub">Replaces page unreferenced for longest time &bull; Stack property prevents Belady's anomaly</span></div>
+    <div class="flow-box ok"><strong>Optimal (OPT / MIN)</strong><span class="sub">Replace page not needed for longest future time &bull; Benchmark (unrealizable)</span></div>
+  </div>
+  <div class="flow-col" style="margin-top:0.6rem;">
+    <div class="flow-box" style="max-width:34rem;"><strong>Thrashing Collapse:</strong> When total working set size &sum; WSS<sub>i</sub> &gt; Total RAM frames &bull; CPU utilization collapses to near zero as CPU spends 100% of time paging!</div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 21 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Page Replacement & Thrashing</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Page Replacement Algorithms (FIFO, Optimal, LRU) & Thrashing</div>
+    <div class="v-desc">Solves classic exam reference strings, proves Belady's anomaly on FIFO with 3 vs 4 frames, and explains working-set model against thrashing.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=16kaPQtYo28" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>When is page replacement needed?</h2>
+<p>When a page fault occurs and <strong>no free frame</strong> is available, the OS must choose a <strong>victim page</strong> to evict. If the victim is dirty (modified), it must be written to disk first.</p>
+
+<h2>FIFO (First-In, First-Out)</h2>
+
+<p>Replace the <strong>oldest page</strong> in memory.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; FIFO with 3 frames</span>
+  <p>Reference string: 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Ref</th><th>7</th><th>0</th><th>1</th><th>2</th><th>0</th><th>3</th><th>0</th><th>4</th><th>2</th><th>3</th><th>0</th><th>3</th><th>2</th><th>1</th><th>2</th><th>0</th><th>1</th><th>7</th><th>0</th><th>1</th></tr></thead>
+  <tbody>
+  <tr><td>F1</td><td>7</td><td>7</td><td>7</td><td>2</td><td>2</td><td>2</td><td>2</td><td>4</td><td>4</td><td>4</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>7</td><td>7</td><td>7</td></tr>
+  <tr><td>F2</td><td></td><td>0</td><td>0</td><td>0</td><td>0</td><td>3</td><td>3</td><td>3</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td></tr>
+  <tr><td>F3</td><td></td><td></td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>3</td><td>3</td><td>3</td><td>3</td><td>3</td><td>2</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td></tr>
+  <tr><td>Fault?</td><td>F</td><td>F</td><td>F</td><td>F</td><td></td><td>F</td><td>F</td><td>F</td><td>F</td><td>F</td><td>F</td><td></td><td></td><td>F</td><td>F</td><td>F</td><td></td><td>F</td><td>F</td><td>F</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Total page faults: 15</strong></p>
+</div>
+
+<h2>Optimal (OPT / MIN)</h2>
+
+<p>Replace the page that will <strong>not be used for the longest time</strong> in the future. Gives the minimum possible faults. <strong>Not implementable</strong> (requires future knowledge) but used as a benchmark.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; Optimal with 3 frames</span>
+  <p>Same reference string: 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Ref</th><th>7</th><th>0</th><th>1</th><th>2</th><th>0</th><th>3</th><th>0</th><th>4</th><th>2</th><th>3</th><th>0</th><th>3</th><th>2</th><th>1</th><th>2</th><th>0</th><th>1</th><th>7</th><th>0</th><th>1</th></tr></thead>
+  <tbody>
+  <tr><td>F1</td><td>7</td><td>7</td><td>7</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>7</td><td>7</td><td>7</td></tr>
+  <tr><td>F2</td><td></td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+  <tr><td>F3</td><td></td><td></td><td>1</td><td>1</td><td>1</td><td>3</td><td>3</td><td>4</td><td>4</td><td>3</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+  <tr><td>Fault?</td><td>F</td><td>F</td><td>F</td><td>F</td><td></td><td>F</td><td></td><td>F</td><td></td><td>F</td><td>F</td><td></td><td></td><td>F</td><td></td><td></td><td></td><td>F</td><td></td><td></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Total page faults: 9</strong> (minimum possible)</p>
+</div>
+
+<h2>LRU (Least Recently Used)</h2>
+
+<p>Replace the page that has <strong>not been used for the longest time</strong> (looking backward). Approximates OPT using past history.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; LRU with 3 frames</span>
+  <p>Same reference string: 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Ref</th><th>7</th><th>0</th><th>1</th><th>2</th><th>0</th><th>3</th><th>0</th><th>4</th><th>2</th><th>3</th><th>0</th><th>3</th><th>2</th><th>1</th><th>2</th><th>0</th><th>1</th><th>7</th><th>0</th><th>1</th></tr></thead>
+  <tbody>
+  <tr><td>F1</td><td>7</td><td>7</td><td>7</td><td>2</td><td>2</td><td>2</td><td>2</td><td>4</td><td>4</td><td>4</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+  <tr><td>F2</td><td></td><td>0</td><td>0</td><td>0</td><td>0</td><td>3</td><td>3</td><td>3</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+  <tr><td>F3</td><td></td><td></td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>3</td><td>3</td><td>3</td><td>3</td><td>3</td><td>3</td><td>3</td><td>3</td><td>7</td><td>7</td><td>7</td></tr>
+  <tr><td>Fault?</td><td>F</td><td>F</td><td>F</td><td>F</td><td></td><td>F</td><td>F</td><td>F</td><td>F</td><td>F</td><td>F</td><td></td><td></td><td>F</td><td></td><td>F</td><td></td><td>F</td><td></td><td></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Total page faults: 12</strong></p>
+</div>
+
+<h2>Comparison</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Faults (above example)</th><th>Implementable?</th><th>Belady&rsquo;s anomaly?</th></tr></thead>
+<tbody>
+<tr><td><strong>FIFO</strong></td><td>15</td><td>Yes (queue)</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Optimal</strong></td><td>9</td><td>No (needs future)</td><td>No</td></tr>
+<tr><td><strong>LRU</strong></td><td>12</td><td>Yes (counter/stack)</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Belady&rsquo;s anomaly</span>
+  <p>With FIFO, increasing the number of frames can <strong>increase</strong> page faults. Example: reference string 1,2,3,4,1,2,5,1,2,3,4,5 with 3 frames gives 9 faults; with 4 frames gives <strong>10 faults</strong>. LRU and OPT are <strong>stack algorithms</strong> and never exhibit this anomaly.</p>
+</div>
+
+<h2>Frame allocation</h2>
+
+<ul>
+<li><strong>Equal allocation:</strong> divide frames equally among processes.</li>
+<li><strong>Proportional allocation:</strong> allocate frames proportional to process size.</li>
+<li><strong>Global replacement:</strong> a process can take a frame from any other process.</li>
+<li><strong>Local replacement:</strong> a process can only replace its own frames.</li>
+</ul>
+
+<h2>Thrashing</h2>
+
+<p><strong>Thrashing:</strong> a process spends more time paging (swapping in/out) than executing. CPU utilisation drops sharply.</p>
+
+<div class="formula">
+  <span class="name">Cause and solution</span>
+  <strong>Cause:</strong> too many processes, each with too few frames to hold its working set.<br>
+  <strong>Working set:</strong> the set of pages a process actively uses in a time window &Delta;.<br>
+  <strong>Solution:</strong> if total working set demand &gt; available frames, suspend a process (reduce multiprogramming degree).
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. FIFO replaces the page that:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Has been in memory the longest (oldest)</button>
+    <button class="opt">Was used least recently</button>
+    <button class="opt">Has the smallest page number</button>
+    <button class="opt">Will not be used for the longest time</button>
+  </div>
+  <p class="why">FIFO = queue order. The first page loaded is the first evicted, regardless of whether it is still being used.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Belady&rsquo;s anomaly can occur with:</p>
+  <div class="opts">
+    <button class="opt">All page replacement algorithms</button>
+    <button class="opt" data-ok="1">FIFO only &mdash; more frames can mean more faults</button>
+    <button class="opt">LRU and FIFO</button>
+    <button class="opt">Optimal only</button>
+  </div>
+  <p class="why">Only FIFO. LRU and OPT are stack algorithms — more frames always means &le; faults.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. LRU replaces the page that:</p>
+  <div class="opts">
+    <button class="opt">Will not be used for the longest time (looking forward)</button>
+    <button class="opt">Has been in memory the longest</button>
+    <button class="opt">Has the most page faults</button>
+    <button class="opt" data-ok="1">Has not been used for the longest time (looking backward)</button>
+  </div>
+  <p class="why">LRU looks at the past (last use time). OPT looks at the future. They are mirror images.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Thrashing is caused by:</p>
+  <div class="opts">
+    <button class="opt">Too much free memory</button>
+    <button class="opt" data-ok="1">Too many processes competing for too few frames</button>
+    <button class="opt">Using LRU instead of FIFO</button>
+    <button class="opt">Having too few processes</button>
+  </div>
+  <p class="why">Each process gets fewer frames than its working set needs, causing constant page faults. CPU utilisation drops.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The working set model solves thrashing by:</p>
+  <div class="opts">
+    <button class="opt">Disabling virtual memory</button>
+    <button class="opt" data-ok="1">Ensuring each process has enough frames for its working set; suspending processes if demand exceeds supply</button>
+    <button class="opt">Increasing page size</button>
+    <button class="opt">Using FIFO instead of LRU</button>
+  </div>
+  <p class="why">If &Sigma;working_set_sizes > total frames, the OS suspends a process to free frames for the others.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Optimal page replacement gives:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The minimum possible page faults &mdash; but is not implementable</button>
+    <button class="opt">The same results as FIFO</button>
+    <button class="opt">The maximum page faults for benchmarking</button>
+    <button class="opt">Zero page faults always</button>
+  </div>
+  <p class="why">OPT replaces the page used farthest in the future. Impossible to implement (requires oracle), but used to measure other algorithms.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>FIFO vs LRU vs Optimal — one sentence each.</summary>
+    <p class="ans">FIFO: evict oldest page (queue). LRU: evict least recently used (past). OPT: evict farthest future use (benchmark, not implementable). LRU and OPT are stack algorithms (no Belady's anomaly).</p></details>
+  <details class="card"><summary>What is Belady&rsquo;s anomaly?</summary>
+    <p class="ans">With FIFO, more frames can cause MORE page faults. Does not happen with LRU or OPT (stack algorithms).</p></details>
+  <details class="card"><summary>What is thrashing and how is it solved?</summary>
+    <p class="ans">Thrashing = process spends more time paging than executing (too few frames). Solution: working set model — ensure each process has enough frames, suspend one if demand > supply.</p></details>
+  <details class="card"><summary>Global vs local replacement.</summary>
+    <p class="ans">Global: process can take frames from others (higher throughput, risk thrashing). Local: process replaces only its own frames (isolated, predictable).</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">That completes Unit III</span>
+  <p>Six lessons covering deadlocks and memory management. Print the <a href="../../reference/unit3-cheat-sheet.html">Unit III cheat sheet</a>.</p>
+</div>
+
+<div class="nav">
+  <a href="0019-virtual-memory-and-demand-paging.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-4/0021-file-system-interface.html">Next: File Systems &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

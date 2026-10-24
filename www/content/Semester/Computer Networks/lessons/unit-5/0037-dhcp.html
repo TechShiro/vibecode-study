@@ -1,0 +1,279 @@
+<title>DHCP</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 37 of 42</p>
+<h1>DHCP &mdash; Dynamic Host Configuration Protocol</h1>
+<p class="deck">The DORA sequence, the four items a host receives, leases and renewal, and the relay agent that lets one server cover many networks. A short lesson with one diagram that must be drawn correctly.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>A 5-mark question, and the marks are concentrated in one place: <strong>the DORA sequence, drawn as a four-arrow timeline with the message names labelled</strong>. Learn the acronym, learn which two messages are broadcast and why, and add the <strong>relay agent</strong> in one line &mdash; that last point is what separates a 5 from a 3.</p>
+</div>
+
+<h2>The problem DHCP solves</h2>
+
+<p>Every host needs an IP address before it can communicate. Assigning them by hand does not scale, and it fails completely for laptops and phones that move between networks. <strong>DHCP assigns addresses automatically and temporarily.</strong></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>The four items a host receives</th><th>Why it needs it</th></tr></thead>
+<tbody>
+<tr><td><strong>IP address</strong></td><td>Its own identity on the network</td></tr>
+<tr><td><strong>Subnet mask</strong></td><td>To tell which destinations are local and which need a router</td></tr>
+<tr><td><strong>Default gateway</strong> (router address)</td><td>Where to send anything not on the local network</td></tr>
+<tr><td><strong>DNS server address</strong></td><td>To resolve names into addresses</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Naming all four is worth a mark on its own. A common weak answer says only "an IP address" &mdash; DHCP supplies a complete configuration, which is exactly what makes it more useful than its predecessors.</p>
+
+<h3>DHCP's ancestors</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Protocol</th><th>Provides</th><th>Limitation</th></tr></thead>
+<tbody>
+<tr><td><strong>RARP</strong></td><td>An IP address, from a MAC address</td><td><strong>Broadcast at the data link layer, so it cannot cross a router</strong> &mdash; every network segment needs its own server. Supplies nothing but the address.</td></tr>
+<tr><td><strong>BOOTP</strong></td><td>A full configuration, over UDP, so it <strong>can</strong> be relayed across routers</td><td><strong>Static</strong> &mdash; the administrator must pre-configure a table binding each MAC address to an IP address. No good for a visitor's laptop.</td></tr>
+<tr><td><strong>DHCP</strong></td><td>The same as BOOTP, plus <strong>dynamic allocation from a pool</strong></td><td>&mdash; It is backward compatible with BOOTP.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-line progression</span>
+  <p><strong>RARP gives an address but cannot cross a router. BOOTP crosses routers but needs every client pre-registered. DHCP does both and allocates dynamically.</strong> That sentence answers "how does DHCP differ from BOOTP and RARP?" completely.</p>
+</div>
+
+<h2>The three allocation methods</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>How it works</th><th>Used for</th></tr></thead>
+<tbody>
+<tr><td><strong>Static (manual) allocation</strong></td><td>The administrator binds a specific IP address to a specific MAC address. The client always gets the same address.</td><td>Servers, printers &mdash; anything that must be findable at a fixed address</td></tr>
+<tr><td><strong>Automatic allocation</strong></td><td>The server assigns a <strong>permanent</strong> address from the pool the first time the client appears, and keeps it for that client.</td><td>Stable, long-lived clients</td></tr>
+<tr><td><strong>Dynamic allocation</strong></td><td>The server <strong>leases</strong> an address from the pool for a limited time; it returns to the pool when the lease ends.</td><td><strong>The normal case</strong> &mdash; laptops, phones, guests</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>DORA &mdash; the four-message exchange</h2>
+
+<div class="formula">
+  <span class="name">DORA</span>
+  <strong>D</strong>iscover &rarr; <strong>O</strong>ffer &rarr; <strong>R</strong>equest &rarr; <strong>A</strong>cknowledge
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Message</th><th>From &rarr; To</th><th>Cast</th><th>What happens</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><strong>DHCPDISCOVER</strong></td><td>Client &rarr; Server</td><td><strong>Broadcast</strong></td><td>The client has no address, so it uses source <code>0.0.0.0</code> and destination <code>255.255.255.255</code>. It does not know where any server is, so it must broadcast.</td></tr>
+<tr><td class="num">2</td><td><strong>DHCPOFFER</strong></td><td>Server &rarr; Client</td><td><strong>Broadcast</strong></td><td>The server offers an address plus the mask, gateway and DNS server, and a lease time. It must broadcast because <strong>the client still has no address to be unicast to</strong>.</td></tr>
+<tr><td class="num">3</td><td><strong>DHCPREQUEST</strong></td><td>Client &rarr; Server</td><td><strong>Broadcast</strong></td><td>The client formally requests the offered address. It broadcasts so that <strong>any other servers that made offers learn they were not chosen</strong> and can return their offered addresses to their pools.</td></tr>
+<tr><td class="num">4</td><td><strong>DHCPACK</strong></td><td>Server &rarr; Client</td><td>Broadcast or unicast</td><td>The server confirms the lease. The client may now use the address.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">Two "why" questions attached to DORA</span>
+  <p><strong>Why is DISCOVER broadcast?</strong> The client has no address and does not know where any DHCP server is. It can only shout.<br>
+  <strong>Why is REQUEST broadcast rather than unicast to the chosen server?</strong> Because several servers may have offered. Broadcasting the request tells the unchosen servers to <strong>release the addresses they had reserved</strong>. Without this, offered-but-unused addresses would leak out of the pool.</p>
+</div>
+
+<h3>The other DHCP messages</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Message</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>DHCPNAK</strong></td><td>The server <strong>refuses</strong> the request &mdash; for example the address is no longer available, or the client has moved to a different network.</td></tr>
+<tr><td><strong>DHCPDECLINE</strong></td><td>The <strong>client</strong> rejects the offered address, typically because an ARP probe showed it is already in use.</td></tr>
+<tr><td><strong>DHCPRELEASE</strong></td><td>The client <strong>gives the address back</strong> before the lease expires &mdash; sent on a clean shutdown.</td></tr>
+<tr><td><strong>DHCPINFORM</strong></td><td>The client already has an address but wants the <strong>other configuration parameters</strong>.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Leases and renewal</h2>
+
+<p>Addresses are <strong>leased, not given</strong>. The lease is what makes reuse possible: a laptop that leaves the network stops renewing, and its address returns to the pool automatically.</p>
+
+<div class="formula">
+  <span class="name">The two renewal timers</span>
+  <strong>T1 = 50% of the lease time</strong> &mdash; the client tries to <strong>renew</strong> with the original server (unicast).<br>
+  <strong>T2 = 87.5% of the lease time</strong> &mdash; if renewal failed, the client tries to <strong>rebind</strong> with <em>any</em> DHCP server (broadcast).<br>
+  <strong>100%</strong> &mdash; if both failed, the client must <strong>stop using the address</strong> and start again from DHCPDISCOVER.
+</div>
+
+<p>The two-stage design is deliberate: at T1 the original server is preferred so the client keeps the same address, and only if that server is unreachable does the client widen its search.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; lease timers</span>
+  <p><strong>Q.</strong> A client receives a lease of 8 hours at 09:00. At what times will it attempt renewal, rebinding, and give up the address?</p>
+
+  <p><strong>T1</strong> = 50% of 8 hours = 4 hours &rarr; <strong>13:00</strong>, unicast renewal to the original server.</p>
+  <p><strong>T2</strong> = 87.5% of 8 hours = 7 hours &rarr; <strong>16:00</strong>, broadcast rebinding to any server.</p>
+  <p><strong>Expiry</strong> = 8 hours &rarr; <strong>17:00</strong>, the address must be abandoned and DORA restarted.</p>
+
+  <p><em>Sanity check:</em> T1 &lt; T2 &lt; expiry always, and 87.5% is 7/8 &mdash; the fraction is chosen so the client gets a second chance while still leaving an eighth of the lease as margin.</p>
+</div>
+
+<h2>The DHCP relay agent</h2>
+
+<p><strong>The problem:</strong> DHCPDISCOVER is a broadcast, and <strong>routers do not forward broadcasts</strong>. So a naive design needs a DHCP server on every single network segment.</p>
+
+<p><strong>The solution:</strong> a <strong>relay agent</strong> &mdash; usually the router itself &mdash; is configured with the DHCP server's address. It <strong>receives the broadcast, converts it to a unicast addressed to the server, and forwards it</strong>. Replies come back to the relay agent, which broadcasts them onto the client's network.</p>
+
+<p>This is the reason one central DHCP server can serve an entire campus. Mention it in any DHCP answer; it is a distinct mark and most answers omit it.</p>
+
+<div class="box win">
+  <span class="lbl">Where the ports come from</span>
+  <p><strong>DHCP uses UDP, server port 67 and client port 68.</strong> UDP rather than TCP because the client has <em>no IP address</em>, so no connection could be established, and because the exchange must be broadcast &mdash; which TCP cannot do at all. The two fixed ports exist so that broadcast replies can be distinguished from other broadcast traffic.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">DHCP 4-Phase DORA Lease Allocation Handshake</div>
+  <div class="flow-col">
+    <div class="flow-box" style="max-width:34rem;">
+      <strong>1. Discover (Client &rarr; Broadcast: 255.255.255.255:67)</strong>
+      <span class="sub">New host with 0.0.0.0 IP broadcasts to discover available DHCP servers on the subnet</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box highlight" style="max-width:34rem;">
+      <strong>2. Offer (DHCP Server &rarr; Client: 255.255.255.255:68)</strong>
+      <span class="sub">Server offers proposed IP (e.g., 192.168.1.50), subnet mask, default gateway, and lease duration</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box" style="max-width:34rem;">
+      <strong>3. Request (Client &rarr; Broadcast: 255.255.255.255:67)</strong>
+      <span class="sub">Client accepts proposed IP and broadcasts to inform all DHCP servers of selected lease</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box ok" style="max-width:34rem;">
+      <strong>4. Acknowledge (DHCP Server &rarr; Client)</strong>
+      <span class="sub">Server confirms lease; client configures IP stack & starts lease renewal timer at T1 (50%)</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 12 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">DHCP Protocol</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">DHCP &mdash; Dynamic Host Configuration Protocol Working Explained</div>
+    <div class="v-desc">Crisp explanation of the DORA 4-way broadcast mechanism, client ports (68) and server ports (67), and lease renewal timers.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=FWRBMeofRsM" target="_blank" rel="noopener">Watch on YouTube &rarr; (5 Minutes Engineering)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The DORA sequence stands for:</p>
+  <div class="opts">
+    <button class="opt">Discover, Obtain, Renew, Acknowledge</button>
+    <button class="opt" data-ok="1">Discover, Offer, Request, Acknowledge</button>
+    <button class="opt">Deliver, Offer, Reply, Accept</button>
+    <button class="opt">Detect, Obtain, Register, Assign</button>
+  </div>
+  <p class="why">Four messages: the client discovers, the server offers, the client requests, the server acknowledges. Drawing this as a labelled four-arrow timeline is most of the marks on a DHCP question.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The DHCPREQUEST message is broadcast rather than unicast because:</p>
+  <div class="opts">
+    <button class="opt">The client still does not know the chosen server's address</button>
+    <button class="opt" data-ok="1">Other servers that made offers must learn they were not chosen</button>
+    <button class="opt">Broadcasting is required by every UDP-based protocol</button>
+    <button class="opt">Unicast messages cannot carry configuration parameters</button>
+  </div>
+  <p class="why">Several servers may have offered addresses and reserved them. The broadcast request tells the unchosen ones to release what they held — otherwise offered-but-unused addresses would leak out of the pool.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A DHCP relay agent exists because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Routers do not forward broadcasts, so DISCOVER would never leave the segment</button>
+    <button class="opt">DHCP servers cannot handle more than one subnet's address pool</button>
+    <button class="opt">Clients cannot send UDP datagrams before they have an address</button>
+    <button class="opt">Lease renewal must be handled by a device on the local network</button>
+  </div>
+  <p class="why">DISCOVER is a broadcast and stops at the router. The relay agent — usually the router itself — converts it to a unicast aimed at the configured server and forwards it, which is what lets one server cover a whole campus.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. At T1, which is 50% of the lease, the client:</p>
+  <div class="opts">
+    <button class="opt">Sends DHCPRELEASE to return the address to the pool</button>
+    <button class="opt">Broadcasts a rebinding request to any available server</button>
+    <button class="opt" data-ok="1">Unicasts a renewal request to the original server</button>
+    <button class="opt">Immediately stops using the address and restarts DORA</button>
+  </div>
+  <p class="why">T1 tries the original server by unicast, so the client keeps the same address. Only at T2 — 87.5% — does it widen the search by broadcasting to any server, and only at 100% must it abandon the address.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. DHCP improves on BOOTP mainly by:</p>
+  <div class="opts">
+    <button class="opt">Being able to cross routers, which BOOTP could not do</button>
+    <button class="opt" data-ok="1">Allocating addresses dynamically from a pool, with no pre-registration</button>
+    <button class="opt">Supplying the subnet mask, which BOOTP omitted entirely</button>
+    <button class="opt">Using UDP instead of a data link layer broadcast</button>
+  </div>
+  <p class="why">BOOTP already crossed routers and supplied a full configuration — those are its improvements over RARP. Its limitation was being static: every client had to be pre-registered by MAC address. Dynamic pool allocation is DHCP's addition.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. DHCP uses UDP rather than TCP because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The client has no address yet, and the exchange must be broadcast</button>
+    <button class="opt">TCP cannot use port numbers below 1024 for servers</button>
+    <button class="opt">UDP guarantees delivery of the lease acknowledgement</button>
+    <button class="opt">The configuration data is too large for a TCP segment</button>
+  </div>
+  <p class="why">No address means no connection can be established, and TCP cannot broadcast at all. UDP guarantees nothing — the client simply retries if a message is lost.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>What four items does DHCP supply a host?</summary>
+    <p class="ans">IP address, subnet mask, default gateway (router address), and DNS server address — a complete configuration, not just an address.</p></details>
+  <details class="card"><summary>Compare RARP, BOOTP and DHCP.</summary>
+    <p class="ans">RARP gives only an address and broadcasts at the data link layer, so it cannot cross a router — every segment needs a server. BOOTP gives a full configuration over UDP and can be relayed across routers, but is static: every client must be pre-registered by MAC address. DHCP does everything BOOTP does and adds dynamic allocation from a pool.</p></details>
+  <details class="card"><summary>Name the three allocation methods.</summary>
+    <p class="ans">Static (manual) — a specific address bound to a specific MAC, for servers and printers. Automatic — a permanent address assigned from the pool on first appearance. Dynamic — a leased address returned to the pool when the lease ends; the normal case.</p></details>
+  <details class="card"><summary>Describe the DORA sequence, saying which messages are broadcast and why.</summary>
+    <p class="ans">DHCPDISCOVER — broadcast, because the client has no address (source 0.0.0.0) and does not know where a server is. DHCPOFFER — broadcast, because the client still has no address to unicast to. DHCPREQUEST — broadcast, so unchosen servers release the addresses they reserved. DHCPACK — confirms the lease.</p></details>
+  <details class="card"><summary>Name four DHCP messages besides the DORA four.</summary>
+    <p class="ans">DHCPNAK (server refuses the request), DHCPDECLINE (client rejects the address, usually because an ARP probe found it in use), DHCPRELEASE (client returns the address early), DHCPINFORM (client has an address but wants the other parameters).</p></details>
+  <details class="card"><summary>State the two lease timers and what happens at each.</summary>
+    <p class="ans">T1 at 50% of the lease — unicast renewal to the original server, so the client keeps the same address. T2 at 87.5% — broadcast rebinding to any server. At 100% the client must stop using the address and restart from DHCPDISCOVER.</p></details>
+  <details class="card"><summary>What is a relay agent and why is one needed?</summary>
+    <p class="ans">DHCPDISCOVER is a broadcast and routers do not forward broadcasts, so without help every segment would need its own server. A relay agent — usually the router — is configured with the server's address, converts the broadcast to a unicast, forwards it, and broadcasts the reply back onto the client's network.</p></details>
+</div>
+
+<p class="ask">Next: FTP, TELNET and SSH &mdash; the file-transfer and remote-login half of the application layer.</p>
+
+<div class="nav">
+  <a href="0036-dns.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0038-ftp-telnet-and-ssh.html">Next: FTP, TELNET and SSH &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

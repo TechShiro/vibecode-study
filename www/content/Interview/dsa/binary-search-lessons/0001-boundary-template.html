@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binary Search Lesson 01 — The Boundary Template</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Binary Search Track · Lesson 1 of 3 · the first-true boundary template</div>
+<h1>Binary Search as a Boundary Finder</h1>
+<p class="subtitle">Forget "find the target in a sorted array." Binary search finds the boundary where a monotonic yes/no question flips from NO to YES — and once you see it that way, every variant is the same six lines.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> binary search shows up in ~1 of every 5 big-tech OA sets, and the #1 failure mode
+  is off-by-one bugs under time pressure. This is Lesson 1 of the 3-lesson binary search track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Take any yes/no question <code>p(i)</code> over indices <code>0..n-1</code> that is <strong>monotonic</strong>:
+once it becomes true, it stays true. The answers look like <code>F F F F T T T</code> — a wall of falses, then a
+wall of trues. Binary search is the O(log n) way to find the <strong>first T</strong>. That's it. "Find 7 in a
+sorted array" is just the question <code>p(i) = (nums[i] &gt;= 7)</code>: the first T is where 7 lives (or where
+it would be inserted). Every problem in this track — classic search, rotated arrays, "minimum days to make
+bouquets" — is choosing the right predicate and reading off the boundary.
+</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 460 100" role="img" aria-label="An array of predicate values: four F cells then four T cells, with the first T highlighted as the boundary">
+  <rect class="cell" x="10"  y="20" width="50" height="40"/><text class="lbl" x="35"  y="40">F</text>
+  <rect class="cell" x="65"  y="20" width="50" height="40"/><text class="lbl" x="90"  y="40">F</text>
+  <rect class="cell" x="120" y="20" width="50" height="40"/><text class="lbl" x="145" y="40">F</text>
+  <rect class="cell" x="175" y="20" width="50" height="40"/><text class="lbl" x="200" y="40">F</text>
+  <rect class="cell cur" x="230" y="20" width="50" height="40"/><text class="lbl inv" x="255" y="40">T</text>
+  <rect class="cell done" x="285" y="20" width="50" height="40"/><text class="lbl" x="310" y="40">T</text>
+  <rect class="cell done" x="340" y="20" width="50" height="40"/><text class="lbl" x="365" y="40">T</text>
+  <rect class="cell done" x="395" y="20" width="50" height="40"/><text class="lbl" x="420" y="40">T</text>
+  <text class="wt" x="255" y="80">first true = the answer</text>
+</svg>
+<figcaption>A monotonic predicate: all F, then all T. Binary search homes in on the flip point in O(log n).</figcaption>
+</figure>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  A sorted (or otherwise monotonic) structure + any of: "find the target," "find the first/last occurrence,"
+  "where would X be inserted," "first version that is bad," "largest k such that…". If you can phrase the problem
+  as <strong>"the answers to some yes/no question go F…F T…T — find the flip"</strong>, this template fires.
+  O(log n) expected when n ≤ 10⁹-ish or the input is explicitly sorted.
+</div>
+
+<h2>2 · Core template — first true, <code>lo &lt; hi</code></h2>
+<p>
+Search range <code>[lo, hi]</code> where <code>hi = n</code> (one past the end — "n" means "the predicate is never
+true, the answer is off the right edge"). Invariant: <em>the first true is always inside <code>[lo, hi]</code></em>.
+Each step halves the range; when <code>lo == hi</code> the range has one candidate left, and that's the answer.
+</p>
+<pre><code><span class="cmt">// Find the smallest i in [0, n] such that p(i) is true; returns n if p is never true.</span>
+int firstTrue(int n, IntPredicate p) {
+    int lo = 0, hi = n;                  <span class="cmt">// answer lives in [lo, hi]; hi = n means "no true exists"</span>
+    while (lo &lt; hi) {                    <span class="cmt">// stop when exactly one candidate remains</span>
+        int mid = lo + (hi - lo) / 2;    <span class="cmt">// overflow-safe midpoint (see trap below)</span>
+        if (p.test(mid)) hi = mid;       <span class="cmt">// mid is true → first true is mid OR earlier → keep mid</span>
+        else lo = mid + 1;               <span class="cmt">// mid is false → first true is strictly after mid</span>
+    }
+    return lo;                           <span class="cmt">// lo == hi == the boundary</span>
+}
+
+<span class="cmt">// lowerBound: first index with nums[i] &gt;= target — the workhorse instance of firstTrue.</span>
+int lowerBound(int[] nums, int target) {
+    int lo = 0, hi = nums.length;
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (nums[mid] &gt;= target) hi = mid;
+        else lo = mid + 1;
+    }
+    return lo;                           <span class="cmt">// may be nums.length → target &gt; everything</span>
+}</code></pre>
+<p><strong>Time</strong> O(log n) — the range halves every iteration. <strong>Space</strong> O(1).</p>
+
+<div class="callout tip">
+  <span class="label">Why this template kills off-by-one bugs</span>
+  Three mechanical guarantees: <strong>(1)</strong> <code>hi = mid</code> (not <code>mid - 1</code>) and
+  <code>lo = mid + 1</code> — the range strictly shrinks every iteration, so it can't loop forever.
+  <strong>(2)</strong> The loop is <code>lo &lt; hi</code>, so it exits with <code>lo == hi</code> — there is
+  exactly one answer variable, no "is it lo or hi or lo+1?" guessing. <strong>(3)</strong> The invariant "first
+  true ∈ [lo, hi]" is easy to re-derive under pressure: true mid → keep it (<code>hi = mid</code>); false mid →
+  discard it (<code>lo = mid + 1</code>). Compare that to the classic <code>lo &lt;= hi</code> /
+  <code>hi = mid - 1</code> version, where the answer might be in <code>lo</code>, <code>hi</code>, or gone entirely.
+</div>
+
+<div class="callout trap">
+  <span class="label">The overflow guard: <code>mid = lo + (hi - lo) / 2</code></span>
+  <code>(lo + hi) / 2</code> overflows <code>int</code> when <code>lo + hi &gt; 2³¹ − 1</code>. On array indices
+  you'll rarely hit it, but in Lesson 3 you'll binary-search value ranges up to 10⁹ where <code>lo + hi</code>
+  overflows easily — and it's a famous historical bug (it sat in the JDK's own
+  <code>Arrays.binarySearch</code> for nine years). Write <code>lo + (hi - lo) / 2</code> every time, by reflex.
+</div>
+
+<h3>Worked example — dry run</h3>
+<p><code>lowerBound(nums, 7)</code> on <code>nums = [1, 3, 5, 7, 7, 9]</code>. Predicate: <code>nums[i] &gt;= 7</code>, so answers are <code>F F F T T T</code>. Expected boundary: index 3.</p>
+<div class="trace">
+<span class="step">lo=0, hi=6 — first true somewhere in [0, 6]</span>
+<span class="step now">mid=3 → nums[3]=7 ≥ 7 → <span class="ptr">T</span> → hi=3 (keep mid: it might BE the first true)</span>
+<span class="step now">lo=0, hi=3 → mid=1 → nums[1]=3 ≥ 7? <span class="ptr">F</span> → lo=2 (discard mid)</span>
+<span class="step now">lo=2, hi=3 → mid=2 → nums[2]=5 ≥ 7? <span class="ptr">F</span> → lo=3</span>
+<span class="step">lo=3 == hi=3 → return <span class="ptr">3</span> — the FIRST 7, not a random one</span>
+</div>
+
+<h2>3 · All the cases</h2>
+<p>Every case is <code>firstTrue</code> with a different predicate, plus at most two lines of post-processing.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Classic search</td><td>LC 704</td><td>Predicate <code>nums[i] &gt;= target</code>; then verify <code>nums[lo] == target</code>.</td></tr>
+    <tr><td>Search insert position</td><td>LC 35</td><td>Return <code>lowerBound</code> directly — the boundary IS the insertion index.</td></tr>
+    <tr><td>First &amp; last position</td><td>LC 34</td><td>Two boundaries: <code>lowerBound(t)</code> and <code>lowerBound(t+1) − 1</code>.</td></tr>
+    <tr><td>First bad version</td><td>LC 278</td><td>Predicate is an API call, not an array read. Purest firstTrue.</td></tr>
+    <tr><td>Sqrt(x)</td><td>LC 69</td><td>No array at all — search the value range; predicate <code>(long) m*m &gt; x</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Classic Binary Search (LC 704)</h3>
+<p>Find the boundary, then check what's standing there. No special-casing "found vs not found" inside the loop.</p>
+<pre><code>int search(int[] nums, int target) {
+    int lo = lowerBound(nums, target);           <span class="cmt">// first index with nums[i] &gt;= target</span>
+    return (lo &lt; nums.length &amp;&amp; nums[lo] == target) ? lo : -1;
+    <span class="cmt">// lo == nums.length → target beyond everything; nums[lo] &gt; target → target absent</span>
+}</code></pre>
+
+<h3>Case: Search Insert Position (LC 35)</h3>
+<p>The insertion index of <code>target</code> is exactly "first index whose value is ≥ target" — the boundary itself, no post-check needed. One line: <code>return lowerBound(nums, target);</code>. This is why the template returns <code>n</code> when the target is bigger than everything: appending at the end is the correct insert position.</p>
+
+<h3>Case: Find First and Last Position (LC 34)</h3>
+<p>Run the same boundary search twice. First occurrence of <code>t</code> = <code>lowerBound(t)</code>. Last occurrence = one before the first index that is ≥ <code>t+1</code> (i.e., the first element strictly greater than <code>t</code> — an <em>upper bound</em> for free, no second template to memorize).</p>
+<pre><code>int[] searchRange(int[] nums, int target) {
+    int first = lowerBound(nums, target);        <span class="cmt">// first i with nums[i] &gt;= target</span>
+    if (first == nums.length || nums[first] != target)
+        return new int[]{-1, -1};                <span class="cmt">// target not present at all</span>
+    int last = lowerBound(nums, target + 1) - 1; <span class="cmt">// first i with nums[i] &gt; target, minus one</span>
+    return new int[]{first, last};
+}</code></pre>
+
+<h3>Case: First Bad Version (LC 278)</h3>
+<p>Versions <code>1..n</code>; once a version is bad, all later ones are bad — the problem statement literally hands you the monotonic predicate (<code>F F … F T T … T</code>). Note the search space is values <code>1..n</code>, not array indices, so <code>lo</code> starts at 1 and <code>hi</code> at <code>n</code> (a bad version is guaranteed to exist, so no <code>n+1</code> sentinel needed).</p>
+<pre><code>int firstBadVersion(int n) {
+    int lo = 1, hi = n;                  <span class="cmt">// answer guaranteed in [1, n]</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;    <span class="cmt">// lo + hi could be ~2·10⁹ → the guard matters HERE</span>
+        if (isBadVersion(mid)) hi = mid; <span class="cmt">// bad → first bad is mid or earlier</span>
+        else lo = mid + 1;               <span class="cmt">// good → first bad is after mid</span>
+    }
+    return lo;
+}</code></pre>
+
+<h3>Case: Sqrt(x) (LC 69)</h3>
+<p>No array anywhere — you binary-search the <em>number line</em>. Wanted: floor(√x) = the <strong>last</strong> m with <code>m² ≤ x</code>. Last-false and first-true are neighbors, so: find the first m with <code>m² &gt; x</code>, subtract 1. This "last true = firstTrue(opposite) − 1" move is the same trick as LC 34's last position, and it's the bridge to Lesson 3.</p>
+<pre><code>int mySqrt(int x) {
+    int lo = 0, hi = 46341;              <span class="cmt">// 46341² &gt; 2³¹−1, so first-true exists in range</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;
+        if ((long) mid * mid &gt; x) hi = mid; <span class="cmt">// cast BEFORE multiplying — mid*mid overflows int</span>
+        else lo = mid + 1;
+    }
+    return lo - 1;                       <span class="cmt">// first m with m² &gt; x, minus 1 = floor(sqrt(x))</span>
+}</code></pre>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong><code>lo</code> can come back as <code>n</code>.</strong> Always bounds-check before reading <code>nums[lo]</code> — the boundary "off the right edge" is a legal answer meaning "predicate never true."</li>
+  <li><strong>Midpoint overflow.</strong> <code>lo + (hi - lo) / 2</code>, always. And in value-space predicates, cast before multiplying: <code>(long) mid * mid</code>, not <code>(long)(mid * mid)</code> — the second one overflows first, then casts the garbage.</li>
+  <li><strong>Verify the predicate is monotonic before you search.</strong> If the T/F answers can go T then F then T, the template returns nonsense. This one sentence is 80% of "why is my binary search wrong."</li>
+  <li><strong>Initial <code>hi</code>: <code>n</code> vs <code>n − 1</code>.</strong> Use <code>n</code> when "no true exists" is possible (LC 35, 704); use the last real candidate when an answer is guaranteed (LC 278).</li>
+  <li><strong>Empty array</strong>: <code>lo = hi = 0</code>, loop never runs, returns 0. The template handles it — your post-check (<code>lo &lt; nums.length</code>) must too.</li>
+  <li><strong>Never write <code>lo = mid</code> in this template.</strong> With <code>mid</code> rounding down, <code>lo = mid</code> when <code>hi = lo + 1</code> makes no progress → infinite loop. <code>lo = mid + 1</code> / <code>hi = mid</code> is the safe pair.</li>
+  <li><strong>Duplicates are free.</strong> <code>lowerBound</code> lands on the <em>first</em> equal element by construction — no extra handling, unlike the classic template.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the firstTrue template, <code>p(mid)</code> returns true. Why is the next step <code>hi = mid</code> rather than <code>hi = mid - 1</code>?</div>
+  <button class="opt">Because <code>hi = mid - 1</code> would make the loop run one extra iteration and waste time</button>
+  <button class="opt">Because mid itself might be the first true — discarding it can throw away the answer</button>
+  <button class="opt">Because <code>hi</code> must always stay strictly greater than <code>lo</code> inside the loop</button>
+  <div class="fb" data-correct="Exactly. The invariant is 'first true ∈ [lo, hi]'. A true mid is a candidate answer, so it must stay in the range; only false positions are safe to discard (lo = mid + 1)." data-wrong="Think about the invariant: the first true is always inside [lo, hi]. If mid is true, could the first true be mid itself? Then what happens if you shrink to mid - 1?"></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">For LC 34, you found <code>first = lowerBound(nums, target)</code>. How do you get the LAST occurrence without writing a second, different template?</div>
+  <button class="opt">Scan forward linearly from <code>first</code> until the values stop equaling target</button>
+  <button class="opt">Re-run lowerBound with the array reversed and mirror the index</button>
+  <button class="opt">Compute <code>lowerBound(nums, target + 1) - 1</code> — one before the first strictly-greater element</button>
+  <div class="fb" data-correct="Right — the first element ≥ target+1 is the first element strictly greater than target, so one position earlier is the last target. Same template, shifted predicate, still O(log n)." data-wrong="Linear scan degrades to O(n) on an all-equal array, and reversing costs O(n) too. Shift the predicate instead: the first element ≥ target+1 sits just past the last target."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does <code>mid = lo + (hi - lo) / 2</code> matter more in First Bad Version (LC 278) than in a typical array search?</div>
+  <button class="opt">n can be near 2³¹ − 1, so <code>lo + hi</code> can exceed int range even though each variable fits</button>
+  <button class="opt">The isBadVersion API requires the midpoint to be computed without addition</button>
+  <button class="opt">Version numbers start at 1, and <code>(lo + hi) / 2</code> only works for 0-based indices</button>
+  <div class="fb" data-correct="Yes. Java arrays cap far below 2³¹ elements in practice, but version numbers (and Lesson 3's answer spaces) run to the full int range — lo + hi silently wraps negative there." data-wrong="The API and 1-based numbering are red herrings. The real issue is arithmetic: with n near 2³¹ − 1, the SUM lo + hi overflows int even though lo and hi individually fit."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/binary-search">NeetCode — Binary Search</a>, then skim <a href="https://cp-algorithms.com/num_methods/binary_search.html">CP-Algorithms — Binary Search</a> for the boundary/predicate framing you just learned (they call it the same thing: search on a monotonic function).</li>
+  <li><strong>Practice ladder (Java):</strong> LC 704 (classic via lowerBound) → LC 35 (return the boundary raw) → LC 34 (two boundaries) → LC 278 (predicate is an API) → LC 69 (predicate on the number line, long cast). Write <code>firstTrue</code> from a blank file each time — the goal is typing it without thinking by problem three.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run the template on an array you pick, prove the invariant more carefully, or contrast this with
+  the <code>lo &lt;= hi</code> template you half-remember? Ask in the chat. When you can write
+  <code>firstTrue</code> from memory and explain why <code>hi = mid</code> keeps the answer while
+  <code>lo = mid + 1</code> discards a non-answer, say <strong>"next"</strong> and we bend the array: rotated and
+  modified search spaces.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-rotated-and-modified.html">Rotated &amp; Modified →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

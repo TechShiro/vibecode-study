@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 07 – SVM & K-Nearest Neighbors</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module B · Lesson 7 of 17 · Geometric Classifiers</div>
+  <h1>Support Vector Machines (SVM) & K-Nearest Neighbors (KNN)</h1>
+  <p class="subtitle">Maximum-margin hyperplanes, the Hilbert kernel trick, and non-parametric instance-based spatial indexing.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Classical Machine Learning</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>While Logistic Regression finds any separating boundary that minimizes log-loss, <strong>Support Vector Machines (SVM)</strong> find the unique, mathematically optimal <strong>Maximum Margin Hyperplane</strong> that maximizes the physical geometric distance between class boundaries. Data points that lie directly on the margin boundaries are the <strong>Support Vectors</strong>; all other points can be removed without changing the decision boundary. For non-linear data, the <strong>Kernel Trick</strong> projects data into infinite-dimensional space at zero extra computational cost.</p>
+
+  <h2>2 · SVM Mathematical Foundation: Maximum Margin</h2>
+  <p>The geometric margin between hyperplanes <code>w·x - b = 1</code> and <code>w·x - b = -1</code> is <code>2 / ||w||</code>. Maximizing the margin is equivalent to solving the quadratic optimization problem:</p>
+  <div class="callout info">
+    <p><code>min (1/2) ||w||<sup>2</sup> + C &sum;<sub>i=1..N</sub> &xi;<sub>i</sub></code> &nbsp; subject to &nbsp; <code>y<sup>(i)</sup>(w·x<sup>(i)</sup> - b) &ge; 1 - &xi;<sub>i</sub></code></p>
+    <ul>
+      <li><strong>&xi;<sub>i</sub> (Slack Variables)</strong>: Allows soft margins (points violating the boundary).</li>
+      <li><strong>C Parameter</strong>: Controls the trade-off. Large <em>C</em> = strict penalty (hard margin, risk of overfitting); Small <em>C</em> = wide margin (tolerant of misclassifications, high bias).</li>
+    </ul>
+  </div>
+
+  <h2>3 · The Kernel Trick (Mercer's Theorem)</h2>
+  <p>When data is not linearly separable in 2D or 3D, mapping points into higher-dimensional space via &Phi;(x) can make them linearly separable. But computing high-dimensional vectors directly causes explosive memory costs. <strong>The Kernel Trick</strong> replaces explicit coordinate calculation with a scalar inner product: <code>K(x<sub>i</sub>, x<sub>j</sub>) = &lang;&Phi;(x<sub>i</sub>), &Phi;(x<sub>j</sub>)&rang;</code>.</p>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Kernel Function</th><th>Mathematical Formula</th><th>Hyperparameters & Use Case</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Linear Kernel</strong></td><td><code>K(x, z) = x<sup>T</sup>z</code></td><td>High-dimensional sparse text data (TF-IDF).</td></tr>
+      <tr><td><strong>Radial Basis Function (RBF)</strong></td><td><code>K(x, z) = exp(-&gamma; ||x - z||<sup>2</sup>)</code></td><td>Maps to <strong>infinite-dimensional Hilbert space</strong>. &gamma; controls the radius of influence of each support vector. Default for complex non-linear tabular data.</td></tr>
+      <tr><td><strong>Polynomial Kernel</strong></td><td><code>K(x, z) = (x<sup>T</sup>z + c)<sup>d</sup></code></td><td>Computer vision image classification before deep learning.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4 · K-Nearest Neighbors (KNN) & Spatial Indexing</h2>
+  <p>KNN is a <strong>non-parametric, lazy-learning</strong> algorithm. It performs zero computation during training (it simply stores the training dataset). During inference, it calculates distances to all points, selects the <em>k</em> closest neighbors, and takes a majority vote.</p>
+  <ul>
+    <li><strong>Distance Metrics</strong>: Euclidean ($L_2$), Manhattan ($L_1$), Cosine Similarity (angle between vectors).</li>
+    <li><strong>Inference Bottleneck</strong>: Naive brute-force scan takes $O(N \cdot D)$ time per query. Production engines use <strong>KD-Trees</strong> or <strong>Ball-Trees</strong> to partition metric space, slashing lookup time to $O(D \log N)$.</li>
+  </ul>
+
+  <pre><code>from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.datasets import load_breast_cancer
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+X, y = load_breast_cancer(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize: Critical for SVM and KNN distance calculations!
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# 1. RBF SVM
+svm_clf = SVC(kernel='rbf', C=1.0, gamma='scale')
+svm_clf.fit(X_train_scaled, y_train)
+print(f"SVM Test Accuracy: {svm_clf.score(X_test_scaled, y_test):.4f}")
+
+# 2. KNN with KD-Tree Spatial Index
+knn_clf = KNeighborsClassifier(n_neighbors=5, algorithm='kd_tree')
+knn_clf.fit(X_train_scaled, y_train)
+print(f"KNN Test Accuracy: {knn_clf.score(X_test_scaled, y_test):.4f}")</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0006-decision-trees-and-ensemble-learning.html">← Lesson 06: Decision Trees</a>
+    <a href="0008-unsupervised-learning-clustering-and-anomaly-detection.html">Lesson 08: Clustering & Anomaly Detection →</a>
+  </nav>
+</body>
+</html>

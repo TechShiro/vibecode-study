@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 16 – Hash Indexing & LSM Trees</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module D · Lesson 16 of 17 · Specialized Storage Engines</div>
+  <h1>Hash Indexing & Log-Structured Merge (LSM) Trees</h1>
+  <p class="subtitle">From memory hash tables to write-optimized append-only LSM trees used in RocksDB and Cassandra.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Storage & Indexing</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>While B+ Trees are the versatile default for relational databases, they are not universally optimal. For exact equality lookups (<code>WHERE id = 500</code>), <strong>Hash Indexes</strong> provide constant $O(1)$ time. For write-heavy workloads (ingesting hundreds of thousands of events per second), B+ Trees suffer from <strong>Write Amplification</strong> due to random page updates. In modern systems, <strong>Log-Structured Merge (LSM) Trees</strong> turn random disk writes into high-speed append-only sequential writes.</p>
+
+  <h2>2 · Dynamic Hashing: Extendible Hashing</h2>
+  <p>Static hashing fails when data grows beyond initial bucket allocations (buckets overflow into long linked lists). <strong>Extendible Hashing</strong> dynamically grows and shrinks without reorganizing the entire table:</p>
+  <ul>
+    <li>Uses a central <strong>Directory</strong> of pointers to data buckets.</li>
+    <li><strong>Global Depth (d)</strong>: The number of hash bits used by the directory (directory size = $2^d$).</li>
+    <li><strong>Local Depth (p)</strong>: The number of hash bits distinguishing items inside an individual bucket ($p \le d$).</li>
+    <li>When a bucket overflows:
+      <ul>
+        <li>If <code>p < d</code>: Only that single bucket splits into two; its local depth increases to <code>p + 1</code>. Directory pointers are remapped. No directory resize!</li>
+        <li>If <code>p == d</code>: The directory doubles in size ($d$ increases by 1), and the bucket splits.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <div class="callout warning">
+    <h4>The Fatal Limitation of Hash Indexes</h4>
+    <p>Hash functions destroy ordering. A Hash Index is <strong>COMPLETELY USELESS</strong> for range queries (<code>WHERE age BETWEEN 20 AND 30</code>), prefix matching (<code>LIKE 'San%'</code>), or sorting (<code>ORDER BY created_at</code>). Use Hash indexes only for unique key equality lookups.</p>
+  </div>
+
+  <h2>3 · Log-Structured Merge (LSM) Tree Architecture</h2>
+  <p>Pioneered by O'Neil in 1996 and popularized by Google Bigtable, RocksDB, and Apache Cassandra, LSM Trees achieve peak write throughput by deferring disk updates:</p>
+
+  <div class="arch-flow">
+    <div class="box">Write &rarr; WAL (Disk) + MemTable (RAM)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Flush to SSTable Level 0 (Disk)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Compaction &rarr; Level 1 &rarr; Level 2</div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>MemTable (RAM)</h3>
+      <p>All writes, updates, and deletes are written to an append-only Write-Ahead Log (WAL) on disk for durability, then inserted into an in-memory sorted data structure (SkipList or Red-Black Tree) called the <strong>MemTable</strong>. Writes are instantaneous!</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>SSTable (Disk)</h3>
+      <p>When the MemTable reaches size limit (e.g. 64MB), it is flushed to disk as an immutable <strong>Sorted String Table (SSTable)</strong>. Keys inside an SSTable are sorted. SSTables are never modified in place.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">3</div>
+      <h3>Compaction</h3>
+      <p>Background worker threads merge multiple overlapping SSTables into new sorted SSTables, discarding tombstoned (deleted) records and obsolete overwritten versions (Leveled or Size-Tiered compaction).</p>
+    </div>
+  </div>
+
+  <h2>4 · Bloom Filters: Accelerating LSM Reads</h2>
+  <p>Because keys are spread across multiple SSTables on disk, searching for a non-existent key in an LSM tree could require reading every SSTable file from disk! LSM engines solve this using an in-memory <strong>Bloom Filter</strong> for each SSTable:</p>
+  <ul>
+    <li>A space-efficient probabilistic data structure based on multiple hash functions and a bit array.</li>
+    <li>Returns either: <strong>"Definitely NOT in this SSTable"</strong> (100% true, eliminates disk read) or <strong>"Might be in this SSTable"</strong>.</li>
+  </ul>
+
+  <nav class="bottom-nav">
+    <a href="0015-b-trees-and-b-plus-trees-deep-dive.html">← Lesson 15: B-Trees & B+ Trees</a>
+    <a href="0017-query-execution-engine-and-optimization.html">Lesson 17: Query Execution Engine & Optimization →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 12 – Buffer Overflows & Memory Corruption</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module E · Lesson 12 of 17 · Binary Exploitation</div>
+  <h1>Memory Corruption, Stack Frames & Buffer Overflows</h1>
+  <p class="subtitle">Process memory anatomy, smashing the stack, hijacking the instruction pointer (EIP/RIP), and modern binary defenses.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module E – Binary Exploitation & Reverse Engineering</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In low-level compiled languages like C and C++, memory safety is not managed by a garbage collector or bounds checker. Programmers directly allocate raw bytes. When an unsafe function (like <code>strcpy()</code>, <code>gets()</code>, <code>scanf()</code>) writes more data into a fixed-size stack buffer than it can hold, the surplus bytes spill over, overwriting adjacent memory variables, the Saved Base Pointer (EBP), and crucially, the <strong>Saved Return Address (EIP/RIP)</strong>. An attacker controls the Return Address to hijack the CPU's execution flow and execute arbitrary machine code.</p>
+
+  <h2>2 · Recommended Deep-Dive Lectures</h2>
+  <p>Watch these two premier lectures to see the exact stack memory layout and write an actual working buffer overflow exploit:</p>
+  <div class="card-grid">
+    <div class="card">
+      <h3>Computerphile: Buffer Overflow Attacks</h3>
+      <div class="video-container">
+        <iframe src="https://www.youtube-nocookie.com/embed/1S0aBV-Waeo" title="Buffer Overflow Attacks - Computerphile" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+    <div class="card">
+      <h3>LiveOverflow: Simple Buffer Overflow Exploit</h3>
+      <div class="video-container">
+        <iframe src="https://www.youtube-nocookie.com/embed/HSlhY4Uy8SA" title="Buffer Overflow Exploit - LiveOverflow" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <h2>3 · Linux Process Memory Layout & Stack Frame Anatomy</h2>
+  <p>A running process in 32-bit/64-bit Linux is structured into distinct segments:</p>
+  <ul>
+    <li><strong>Text Segment (.text)</strong>: Read-only compiled machine code instructions.</li>
+    <li><strong>Data Segment (.data / .bss)</strong>: Global and static variables.</li>
+    <li><strong>Heap</strong>: Dynamically allocated memory (<code>malloc()</code> / <code>free()</code>); grows <em>upward</em> toward high memory.</li>
+    <li><strong>Stack</strong>: Local function variables, parameters, and return addresses; grows <em>downward</em> toward low memory.</li>
+  </ul>
+
+  <div class="callout info">
+    <h4>Anatomy of a Call Stack Frame</h4>
+    <table class="vs-table">
+      <thead>
+        <tr><th>Memory Address</th><th>Stack Content</th><th>Attacker Interaction</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Low Memory (ESP/RSP)</td><td>Local Buffer: <code>char buffer[64]</code></td><td>Input begins writing here.</td></tr>
+        <tr><td>...</td><td>Overflowed Buffer Boundary</td><td>Excess bytes spill past 64-byte limit.</td></tr>
+        <tr><td>Higher Memory</td><td>Saved Base Pointer (EBP/RBP)</td><td>Overwritten with junk (e.g. <code>0x41414141</code>).</td></tr>
+        <tr><td>Higher Memory</td><td><strong>Saved Return Pointer (EIP/RIP)</strong></td><td><strong style="color:red">HIJACKED! Replaced with address of shellcode or win function.</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>4 · Crafting the Exploit Payload: Pattern & Offset</h2>
+  <ol>
+    <li><strong>Fuzzing:</strong> Send increasing lengths of input (100, 200, 500 bytes) until program crashes with <code>Segmentation Fault (SIGSEGV)</code>.</li>
+    <li><strong>Finding Exact Offset:</strong> Generate a cyclic De Bruijn pattern using Metasploit tool: <code>msf-pattern_create -l 200</code>.</li>
+    <li>Inspect the crashed register value in GDB: <code>EIP = 0x35624134</code>.</li>
+    <li>Determine exact offset: <code>msf-pattern_offset -q 35624134</code> &rarr; <em>Exact match at offset 76</em>.</li>
+    <li><strong>Payload Structure:</strong> <code>[76 bytes padding] + [4 bytes new EIP address] + [NOP Sled:  * 32] + [Shellcode]</code>.</li>
+  </ol>
+
+  <h2>5 · Modern Binary Exploit Mitigations</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Mitigation</th><th>How It Defends</th><th>Attacker Bypass Technique</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>NX / DEP (No-Execute)</strong></td>
+        <td>Marks the stack as non-executable. CPU refuses to run shellcode placed in memory buffers.</td>
+        <td><strong>Return-Oriented Programming (ROP)</strong>: Chaining existing tiny machine code snippets ending in <code>ret</code> ("gadgets") already present in executable libraries.</td>
+      </tr>
+      <tr>
+        <td><strong>Stack Canaries</strong></td>
+        <td>Places a secret random integer before the return address. Checked prior to function return; if altered, aborts immediately.</td>
+        <td>Information leak (format string bug) to leak canary value, or brute-forcing canary byte-by-byte on forking daemons.</td>
+      </tr>
+      <tr>
+        <td><strong>ASLR</strong></td>
+        <td>Address Space Layout Randomization: Randomizes base addresses of stack, heap, and shared libraries (libc) on every execution.</td>
+        <td>Memory disclosure leak to calculate base address offset.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <nav class="bottom-nav">
+    <a href="0011-web-penetration-testing-with-burp-suite.html">← Lesson 11: Pen-Testing with Burp Suite</a>
+    <a href="0013-reverse-engineering-and-malware-analysis.html">Lesson 13: Reverse Engineering & Malware →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two Pointers Lesson 01 — Opposite Ends</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Two Pointers Track · Lesson 1 of 3 · converging pointers on sorted or symmetric data</div>
+<h1>Opposite-Ends Two Pointers</h1>
+<p class="subtitle">Start one pointer at each end, move them toward each other under a rule, and a brute-force O(n²) pair scan collapses into a single O(n) pass.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> two pointers is the single most common array pattern in big-tech OAs —
+  it hides inside 3Sum, Container With Most Water, and dozens of "find a pair" questions.
+  This is Lesson 1 of the 3-lesson Two Pointers track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+You already know the naive way to find a pair in an array: two nested loops, try every <code>(i, j)</code>,
+O(n²). The two-pointer insight is that when the data has <strong>structure</strong> — it's sorted, or it's
+symmetric like a palindrome — you don't need to try every pair. Put <code>left</code> at index 0 and
+<code>right</code> at the last index. At each step, the structure tells you which pointer is
+<em>provably useless</em> to keep: move that one inward. Each step eliminates at least one candidate forever,
+so after at most n steps the pointers meet. You've examined n positions instead of n²/2 pairs.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The array is <strong>sorted</strong> (or sortable, or symmetric) AND you're asked about a
+  <strong>pair / two things interacting</strong>: "two numbers that sum to target," "is it a palindrome,"
+  "two lines forming a container," "water trapped between walls." If a nested loop over pairs is the naive
+  answer and the data is ordered, opposite-ends pointers is almost always the intended O(n) solution.
+</div>
+
+<h2>2 · Core template — Two Sum II (LC 167)</h2>
+<p>
+Sorted array, find two numbers summing to <code>target</code>. Naive: for each <code>i</code>, scan the rest —
+O(n²). Better naive: for each <code>i</code>, binary-search for <code>target − a[i]</code> — O(n log n).
+The two-pointer version beats both. The key question at every step: <em>what does the current sum tell me?</em>
+If <code>a[l] + a[r]</code> is too small, then <code>a[l]</code> paired with <em>anything</em> at or left of
+<code>r</code> is also too small (the array is sorted, so <code>a[r]</code> was its best shot) —
+<code>a[l]</code> can never be part of the answer, discard it with <code>l++</code>. Symmetrically, too big
+means <code>a[r]</code> is dead: <code>r--</code>.
+</p>
+<pre><code><span class="cmt">// LC 167: sorted 1-indexed array, exactly one solution guaranteed.</span>
+int[] twoSum(int[] a, int target) {
+    int l = 0, r = a.length - 1;         <span class="cmt">// one pointer per end</span>
+    while (l &lt; r) {                      <span class="cmt">// strictly &lt;: a pair needs two DIFFERENT indices</span>
+        int sum = a[l] + a[r];
+        if (sum == target) return new int[]{l + 1, r + 1}; <span class="cmt">// problem wants 1-indexed</span>
+        if (sum &lt; target) l++;           <span class="cmt">// sum too small → a[l] is exhausted: even a[r] couldn't save it</span>
+        else r--;                        <span class="cmt">// sum too big → a[r] is exhausted: even a[l] couldn't save it</span>
+    }
+    return new int[]{-1, -1};            <span class="cmt">// unreachable here (solution guaranteed)</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) — every step retires one index for good. <strong>Space</strong> O(1) — two ints. Compare: nested loops O(n²), hash map O(n) time but O(n) space. Sorted input is what buys you O(1) space.</p>
+
+<h3>Worked example — dry run</h3>
+<p><code>a = [2, 7, 11, 15]</code>, <code>target = 18</code>:</p>
+<div class="trace">
+<span class="step">l=<span class="ptr">0</span>(2)  r=<span class="ptr">3</span>(15)  sum=17 &lt; 18 → 2 can't do better than 15; drop it → l++</span>
+<span class="step now">l=<span class="ptr">1</span>(7)  r=<span class="ptr">3</span>(15)  sum=22 &gt; 18 → 15 can't do better than 7; drop it → r--</span>
+<span class="step now">l=<span class="ptr">1</span>(7)  r=<span class="ptr">2</span>(11)  sum=18 = target → return [2, 3] (1-indexed)</span>
+<span class="step">3 steps, not 6 pairs — each comparison permanently eliminated one index</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">The elimination argument — say it out loud in interviews</span>
+  Every opposite-ends solution rests on one sentence: <em>"when I move a pointer, I've proven that index can't
+  appear in any better answer."</em> If you can state <strong>why</strong> the discarded index is dead, your
+  solution is correct; if you can't, you probably have a counterexample. This argument is what makes
+  Container With Most Water below click.
+</div>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Pair sum in sorted array</td><td>LC 167</td><td>The core template. Move by comparing sum to target.</td></tr>
+    <tr><td>Symmetry check</td><td>LC 125</td><td>Compare <code>s[l]</code> vs <code>s[r]</code> for equality; skip non-alphanumeric junk.</td></tr>
+    <tr><td>Maximize a pair function</td><td>LC 11</td><td>No target — track the best, move the <strong>worse side</strong> (shorter line).</td></tr>
+    <tr><td>Accumulate while converging</td><td>LC 42</td><td>Track max wall seen from each side; the smaller max decides which side is safe to settle.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Valid Palindrome (LC 125)</h3>
+<p>
+Same skeleton, different rule: instead of a sum, compare characters for equality and bail on mismatch.
+The wrinkle is the input is dirty — skip anything that isn't a letter or digit, and compare case-insensitively.
+</p>
+<pre><code>boolean isPalindrome(String s) {
+    int l = 0, r = s.length() - 1;
+    while (l &lt; r) {
+        while (l &lt; r &amp;&amp; !Character.isLetterOrDigit(s.charAt(l))) l++; <span class="cmt">// skip junk; keep l &lt; r guard!</span>
+        while (l &lt; r &amp;&amp; !Character.isLetterOrDigit(s.charAt(r))) r--;
+        if (Character.toLowerCase(s.charAt(l)) != Character.toLowerCase(s.charAt(r)))
+            return false;                <span class="cmt">// mirror positions disagree → not a palindrome</span>
+        l++; r--;                        <span class="cmt">// both matched → both move inward</span>
+    }
+    return true;                         <span class="cmt">// pointers crossed with no mismatch</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Naive alternative — build a cleaned string and compare with its reverse — is also O(n) time but O(n) space; interviewers ask for the in-place version.</p>
+
+<h3>Case: Container With Most Water (LC 11) — "move the worse side"</h3>
+<p>
+Heights <code>h[]</code>; pick two lines so the container holds the most water:
+<code>area = min(h[l], h[r]) × (r − l)</code>. Naive is all pairs, O(n²). Two pointers works, but the movement
+rule changes: there's no target to compare against. Instead, ask which pointer is <em>hopeless</em>. Moving
+either pointer inward shrinks the width — so the only way a future pair beats the current one is with a taller
+minimum. The <strong>shorter</strong> line is the bottleneck: keep it, and every future container it forms is
+capped at its height with less width — strictly worse. So the shorter line is dead. Discard it.
+</p>
+<pre><code>int maxArea(int[] h) {
+    int l = 0, r = h.length - 1, best = 0;
+    while (l &lt; r) {
+        int area = Math.min(h[l], h[r]) * (r - l);
+        best = Math.max(best, area);     <span class="cmt">// no target → track the best seen</span>
+        if (h[l] &lt; h[r]) l++;            <span class="cmt">// shorter side is the bottleneck → it can NEVER do better; drop it</span>
+        else r--;                        <span class="cmt">// ties: either move is safe (that min height is maxed out)</span>
+    }
+    return best;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). The proof is the elimination argument: when we drop
+<code>h[l]</code> (the shorter), every unexplored pair containing <code>l</code> has area
+≤ <code>h[l] × (smaller width)</code> &lt; current area — none of them can be the answer, so skipping them is safe.</p>
+
+<h3>Case: Trapping Rain Water (LC 42) — two-pointer version</h3>
+<p>
+Water above position <code>i</code> is <code>min(maxLeft, maxRight) − h[i]</code>: the shorter of the tallest
+walls on each side sets the water level. The O(n)/O(n) solution precomputes two max arrays. The two-pointer
+version drops to O(1) space by noticing you don't need <em>both</em> maxes exactly — only the smaller one, and
+you can know which is smaller without full information. Keep running maxes <code>maxL</code>, <code>maxR</code>
+from each end. If <code>maxL &lt; maxR</code>, then for position <code>l</code> the true left max is exactly
+<code>maxL</code> (we've seen everything left of it) and the true right max is ≥ <code>maxR</code> &gt;
+<code>maxL</code> — so the water level at <code>l</code> is decided by <code>maxL</code> alone. Settle it, move on.
+</p>
+<pre><code>int trap(int[] h) {
+    int l = 0, r = h.length - 1;
+    int maxL = 0, maxR = 0, water = 0;   <span class="cmt">// tallest wall seen so far from each end</span>
+    while (l &lt; r) {
+        maxL = Math.max(maxL, h[l]);
+        maxR = Math.max(maxR, h[r]);
+        if (maxL &lt; maxR) {               <span class="cmt">// left's ceiling is the binding one — right side can only be taller</span>
+            water += maxL - h[l];        <span class="cmt">// safe to settle position l NOW (≥ 0: maxL includes h[l])</span>
+            l++;
+        } else {
+            water += maxR - h[r];        <span class="cmt">// symmetric: right's ceiling decides position r</span>
+            r--;
+        }
+    }
+    return water;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) — versus O(n) extra space for the prefix-max version.
+Same complexity as the monotonic-stack variant, but far less code.</p>
+
+<div class="callout trap">
+  <span class="label">The classic wrong instinct</span>
+  In LC 11 and 42 people move the pointer "on the taller side" or "the one that looks promising." Wrong way
+  around — you always retire the <strong>weaker</strong> side, because the weak side is the one whose fate is
+  already sealed. The tall side might still pair with something even taller; the short side never improves.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong><code>while (l &lt; r)</code>, not <code>&lt;=</code></strong> — pair problems need two distinct indices; <code>l == r</code> would pair an element with itself.</li>
+  <li><strong>Empty / single-element input</strong> — the loop body never runs; make sure your default return (true for palindrome, 0 for area) is right.</li>
+  <li><strong>Inner skip loops need the <code>l &lt; r</code> guard too</strong> (LC 125) — a string of pure punctuation like <code>".,!"</code> will run a pointer off the end otherwise.</li>
+  <li><strong>Duplicates</strong> — the core template returns the first valid pair; if you must enumerate all pairs (3Sum, Lesson 3), you'll need dedup skips.</li>
+  <li><strong>Ties in "move the worse side"</strong> — when <code>h[l] == h[r]</code> either move is safe; don't overthink it, just pick one branch consistently.</li>
+  <li><strong>1-indexed answers</strong> (LC 167) — read the output format before submitting; off-by-one here is a free wrong answer.</li>
+  <li><strong>Overflow</strong> — <code>a[l] + a[r]</code> of two ints near 2³¹ overflows; use <code>long</code> if constraints allow values that large.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Two Sum II, the current sum <code>a[l] + a[r]</code> is <em>less</em> than the target. Why is it safe to do <code>l++</code> and never look at <code>a[l]</code> again?</div>
+  <button class="opt">Because <code>a[l]</code> is the smallest element and the answer always uses larger values</button>
+  <button class="opt">Because <code>a[r]</code> is the largest value <code>a[l]</code> could still pair with, and even that was too small</button>
+  <button class="opt">Because moving <code>r--</code> instead would skip the guaranteed solution</button>
+  <div class="fb" data-correct="Exactly — everything between l and r is ≤ a[r], so a[l] has already tried its best partner and failed. It can't be in any solution." data-wrong="Think about what partners a[l] has left: only indices ≤ r, all with values ≤ a[r]. Its BEST partner was too small, so a[l] is dead."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In Container With Most Water, <code>h[l] = 3</code> and <code>h[r] = 9</code>. Which pointer moves, and why?</div>
+  <button class="opt"><code>r--</code>, because the taller line wastes height we aren't using</button>
+  <button class="opt">Whichever side has the taller neighbor, to greedily grow the minimum</button>
+  <button class="opt"><code>l++</code>, because every remaining container using the height-3 line is narrower and still capped at 3</button>
+  <div class="fb" data-correct="Right — the shorter line caps every container it's part of, and all its unexplored pairs are narrower. It's provably finished." data-wrong="Keeping the shorter line can never help: its height caps the area and the width only shrinks. Retire the worse (shorter) side."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In two-pointer Trapping Rain Water, why can we finalize the water at position <code>l</code> when <code>maxL &lt; maxR</code>, without knowing the true maximum to its right?</div>
+  <button class="opt">The true right max is at least <code>maxR</code>, which already exceeds <code>maxL</code> — so <code>min(left, right) = maxL</code> regardless</button>
+  <button class="opt">Because the array is sorted, the right side is guaranteed to be taller</button>
+  <button class="opt">We can't — the algorithm makes a second pass to correct the estimate</button>
+  <div class="fb" data-correct="That's the whole trick: water level is min(maxLeft, maxRight), and we know the min exactly even though one side is only a lower bound." data-wrong="No sorting and no second pass. maxR only grows as r moves inward, so the right ceiling is ≥ maxR > maxL — the min is pinned to maxL."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/max-water-container">NeetCode — Container With Most Water</a> for the move-the-worse-side proof, then <a href="https://neetcode.io/problems/trapping-rain-water">NeetCode — Trapping Rain Water</a> for the O(1)-space upgrade.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 167 (core template) → LC 125 (symmetry + skip loops) → LC 344 Reverse String (warm-up swap) → LC 11 (move the worse side) → LC 42 (running maxes). Write each from a blank file; before every pointer move, say the elimination sentence out loud.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on why the shorter line is "dead" in LC 11, want a dry run of Trapping Rain Water on
+  <code>[4,2,0,3,2,5]</code>, or unsure when a hash map beats two pointers? Ask in the chat. When you can write
+  the LC 167 template from memory and defend every pointer move with the elimination argument, say
+  <strong>"next"</strong> and we move to Lesson 2: same-direction pointers and partitioning.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-same-direction-and-partition.html">Same Direction &amp; Partition →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

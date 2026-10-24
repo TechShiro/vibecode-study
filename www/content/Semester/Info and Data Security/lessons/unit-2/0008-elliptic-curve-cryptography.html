@@ -1,0 +1,336 @@
+<title>Elliptic Curve Cryptography</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit II &middot; Lesson 8 of 14</p>
+<h1>Elliptic Curve Cryptography &mdash; the Arithmetic</h1>
+<p class="deck">The curve equation, the group law, point addition and doubling over Z<sub>p</sub> with every step shown, finding all points on a curve, scalar multiplication by double-and-add, and the ECDLP that makes it hard.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>This is a numerical lesson &mdash; treat it like subnetting, not like theory.</strong> Three question shapes recur: <strong>&ldquo;Find all points on the curve E<sub>p</sub>(a,b)&rdquo;</strong>, <strong>&ldquo;Given P and Q on the curve, find P+Q and 2P&rdquo;</strong>, and <strong>&ldquo;Compute kP&rdquo;</strong>. Learn the two &lambda; formulas and the fact that <strong>division means multiply by the modular inverse</strong>; everything else follows mechanically. Write the formula before substituting &mdash; that alone carries marks even if the arithmetic slips.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Elliptic Curve Equation &amp; Group Law</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=0NGPhAPKYv4" target="_blank">Elliptic Curve Cryptography | ECC in Cryptography and Network Security</a>
+    <span class="v-meta">Abhishek Sharma &middot; 14:32</span>
+    <div class="v-why">Intuitive introduction to Weierstrass equation $y^2 = x^3 + ax + b$, the discriminant non-singularity condition $4a^3 + 27b^2 \ne 0$, point at infinity $\mathcal{O}$, and the abelian group law.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Point Addition &amp; Doubling Solved Numerical</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=P1GFZ92EbE0" target="_blank">ECC | Find points P + Q and 2P over Finite Field Zp</a>
+    <span class="v-meta">Lectures by Shreedarshan K &middot; 17:45</span>
+    <div class="v-why">Step-by-step examination derivation calculating slope $s$, point addition coordinates $x_3, y_3$, and point doubling over Galois Field $GF(p)$ with modular inverses.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: ECC POINT ADDITION GEOMETRY -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Geometry: Elliptic Curve Group Operations over $\mathbb{R}$ and $\mathbb{F}_p$</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem;">
+    <div style="border:1.5px solid var(--accent); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--accent); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        Point Addition: $P \ne Q$
+      </div>
+      <div class="flow-col">
+        <div class="flow-box"><strong>Secant Line through $P(x_1, y_1)$ and $Q(x_2, y_2)$</strong><span class="sub">Slope: $s = \frac{y_2 - y_1}{x_2 - x_1} \pmod p$</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box ok"><strong>Intersection Point reflected across X-axis</strong><span class="sub">$x_3 = (s^2 - x_1 - x_2) \pmod p$<br>$y_3 = [s(x_1 - x_3) - y_1] \pmod p$</span></div>
+      </div>
+    </div>
+
+    <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--ok); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        Point Doubling: $P = Q$
+      </div>
+      <div class="flow-col">
+        <div class="flow-box ok"><strong>Tangent Line to Curve at $P(x_1, y_1)$</strong><span class="sub">Slope: $s = \frac{3x_1^2 + a}{2y_1} \pmod p$</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box ok"><strong>Tangent Intersection Point reflected across X-axis</strong><span class="sub">$x_3 = (s^2 - 2x_1) \pmod p$<br>$y_3 = [s(x_1 - x_3) - y_1] \pmod p$</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Why elliptic curves at all</h2>
+
+<p>RSA rests on the difficulty of <strong>factoring</strong>; Diffie&ndash;Hellman on the <strong>discrete logarithm in Z<sub>p</sub><sup>*</sup></strong>. Both need large keys because index-calculus methods attack them sub-exponentially. The <strong>elliptic curve discrete logarithm problem has no known sub-exponential attack</strong>, so the same security needs a far smaller key &mdash; which is the entire commercial argument for ECC.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Security level</th><th>RSA / DH key</th><th><strong>ECC key</strong></th><th>Ratio</th></tr></thead>
+<tbody>
+<tr><td class="num">80 bits</td><td class="num">1024 bits</td><td class="num"><strong>160 bits</strong></td><td class="num">6 : 1</td></tr>
+<tr><td class="num">112 bits</td><td class="num">2048 bits</td><td class="num"><strong>224 bits</strong></td><td class="num">9 : 1</td></tr>
+<tr><td class="num">128 bits</td><td class="num">3072 bits</td><td class="num"><strong>256 bits</strong></td><td class="num">12 : 1</td></tr>
+<tr><td class="num">192 bits</td><td class="num">7680 bits</td><td class="num"><strong>384 bits</strong></td><td class="num">20 : 1</td></tr>
+<tr><td class="num">256 bits</td><td class="num">15360 bits</td><td class="num"><strong>512 bits</strong></td><td class="num">30 : 1</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Smaller keys mean <strong>less storage, less bandwidth, less computation and less power</strong> &mdash; which is why ECC dominates on smart cards, mobile devices, IoT nodes and TLS.</p>
+
+<h2>The curve</h2>
+
+<div class="formula">
+  <span class="name">Weierstrass form</span>
+  <strong>y<sup>2</sup> = x<sup>3</sup> + ax + b</strong><br><br>
+  It is <strong>non-singular</strong> (no cusps, no self-intersections) if and only if<br>
+  <strong>4a<sup>3</sup> + 27b<sup>2</sup> &ne; 0</strong>. &nbsp;Cryptography uses only non-singular curves.
+</div>
+
+<p>Cryptography does not use the curve over the real numbers &mdash; that is only a picture to explain the group law. It uses the curve over a <strong>finite field</strong>, in one of two forms:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Written</th><th>Equation</th><th>Used because</th></tr></thead>
+<tbody>
+<tr><td><strong>Prime field</strong> &mdash; Z<sub>p</sub>, p prime</td><td><strong>E<sub>p</sub>(a, b)</strong></td><td>y<sup>2</sup> &equiv; x<sup>3</sup> + ax + b (mod p)</td><td>Simple modular arithmetic; the exam always uses this one</td></tr>
+<tr><td><strong>Binary field</strong> &mdash; GF(2<sup>m</sup>)</td><td><strong>E<sub>2<sup>m</sup></sub>(a, b)</strong></td><td>y<sup>2</sup> + xy = x<sup>3</sup> + ax<sup>2</sup> + b</td><td>Polynomial arithmetic is fast in hardware</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The group and the point at infinity</h3>
+
+<p>The points of the curve, together with a special element <strong>O &mdash; the point at infinity</strong>, form an <strong>abelian group</strong> under point addition:</p>
+
+<ul>
+<li><strong>O is the identity:</strong> P + O = O + P = P.</li>
+<li><strong>The inverse of P = (x, y) is &minus;P = (x, &minus;y mod p)</strong> &mdash; the reflection in the x-axis.</li>
+<li><strong>P + (&minus;P) = O.</strong></li>
+<li>Addition is commutative and associative.</li>
+</ul>
+
+<p>Geometrically over the reals: <strong>draw the line through P and Q, find the third point where it meets the curve, and reflect it in the x-axis.</strong> For P + P the line is the <strong>tangent</strong> at P. Everything below is that construction turned into algebra and taken mod p.</p>
+
+<h2>The two formulas &mdash; the whole of this lesson</h2>
+
+<div class="formula">
+  <span class="name">Point addition and doubling on E<sub>p</sub>(a, b)</span>
+  For P = (x<sub>1</sub>, y<sub>1</sub>) and Q = (x<sub>2</sub>, y<sub>2</sub>), with R = P + Q = (x<sub>3</sub>, y<sub>3</sub>):<br><br>
+  <strong>&lambda; = (y<sub>2</sub> &minus; y<sub>1</sub>)(x<sub>2</sub> &minus; x<sub>1</sub>)<sup>&minus;1</sup> mod p</strong> &nbsp; when P &ne; Q &nbsp;&nbsp;<em>(ADDITION)</em><br>
+  <strong>&lambda; = (3x<sub>1</sub><sup>2</sup> + a)(2y<sub>1</sub>)<sup>&minus;1</sup> mod p</strong> &nbsp; when P = Q &nbsp;&nbsp;<em>(DOUBLING)</em><br><br>
+  then, in both cases:<br>
+  <strong>x<sub>3</sub> = &lambda;<sup>2</sup> &minus; x<sub>1</sub> &minus; x<sub>2</sub> mod p</strong> &nbsp;&nbsp; <strong>y<sub>3</sub> = &lambda;(x<sub>1</sub> &minus; x<sub>3</sub>) &minus; y<sub>1</sub> mod p</strong><br>
+  <span style="font-size:.85em">(for doubling, x<sub>2</sub> = x<sub>1</sub>, so x<sub>3</sub> = &lambda;<sup>2</sup> &minus; 2x<sub>1</sub>)</span>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one skill everything depends on</span>
+  <p><strong>There is no division mod p &mdash; multiply by the modular inverse.</strong> To compute 5/8 mod 11: find 8<sup>&minus;1</sup> mod 11 by inspection (8 &times; 7 = 56 = 55 + 1, so 8<sup>&minus;1</sup> = 7), then 5 &times; 7 = 35 &equiv; <strong>2</strong> mod 11. For small primes, <strong>test multiples until you hit 1</strong>; for larger ones use the extended Euclidean algorithm. Also remember <strong>&minus;k mod p = p &minus; k</strong>.</p>
+</div>
+
+<h2>Numerical 1 &mdash; find all points on the curve</h2>
+
+<div class="solve">
+  <span class="lbl">Q. Find all points on E<sub>11</sub>(1, 6): y<sup>2</sup> = x<sup>3</sup> + x + 6 mod 11</span>
+  <p><strong>Step 1 &mdash; check non-singularity.</strong> 4a<sup>3</sup> + 27b<sup>2</sup> = 4(1) + 27(36) = 976 &equiv; 976 &minus; 968 = <strong>8 &ne; 0</strong> mod 11. Valid curve.</p>
+  <p><strong>Step 2 &mdash; list the quadratic residues mod 11.</strong> Square 1 to 5 (the rest repeat): 1, 4, 9, 5, 3. So <strong>QR = {1, 3, 4, 5, 9}</strong>, with square roots 1&rarr;(1,10), 3&rarr;(5,6), 4&rarr;(2,9), 5&rarr;(4,7), 9&rarr;(3,8).</p>
+  <p><strong>Step 3 &mdash; for each x from 0 to 10, compute x<sup>3</sup> + x + 6 mod 11 and check membership.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">x</th><th class="num">0</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th><th class="num">9</th><th class="num">10</th></tr></thead>
+  <tbody>
+  <tr><td><strong>x<sup>3</sup>+x+6 mod 11</strong></td><td class="num">6</td><td class="num">8</td><td class="num"><strong>5</strong></td><td class="num"><strong>3</strong></td><td class="num">8</td><td class="num"><strong>4</strong></td><td class="num">8</td><td class="num"><strong>4</strong></td><td class="num"><strong>9</strong></td><td class="num">7</td><td class="num"><strong>4</strong></td></tr>
+  <tr><td><strong>QR?</strong></td><td>no</td><td>no</td><td><strong>yes</strong></td><td><strong>yes</strong></td><td>no</td><td><strong>yes</strong></td><td>no</td><td><strong>yes</strong></td><td><strong>yes</strong></td><td>no</td><td><strong>yes</strong></td></tr>
+  <tr><td><strong>y</strong></td><td>&mdash;</td><td>&mdash;</td><td>4, 7</td><td>5, 6</td><td>&mdash;</td><td>2, 9</td><td>&mdash;</td><td>2, 9</td><td>3, 8</td><td>&mdash;</td><td>2, 9</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Answer &mdash; 12 points plus O, so the group has order 13:</strong></p>
+  <p style="text-align:center"><strong>(2,4) (2,7) (3,5) (3,6) (5,2) (5,9) (7,2) (7,9) (8,3) (8,8) (10,2) (10,9) and O</strong></p>
+  <p><em>Sanity check &mdash; Hasse&rsquo;s theorem:</em> the number of points lies between p + 1 &minus; 2&radic;p and p + 1 + 2&radic;p, i.e. between 12 &minus; 6.6 = 5.4 and 12 + 6.6 = 18.6. Our 13 sits inside. Also, points come in <strong>&plusmn;y pairs</strong>, so the count of affine points is even &mdash; a fast way to spot a missed root.</p>
+</div>
+
+<h2>Numerical 2 &mdash; point addition</h2>
+
+<div class="solve">
+  <span class="lbl">Q. On E<sub>11</sub>(1, 6), with P = (2, 7) and Q = (3, 6), find P + Q</span>
+  <p><strong>P &ne; Q</strong>, so use the addition formula.</p>
+  <p><strong>&lambda; = (y<sub>2</sub> &minus; y<sub>1</sub>)(x<sub>2</sub> &minus; x<sub>1</sub>)<sup>&minus;1</sup></strong> = (6 &minus; 7)(3 &minus; 2)<sup>&minus;1</sup> = (&minus;1)(1)<sup>&minus;1</sup> = &minus;1 &equiv; <strong>10 mod 11</strong></p>
+  <p><strong>x<sub>3</sub> = &lambda;<sup>2</sup> &minus; x<sub>1</sub> &minus; x<sub>2</sub></strong> = 100 &minus; 2 &minus; 3 = 95 &equiv; 95 &minus; 88 = <strong>7</strong></p>
+  <p><strong>y<sub>3</sub> = &lambda;(x<sub>1</sub> &minus; x<sub>3</sub>) &minus; y<sub>1</sub></strong> = 10(2 &minus; 7) &minus; 7 = &minus;50 &minus; 7 = &minus;57 &equiv; &minus;57 + 66 = <strong>9</strong></p>
+  <p><strong>P + Q = (7, 9)</strong></p>
+  <p><em>Sanity check:</em> is (7,9) on the curve? y<sup>2</sup> = 81 &equiv; 4; x<sup>3</sup>+x+6 = 343 + 7 + 6 = 356 &equiv; 4. <strong>Equal &mdash; the answer is a curve point.</strong> Always run this check; it catches every arithmetic slip.</p>
+</div>
+
+<h2>Numerical 3 &mdash; point doubling</h2>
+
+<div class="solve">
+  <span class="lbl">Q. On the same curve, find 2P where P = (2, 7)</span>
+  <p><strong>P = Q</strong>, so use the doubling formula with a = 1.</p>
+  <p><strong>&lambda; = (3x<sub>1</sub><sup>2</sup> + a)(2y<sub>1</sub>)<sup>&minus;1</sup></strong> = (3&middot;4 + 1)(14)<sup>&minus;1</sup> = 13 &middot; 14<sup>&minus;1</sup> &equiv; 2 &middot; 3<sup>&minus;1</sup> mod 11</p>
+  <p>3<sup>&minus;1</sup> mod 11: 3 &times; 4 = 12 &equiv; 1, so 3<sup>&minus;1</sup> = 4. &nbsp; <strong>&lambda; = 2 &times; 4 = 8</strong></p>
+  <p><strong>x<sub>3</sub> = &lambda;<sup>2</sup> &minus; 2x<sub>1</sub></strong> = 64 &minus; 4 = 60 &equiv; 60 &minus; 55 = <strong>5</strong></p>
+  <p><strong>y<sub>3</sub> = &lambda;(x<sub>1</sub> &minus; x<sub>3</sub>) &minus; y<sub>1</sub></strong> = 8(2 &minus; 5) &minus; 7 = &minus;24 &minus; 7 = &minus;31 &equiv; &minus;31 + 33 = <strong>2</strong></p>
+  <p><strong>2P = (5, 2)</strong> &mdash; check: 2<sup>2</sup> = 4 and 125 + 5 + 6 = 136 &equiv; 4. &check;</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">And one more, to build the chain: 3P = 2P + P = (5,2) + (2,7)</span>
+  <p>&lambda; = (7 &minus; 2)(2 &minus; 5)<sup>&minus;1</sup> = 5 &middot; (&minus;3)<sup>&minus;1</sup> = 5 &middot; 8<sup>&minus;1</sup>. &nbsp; 8 &times; 7 = 56 &equiv; 1, so 8<sup>&minus;1</sup> = 7. &nbsp; <strong>&lambda; = 35 &equiv; 2</strong></p>
+  <p>x<sub>3</sub> = 4 &minus; 5 &minus; 2 = &minus;3 &equiv; <strong>8</strong>; &nbsp; y<sub>3</sub> = 2(5 &minus; 8) &minus; 2 = &minus;8 &equiv; <strong>3</strong>. &nbsp; <strong>3P = (8, 3)</strong></p>
+</div>
+
+<h2>Numerical 4 &mdash; scalar multiplication by double-and-add</h2>
+
+<p><strong>kP means P added to itself k times</strong>, but nobody computes it that way. Write k in binary and use <strong>double-and-add</strong>: the same square-and-multiply idea as RSA, with multiplication replaced by point addition.</p>
+
+<div class="solve">
+  <span class="lbl">Q. On E<sub>11</sub>(1, 6) with P = (2, 7), compute 7P</span>
+  <p><strong>7 = 4 + 2 + 1</strong>, so 7P = 4P + 2P + P.</p>
+  <p><strong>2P = (5, 2)</strong> &mdash; computed above.</p>
+  <p><strong>4P = 2(2P) = 2(5, 2):</strong> &lambda; = (3&middot;25 + 1)(2&middot;2)<sup>&minus;1</sup> = 76 &middot; 4<sup>&minus;1</sup> &equiv; 10 &middot; 3 = 30 &equiv; 8 &nbsp;(since 76 &equiv; 10 and 4<sup>&minus;1</sup> = 3).<br>
+  x<sub>3</sub> = 64 &minus; 10 = 54 &equiv; <strong>10</strong>; &nbsp; y<sub>3</sub> = 8(5 &minus; 10) &minus; 2 = &minus;42 &equiv; <strong>2</strong>. &nbsp; <strong>4P = (10, 2)</strong></p>
+  <p><strong>6P = 4P + 2P = (10,2) + (5,2):</strong> &lambda; = (2 &minus; 2)(5 &minus; 10)<sup>&minus;1</sup> = <strong>0</strong>; x<sub>3</sub> = 0 &minus; 10 &minus; 5 = &minus;15 &equiv; <strong>7</strong>; y<sub>3</sub> = 0(10 &minus; 7) &minus; 2 = &minus;2 &equiv; <strong>9</strong>. &nbsp; <strong>6P = (7, 9)</strong></p>
+  <p><strong>7P = 6P + P = (7,9) + (2,7):</strong> &lambda; = (7 &minus; 9)(2 &minus; 7)<sup>&minus;1</sup> = (&minus;2)(&minus;5)<sup>&minus;1</sup> = 9 &middot; 6<sup>&minus;1</sup>. &nbsp; 6 &times; 2 = 12 &equiv; 1, so 6<sup>&minus;1</sup> = 2. &nbsp; &lambda; = 18 &equiv; <strong>7</strong>.<br>
+  x<sub>3</sub> = 49 &minus; 7 &minus; 2 = 40 &equiv; <strong>7</strong>; &nbsp; y<sub>3</sub> = 7(7 &minus; 7) &minus; 9 = &minus;9 &equiv; <strong>2</strong>. &nbsp; <strong>7P = (7, 2)</strong></p>
+  <p><em>Sanity check:</em> 6P = (7, 9) and 7P = (7, 2) share an x and their y values sum to 11 &equiv; 0, so <strong>7P = &minus;6P</strong> &mdash; which forces 13P = O. Consistent with the group having order 13.</p>
+</div>
+
+<h3>The full cyclic group generated by P = (2, 7)</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th class="num">k</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th><th class="num">9</th><th class="num">10</th><th class="num">11</th><th class="num">12</th><th class="num">13</th></tr></thead>
+<tbody>
+<tr><td><strong>kP</strong></td><td>(2,7)</td><td>(5,2)</td><td>(8,3)</td><td>(10,2)</td><td>(3,6)</td><td>(7,9)</td><td>(7,2)</td><td>(3,5)</td><td>(10,9)</td><td>(8,8)</td><td>(5,9)</td><td>(2,4)</td><td><strong>O</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Every point of the curve appears exactly once, so <strong>P is a generator and the group is cyclic of order 13</strong>. The <strong>order of a point</strong> is the smallest n with nP = O &mdash; here 13. Note the symmetry: kP and (13&minus;k)P are reflections of each other.</p>
+
+<h2>The hard problem: ECDLP</h2>
+
+<div class="formula">
+  <span class="name">Elliptic Curve Discrete Logarithm Problem</span>
+  Given points <strong>P</strong> and <strong>Q = kP</strong> on the curve, <strong>find k</strong>.<br><br>
+  Computing Q from k takes about <strong>log<sub>2</sub>k</strong> operations (double-and-add).<br>
+  Recovering k from Q takes about <strong>&radic;n</strong> operations (Pollard&rsquo;s rho) &mdash; <strong>no sub-exponential algorithm is known.</strong>
+</div>
+
+<p>That asymmetry is the trapdoor. It is the exact analogue of &ldquo;multiplying is easy, factoring is hard&rdquo; in RSA, and it is why <strong>a 256-bit ECC key matches a 3072-bit RSA key</strong>. In our toy curve n = 13, so k is found by inspection &mdash; real curves use n of 256 bits or more.</p>
+
+<div class="box exam">
+  <span class="lbl">Common exam slips, in order of frequency</span>
+  <p><strong>(i)</strong> Using the addition formula when P = Q &mdash; look at the points <em>first</em>. <strong>(ii)</strong> Dividing instead of multiplying by the inverse. <strong>(iii)</strong> Forgetting that &minus;k mod p = p &minus; k, giving a negative y. <strong>(iv)</strong> Writing y<sub>3</sub> = &lambda;(x<sub>3</sub> &minus; x<sub>1</sub>) &minus; y<sub>1</sub> &mdash; <strong>the bracket is (x<sub>1</sub> &minus; x<sub>3</sub>)</strong>, in that order. <strong>(v)</strong> Not checking the result lies on the curve, which costs marks that a ten-second substitution would have saved.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. On E_p(a,b), the slope λ for doubling a point P = (x₁, y₁) is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">(3x₁² + a) × (2y₁)⁻¹ mod p</button>
+    <button class="opt">(3x₁² + b) × (2y₁)⁻¹ mod p</button>
+    <button class="opt">(x₁³ + ax₁ + b) × (2y₁)⁻¹ mod p</button>
+    <button class="opt">(y₂ − y₁) × (x₂ − x₁)⁻¹ mod p</button>
+  </div>
+  <p class="why">The doubling slope is the derivative of the curve: differentiating y² = x³ + ax + b gives 2y·y′ = 3x² + a. The coefficient a appears, never b.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. On E₁₁(1,6) with P = (2,7), the value 2P is:</p>
+  <div class="opts">
+    <button class="opt">(10, 2)</button>
+    <button class="opt" data-ok="1">(5, 2)</button>
+    <button class="opt">(4, 8)</button>
+    <button class="opt">(7, 9)</button>
+  </div>
+  <p class="why">λ = 13 × 14⁻¹ ≡ 2 × 3⁻¹ = 2 × 4 = 8; x₃ = 64 − 4 ≡ 5; y₃ = 8(2 − 5) − 7 ≡ 2. Note (10,2) is 4P and (7,9) is 6P.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The inverse of the point P = (x, y) on a curve over Z_p is:</p>
+  <div class="opts">
+    <button class="opt">(y, x), obtained by exchanging the two coordinates</button>
+    <button class="opt">(p − x, p − y), the reflection of P through the origin</button>
+    <button class="opt" data-ok="1">(x, p − y), the reflection of P in the x-axis</button>
+    <button class="opt">(p − x, y), the reflection of P in the y-axis</button>
+  </div>
+  <p class="why">−P = (x, −y mod p). Adding P and −P gives a vertical line, which meets the curve nowhere else, so the sum is the point at infinity O.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A point count of 13 on E₁₁(1,6) is plausible because Hasse's theorem bounds it between:</p>
+  <div class="opts">
+    <button class="opt">p − 1 and p + 1, that is between 10 and 12</button>
+    <button class="opt">p/2 and 2p, that is between 5.5 and 22</button>
+    <button class="opt" data-ok="1">p + 1 − 2√p and p + 1 + 2√p, that is about 5.4 and 18.6</button>
+    <button class="opt">√p and p², that is between 3.3 and 121</button>
+  </div>
+  <p class="why">Hasse's bound is the quick sanity check on any point-counting answer, and 13 sits comfortably inside it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. ECC gives the same security as RSA with much smaller keys because:</p>
+  <div class="opts">
+    <button class="opt">Elliptic curve points are stored more compactly than RSA integers</button>
+    <button class="opt">The curve equation is kept secret along with the private key</button>
+    <button class="opt" data-ok="1">No sub-exponential algorithm is known for the ECDLP, so attack cost is about √n</button>
+    <button class="opt">Point addition is far slower than modular exponentiation for an attacker</button>
+  </div>
+  <p class="why">Factoring and ordinary discrete logs fall to index calculus; the elliptic curve group does not, so key length can shrink for the same work factor.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Computing 7P as 4P + 2P + P rather than by six successive additions is called:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Double-and-add, the additive form of square-and-multiply</button>
+    <button class="opt">Pollard's rho method for the discrete logarithm</button>
+    <button class="opt">The Montgomery reduction of the scalar multiplier</button>
+    <button class="opt">Hasse's algorithm for counting points on the curve</button>
+  </div>
+  <p class="why">Write the scalar in binary and process it bit by bit: log₂k doublings instead of k additions. It is what makes kP cheap while recovering k stays hard.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the elliptic curve equation and the non-singularity condition.</summary>
+    <p class="ans">y² = x³ + ax + b, non-singular when 4a³ + 27b² ≠ 0. Over a prime field it is written E_p(a,b) with the equation taken mod p; over a binary field GF(2ᵐ) the form is y² + xy = x³ + ax² + b.</p></details>
+  <details class="card"><summary>State the group properties of the points on an elliptic curve.</summary>
+    <p class="ans">The points plus the point at infinity O form an abelian group. O is the identity, so P + O = P; the inverse of (x, y) is (x, −y mod p); P + (−P) = O; and addition is commutative and associative.</p></details>
+  <details class="card"><summary>Write both λ formulas and the coordinate formulas.</summary>
+    <p class="ans">Addition (P ≠ Q): λ = (y₂ − y₁)(x₂ − x₁)⁻¹ mod p. Doubling (P = Q): λ = (3x₁² + a)(2y₁)⁻¹ mod p. Then x₃ = λ² − x₁ − x₂ mod p and y₃ = λ(x₁ − x₃) − y₁ mod p.</p></details>
+  <details class="card"><summary>How do you find all points on E_p(a,b)?</summary>
+    <p class="ans">List the quadratic residues mod p by squaring 1 to (p−1)/2. For each x from 0 to p−1 compute x³ + ax + b mod p; if the result is a quadratic residue, its two square roots give two points (x, y) and (x, p−y). Add O. Check the total against Hasse&rsquo;s bound p + 1 ± 2√p.</p></details>
+  <details class="card"><summary>Explain scalar multiplication and the double-and-add method.</summary>
+    <p class="ans">kP is P added to itself k times. It is computed by writing k in binary and repeatedly doubling, adding in P at each set bit — about log₂k operations rather than k. This is the additive analogue of square-and-multiply.</p></details>
+  <details class="card"><summary>State the ECDLP and why it matters.</summary>
+    <p class="ans">Given P and Q = kP, find k. Computing Q from k costs about log₂k operations, but recovering k costs about √n by Pollard&rsquo;s rho, and no sub-exponential algorithm is known. That gap is the trapdoor, and it is why a 256-bit ECC key matches a 3072-bit RSA key.</p></details>
+  <details class="card"><summary>Give the ECC-to-RSA key size equivalences.</summary>
+    <p class="ans">160-bit ECC ≈ 1024-bit RSA; 224 ≈ 2048; 256 ≈ 3072; 384 ≈ 7680; 512 ≈ 15360. The ratio widens from about 6:1 to 30:1 as the security level rises.</p></details>
+</div>
+
+<p class="ask">Next: putting the arithmetic to work &mdash; ECDH key exchange and elliptic curve ElGamal encryption, both worked end to end.</p>
+
+<div class="nav">
+  <a href="../unit-1/0007-whirlpool.html">&larr; Unit I</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0009-ecc-cryptosystems.html">Next: ECC Cryptosystems &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

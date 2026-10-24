@@ -1,0 +1,148 @@
+<title>Back-Propagation Algorithm</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit IV &middot; Lesson 18 of 20</p>
+<h1>Back-Propagation Algorithm</h1>
+<p class="deck">The MLP architecture, forward pass, error computation, backward pass (chain rule to compute gradients), weight update, and a simplified worked numerical for a 2-2-1 network.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>Back-propagation numerical is a guaranteed 15-mark question.</strong> Given a small network with initial weights and one training sample, show: forward pass (compute outputs), error, backward pass (compute &delta; for output and hidden layers), weight updates. Use the sigmoid and its derivative f&prime;(x) = f(x)(1 &minus; f(x)).</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Backpropagation Intuition &amp; Mathematical Gradient</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=Ilg3gGewQ5U" target="_blank">What is backpropagation really doing? | Deep learning, chapter 3</a>
+    <span class="v-meta">3Blue1Brown &middot; 13:53</span>
+    <div class="v-why">The clearest conceptual explanation in computer science: visualizes how the cost surface slopes downwards and how the calculus chain rule distributes credit backwards.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Backpropagation Solved Numerical</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=tUoUdOdTkRw" target="_blank">Backpropagation Algorithm Step-by-Step Solved Numerical Example</a>
+    <span class="v-meta">Mahesh Huddar &middot; 17:30</span>
+    <div class="v-why">Essential 10-mark exam numerical calculating output error $\delta_k$, hidden error $\delta_j$, and weight corrections $\Delta w$ across a full forward/backward cycle.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: BACKPROPAGATION TWO-PHASE CYCLE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Two-Phase Backpropagation Engine</span>
+  <div class="flow-col">
+    <!-- Phase 1 -->
+    <div class="flow-box highlight" style="min-width:22rem;">
+      <strong>PHASE 1 &middot; Forward Propagation Pass</strong>
+      <span class="sub">Inputs $x$ &rarr; Hidden Net $z_j = \sum w_{ij} x_i$ &rarr; Activations $a_j = \sigma(z_j)$ &rarr; Output $y_k$ &rarr; Total Error $E = \frac{1}{2} \sum (t_k - y_k)^2$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Compute Output Layer Error Gradients: $\delta_k = (t_k - y_k) \cdot y_k (1 - y_k)$</span>
+    
+    <!-- Phase 2 -->
+    <div class="flow-box ok" style="min-width:22rem;">
+      <strong>PHASE 2 &middot; Backward Error Propagation Pass</strong>
+      <span class="sub">Hidden Gradients $\delta_j = a_j (1 - a_j) \sum_k \delta_k w_{jk}$ &rarr; Update Weights $\Delta w = \eta \cdot \delta \cdot \text{input} + \alpha \Delta w^{(\text{prev})}$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Repeat for All Training Patterns Until Error Converges</span>
+    
+    <div class="flow-box">
+      <strong>Trained Generalized Multilayer Perceptron</strong>
+      <span class="sub">Non-linear classification &middot; Universal function approximator</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Multi-Layer Perceptron (MLP)</h2>
+<p>Input layer &rarr; one or more hidden layers (sigmoid) &rarr; output layer (sigmoid). Fully connected. Trained by <strong>back-propagation = generalised delta rule</strong>.</p>
+
+<h2>Algorithm</h2>
+
+<h3>1. Forward pass</h3>
+<div class="formula"><span class="name">For each layer</span>
+net<sub>j</sub> = &Sigma; w<sub>ij</sub> &middot; o<sub>i</sub> + b<sub>j</sub><br>
+o<sub>j</sub> = f(net<sub>j</sub>) = sigmoid(net<sub>j</sub>) = 1/(1 + e<sup>&minus;net<sub>j</sub></sup>)</div>
+
+<h3>2. Compute error</h3>
+<div class="formula"><span class="name">Total error</span>
+E = &frac12; &Sigma; (d<sub>k</sub> &minus; o<sub>k</sub>)&sup2; over all output neurons k.</div>
+
+<h3>3. Backward pass — compute &delta;</h3>
+<div class="formula"><span class="name">Output layer</span>
+<strong>&delta;<sub>k</sub> = (d<sub>k</sub> &minus; o<sub>k</sub>) &middot; f&prime;(net<sub>k</sub>)</strong><br>
+For sigmoid: f&prime;(net) = o(1 &minus; o), so <strong>&delta;<sub>k</sub> = (d<sub>k</sub> &minus; o<sub>k</sub>) &middot; o<sub>k</sub>(1 &minus; o<sub>k</sub>)</strong></div>
+
+<div class="formula"><span class="name">Hidden layer</span>
+<strong>&delta;<sub>j</sub> = f&prime;(net<sub>j</sub>) &middot; &Sigma; &delta;<sub>k</sub> &middot; w<sub>jk</sub></strong><br>
+= o<sub>j</sub>(1 &minus; o<sub>j</sub>) &middot; &Sigma; &delta;<sub>k</sub> &middot; w<sub>jk</sub></div>
+
+<h3>4. Update weights</h3>
+<div class="formula"><span class="name">Weight update</span>
+<strong>&Delta;w<sub>ij</sub> = &eta; &middot; &delta;<sub>j</sub> &middot; o<sub>i</sub></strong><br>
+w<sub>ij</sub> = w<sub>ij</sub> + &Delta;w<sub>ij</sub></div>
+
+<div class="solve"><span class="lbl">Worked example (simplified) — 2-2-1 network</span>
+<p>Inputs: x1=0.05, x2=0.10. Target: d=0.01. &eta;=0.5. Sigmoid activation.</p>
+<p>Weights: w1=0.15, w2=0.20, b1=0.35 (hidden1). w3=0.25, w4=0.30, b2=0.35 (hidden2). w5=0.40, w6=0.45, b3=0.60 (output).</p>
+<p><strong>Forward — hidden layer:</strong></p>
+<p>net_h1 = 0.15(0.05) + 0.20(0.10) + 0.35 = 0.3775. o_h1 = &sigma;(0.3775) = 0.5933.</p>
+<p>net_h2 = 0.25(0.05) + 0.30(0.10) + 0.35 = 0.3925. o_h2 = &sigma;(0.3925) = 0.5969.</p>
+<p><strong>Forward — output:</strong></p>
+<p>net_o = 0.40(0.5933) + 0.45(0.5969) + 0.60 = 1.1059. o = &sigma;(1.1059) = 0.7514.</p>
+<p><strong>Error:</strong> E = &frac12;(0.01 &minus; 0.7514)&sup2; = 0.2749.</p>
+<p><strong>Backward — output &delta;:</strong></p>
+<p>&delta;<sub>o</sub> = (0.01 &minus; 0.7514) &times; 0.7514 &times; (1 &minus; 0.7514) = &minus;0.7414 &times; 0.1868 = <strong>&minus;0.1385</strong>.</p>
+<p><strong>Backward — hidden &delta;:</strong></p>
+<p>&delta;<sub>h1</sub> = 0.5933(1&minus;0.5933) &times; (&minus;0.1385)(0.40) = 0.2413 &times; (&minus;0.0554) = &minus;0.0134.</p>
+<p><strong>Update w5:</strong> &Delta;w5 = 0.5 &times; (&minus;0.1385) &times; 0.5933 = &minus;0.0411. w5 = 0.40 &minus; 0.0411 = 0.3589.</p>
+<p>Repeat for all weights. After many epochs, E &rarr; 0.</p></div>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. The sigmoid derivative is:</p>
+<div class="opts">
+<button class="opt" data-ok="1">f'(x) = f(x)(1 - f(x)) = o(1 - o)</button>
+<button class="opt">f'(x) = x²</button>
+<button class="opt">f'(x) = 1/x</button>
+<button class="opt">f'(x) = e^x</button>
+</div><p class="why">This elegant property makes back-prop computation efficient — derivative from the output itself.</p></div>
+<div class="q"><p class="stem">2. For a hidden neuron, &delta; is computed using:</p>
+<div class="opts">
+<button class="opt" data-ok="1">&delta;_j = o_j(1-o_j) × Σ(&delta;_k × w_jk) — error propagated back from the next layer</button>
+<button class="opt">Only the input</button>
+<button class="opt">Only the target value</button>
+<button class="opt">Random values</button>
+</div><p class="why">Hidden neurons have no target, so error is apportioned by weights from the output layer backward.</p></div>
+<div class="q"><p class="stem">3. Weight update formula in back-propagation:</p>
+<div class="opts">
+<button class="opt" data-ok="1">&Delta;w_ij = &eta; × &delta;_j × o_i</button>
+<button class="opt">&Delta;w = &eta; × x × y (Hebbian)</button>
+<button class="opt">&Delta;w = 1/&eta;</button>
+<button class="opt">&Delta;w = random</button>
+</div><p class="why">Learning rate × error gradient × input to that weight. Gradient descent on the error surface.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>Back-propagation algorithm — four steps.</summary><p class="ans">1. Forward pass (compute outputs). 2. Compute error E=½Σ(d-o)². 3. Backward: δ_output = (d-o)·o(1-o); δ_hidden = o(1-o)·Σδ_k·w. 4. Update: Δw = η·δ·input.</p></details>
+<details class="card"><summary>Sigmoid derivative.</summary><p class="ans">f'(x) = f(x)(1-f(x)) = o(1-o). Computed directly from the output value.</p></details>
+</div>
+
+<div class="nav">
+<a href="0017-perceptron-training.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0019-hopfield-and-applications.html">Next: Hopfield &rarr;</a>
+<a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,456 @@
+<title>DFA Minimisation and the Direct Method</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit II &middot; Lesson 9 of 10</p>
+<h1>DFA Minimisation and the Direct RE&nbsp;&rarr;&nbsp;DFA Method</h1>
+<p class="deck">Minimising a DFA by partitioning, worked to completion on the machine from Lesson 8; then the direct route from regular expression to DFA using a syntax tree with nullable, firstpos, lastpos and followpos &mdash; with both answers cross-checked against each other.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two more guaranteed, mechanical questions. <strong>&ldquo;Minimise the given DFA&rdquo;</strong> &mdash; the answer is a sequence of partitions &Pi;<sub>0</sub>, &Pi;<sub>1</sub>, &Pi;<sub>2</sub> &hellip; and <strong>you must show every partition and say which state split the group and why</strong>. <strong>&ldquo;Construct a DFA directly from the regular expression&rdquo;</strong> &mdash; draw the syntax tree with <strong>numbered leaves</strong>, build the <strong>nullable / firstpos / lastpos table</strong>, then the <strong>followpos table</strong>, then the DFA. The followpos table is where the marks are. Both methods are worked here on <strong>(a|b)*abb</strong>, and they are shown to agree &mdash; which is the best possible check on your own answer.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">DFA Minimization via Equivalence Partitioning Pipeline</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Initial Partition &Pi;<sub>0</sub>: Split States into Two Groups</strong>
+      <span class="sub">Group 1: Non-Final States (Q \ F) &bull; Group 2: Final / Accepting States (F)</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Check transition &delta;(q, a) for every input symbol a</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>Refine Partition &Pi;<sub>k</sub> &rarr; &Pi;<sub>k+1</sub>: 1-Equivalence to k-Equivalence</strong>
+      <span class="sub">States p, q remain in same group iff &forall; a &isin; &Sigma;, transitions &delta;(p, a) and &delta;(q, a) land in identical groups</span>
+    </div>
+    <div class="flow-arrow-down">&darr; When &Pi;<sub>k+1</sub> == &Pi;<sub>k</sub> (No further splits)</div>
+    <div class="flow-box" style="max-width:32rem;">
+      <strong>Minimal DFA Construct: Each Final Equivalence Class Becomes One State!</strong>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; DFA Minimisation by Partitioning</span>
+      <span class="best-tag">Top Hindi Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=A7eKj_GXam0" target="_blank">Lec-15: Minimization of DFA with example</a>
+    <span class="v-meta">Gate Smashers &middot; 17:36</span>
+    <div class="v-why">Step-by-step partitioning algorithm showing &Pi;0 to &Pi;final, identifying distinguishing input strings, and eliminating redundant states.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Alternative &middot; Minimisation Theory (English)</span>
+      <span class="best-tag">Top English Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=gVawxP0G3TE" target="_blank">DFA Minimization using Partitioning Algorithm</a>
+    <span class="v-meta">Neso Academy &middot; 26:02</span>
+    <div class="v-why">Rigorous, formal mathematical proof of Myhill-Nerode state equivalence and uniqueness of the minimal DFA.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Direct Method (Syntax Tree &amp; Followpos)</span>
+      <span class="best-tag">Exact Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=M0N__q75yqo" target="_blank">RE to DFA using Syntax Tree Method | Firstpos Lastpos Followpos</a>
+    <span class="v-meta">CSE concepts with Parinita &middot; 16:09</span>
+    <div class="v-why">Works the direct method on <code>(a|b)*abb#</code>: computes nullable, firstpos, lastpos, builds the followpos table, and constructs the minimal DFA in one pass.</div>
+  </div>
+</div>
+
+<h2>Part 1 &mdash; Minimising a DFA</h2>
+
+<div class="formula">
+  <span class="name">Why it works &mdash; the idea in one sentence</span>
+  Two states <strong>s</strong> and <strong>t</strong> are <strong>equivalent</strong> if <strong>every</strong> input string takes them both to accepting states or both to non-accepting states &mdash; that is, <strong>no string can tell them apart</strong>. Equivalent states can be merged. A string that <em>does</em> tell them apart is called a <strong>distinguishing string</strong>.<br><br>
+  <strong>The minimal DFA is unique</strong> &mdash; up to renaming states, there is exactly one smallest DFA for any regular language. That uniqueness is what makes &ldquo;minimise this DFA&rdquo; a question with one right answer.
+</div>
+
+<div class="formula">
+  <span class="name">The partitioning algorithm</span>
+  <strong>1.</strong> Start with <strong>&Pi;<sub>0</sub> = { non-accepting states, accepting states }</strong> &mdash; two groups. <em>The empty string distinguishes them.</em><br>
+  <strong>2.</strong> Repeat: for each group G in the current partition, and each input symbol a, check where every state of G goes. <strong>If two states of G go to DIFFERENT groups on the same symbol, they are distinguishable</strong> &mdash; split G accordingly.<br>
+  <strong>3.</strong> Stop when a full pass produces <strong>no split</strong>. The partition is then stable.<br>
+  <strong>4.</strong> Each remaining group becomes <strong>one state</strong> of the minimal DFA. The start state is the group containing the old start; a group is accepting if it contains accepting states.<br>
+  <strong>5.</strong> Finally, remove any <strong>dead state</strong> &mdash; a non-accepting state all of whose transitions loop back to itself &mdash; and any state <strong>unreachable</strong> from the start.
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Minimise the DFA built in Lesson 8 for (a|b)*abb.</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>State</th><th class="num">on a</th><th class="num">on b</th><th>Accepting?</th></tr></thead>
+  <tbody>
+  <tr><td><strong>A</strong> (start)</td><td class="num">B</td><td class="num">C</td><td>No</td></tr>
+  <tr><td><strong>B</strong></td><td class="num">B</td><td class="num">D</td><td>No</td></tr>
+  <tr><td><strong>C</strong></td><td class="num">B</td><td class="num">C</td><td>No</td></tr>
+  <tr><td><strong>D</strong></td><td class="num">B</td><td class="num">E</td><td>No</td></tr>
+  <tr><td><strong>E</strong></td><td class="num">B</td><td class="num">C</td><td><strong>Yes</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>&Pi;<sub>0</sub> &mdash; split accepting from non-accepting:</strong></p>
+  <p style="text-align:center"><strong>&Pi;<sub>0</sub> = { {A, B, C, D}, &nbsp; {E} }</strong> &nbsp;&nbsp; call the groups <strong>G1</strong> and <strong>G2</strong></p>
+
+  <p><strong>Pass 1 &mdash; examine G1 = {A, B, C, D}.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>State</th><th>on a &rarr; group</th><th>on b &rarr; group</th></tr></thead>
+  <tbody>
+  <tr><td>A</td><td>B &rarr; <strong>G1</strong></td><td>C &rarr; <strong>G1</strong></td></tr>
+  <tr><td>B</td><td>B &rarr; <strong>G1</strong></td><td>D &rarr; <strong>G1</strong></td></tr>
+  <tr><td>C</td><td>B &rarr; <strong>G1</strong></td><td>C &rarr; <strong>G1</strong></td></tr>
+  <tr><td><strong>D</strong></td><td>B &rarr; <strong>G1</strong></td><td><strong>E &rarr; G2</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>D is distinguishable</strong> &mdash; on <code>b</code> it lands in G2 while A, B and C all land in G1. <strong>The distinguishing string is simply <code>b</code>.</strong> Split it out.</p>
+  <p style="text-align:center"><strong>&Pi;<sub>1</sub> = { {A, B, C}, &nbsp; {D}, &nbsp; {E} }</strong></p>
+
+  <p><strong>Pass 2 &mdash; examine {A, B, C}.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>State</th><th>on a &rarr; group</th><th>on b &rarr; group</th></tr></thead>
+  <tbody>
+  <tr><td>A</td><td>B &rarr; <strong>{A,B,C}</strong></td><td>C &rarr; <strong>{A,B,C}</strong></td></tr>
+  <tr><td><strong>B</strong></td><td>B &rarr; <strong>{A,B,C}</strong></td><td><strong>D &rarr; {D}</strong></td></tr>
+  <tr><td>C</td><td>B &rarr; <strong>{A,B,C}</strong></td><td>C &rarr; <strong>{A,B,C}</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>B is distinguishable</strong> &mdash; on <code>b</code> it reaches {D} while A and C stay inside the group. <strong>The distinguishing string is <code>bb</code></strong>: from B it gives E (accept), from A or C it does not.</p>
+  <p style="text-align:center"><strong>&Pi;<sub>2</sub> = { {A, C}, &nbsp; {B}, &nbsp; {D}, &nbsp; {E} }</strong></p>
+
+  <p><strong>Pass 3 &mdash; examine {A, C}.</strong></p>
+  <p>A: on <code>a</code> &rarr; B, in group {B}; on <code>b</code> &rarr; C, in group {A,C}.<br>
+  C: on <code>a</code> &rarr; B, in group {B}; on <code>b</code> &rarr; C, in group {A,C}.</p>
+  <p><strong>Identical &mdash; no split.</strong> The other groups are singletons and cannot split. <strong>&Pi;<sub>3</sub> = &Pi;<sub>2</sub>, so the partition is stable and we stop.</strong></p>
+
+  <div class="formula">
+    <span class="name">The minimal DFA &mdash; 4 states</span>
+    <div class="tw">
+    <table style="margin:0">
+    <thead><tr><th>Minimal state</th><th>Merged from</th><th class="num">on a</th><th class="num">on b</th><th>Accepting?</th></tr></thead>
+    <tbody>
+    <tr><td><strong>A&prime;</strong> (start)</td><td>{A, C}</td><td class="num">B&prime;</td><td class="num">A&prime;</td><td>No</td></tr>
+    <tr><td><strong>B&prime;</strong></td><td>{B}</td><td class="num">B&prime;</td><td class="num">D&prime;</td><td>No</td></tr>
+    <tr><td><strong>D&prime;</strong></td><td>{D}</td><td class="num">B&prime;</td><td class="num">E&prime;</td><td>No</td></tr>
+    <tr><td><strong>E&prime;</strong></td><td>{E}</td><td class="num">B&prime;</td><td class="num">A&prime;</td><td><strong>Yes</strong></td></tr>
+    </tbody>
+    </table>
+    </div>
+  </div>
+
+  <p><strong>Five states became four.</strong> A and C merged because both mean the same thing: <em>&ldquo;nothing useful of <code>abb</code> has been seen yet.&rdquo;</em></p>
+  <p><em>Sanity checks:</em> <strong>trace <code>abb</code>:</strong> A&prime; &mdash;a&rarr; B&prime; &mdash;b&rarr; D&prime; &mdash;b&rarr; <strong>E&prime;</strong>, accepted &check;. <strong>Trace <code>abab</code>:</strong> A&prime; &mdash;a&rarr; B&prime; &mdash;b&rarr; D&prime; &mdash;a&rarr; B&prime; &mdash;b&rarr; D&prime;, not accepting &mdash; correctly rejected &check;. <strong>There is no dead state and no unreachable state here</strong>, so step 5 removes nothing.</p>
+</div>
+
+<h2>Part 2 &mdash; The direct method: regular expression straight to DFA</h2>
+
+<div class="box win">
+  <span class="lbl">Why bother, when we already have a route?</span>
+  <p>The route of Lesson 8 goes <strong>RE &rarr; NFA &rarr; DFA &rarr; minimal DFA</strong> &mdash; three conversions, and the NFA is thrown away. <strong>The direct method skips the NFA entirely</strong>, building the DFA in one pass from a syntax tree. <strong>It is what Lex actually uses</strong>, and it often lands on a DFA that is already minimal &mdash; as it will below.</p>
+</div>
+
+<div class="formula">
+  <span class="name">The five steps</span>
+  <strong>1. Augment the regular expression</strong> with an end-marker: <strong>r &rarr; (r)#</strong>. The <code>#</code> marks &ldquo;a complete match ends here&rdquo;.<br>
+  <strong>2. Build the syntax tree</strong> for (r)#. <strong>Leaves are symbols and are NUMBERED left to right</strong> &mdash; these numbers are the <em>positions</em>. Interior nodes are the operators <strong>cat</strong>, <strong>|</strong> and <strong>*</strong>.<br>
+  <strong>3. Compute nullable, firstpos and lastpos</strong> for every node, bottom-up.<br>
+  <strong>4. Compute followpos</strong> for every position, using the two rules.<br>
+  <strong>5. Construct the DFA</strong>: the start state is <strong>firstpos(root)</strong>, and from a state S on symbol a the next state is the <strong>union of followpos(p) over every position p in S whose symbol is a</strong>. <strong>A state is accepting if it contains the position of #.</strong>
+</div>
+
+<div class="formula">
+  <span class="name">The three functions</span>
+  <strong>nullable(n)</strong> &mdash; true if the subtree at n can generate the <strong>empty string</strong>.<br>
+  <strong>firstpos(n)</strong> &mdash; the set of positions that can match the <strong>FIRST symbol</strong> of a string generated by the subtree at n.<br>
+  <strong>lastpos(n)</strong> &mdash; the set of positions that can match the <strong>LAST symbol</strong> of such a string.<br>
+  <strong>followpos(p)</strong> &mdash; for a <em>position</em> p, the set of positions that can <strong>follow p immediately</strong> in some string of the language.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Node n</th><th>nullable(n)</th><th>firstpos(n)</th><th>lastpos(n)</th></tr></thead>
+<tbody>
+<tr><td>Leaf <strong>&epsilon;</strong></td><td><strong>true</strong></td><td>&empty;</td><td>&empty;</td></tr>
+<tr><td>Leaf at position <strong>i</strong></td><td><strong>false</strong></td><td>{i}</td><td>{i}</td></tr>
+<tr><td><strong>c<sub>1</sub> | c<sub>2</sub></strong></td><td>nullable(c<sub>1</sub>) <strong>or</strong> nullable(c<sub>2</sub>)</td><td>firstpos(c<sub>1</sub>) &cup; firstpos(c<sub>2</sub>)</td><td>lastpos(c<sub>1</sub>) &cup; lastpos(c<sub>2</sub>)</td></tr>
+<tr><td><strong>c<sub>1</sub> c<sub>2</sub></strong> (cat)</td><td>nullable(c<sub>1</sub>) <strong>and</strong> nullable(c<sub>2</sub>)</td><td><strong>if</strong> nullable(c<sub>1</sub>) <strong>then</strong> firstpos(c<sub>1</sub>) &cup; firstpos(c<sub>2</sub>) <strong>else</strong> firstpos(c<sub>1</sub>)</td><td><strong>if</strong> nullable(c<sub>2</sub>) <strong>then</strong> lastpos(c<sub>1</sub>) &cup; lastpos(c<sub>2</sub>) <strong>else</strong> lastpos(c<sub>2</sub>)</td></tr>
+<tr><td><strong>c<sub>1</sub>*</strong></td><td><strong>true</strong> &mdash; always</td><td>firstpos(c<sub>1</sub>)</td><td>lastpos(c<sub>1</sub>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The two followpos rules &mdash; there are only two</span>
+  <strong>RULE 1 &mdash; concatenation.</strong> If n is a <strong>cat</strong> node with children c<sub>1</sub> and c<sub>2</sub>, then for every position <strong>i in lastpos(c<sub>1</sub>)</strong>, add <strong>firstpos(c<sub>2</sub>)</strong> to <strong>followpos(i)</strong>.<br><br>
+  <strong>RULE 2 &mdash; star.</strong> If n is a <strong>star</strong> node, then for every position <strong>i in lastpos(n)</strong>, add <strong>firstpos(n)</strong> to <strong>followpos(i)</strong>.<br><br>
+  <span style="font-size:.9em"><strong>There is no rule for the | node.</strong> Alternation never puts two positions next to each other, so it contributes nothing to followpos &mdash; a point examiners like to test.</span>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Construct a DFA directly for <strong>(a|b)*abb</strong>.</span>
+
+  <p><strong>Step 1 &mdash; augment.</strong> &nbsp; <strong>(a|b)*abb#</strong></p>
+
+  <p><strong>Step 2 &mdash; syntax tree with numbered leaves.</strong> Reading the symbols left to right gives six positions:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Position</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Symbol</strong></td><td class="num"><strong>a</strong></td><td class="num"><strong>b</strong></td><td class="num"><strong>a</strong></td><td class="num"><strong>b</strong></td><td class="num"><strong>b</strong></td><td class="num"><strong>#</strong></td></tr>
+  <tr><td><strong>Where</strong></td><td class="num" colspan="2">inside (a|b)*</td><td class="num" colspan="3">the trailing abb</td><td class="num">end-marker</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.78rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>cat</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>cat</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>#</strong> (6)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>cat</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>b</strong> (5)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<strong>cat</strong>&nbsp;&nbsp;&nbsp;&nbsp;<strong>b</strong> (4)<br>
+    &nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;<strong>star</strong>&nbsp;&nbsp;&nbsp;<strong>a</strong> (3)<br>
+    &nbsp;&nbsp;|<br>
+    &nbsp;<strong>|</strong> (or)<br>
+    &nbsp;/&nbsp;&nbsp;&nbsp;\<br>
+    <strong>a</strong>(1)&nbsp;&nbsp;<strong>b</strong>(2)
+    </div>
+  </div>
+
+  <p><strong>Step 3 &mdash; nullable, firstpos, lastpos, bottom-up.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Node</th><th>nullable</th><th>firstpos</th><th>lastpos</th><th>Why</th></tr></thead>
+  <tbody>
+  <tr><td>leaf <strong>a</strong>(1)</td><td>false</td><td>{1}</td><td>{1}</td><td>Leaf rule</td></tr>
+  <tr><td>leaf <strong>b</strong>(2)</td><td>false</td><td>{2}</td><td>{2}</td><td>Leaf rule</td></tr>
+  <tr><td><strong>|</strong> node (1|2)</td><td>false</td><td><strong>{1,2}</strong></td><td><strong>{1,2}</strong></td><td>Union of both children; neither nullable</td></tr>
+  <tr><td><strong>star</strong> node</td><td><strong>TRUE</strong></td><td>{1,2}</td><td>{1,2}</td><td>A star is <em>always</em> nullable</td></tr>
+  <tr><td>leaf <strong>a</strong>(3)</td><td>false</td><td>{3}</td><td>{3}</td><td>&mdash;</td></tr>
+  <tr><td><strong>cat</strong>(star, 3)</td><td>false</td><td><strong>{1,2,3}</strong></td><td>{3}</td><td>Left child <em>is</em> nullable, so firstpos unions in {3}. Right child not nullable, so lastpos = {3}</td></tr>
+  <tr><td>leaf <strong>b</strong>(4)</td><td>false</td><td>{4}</td><td>{4}</td><td>&mdash;</td></tr>
+  <tr><td><strong>cat</strong>(&hellip;, 4)</td><td>false</td><td>{1,2,3}</td><td>{4}</td><td>Left not nullable, so firstpos unchanged</td></tr>
+  <tr><td>leaf <strong>b</strong>(5)</td><td>false</td><td>{5}</td><td>{5}</td><td>&mdash;</td></tr>
+  <tr><td><strong>cat</strong>(&hellip;, 5)</td><td>false</td><td>{1,2,3}</td><td>{5}</td><td>&mdash;</td></tr>
+  <tr><td>leaf <strong>#</strong>(6)</td><td>false</td><td>{6}</td><td>{6}</td><td>&mdash;</td></tr>
+  <tr><td><strong>ROOT</strong> cat(&hellip;, 6)</td><td>false</td><td><strong>{1,2,3}</strong></td><td>{6}</td><td>firstpos(root) is the DFA start state</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><em>The one line to get right:</em> <strong>the star node is nullable, so at cat(star, 3) the firstpos absorbs {3}</strong> &mdash; giving {1,2,3}. Miss that and every state afterwards is wrong.</p>
+
+  <p><strong>Step 4 &mdash; followpos.</strong> Apply the two rules to each cat and star node.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Node</th><th>Rule</th><th>Effect</th></tr></thead>
+  <tbody>
+  <tr><td><strong>star</strong> node</td><td>Rule 2: lastpos = {1,2}, firstpos = {1,2}</td><td>followpos(1) &supe; {1,2}; &nbsp; followpos(2) &supe; {1,2}</td></tr>
+  <tr><td><strong>cat</strong>(star, 3)</td><td>Rule 1: lastpos(star) = {1,2}, firstpos(3) = {3}</td><td>followpos(1) &supe; {3}; &nbsp; followpos(2) &supe; {3}</td></tr>
+  <tr><td><strong>cat</strong>(&hellip;, 4)</td><td>Rule 1: lastpos = {3}, firstpos(4) = {4}</td><td>followpos(3) &supe; {4}</td></tr>
+  <tr><td><strong>cat</strong>(&hellip;, 5)</td><td>Rule 1: lastpos = {4}, firstpos(5) = {5}</td><td>followpos(4) &supe; {5}</td></tr>
+  <tr><td><strong>ROOT</strong> cat(&hellip;, 6)</td><td>Rule 1: lastpos = {5}, firstpos(6) = {6}</td><td>followpos(5) &supe; {6}</td></tr>
+  <tr><td><strong>|</strong> node</td><td><strong>No rule</strong></td><td>Contributes nothing</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <div class="formula">
+    <span class="name">The followpos table &mdash; this is where the marks are</span>
+    <div class="tw">
+    <table style="margin:0">
+    <thead><tr><th class="num">Position</th><th class="num">1 (a)</th><th class="num">2 (b)</th><th class="num">3 (a)</th><th class="num">4 (b)</th><th class="num">5 (b)</th><th class="num">6 (#)</th></tr></thead>
+    <tbody>
+    <tr><td><strong>followpos</strong></td><td class="num"><strong>{1,2,3}</strong></td><td class="num"><strong>{1,2,3}</strong></td><td class="num"><strong>{4}</strong></td><td class="num"><strong>{5}</strong></td><td class="num"><strong>{6}</strong></td><td class="num"><strong>&empty;</strong></td></tr>
+    </tbody>
+    </table>
+    </div>
+    <span style="font-size:.85em; display:block; margin-top:.4rem"><strong>followpos of the # position is always empty</strong> &mdash; nothing can follow the end of a match. Use that as a check.</span>
+  </div>
+
+  <p><strong>Step 5 &mdash; construct the DFA.</strong> Start state = firstpos(root) = <strong>{1,2,3}</strong>. Recall the symbols: positions 1 and 3 are <code>a</code>; positions 2, 4 and 5 are <code>b</code>.</p>
+
+  <p><strong>A = {1,2,3}</strong><br>
+  on <code>a</code>: the <code>a</code>-positions in A are <strong>1 and 3</strong> &rarr; followpos(1) &cup; followpos(3) = {1,2,3} &cup; {4} = <strong>{1,2,3,4} = B</strong><br>
+  on <code>b</code>: the <code>b</code>-positions in A are <strong>2</strong> &rarr; followpos(2) = <strong>{1,2,3} = A</strong></p>
+
+  <p><strong>B = {1,2,3,4}</strong><br>
+  on <code>a</code>: positions 1, 3 &rarr; {1,2,3} &cup; {4} = <strong>B</strong><br>
+  on <code>b</code>: positions 2, 4 &rarr; followpos(2) &cup; followpos(4) = {1,2,3} &cup; {5} = <strong>{1,2,3,5} = C</strong></p>
+
+  <p><strong>C = {1,2,3,5}</strong><br>
+  on <code>a</code>: positions 1, 3 &rarr; <strong>B</strong><br>
+  on <code>b</code>: positions 2, 5 &rarr; {1,2,3} &cup; {6} = <strong>{1,2,3,6} = D</strong></p>
+
+  <p><strong>D = {1,2,3,6}</strong> &mdash; <strong>contains position 6, so D is ACCEPTING</strong><br>
+  on <code>a</code>: positions 1, 3 &rarr; <strong>B</strong><br>
+  on <code>b</code>: position 2 &rarr; <strong>A</strong> &nbsp; <em>(position 6 is <code>#</code>, not <code>b</code>, so it contributes nothing)</em></p>
+
+  <p><strong>No new sets appear. The construction terminates.</strong></p>
+
+  <div class="formula">
+    <span class="name">The DFA &mdash; 4 states</span>
+    <div class="tw">
+    <table style="margin:0">
+    <thead><tr><th>State</th><th>Positions</th><th class="num">on a</th><th class="num">on b</th><th>Accepting?</th></tr></thead>
+    <tbody>
+    <tr><td><strong>A</strong> (start)</td><td>{1,2,3}</td><td class="num">B</td><td class="num">A</td><td>No</td></tr>
+    <tr><td><strong>B</strong></td><td>{1,2,3,4}</td><td class="num">B</td><td class="num">C</td><td>No</td></tr>
+    <tr><td><strong>C</strong></td><td>{1,2,3,5}</td><td class="num">B</td><td class="num">D</td><td>No</td></tr>
+    <tr><td><strong>D</strong></td><td>{1,2,3,<strong>6</strong>}</td><td class="num">B</td><td class="num">A</td><td><strong>Yes</strong></td></tr>
+    </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="box win">
+  <span class="lbl">The cross-check &mdash; the two methods agree</span>
+  <p>Compare the direct-method DFA with the <strong>minimised</strong> DFA from Part 1:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Minimised (Part 1)</th><th>Direct (Part 2)</th><th class="num">on a</th><th class="num">on b</th></tr></thead>
+  <tbody>
+  <tr><td>A&prime; = {A, C}</td><td><strong>A</strong></td><td class="num">B&prime; &harr; B</td><td class="num">A&prime; &harr; A</td></tr>
+  <tr><td>B&prime; = {B}</td><td><strong>B</strong></td><td class="num">B&prime; &harr; B</td><td class="num">D&prime; &harr; C</td></tr>
+  <tr><td>D&prime; = {D}</td><td><strong>C</strong></td><td class="num">B&prime; &harr; B</td><td class="num">E&prime; &harr; D</td></tr>
+  <tr><td>E&prime; = {E} &mdash; accepting</td><td><strong>D</strong> &mdash; accepting</td><td class="num">B&prime; &harr; B</td><td class="num">A&prime; &harr; A</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>They are the same machine under the renaming A&prime;&rarr;A, B&prime;&rarr;B, D&prime;&rarr;C, E&prime;&rarr;D.</strong> Since the minimal DFA is unique, <strong>the direct method produced the minimal DFA in one pass</strong> &mdash; skipping both the NFA and the minimisation step. That is exactly why Lex uses it, and stating it is the best possible conclusion to either answer.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Minimisation begins with the partition:</p>
+  <div class="opts">
+    <button class="opt">One group per state</button>
+    <button class="opt">{ start state, all others }</button>
+    <button class="opt" data-ok="1">{ non-accepting states, accepting states }</button>
+    <button class="opt">One group containing every state</button>
+  </div>
+  <p class="why">The empty string already distinguishes accepting from non-accepting states, so that split is free. Every later split needs a genuine distinguishing string.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Two states are split into different groups when:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Some input symbol sends them to different groups of the current partition</button>
+    <button class="opt">They have different numbers of outgoing edges</button>
+    <button class="opt">One is reachable and the other is not</button>
+    <button class="opt">They have different names</button>
+  </div>
+  <p class="why">In the worked example, <code>b</code> split D from {A,B,C} because it sent D to the accepting group; then <code>b</code> split B off because it sent B to {D}.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Minimising the 5-state DFA for (a|b)*abb gives:</p>
+  <div class="opts">
+    <button class="opt">5 states — it was already minimal</button>
+    <button class="opt" data-ok="1">4 states, with A and C merged</button>
+    <button class="opt">3 states</button>
+    <button class="opt">2 states</button>
+  </div>
+  <p class="why">A and C merge because both mean &ldquo;nothing useful of abb has been seen yet&rdquo;. The minimal DFA is unique up to renaming, so this is the only right answer.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In the direct method, the regular expression is augmented to (r)# because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The # position marks where a complete match ends, so states containing it are accepting</button>
+    <button class="opt">It is required for nullable to be defined</button>
+    <button class="opt">It removes the need for followpos</button>
+    <button class="opt">It makes the syntax tree balanced</button>
+  </div>
+  <p class="why">Without the end-marker there would be no way to tell which position sets correspond to a finished match. followpos of the # position is always empty — a useful check.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A star node's nullable value is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Always true</button>
+    <button class="opt">Always false</button>
+    <button class="opt">True only if its child is nullable</button>
+    <button class="opt">True only if its child is a leaf</button>
+  </div>
+  <p class="why">r* always includes ε, whatever r is. That is exactly why cat(star, 3) has firstpos {1,2,3} rather than {1,2} — the nullable left child lets firstpos absorb the right child's.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which node type contributes NOTHING to followpos?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The alternation (|) node</button>
+    <button class="opt">Leaf nodes</button>
+    <button class="opt">The star node</button>
+    <button class="opt">The cat node</button>
+  </div>
+  <p class="why">There are only two followpos rules, one for cat and one for star. Alternation never places two positions adjacent, so it adds nothing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. For (a|b)*abb#, followpos(1) is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">{1, 2, 3}</button>
+    <button class="opt">{3}</button>
+    <button class="opt">{1, 2}</button>
+    <button class="opt">{4}</button>
+  </div>
+  <p class="why">The star node contributes {1,2} by rule 2, and cat(star, 3) contributes {3} by rule 1. Position 2 has the same followpos for the same reasons.</p>
+</div>
+
+<div class="q">
+  <p class="stem">8. The direct method is used by Lex because it:</p>
+  <div class="opts">
+    <button class="opt">Is the only method that handles closure</button>
+    <button class="opt">Produces a smaller NFA</button>
+    <button class="opt" data-ok="1">Builds the DFA in one pass without constructing an NFA, and often lands on the minimal DFA</button>
+    <button class="opt">Requires no syntax tree</button>
+  </div>
+  <p class="why">For (a|b)*abb it produced exactly the 4-state minimal machine, skipping both the NFA and the minimisation pass — three conversions reduced to one.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>When are two DFA states equivalent, and why is the minimal DFA unique?</summary>
+    <p class="ans">Two states are equivalent if no input string distinguishes them — every string takes both to accepting states or both to non-accepting states. A string that does separate them is a distinguishing string. Up to renaming of states there is exactly one smallest DFA for any regular language, which is why the question has a single right answer.</p></details>
+  <details class="card"><summary>Give the five steps of the partitioning algorithm.</summary>
+    <p class="ans">Start with Π₀ = {non-accepting, accepting}. Repeatedly, for each group and each symbol, split any group whose members go to different groups. Stop when a full pass causes no split. Each group becomes one state, the start group contains the old start, and a group is accepting if it contains accepting states. Finally remove any dead state and any state unreachable from the start.</p></details>
+  <details class="card"><summary>Minimise the DFA for (a|b)*abb.</summary>
+    <p class="ans">Π₀ = {{A,B,C,D},{E}}. On b, D goes to the accepting group while A, B and C do not, so Π₁ = {{A,B,C},{D},{E}}. On b, B goes to {D} while A and C stay inside, so Π₂ = {{A,C},{B},{D},{E}}. A and C behave identically, so the partition is stable. Result: four states, with A and C merged, since both mean nothing useful of abb has been seen.</p></details>
+  <details class="card"><summary>Give the five steps of the direct RE → DFA method.</summary>
+    <p class="ans">Augment r to (r)#. Build the syntax tree with leaves numbered left to right as positions. Compute nullable, firstpos and lastpos bottom-up. Compute followpos by the two rules. Construct the DFA: start state is firstpos(root); from state S on symbol a, the next state is the union of followpos(p) over all positions p in S whose symbol is a; a state is accepting if it contains the # position.</p></details>
+  <details class="card"><summary>Give the nullable, firstpos and lastpos rules.</summary>
+    <p class="ans">Leaf ε: nullable true, both sets empty. Leaf at position i: not nullable, both sets {i}. For c₁|c₂: nullable is the or, firstpos and lastpos are unions. For cat c₁c₂: nullable is the and; firstpos is firstpos(c₁) ∪ firstpos(c₂) if c₁ is nullable else firstpos(c₁); lastpos is lastpos(c₁) ∪ lastpos(c₂) if c₂ is nullable else lastpos(c₂). For c₁*: nullable always true, firstpos and lastpos are those of the child.</p></details>
+  <details class="card"><summary>Give the two followpos rules and the table for (a|b)*abb#.</summary>
+    <p class="ans">Rule 1, cat node: for every i in lastpos(c₁), add firstpos(c₂) to followpos(i). Rule 2, star node: for every i in lastpos(n), add firstpos(n) to followpos(i). The alternation node contributes nothing. Table: followpos(1) = followpos(2) = {1,2,3}; followpos(3) = {4}; followpos(4) = {5}; followpos(5) = {6}; followpos(6) = ∅.</p></details>
+  <details class="card"><summary>Give the direct-method DFA for (a|b)*abb and its relation to the minimised one.</summary>
+    <p class="ans">A = {1,2,3} start, B = {1,2,3,4}, C = {1,2,3,5}, D = {1,2,3,6} accepting. On a every state goes to B; on b, A→A, B→C, C→D, D→A. It is isomorphic to the minimised DFA under A′→A, B′→B, D′→C, E′→D — so the direct method produced the minimal machine in one pass, skipping both the NFA and the minimisation step. That is why Lex uses it.</p></details>
+</div>
+
+<p class="ask">Next, and last for this unit: the tool that does all of this for you &mdash; Lex, the lexical analyser generator.</p>
+
+<div class="nav">
+  <a href="0008-recognition-of-tokens.html">&larr; Recognition of Tokens</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0010-lexical-analyzer-generator.html">Next: Lex &mdash; the Lexical Analyser Generator &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

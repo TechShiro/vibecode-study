@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 02 – ER Modeling & Relational Mapping</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module A · Lesson 2 of 17 · Conceptual Design to Relational Tables</div>
+  <h1>ER Modeling & Relational Schema Mapping</h1>
+  <p class="subtitle">From business requirements to formal Entity-Relationship models and mathematical translation into relational tables.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module A – Foundations & Modeling</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Before writing a single line of SQL (<code>CREATE TABLE</code>), system designers build an <strong>Entity-Relationship (ER) Model</strong>. An ER model is a top-down diagrammatic representation of business reality. Once perfected, a set of mathematically rigorous <strong>mapping algorithms</strong> translates entities, attributes, and relationships directly into relational tables with primary keys, foreign keys, and junction tables.</p>
+
+  <h2>2 · Core ER Primitives</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Component</th><th>Visual Symbol (Chen Notation)</th><th>Definition & Example</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Strong Entity</strong></td><td>Rectangle</td><td>An object with independent existence (e.g., <code>Student</code>, <code>Course</code>). Has a distinct Primary Key.</td></tr>
+      <tr><td><strong>Weak Entity</strong></td><td>Double Rectangle</td><td>Cannot exist without an identifying parent entity. Has no full primary key, only a partial key (discriminator). E.g., <code>Dependent</code> belonging to an <code>Employee</code>.</td></tr>
+      <tr><td><strong>Attribute</strong></td><td>Ellipse</td><td>A property describing an entity (e.g., <code>student_name</code>). Underlined ellipse = Primary Key.</td></tr>
+      <tr><td><strong>Multivalued Attribute</strong></td><td>Double Ellipse</td><td>An attribute holding multiple values for a single entity (e.g., <code>phone_numbers</code>).</td></tr>
+      <tr><td><strong>Composite Attribute</strong></td><td>Hierarchical Ellipses</td><td>Can be subdivided into atomic parts (e.g., <code>Address</code> &rarr; <code>Street</code>, <code>City</code>, <code>Zip</code>).</td></tr>
+      <tr><td><strong>Derived Attribute</strong></td><td>Dashed Ellipse</td><td>Computed dynamically from other attributes (e.g., <code>Age</code> derived from <code>DateOfBirth</code>).</td></tr>
+      <tr><td><strong>Relationship</strong></td><td>Diamond</td><td>An association among entities (e.g., <code>Enrolls_In</code>). Double Diamond for weak entity identifying relationships.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Cardinality and Participation Constraints</h2>
+  <ul>
+    <li><strong>Cardinality Ratios</strong>:
+      <ul>
+        <li><strong>One-to-One (1:1)</strong>: E.g., <code>Citizen</code> has one <code>Passport</code>; <code>Passport</code> belongs to one <code>Citizen</code>.</li>
+        <li><strong>One-to-Many (1:N)</strong>: E.g., <code>Department</code> employs many <code>Employees</code>; each <code>Employee</code> works in one <code>Department</code>.</li>
+        <li><strong>Many-to-Many (M:N)</strong>: E.g., <code>Student</code> enrolls in many <code>Courses</code>; <code>Course</code> has many enrolled <code>Students</code>.</li>
+      </ul>
+    </li>
+    <li><strong>Participation Constraints</strong>:
+      <ul>
+        <li><strong>Total Participation (Mandatory)</strong>: Every entity in the set must participate in the relationship (represented by a <em>double line</em>). E.g., every <code>Loan</code> must belong to a <code>Customer</code>.</li>
+        <li><strong>Partial Participation (Optional)</strong>: Some entities may not participate (single line). E.g., not every <code>Employee</code> manages a <code>Department</code>.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>4 · ER to Relational Schema Mapping Rules</h2>
+  <p>To convert an ER diagram into relational SQL schemas without loss of information:</p>
+
+  <div class="callout info">
+    <h4>Rule 1: Strong Entity Mapping</h4>
+    <p>Each strong entity becomes a relation (table). All simple attributes become columns. The ER key becomes the <strong>Primary Key</strong>. Composite attributes are flattened into atomic columns.</p>
+  </div>
+
+  <div class="callout warning">
+    <h4>Rule 2: Weak Entity Mapping</h4>
+    <p>Create a relation. Include all simple attributes. Include the <strong>Primary Key of the identifying strong entity</strong> as a Foreign Key. The Primary Key of the weak relation is the combination: <code>{Parent_PK, Partial_Key}</code>.</p>
+  </div>
+
+  <div class="callout info">
+    <h4>Rule 3: 1:N Relationship Mapping</h4>
+    <p>Do NOT create a separate table. Place the Primary Key of the <strong>"1" side</strong> as a <strong>Foreign Key</strong> inside the relation of the <strong>"N" (many) side</strong>. E.g., put <code>dept_id</code> in the <code>Employee</code> table.</p>
+  </div>
+
+  <div class="callout danger">
+    <h4>Rule 4: M:N Relationship Mapping (Junction Table)</h4>
+    <p>You MUST create a separate <strong>associative / junction table</strong>. The primary key of the junction table is the composite of the primary keys of both participating entities: <code>{student_id, course_id}</code>, plus any descriptive attributes of the relationship (e.g. <code>enrollment_date</code>, <code>grade</code>).</p>
+  </div>
+
+  <div class="callout info">
+    <h4>Rule 5: Multivalued Attribute Mapping</h4>
+    <p>Create a dedicated table containing: <code>{parent_pk, attribute_value}</code> with composite primary key over both columns. E.g., <code>EmployeePhones(emp_id, phone_number)</code>.</p>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0001-dbms-architecture-and-ansi-sparc-3-tier.html">← Lesson 01: DBMS Architecture</a>
+    <a href="0003-relational-algebra-and-calculus.html">Lesson 03: Relational Algebra & Calculus →</a>
+  </nav>
+</body>
+</html>

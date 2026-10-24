@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 01 — Values, Types &amp; Variables</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 1 of 24 · engines, types, variables, coercion</div>
+<h1>Values, Types &amp; Variables</h1>
+<p class="subtitle">You know Java's strict, compiler-checked world — now meet a language that decides types at runtime, and learn exactly where that freedom bites and how interviewers test it.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 1 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · What JavaScript is, and how it actually runs</h2>
+<p>
+Java's story: you write <code>.java</code> files, <code>javac</code> compiles them to bytecode, and the JVM runs that bytecode anywhere.
+JavaScript's story is different: there is <strong>no separate compile step you run</strong>. You hand raw source code to an
+<strong>engine</strong>, and the engine parses, compiles, and executes it in one continuous motion, at runtime.
+</p>
+<p>
+The engine you'll meet most is <strong>V8</strong> (Google's, written in C++). It lives inside Chrome and inside Node.js.
+Firefox has SpiderMonkey, Safari has JavaScriptCore — all implement the same language standard, called
+<strong>ECMAScript</strong> ("ES"). When people say "ES6" or "ES2015+", they mean the big 2015 upgrade that gave us
+<code>let</code>, <code>const</code>, classes, arrow functions, and most of modern JS.
+</p>
+<p>
+Modern engines are not slow interpreters. They use <strong>JIT (just-in-time) compilation</strong> — exactly the trick the JVM uses:
+start by interpreting quickly, watch which functions run hot, then compile those to optimized machine code on the fly.
+So "JS is interpreted" is an outdated line; the honest sentence is <em>"JS is JIT-compiled by its engine, like Java bytecode is JIT-compiled by the JVM."</em>
+</p>
+<p>Where can that engine live? Two homes matter to us:</p>
+<table>
+  <thead><tr><th></th><th>Browser (Chrome, Firefox…)</th><th>Node.js</th></tr></thead>
+  <tbody>
+    <tr><td>Engine</td><td>V8 (Chrome), SpiderMonkey (Firefox)…</td><td>V8</td></tr>
+    <tr><td>Extra powers added around the engine</td><td>DOM (the page), <code>fetch</code>, <code>alert</code>, browser storage</td><td>File system, network servers, processes (<code>fs</code>, <code>http</code>…)</td></tr>
+    <tr><td>Global object</td><td><code>window</code></td><td><code>global</code> (both reachable as <code>globalThis</code>)</td></tr>
+    <tr><td>Typical job</td><td>Make web pages interactive</td><td>Run servers, tools, scripts — Java's usual territory</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "JavaScript is a language defined by the ECMAScript standard; an engine like V8 JIT-compiles it.
+  The browser and Node.js are two different <em>host environments</em> wrapping the same engine —
+  the browser adds the DOM, Node adds file and network APIs. The language itself has neither."
+</div>
+<p>
+To follow along: install Node, save code in a file like <code>play.js</code>, and run <code>node play.js</code> —
+or just press F12 in Chrome and type into the Console. Both work for everything in Module A.
+</p>
+
+<h2>2 · Dynamic typing — the big mental shift from Java</h2>
+<p>
+In Java, <strong>variables have types</strong>: <code>int x</code> can never hold a String, and the compiler enforces it before the program ever runs.
+In JavaScript, <strong>values have types; variables don't</strong>. A variable is just a label that can be stuck onto any value:
+</p>
+<pre><code>let x = 42;        <span class="cmt">// x currently labels a number</span>
+x = "hello";       <span class="cmt">// now a string — perfectly legal, no error</span>
+x = true;          <span class="cmt">// now a boolean</span>
+x = { name: "Krish" };  <span class="cmt">// now an object</span></code></pre>
+<p>
+This is <strong>dynamic typing</strong>: type checks happen at runtime, on the value itself. Java's approach is <strong>static typing</strong>:
+checks happen at compile time, on the variable. The trade: JS lets you move fast and write less ceremony, but type mistakes
+that Java's compiler would catch on day one surface in JS as runtime bugs on day thirty. (TypeScript, which we meet in the NestJS lesson,
+bolts Java-style static checking back on top of JS — now you know why it exists.)
+</p>
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Think of every JS variable as being declared <code>Object x</code> in Java — it can reference anything —
+  except JS also skips the casts and lets primitives flow through the same variables. The flexibility is real,
+  and so is the loss of compile-time safety.
+</div>
+
+<h2>3 · The 7 primitives vs objects</h2>
+<p>
+Every JS value is either a <strong>primitive</strong> or an <strong>object</strong>. There are exactly seven primitive types — interviewers love asking you to list them:
+</p>
+<table>
+  <thead><tr><th>Primitive</th><th>Example</th><th>Java's nearest relative</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>string</code></td><td><code>"hi"</code>, <code>'hi'</code>, <code>`hi`</code></td><td><code>String</code></td><td>Immutable, like Java's. No separate <code>char</code> type — a char is a string of length 1.</td></tr>
+    <tr><td><code>number</code></td><td><code>42</code>, <code>3.14</code>, <code>-0</code>, <code>NaN</code></td><td><code>double</code></td><td>ONE number type. No int/long/float split — everything is a 64-bit IEEE 754 double.</td></tr>
+    <tr><td><code>boolean</code></td><td><code>true</code>, <code>false</code></td><td><code>boolean</code></td><td>Same idea.</td></tr>
+    <tr><td><code>undefined</code></td><td><code>undefined</code></td><td>(no equivalent)</td><td>"No value was ever assigned." The default for uninitialized variables and missing things.</td></tr>
+    <tr><td><code>null</code></td><td><code>null</code></td><td><code>null</code></td><td>"Intentionally empty" — a value <em>you</em> assign to say "nothing here, on purpose."</td></tr>
+    <tr><td><code>symbol</code></td><td><code>Symbol("id")</code></td><td>(no equivalent)</td><td>Guaranteed-unique identifier, used for special object keys. Details in Lesson 5.</td></tr>
+    <tr><td><code>bigint</code></td><td><code>123n</code></td><td><code>BigInteger</code></td><td>Arbitrary-precision integers, for numbers beyond 2<sup>53</sup>. Details in Lesson 5.</td></tr>
+  </tbody>
+</table>
+<p>
+<strong>Everything else is an object</strong> — plain objects, arrays, functions, dates, regexes. Yes, arrays and functions are objects
+(we'll exploit that heavily in Lessons 2–4). The dividing line matters because primitives and objects behave differently
+when copied and compared — section 9 below.
+</p>
+<pre><code>let s = "text";              <span class="cmt">// primitive: string</span>
+let n = 3.14;                <span class="cmt">// primitive: number</span>
+let nothingYet;              <span class="cmt">// primitive: undefined (declared, never assigned)</span>
+let cleared = null;          <span class="cmt">// primitive: null (deliberately empty)</span>
+let user = { name: "Krish" };<span class="cmt">// object</span>
+let list = [1, 2, 3];        <span class="cmt">// object (arrays are objects)</span>
+let f = function () {};      <span class="cmt">// object (functions are objects too)</span></code></pre>
+<div class="callout tip">
+  <span class="label">undefined vs null — the interview classic</span>
+  <code>undefined</code> means "the language never got a value here" (unassigned variable, missing function argument,
+  absent object property). <code>null</code> means "a programmer deliberately wrote 'nothing' here."
+  Java only has the second concept. Rule of thumb: you <em>read</em> <code>undefined</code>, you <em>write</em> <code>null</code>.
+</div>
+
+<h2>4 · var, let, const — and why var is banished</h2>
+<p>
+JS has three ways to declare a variable, and the differences are a guaranteed interview topic because <code>var</code>
+(the original, pre-2015 keyword) has genuinely broken behavior that <code>let</code>/<code>const</code> fixed.
+</p>
+<table>
+  <thead><tr><th></th><th><code>var</code></th><th><code>let</code></th><th><code>const</code></th></tr></thead>
+  <tbody>
+    <tr><td>Scope</td><td>Function (ignores <code>{ }</code> blocks!)</td><td>Block <code>{ }</code>, like Java</td><td>Block <code>{ }</code>, like Java</td></tr>
+    <tr><td>Redeclare in same scope</td><td>Allowed (silently!)</td><td>SyntaxError</td><td>SyntaxError</td></tr>
+    <tr><td>Reassign</td><td>Yes</td><td>Yes</td><td>No — TypeError</td></tr>
+    <tr><td>Use before declaration</td><td>Gives <code>undefined</code> (hoisted &amp; auto-initialized)</td><td>ReferenceError (TDZ)</td><td>ReferenceError (TDZ)</td></tr>
+    <tr><td>Verdict</td><td>Legacy — never write it</td><td>When you must reassign</td><td><strong>Default choice</strong></td></tr>
+  </tbody>
+</table>
+<p>Watch <code>var</code> ignore a block, which Java would never allow:</p>
+<pre><code>if (true) {
+  var a = 1;     <span class="cmt">// var doesn't respect the block…</span>
+  let b = 2;     <span class="cmt">// let does, exactly like a Java local</span>
+}
+console.log(a);  <span class="cmt">// 1 — leaked out of the if-block!</span>
+console.log(b);  <span class="cmt">// ReferenceError: b is not defined — Java-like, sane</span></code></pre>
+<p>
+One subtlety about <code>const</code>: it makes the <em>binding</em> constant, not the value. Like a Java
+<code>final</code> reference, you can't re-point it, but you can mutate the object it points to:
+</p>
+<pre><code>const arr = [1, 2];
+arr.push(3);       <span class="cmt">// fine — mutating the object the label points to</span>
+arr = [9, 9];      <span class="cmt">// TypeError — re-pointing the label is what's banned</span></code></pre>
+<div class="callout">
+  <span class="label">Java parallel</span>
+  <code>const</code> ≈ <code>final</code> in Java: <code>final List&lt;Integer&gt; list = new ArrayList&lt;&gt;()</code> lets you
+  <code>list.add(3)</code> but not <code>list = otherList</code>. Same rule, same reasoning: the variable is frozen, the object isn't.
+  For a truly frozen object you'd need <code>Object.freeze(obj)</code> (Lesson 3).
+</div>
+
+<h2>5 · Hoisting and the Temporal Dead Zone</h2>
+<p>
+Before executing your code, the engine does a quick first pass over each scope and <strong>registers every declaration</strong> it finds.
+This is <strong>hoisting</strong> — it's as if declarations were moved to the top of their scope. The interview-grade detail is that
+<code>var</code> and <code>let</code>/<code>const</code> are hoisted <em>differently</em>:
+</p>
+<ul>
+  <li><code>var x</code> is hoisted <strong>and initialized to <code>undefined</code></strong> — so reading it early silently gives <code>undefined</code>.</li>
+  <li><code>let</code>/<code>const</code> are hoisted <strong>but left uninitialized</strong> — the zone from the top of the scope until the declaration line is the <strong>Temporal Dead Zone (TDZ)</strong>, and touching the variable there throws a ReferenceError.</li>
+</ul>
+<pre><code>console.log(a);  <span class="cmt">// undefined — var was hoisted and pre-set (silent, dangerous)</span>
+var a = 5;
+
+console.log(b);  <span class="cmt">// ReferenceError — b exists but is in its TDZ (loud, safe)</span>
+let b = 5;</code></pre>
+<p>
+Why "temporal" (about time) and not "spatial" (about position)? Because what matters is whether the declaration has
+<em>executed yet</em>, not where the access sits in the file:
+</p>
+<pre><code>function demo() {
+  const read = () => value;  <span class="cmt">// written ABOVE the declaration — fine…</span>
+  let value = 10;
+  return read();             <span class="cmt">// …because by the time this RUNS, the TDZ is over → 10</span>
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "All declarations are hoisted. <code>var</code> is initialized to <code>undefined</code> during hoisting, so early access
+  yields <code>undefined</code>. <code>let</code>/<code>const</code> are hoisted uninitialized, so early access throws —
+  that window is the temporal dead zone. TDZ turns a silent bug into an immediate error, which is why it exists."
+</div>
+
+<h2>6 · Global, function, and block scope</h2>
+<p>
+<strong>Scope</strong> = the region of code where a name is visible. JS has three levels:
+</p>
+<pre><code>let planet = "Earth";            <span class="cmt">// GLOBAL scope — visible everywhere below</span>
+
+function mission() {             <span class="cmt">// FUNCTION scope starts</span>
+  let crew = 4;                  <span class="cmt">// visible only inside mission()</span>
+  if (crew > 2) {                <span class="cmt">// BLOCK scope starts</span>
+    let status = "go";           <span class="cmt">// visible only inside this if-block</span>
+    console.log(planet, crew, status);  <span class="cmt">// inner scopes see outer names</span>
+  }
+  <span class="cmt">// console.log(status);  → ReferenceError, block-scoped</span>
+}
+<span class="cmt">// console.log(crew);      → ReferenceError, function-scoped</span></code></pre>
+<p>
+Inner scopes can read outer names; outer scopes can never see in. That nesting chain — each scope linking to the one that
+<em>contains it in the source code</em> — is called <strong>lexical scope</strong>, and it is the entire foundation of closures in Lesson 2.
+</p>
+<p>
+One trap Java protects you from and JS doesn't: assigning to a name you never declared (outside strict mode) silently
+creates a <strong>global</strong>. <code>score = 10</code> with no <code>let</code> pollutes the global object. Always declare;
+strict mode and modules (Lesson 8) make this an error, which is what you want.
+</p>
+
+<h2>7 · Type coercion, == vs ===, and truthy/falsy</h2>
+<p>
+Java refuses to compare an <code>int</code> with a <code>String</code>. JS, when types don't match, will <strong>convert one value to
+another type automatically</strong> and press on. That's <strong>implicit coercion</strong>, and it's the source of JS's most famous
+"wat" moments — and of a whole genre of interview questions.
+</p>
+<p><strong>Explicit</strong> conversion — you asking for it — is fine and normal:</p>
+<pre><code>Number("42")     <span class="cmt">// 42        string → number, on purpose</span>
+String(42)       <span class="cmt">// "42"      number → string</span>
+Boolean("")      <span class="cmt">// false     anything → boolean</span>
+Number("42px")   <span class="cmt">// NaN       not fully numeric → NaN (parseInt("42px") → 42; Lesson 5)</span></code></pre>
+<p><strong>Implicit</strong> coercion — the engine deciding for you — is where care is needed:</p>
+<pre><code>"5" + 1     <span class="cmt">// "51"  — + with any string means CONCATENATE; 1 becomes "1"</span>
+"5" - 1     <span class="cmt">// 4     — minus is numbers-only, so "5" becomes 5</span>
+"5" * "2"   <span class="cmt">// 10    — same: both coerced to numbers</span>
+1 + true    <span class="cmt">// 2     — true coerces to 1</span>
+"" + 10     <span class="cmt">// "10"  — the old-school number→string trick</span></code></pre>
+<p>
+Now the headline act. JS has two equality operators. <code>===</code> (<strong>strict equality</strong>) compares
+type AND value, no conversions — behave like it's the only one. <code>==</code> (<strong>loose equality</strong>) first
+coerces the operands toward a common type, producing the classic weirdness:
+</p>
+<pre><code>5 === "5"          <span class="cmt">// false — different types, end of story</span>
+5 == "5"           <span class="cmt">// true  — "5" is coerced to 5 first</span>
+0 == false         <span class="cmt">// true  — false coerces to 0</span>
+"" == 0            <span class="cmt">// true  — "" coerces to 0</span>
+null == undefined  <span class="cmt">// true  — special rule: these two match each other…</span>
+null == 0          <span class="cmt">// false — …but null matches NOTHING else</span>
+NaN == NaN         <span class="cmt">// false — NaN never equals anything, even itself (§8)</span>
+[] == false        <span class="cmt">// true  — [] → "" → 0, and false → 0. Yes, really.</span></code></pre>
+<div class="callout">
+  <span class="label">Java parallel — but flipped!</span>
+  Careful: in Java, <code>==</code> on objects compares references and <code>.equals()</code> compares content —
+  the danger there is <code>==</code> being too strict. In JS the danger is reversed: <code>==</code> is too <em>loose</em>.
+  The safe habit in both worlds is the same: JS → always <code>===</code>; Java → <code>.equals()</code> for objects.
+  (JS <code>===</code> on two objects still compares references, like Java's <code>==</code> — Lesson 3.)
+</div>
+<p>
+Related: wherever JS expects a boolean (an <code>if</code> condition, <code>!</code>, <code>&amp;&amp;</code>), it coerces the value.
+Values that coerce to <code>false</code> are <strong>falsy</strong> — and there are exactly <strong>8</strong> of them. Memorize this list;
+<em>everything else is truthy</em>:
+</p>
+<pre><code><span class="cmt">// THE 8 FALSY VALUES — everything not on this list is truthy</span>
+false        <span class="cmt">// the boolean itself</span>
+0            <span class="cmt">// zero</span>
+-0           <span class="cmt">// negative zero (a real, distinct value in IEEE 754)</span>
+0n           <span class="cmt">// BigInt zero</span>
+""           <span class="cmt">// empty string</span>
+null
+undefined
+NaN
+
+<span class="cmt">// Frequent surprises — these are all TRUTHY:</span>
+if ("false") { }  <span class="cmt">// runs! non-empty string</span>
+if ([]) { }       <span class="cmt">// runs! an array is an object, all objects are truthy</span>
+if ({}) { }       <span class="cmt">// runs! same reason</span>
+if ("0") { }      <span class="cmt">// runs! non-empty string</span></code></pre>
+<p>
+This enables idioms you'll see everywhere: <code>if (username) {...}</code> means "if it's not empty/null/undefined,"
+and <code>!!value</code> is the shorthand for converting anything to a real boolean.
+</p>
+<p>
+Last syntax upgrade for this section — <strong>template literals</strong>, backtick strings with <code>${}</code> holes.
+This is JS's answer to Java's <code>String.format</code> / <code>+</code>-chains, and it's what you should always use:
+</p>
+<pre><code>const name = "Krish", cgpa = 6.78;
+const msg = `Student ${name} has CGPA ${cgpa + 0.5} next sem?`;
+<span class="cmt">// any expression works inside ${...}; multi-line strings work too:</span>
+const html = `&lt;div&gt;
+  &lt;p&gt;${name}&lt;/p&gt;
+&lt;/div&gt;`;</code></pre>
+
+<h2>8 · typeof, its famous bug, and NaN</h2>
+<p><code>typeof</code> is an operator that returns a value's type as a string — your runtime replacement for Java's compile-time knowledge:</p>
+<pre><code>typeof "hi"        <span class="cmt">// "string"</span>
+typeof 42          <span class="cmt">// "number"</span>
+typeof true        <span class="cmt">// "boolean"</span>
+typeof undefined   <span class="cmt">// "undefined"</span>
+typeof 10n         <span class="cmt">// "bigint"</span>
+typeof Symbol()    <span class="cmt">// "symbol"</span>
+typeof {}          <span class="cmt">// "object"</span>
+typeof []          <span class="cmt">// "object"  — arrays don't get their own answer; use Array.isArray()</span>
+typeof function(){} <span class="cmt">// "function" — the one object subtype with a special answer</span>
+typeof null        <span class="cmt">// "object"  ← THE FAMOUS BUG</span></code></pre>
+<p>
+<code>typeof null === "object"</code> is a mistake from JavaScript's very first implementation in 1995 (null's internal
+type tag looked like an object's). It can never be fixed — too much existing code depends on it — so it's frozen into
+the language and into interview question banks. To actually test for null: <code>x === null</code>.
+</p>
+<p>
+<strong>NaN</strong> ("Not-a-Number") is what numeric operations return when they can't produce a meaningful number:
+<code>0/0</code>, <code>Number("abc")</code>, <code>Math.sqrt(-1)</code>. Two things to know cold:
+</p>
+<pre><code>typeof NaN         <span class="cmt">// "number" — ironically, Not-a-Number IS of type number</span>
+NaN === NaN        <span class="cmt">// false — NaN is the only value not equal to itself (IEEE 754 rule)</span>
+
+<span class="cmt">// So how do you test for it?</span>
+Number.isNaN(NaN)     <span class="cmt">// true  — the correct tool: no coercion, exact check</span>
+Number.isNaN("abc")   <span class="cmt">// false — a string is not NaN, correctly</span>
+isNaN("abc")          <span class="cmt">// true?! — the OLD global isNaN coerces first ("abc"→NaN). Avoid it.</span>
+x !== x               <span class="cmt">// the cheeky interview trick: true ONLY when x is NaN</span></code></pre>
+<div class="callout tip">
+  <span class="label">Gotcha</span>
+  Java's <code>Double.NaN</code> behaves identically (<code>Double.NaN == Double.NaN</code> is false there too) —
+  both languages follow the IEEE 754 floating-point standard. If an interviewer springs "why isn't NaN equal to itself?",
+  the answer is: the floating-point standard defines it that way, so that a failed computation can never accidentally
+  compare equal to another failed computation.
+</div>
+
+<h2>9 · How values are copied — the "pass by value" truth</h2>
+<p>
+Here's the model that explains 90% of beginner JS bugs, and it should feel familiar from Java.
+<strong>Primitives are copied by value; objects are copied by reference-value</strong> — the variable holds an "address slip"
+pointing at the object on the heap, and copying the variable copies the slip, not the object:
+</p>
+<pre><code><span class="cmt">// PRIMITIVES: independent copies</span>
+let a = 10;
+let b = a;         <span class="cmt">// b gets its own 10</span>
+b = 99;
+console.log(a);    <span class="cmt">// 10 — untouched</span>
+
+<span class="cmt">// OBJECTS: copied address slip, ONE object</span>
+let u1 = { name: "Krish" };
+let u2 = u1;       <span class="cmt">// u2 gets a copy of the ARROW, not the object</span>
+u2.name = "Kumar";
+console.log(u1.name);  <span class="cmt">// "Kumar" — both slips point at the same heap object</span></code></pre>
+<p>Function calls follow the exact same rule — arguments are copies of what the variable holds:</p>
+<pre><code>function change(obj) {
+  obj.name = "changed";   <span class="cmt">// follows the slip → mutates the SHARED object: caller sees it</span>
+  obj = { name: "new" };  <span class="cmt">// re-points the LOCAL copy of the slip: caller does NOT see it</span>
+}
+let user = { name: "Krish" };
+change(user);
+console.log(user.name);   <span class="cmt">// "changed" — mutation leaked out, reassignment didn't</span></code></pre>
+<p>
+So is JS "pass by reference"? <strong>No — and neither is Java.</strong> Both are strictly pass-by-value; it's just that for objects,
+the value being passed <em>is a reference</em>. The litmus test: if reassigning the parameter inside the function
+(<code>obj = ...</code>) were visible to the caller, you'd have true pass-by-reference (like C++'s <code>&amp;</code>).
+It isn't, in either language.
+</p>
+<div class="callout">
+  <span class="label">Interview one-liner</span>
+  "JavaScript is always pass-by-value. For primitives the value is the data itself; for objects the value is a reference,
+  so mutations through the parameter are visible to the caller but reassigning the parameter is not. Java works exactly the same way."
+</div>
+
+<h2>10 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "Is JavaScript compiled or interpreted?"</strong><br>
+  Neither label fits cleanly: modern engines like V8 JIT-compile JS at runtime — parse, interpret hot-start, then compile hot paths
+  to machine code, much like the JVM does with bytecode. There's just no separate compile step for the developer.</li>
+  <li><strong>Q. "Difference between let, const and var?"</strong><br>
+  <code>var</code> is function-scoped, allows redeclaration, and hoists initialized to <code>undefined</code>. <code>let</code>/<code>const</code>
+  are block-scoped, forbid redeclaration, and hoist uninitialized (TDZ → ReferenceError on early use). <code>const</code> additionally
+  forbids reassignment of the binding (not mutation of the object). Default to <code>const</code>, use <code>let</code> when reassigning, never <code>var</code>.</li>
+  <li><strong>Q. "What is hoisting? What is the temporal dead zone?"</strong><br>
+  During scope setup the engine registers all declarations before running code. <code>var</code> is also auto-initialized to <code>undefined</code>;
+  <code>let</code>/<code>const</code> are registered but uninitialized, and the region before their declaration line executes is the TDZ,
+  where any access throws. TDZ exists to make use-before-declare a loud error instead of a silent <code>undefined</code>.</li>
+  <li><strong>Q. "Difference between == and ===?"</strong><br>
+  <code>===</code> compares type and value with no conversion. <code>==</code> coerces operands to a common type first, giving surprises like
+  <code>0 == ""</code> being true. Special case worth citing: <code>null == undefined</code> is true, but neither loosely equals anything else. Always use <code>===</code>.</li>
+  <li><strong>Q. "What are the falsy values in JavaScript?"</strong><br>
+  Exactly eight: <code>false</code>, <code>0</code>, <code>-0</code>, <code>0n</code>, <code>""</code>, <code>null</code>, <code>undefined</code>, <code>NaN</code>.
+  Everything else — including <code>"0"</code>, <code>"false"</code>, <code>[]</code>, and <code>{}</code> — is truthy.</li>
+  <li><strong>Q. "What's the difference between null and undefined?"</strong><br>
+  <code>undefined</code> = the language's "no value was assigned" (uninitialized variable, missing property/argument).
+  <code>null</code> = the programmer's deliberate "empty". Bonus points: <code>typeof null</code> is <code>"object"</code> — a historical bug —
+  while <code>typeof undefined</code> is <code>"undefined"</code>.</li>
+  <li><strong>Q. "Is JavaScript pass-by-value or pass-by-reference?"</strong><br>
+  Pass-by-value, always. For objects the copied value is a reference, so callees can mutate the shared object but cannot re-point the caller's variable. Same as Java.</li>
+</ul>
+
+<h2>11 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What does this print? <code>console.log(x); let x = 5;</code></div>
+  <button class="opt"><code>undefined</code> — declarations are hoisted, so x exists with no value yet</button>
+  <button class="opt"><code>5</code> — hoisting moves both the declaration and the assignment up</button>
+  <button class="opt">ReferenceError — x is hoisted but sits in the temporal dead zone until its declaration runs</button>
+  <div class="fb" data-correct="let is hoisted but NOT initialized. From the top of the scope to the declaration line is the TDZ, and any access there throws a ReferenceError. Swap let for var and you'd get the silent undefined instead." data-wrong="That would be true for var (hoisted AND initialized to undefined). let/const are hoisted uninitialized — accessing them before the declaration line executes is a ReferenceError. That window is the TDZ."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">What is the value of <code>"10" - 5 + "1"</code>?</div>
+  <button class="opt"><code>6</code> — everything is coerced to numbers throughout</button>
+  <button class="opt"><code>"51"</code> — minus coerces to numbers giving 5, then + with a string concatenates</button>
+  <button class="opt"><code>"1051"</code> — both operators concatenate because a string is present</button>
+  <div class="fb" data-correct="Left to right: \"10\" - 5 → minus is numbers-only, so \"10\" becomes 10 and we get 5. Then 5 + \"1\" → plus with any string means concatenate, so \"5\" + \"1\" = \"51\"." data-wrong="Work left to right and remember the asymmetry: minus ALWAYS coerces to numbers (\"10\" - 5 = 5), but plus with any string operand concatenates (5 + \"1\" = \"51\")."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">After <code>const u2 = u1;</code> where <code>u1 = { score: 10 }</code>, what does <code>u2.score = 99</code> do to <code>u1.score</code>?</div>
+  <button class="opt">It becomes 99 — both variables hold references to the same object</button>
+  <button class="opt">Nothing — const created an independent frozen copy of the object</button>
+  <button class="opt">TypeError — you cannot modify properties through a const variable</button>
+  <div class="fb" data-correct="Assignment copies the reference, not the object — same as Java. And const only freezes the BINDING (u2 can't be re-pointed); mutating the object it points to is allowed. To freeze the object itself you'd need Object.freeze." data-wrong="const stops reassignment of the variable (u2 = other), never mutation of the object. And assignment never copies objects in JS — u1 and u2 point at one heap object, so the change is visible through both."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Which line correctly detects that <code>x</code> is <code>NaN</code>?</div>
+  <button class="opt"><code>x === NaN</code></button>
+  <button class="opt"><code>Number.isNaN(x)</code></button>
+  <button class="opt"><code>typeof x === "NaN"</code></button>
+  <div class="fb" data-correct="NaN is the only value not equal to itself, so === can never catch it. Number.isNaN checks precisely and without coercion (unlike the old global isNaN). The trick alternative: x !== x is true only for NaN." data-wrong="NaN === NaN is false — NaN never equals anything, itself included. And typeof NaN is \"number\", not \"NaN\". The correct precise check is Number.isNaN(x); the party trick is x !== x."></div>
+</div>
+
+<h2>12 · Do this next</h2>
+<ul>
+  <li>Make a folder <code>C:\Dev\skills\web-dev\playground</code>, create <code>lesson01.js</code>, and run it with <code>node lesson01.js</code>.
+  In it, predict-then-print each of these and annotate every surprise with a comment: <code>typeof null</code>, <code>typeof []</code>,
+  <code>"5" + 3</code>, <code>"5" - 3</code>, <code>0 == ""</code>, <code>0 === ""</code>, <code>null == undefined</code>, <code>null == 0</code>, <code>NaN === NaN</code>, <code>!![]</code>, <code>!!"false"</code>.</li>
+  <li>Write a function <code>describe(x)</code> that returns a template-literal string like <code>`value 42 is a number and is truthy`</code> —
+  handling the <code>typeof null</code> lie correctly (it should say "null", not "object"). Test it on all 7 primitive types plus an object and an array.</li>
+  <li>Reproduce the pass-by-value experiment: write <code>function mutate(o)</code> and <code>function reassign(o)</code>, call both with the same object,
+  and print the object after each call. Then explain out loud, in one sentence, why the results differ.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Anything murky — why <code>[] == false</code>, what "the value is a reference" really means, when you'd ever want <code>==</code>
+  (almost never), or how V8 compares to the JVM? Ask right here in the chat. When you can list the 8 falsy values,
+  explain TDZ vs var-hoisting, and defend "JS is pass-by-value" without notes, say <strong>"next"</strong> and we move to
+  Lesson 2: Functions, Scope &amp; Closures.
+</div>
+
+<div class="nav">
+  <span><a href="../INDEX.md">← Index</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0002-functions-scope-closures.html">Functions, Scope &amp; Closures →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

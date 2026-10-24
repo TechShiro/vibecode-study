@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 30 - Modern State Management | Web Dev Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">Web Dev · Advanced Frontend · Lesson 30 of 35 · Client State vs Server State, Zustand</div>
+  
+  <h1>Modern State Management: Zustand &amp; TanStack Query</h1>
+  <p class="subtitle">Separating client UI state from asynchronous server state without Redux boilerplate.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module F — Advanced Frontend</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>For a decade, React developers stuffed everything into Redux: UI modal toggles, user inputs, and API fetched data. This was a architectural mistake! In modern web applications, state divides cleanly into two categories:</p>
+  <ul>
+    <li><strong>Client State (Local UI):</strong> Dark mode toggle, sidebar collapsed, active tab. Best handled by <strong>Zustand</strong> (minimal, fast, zero boilerplate).</li>
+    <li><strong>Server State (Remote Asynchronous Cache):</strong> User profiles, orders, fetched lists. Best handled by <strong>TanStack Query (React Query)</strong> (automatic caching, background refetching, deduping, and stale-while-revalidate).</li>
+  </ul>
+
+  <h2>2 · Zustand in Action (Clean Global Client State)</h2>
+  <pre><code>import { create } from 'zustand';
+
+export const useCartStore = create((set) =&gt; ({
+  items: [],
+  addItem: (product) =&gt; set((state) =&gt; ({ items: [...state.items, product] })),
+  clearCart: () =&gt; set({ items: [] }),
+}));
+
+<span class="cmt">// In any React component anywhere in the tree:</span>
+function CartCounter() {
+  const count = useCartStore((state) =&gt; state.items.length);
+  return &lt;span&gt;Cart: {count}&lt;/span&gt;;
+}</code></pre>
+
+  <h2>3 · TanStack Query (Handling Server State Elegantly)</h2>
+  <pre><code>import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+function UserProfile({ userId }) {
+  <span class="cmt">// Automatically caches, retries on failure, handles loading/error states</span>
+  const { data: user, isLoading, error } = useQuery({
+    queryKey: ['user', userId],
+    queryFn: () =&gt; fetch(`/api/users/${userId}`).then(res =&gt; res.json()),
+    staleTime: 1000 * 60 * 5, <span class="cmt">// Fresh for 5 minutes (zero network refetch!)</span>
+  });
+
+  if (isLoading) return &lt;div&gt;Loading user profile...&lt;/div&gt;;
+  if (error) return &lt;div&gt;Error loading user: {error.message}&lt;/div&gt;;
+
+  return &lt;h1&gt;Welcome back, {user.name}!&lt;/h1&gt;;
+}</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do web clients and Node servers build real-time two-way chat apps? Next: WebSockets &amp; Socket.io in Action.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0029-modern-css-and-tailwind.html">← Previous: Modern CSS</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0031-websockets-and-realtime-web.html">Next: WebSockets &amp; Realtime Web →</a>
+  </div>
+</body>
+</html>

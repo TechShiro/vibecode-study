@@ -1,0 +1,258 @@
+<title>IPv4 Header and Fragmentation</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 23 of 27</p>
+<h1>The IPv4 Header and Fragmentation</h1>
+<p class="deck">Thirteen header fields with their sizes and purposes, then the fragmentation numerical &mdash; identification, flags and offset worked out fragment by fragment. A diagram question and a calculation question in one lesson.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Draw and explain the IPv4 header"</strong> is a 10-mark near-certainty. Draw it as a <strong>grid four bytes (32 bits) wide</strong>, with the bit-width written under every field &mdash; that layout is itself worth marks because it shows why the header is a multiple of 4 bytes. Then one line per field. The <strong>fragmentation numerical</strong> is a separate 5-mark question; the three fields it turns on are <strong>identification, flags and fragmentation offset</strong>, so give those three extra attention.</p>
+</div>
+
+<h2>The header</h2>
+
+<div class="formula">
+  <span class="name">IPv4 header &mdash; 20 to 60 bytes, drawn 4 bytes per row</span>
+  Row 1: | Version (4) | HLEN (4) | Type of Service (8) | Total Length (16) |<br>
+  Row 2: | Identification (16) | Flags (3) | Fragmentation Offset (13) |<br>
+  Row 3: | Time to Live (8) | Protocol (8) | Header Checksum (16) |<br>
+  Row 4: | <strong>Source IP Address (32)</strong> |<br>
+  Row 5: | <strong>Destination IP Address (32)</strong> |<br>
+  Row 6: | Options + Padding (0 to 40 bytes) |
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Version</strong></td><td>4 bits</td><td>The IP version &mdash; <strong>4</strong> for IPv4. Tells the receiving software how to interpret the rest.</td></tr>
+<tr><td><strong>HLEN (IHL)</strong></td><td>4 bits</td><td>Header length <strong>counted in 4-byte words</strong>. Value 5 means 5 &times; 4 = <strong>20 bytes</strong> (no options); maximum value 15 means <strong>60 bytes</strong>. This field exists because the header is variable-length.</td></tr>
+<tr><td><strong>Type of Service / DSCP</strong></td><td>8 bits</td><td>How the datagram should be handled &mdash; priority, and whether to optimise for delay, throughput or reliability. Reinterpreted as <strong>DiffServ</strong> for QoS.</td></tr>
+<tr><td><strong>Total Length</strong></td><td>16 bits</td><td>The length of the <strong>whole datagram &mdash; header plus data &mdash; in bytes</strong>. Maximum 2<sup>16</sup> &minus; 1 = <strong>65,535 bytes</strong>. Data length = total length &minus; header length.</td></tr>
+<tr><td><strong>Identification</strong></td><td>16 bits</td><td><strong>Identifies which original datagram a fragment belongs to.</strong> All fragments of one datagram carry the same value, so the destination can group them.</td></tr>
+<tr><td><strong>Flags</strong></td><td>3 bits</td><td>Bit 0 reserved (always 0). Bit 1 = <strong>DF (Don't Fragment)</strong> &mdash; if set and the datagram is too big, it is <strong>discarded and an ICMP error returned</strong>. Bit 2 = <strong>MF (More Fragments)</strong> &mdash; 1 means more fragments follow, <strong>0 means this is the last fragment</strong>.</td></tr>
+<tr><td><strong>Fragmentation Offset</strong></td><td>13 bits</td><td>The position of this fragment's data within the original datagram, <strong>measured in units of 8 bytes</strong>. The 8-byte unit is what lets 13 bits address a 65,535-byte datagram.</td></tr>
+<tr><td><strong>Time to Live (TTL)</strong></td><td>8 bits</td><td>A <strong>hop counter</strong>, decremented by 1 at every router. When it reaches <strong>0 the datagram is discarded</strong> and an ICMP time-exceeded message is sent back. Maximum 255. It prevents packets circulating forever in a routing loop.</td></tr>
+<tr><td><strong>Protocol</strong></td><td>8 bits</td><td>Which <strong>upper-layer protocol</strong> the payload belongs to, so the destination can hand it to the right place: <strong>1 = ICMP, 2 = IGMP, 6 = TCP, 17 = UDP, 89 = OSPF</strong>.</td></tr>
+<tr><td><strong>Header Checksum</strong></td><td>16 bits</td><td>Error detection over the <strong>header only</strong>, not the data. It must be <strong>recomputed at every router</strong>, because TTL changes at each hop.</td></tr>
+<tr><td><strong>Source address</strong></td><td>32 bits</td><td>The sender's IP address. Unchanged by routers.</td></tr>
+<tr><td><strong>Destination address</strong></td><td>32 bits</td><td>The final destination's IP address. Unchanged by routers.</td></tr>
+<tr><td><strong>Options + Padding</strong></td><td>0&ndash;40 bytes</td><td>Optional: record route, strict/loose source route, timestamp. <strong>Padding</strong> brings the header up to a multiple of 4 bytes. Rarely used in practice.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Four one-mark facts from this header</span>
+  <p><strong>Minimum header 20 bytes, maximum 60 bytes. Maximum total datagram 65,535 bytes. The checksum covers the header only. TTL is a hop count, not a time.</strong> Each of these is asked directly, and TTL is the one most often answered wrongly &mdash; despite the name, it counts hops, not seconds.</p>
+</div>
+
+<h2>Fragmentation</h2>
+
+<p>Every physical network has a <strong>Maximum Transmission Unit (MTU)</strong> &mdash; the largest frame its data link layer can carry. Ethernet's is <strong>1500 bytes</strong>. A datagram larger than the next network's MTU must be <strong>fragmented</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Question</th><th>Answer</th></tr></thead>
+<tbody>
+<tr><td><strong>Who fragments?</strong></td><td>The source host, or <strong>any router along the path</strong> whose outgoing network has a smaller MTU.</td></tr>
+<tr><td><strong>Who reassembles?</strong></td><td><strong>Only the destination host.</strong> Never an intermediate router.</td></tr>
+<tr><td><strong>Why not reassemble at routers?</strong></td><td>Because fragments may take <strong>different routes</strong>, so no single router is guaranteed to see them all. Reassembling at the destination is the only place that always works.</td></tr>
+<tr><td><strong>Can a fragment be fragmented again?</strong></td><td><strong>Yes</strong> &mdash; if it meets a network with an even smaller MTU.</td></tr>
+<tr><td><strong>What is copied to every fragment?</strong></td><td>The <strong>whole header</strong>, including the identification, source and destination addresses. Only the flags, offset, total length and checksum change.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The fragmentation rules</span>
+  Data per fragment = MTU &minus; header size, <strong>rounded down to a multiple of 8</strong><br>
+  Offset = (bytes of data before this fragment) &divide; 8<br>
+  MF = 1 for every fragment <strong>except the last</strong>, which has MF = 0<br>
+  Identification is <strong>the same</strong> in every fragment of one datagram
+</div>
+
+<p><strong>Why the data must be a multiple of 8:</strong> the offset field counts in 8-byte units, so every fragment except the last must begin at a byte position divisible by 8. This is the constraint students forget, and it changes the answer whenever MTU &minus; 20 is not itself a multiple of 8.</p>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; the standard fragmentation question</span>
+  <p><strong>Q.</strong> A datagram of <strong>4000 bytes</strong> (20-byte header + 3980 bytes of data) must cross a network with an <strong>MTU of 1500 bytes</strong>. Show the fragments with their total length, identification, MF flag and offset. Assume the identification is 777.</p>
+
+  <p><strong>Step 1 &mdash; data bytes per fragment.</strong><br>
+  Each fragment needs its own 20-byte header, so data per fragment = 1500 &minus; 20 = <strong>1480 bytes</strong>.<br>
+  Check it is a multiple of 8: 1480 &divide; 8 = 185 exactly. &#10003;</p>
+
+  <p><strong>Step 2 &mdash; how many fragments?</strong><br>
+  3980 &divide; 1480 = 2.69 &rarr; <strong>3 fragments</strong> (two full, one partial).</p>
+
+  <p><strong>Step 3 &mdash; the fragments.</strong></p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Fragment</th><th>Data bytes</th><th>Total length</th><th>Identification</th><th>MF</th><th>Offset</th><th>Covers original bytes</th></tr></thead>
+  <tbody>
+  <tr><td><strong>1</strong></td><td class="num">1480</td><td class="num">1500</td><td class="num">777</td><td class="num"><strong>1</strong></td><td class="num"><strong>0</strong></td><td>0 &ndash; 1479</td></tr>
+  <tr><td><strong>2</strong></td><td class="num">1480</td><td class="num">1500</td><td class="num">777</td><td class="num"><strong>1</strong></td><td class="num"><strong>185</strong></td><td>1480 &ndash; 2959</td></tr>
+  <tr><td><strong>3</strong></td><td class="num">1020</td><td class="num">1040</td><td class="num">777</td><td class="num"><strong>0</strong></td><td class="num"><strong>370</strong></td><td>2960 &ndash; 3979</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>The offset arithmetic:</strong><br>
+  Fragment 1 starts at byte 0 &rarr; offset = 0 &divide; 8 = <strong>0</strong><br>
+  Fragment 2 starts at byte 1480 &rarr; offset = 1480 &divide; 8 = <strong>185</strong><br>
+  Fragment 3 starts at byte 2960 &rarr; offset = 2960 &divide; 8 = <strong>370</strong></p>
+
+  <p><strong>Fragment 3's size:</strong> 3980 &minus; (1480 + 1480) = <strong>1020 bytes</strong> of data, so total length = 1020 + 20 = <strong>1040 bytes</strong>.</p>
+
+  <p><em>Four sanity checks &mdash; run all of them:</em></p>
+  <ul>
+    <li>The data bytes must sum to the original: 1480 + 1480 + 1020 = <strong>3980</strong>. &#10003;</li>
+    <li>Only the <strong>last</strong> fragment has MF = 0. &#10003;</li>
+    <li>Every fragment carries the <strong>same identification</strong>. &#10003;</li>
+    <li>The <strong>total bytes transmitted grew</strong>: 3 headers &times; 20 = 60 bytes instead of 20, so 4040 bytes now travel where 4000 did. Fragmentation always adds overhead &mdash; worth stating as the closing line.</li>
+  </ul>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The follow-up question they often attach</span>
+  <p><strong>"What if a fragment is lost?"</strong> The destination cannot reassemble the datagram, so it discards <strong>all</strong> the fragments it did hold and the <strong>entire original datagram</strong> is lost. One lost fragment costs the whole datagram &mdash; which is why fragmentation is avoided in practice, using <strong>Path MTU Discovery</strong> (setting the DF bit and shrinking until it fits) instead. IPv6 removes router fragmentation altogether for this reason.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">IPv4 Packet Fragmentation & Offset Calculus</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Original Datagram: 4000 Bytes (20B Header + 3980B Data) &bull; Link MTU = 1500 Bytes</strong>
+      <span class="sub">Max payload per fragment = 1500 - 20 = 1480 Bytes (must be multiple of 8!)</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-row">
+      <div class="flow-box"><strong>Fragment 1: 1500 Bytes</strong><span class="sub">Data: 0&ndash;1479 (1480B)<br>Offset = 0/8 = <strong>0</strong> &bull; MF = <strong>1</strong></span></div>
+      <div class="flow-box"><strong>Fragment 2: 1500 Bytes</strong><span class="sub">Data: 1480&ndash;2959 (1480B)<br>Offset = 1480/8 = <strong>185</strong> &bull; MF = <strong>1</strong></span></div>
+      <div class="flow-box ok"><strong>Fragment 3: 1040 Bytes</strong><span class="sub">Data: 2960&ndash;3979 (1020B)<br>Offset = 2960/8 = <strong>370</strong> &bull; MF = <strong>0</strong></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 21 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">IPv4 Header & Fragmentation</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-54 & Lec-55: IPv4 Header Format & Fragmentation Numericals</div>
+    <div class="v-desc">Comprehensive breakdown of HLEN (scale factor 4), TTL, Protocol field, and fragment offset calculations (scale factor 8) for exam numericals.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=zoFSxIuS5Ro" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The HLEN field contains the value 5. The header size is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">20 bytes, since HLEN counts 4-byte words</button>
+    <button class="opt">40 bytes, since HLEN counts 8-byte words</button>
+    <button class="opt">5 bytes, since HLEN counts bytes directly</button>
+    <button class="opt">60 bytes, the maximum possible header size</button>
+  </div>
+  <p class="why">HLEN is in 4-byte words, so 5 × 4 = 20 bytes — the minimum, meaning no options are present. The maximum value 15 gives 15 × 4 = 60 bytes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The fragmentation offset field is measured in units of:</p>
+  <div class="opts">
+    <button class="opt">1 byte, giving the exact position within the datagram</button>
+    <button class="opt" data-ok="1">8 bytes, which is why fragment data must be a multiple of 8</button>
+    <button class="opt">4 bytes, matching the 4-byte words used by HLEN</button>
+    <button class="opt">1500 bytes, matching the standard Ethernet MTU</button>
+  </div>
+  <p class="why">Counting in 8-byte units lets a 13-bit field address a 65,535-byte datagram. The consequence is the constraint students forget: every fragment except the last must carry a multiple of 8 data bytes.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A datagram of 2500 bytes with a 20-byte header crosses a network with MTU 1000. The first fragment carries how many data bytes?</p>
+  <div class="opts">
+    <button class="opt">1480 &mdash; the standard Ethernet fragment size</button>
+    <button class="opt">980 &mdash; the MTU minus the 20-byte header</button>
+    <button class="opt" data-ok="1">976 &mdash; 980 rounded down to a multiple of 8</button>
+    <button class="opt">1000 &mdash; the full MTU of the network</button>
+  </div>
+  <p class="why">1000 − 20 = 980, but 980 ÷ 8 = 122.5, not an integer. Round down to 976 (976 ÷ 8 = 122). Taking 980 without checking the multiple-of-8 rule is the standard error in this question.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which field prevents a datagram from circulating forever in a routing loop?</p>
+  <div class="opts">
+    <button class="opt">Identification, which is unique to each datagram</button>
+    <button class="opt">Total Length, which caps the datagram at 65,535 bytes</button>
+    <button class="opt" data-ok="1">Time to Live, decremented by one at each router</button>
+    <button class="opt">Header Checksum, recomputed at each router hop</button>
+  </div>
+  <p class="why">TTL is a hop counter — at zero the datagram is discarded and an ICMP time-exceeded message is returned. Despite the name it counts hops, not seconds, and that is the detail most often got wrong.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A fragment arrives with MF = 0 and offset = 0. This means:</p>
+  <div class="opts">
+    <button class="opt">It is the last fragment of a datagram that had several</button>
+    <button class="opt">It is the first fragment, with more still to follow</button>
+    <button class="opt">The fragment is corrupt, as the two values conflict</button>
+    <button class="opt" data-ok="1">The datagram was never fragmented &mdash; it is complete on its own</button>
+  </div>
+  <p class="why">Offset 0 means it starts at the beginning; MF = 0 means nothing follows. Together they describe a whole, unfragmented datagram. A last fragment would have offset > 0, and a first fragment of a set would have MF = 1.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. If one fragment of a datagram is lost in transit:</p>
+  <div class="opts">
+    <button class="opt">The remaining fragments are forwarded on to the next hop</button>
+    <button class="opt" data-ok="1">The destination discards all fragments and the whole datagram is lost</button>
+    <button class="opt">The destination reassembles the rest and passes it upward</button>
+    <button class="opt">The nearest router retransmits just the missing fragment</button>
+  </div>
+  <p class="why">Reassembly is all-or-nothing at the destination, and IP has no retransmission. Losing one fragment costs the entire datagram, which is why Path MTU Discovery is used to avoid fragmentation and why IPv6 removed router fragmentation entirely.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Draw the IPv4 header with all field sizes.</summary>
+    <p class="ans">Row 1: Version (4) | HLEN (4) | Type of Service (8) | Total Length (16). Row 2: Identification (16) | Flags (3) | Fragmentation Offset (13). Row 3: TTL (8) | Protocol (8) | Header Checksum (16). Row 4: Source Address (32). Row 5: Destination Address (32). Row 6: Options + Padding (0–40 bytes). Total 20–60 bytes.</p></details>
+  <details class="card"><summary>What are HLEN and Total Length, and what are their limits?</summary>
+    <p class="ans">HLEN is the header length in 4-byte words: value 5 = 20 bytes minimum, value 15 = 60 bytes maximum. Total Length is the whole datagram — header plus data — in bytes, maximum 65,535. Data length = total length − header length.</p></details>
+  <details class="card"><summary>Explain the three flag bits.</summary>
+    <p class="ans">Bit 0 is reserved and always 0. DF (Don't Fragment): if set and the datagram is too large, it is discarded and an ICMP error returned. MF (More Fragments): 1 means more fragments follow, 0 marks the last fragment.</p></details>
+  <details class="card"><summary>What is TTL and why does the checksum change at every router?</summary>
+    <p class="ans">TTL is a hop counter decremented at each router; at zero the datagram is discarded and ICMP reports time exceeded, which prevents endless looping. Because TTL changes at every hop, the header checksum — which covers the header only — must be recomputed at every router.</p></details>
+  <details class="card"><summary>Give the protocol field values for ICMP, IGMP, TCP and UDP.</summary>
+    <p class="ans">ICMP = 1, IGMP = 2, TCP = 6, UDP = 17 (and OSPF = 89). The field tells the destination which upper-layer protocol should receive the payload.</p></details>
+  <details class="card"><summary>Who fragments, who reassembles, and why?</summary>
+    <p class="ans">The source host or any router whose outgoing network has a smaller MTU may fragment. Only the destination host reassembles, because fragments may take different routes and no intermediate router is guaranteed to see them all. A fragment can itself be fragmented again.</p></details>
+  <details class="card"><summary>State the fragmentation rules.</summary>
+    <p class="ans">Data per fragment = MTU − header size, rounded down to a multiple of 8. Offset = bytes of data preceding this fragment ÷ 8. MF = 1 on all fragments but the last. The identification value is the same across all fragments of one datagram.</p></details>
+  <details class="card"><summary>What happens if one fragment is lost?</summary>
+    <p class="ans">The destination cannot reassemble, so it discards every fragment it holds and the entire original datagram is lost. This is why Path MTU Discovery is used to avoid fragmentation, and why IPv6 removed router fragmentation.</p></details>
+</div>
+
+<p class="ask">Want five more fragmentation numericals with awkward MTUs, where the multiple-of-8 rounding actually bites? Ask &mdash; that is where the marks are won or lost.</p>
+
+<div class="nav">
+  <a href="0022-subnetting-and-vlsm.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0024-nat-arp-and-rarp.html">Next: NAT, ARP and RARP &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

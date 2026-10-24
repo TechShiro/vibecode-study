@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 08 – Clustering & Anomaly Detection</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module B · Lesson 8 of 17 · Unsupervised Learning</div>
+  <h1>Clustering & Anomaly Detection</h1>
+  <p class="subtitle">Discovering latent group patterns and identifying out-of-distribution outliers without ground-truth labels.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Classical Machine Learning</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In <strong>Unsupervised Learning</strong>, there are no target labels <code>y</code>. The model must autonomously discover natural structure, clusters, and boundaries within feature space. Use cases include customer market segmentation, recommendation engines, fraud anomaly detection, and detecting cyber intrusion attacks.</p>
+
+  <h2>2 · K-Means Clustering & Lloyd's Algorithm</h2>
+  <p>K-Means partitions <em>N</em> observations into <em>K</em> clusters such that each observation belongs to the cluster with the nearest centroid (minimizing within-cluster sum of squares inertia):</p>
+  <ol>
+    <li><strong>Initialization:</strong> Pick <em>K</em> initial centroids. (<strong>K-Means++</strong> selects centroids probabilistically far apart, avoiding poor local minima).</li>
+    <li><strong>Assignment Step:</strong> Assign each data point to its closest centroid using Euclidean distance.</li>
+    <li><strong>Update Step:</strong> Recalculate centroids as the mathematical mean of all points assigned to that cluster.</li>
+    <li>Repeat steps 2 & 3 until centroids stabilize (convergence).</li>
+  </ol>
+
+  <h2>3 · K-Means vs DBSCAN vs Hierarchical</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Algorithm</th><th>Cluster Shape Assumed</th><th>Handles Outliers / Noise?</th><th>Need to Specify K?</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>K-Means</strong></td>
+        <td>Spherical, equal variance (Voronoi cells).</td>
+        <td>No; outliers distort centroids.</td>
+        <td><strong>Yes</strong> (find via Elbow Method / Silhouette Score).</td>
+      </tr>
+      <tr>
+        <td><strong>DBSCAN</strong></td>
+        <td>Arbitrary complex manifolds (crescents, rings).</td>
+        <td><strong>Yes</strong>; explicitly flags low-density points as <strong>Noise (-1)</strong>.</td>
+        <td><strong>No</strong> (specify &epsilon; radius and <code>min_samples</code>).</td>
+      </tr>
+      <tr>
+        <td><strong>Hierarchical (Agglomerative)</strong></td>
+        <td>Nested tree hierarchy (Dendrogram).</td>
+        <td>Moderate (depends on linkage criteria: Ward, Complete).</td>
+        <td>No; cut the dendrogram tree at desired height.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 · Production Anomaly Detection: Isolation Forests</h2>
+  <p>How do you catch zero-day cyber attacks or credit card fraud when anomalous examples make up less than 0.01% of traffic? <strong>Isolation Forests</strong> isolate anomalies instead of profiling normal points:</p>
+  <ul>
+    <li>Anomalies are "few and different"—they exist in sparse regions of feature space.</li>
+    <li>When building random binary decision trees, an anomaly requires <strong>significantly fewer random splits</strong> to isolate into a leaf node than a normal point nestled inside a dense cluster.</li>
+    <li><strong>Anomaly Score:</strong> Points with short average path lengths across random trees are flagged as anomalies.</li>
+  </ul>
+
+  <pre><code>from sklearn.ensemble import IsolationForest
+import numpy as np
+
+# Generate normal data + 5 synthetic anomalies
+np.random.seed(42)
+X_normal = 0.3 * np.random.randn(1000, 2)
+X_outliers = np.random.uniform(low=-4, high=4, size=(20, 2))
+X = np.vstack([X_normal, X_outliers])
+
+# Train Isolation Forest
+iso_forest = IsolationForest(contamination=0.02, random_state=42)
+predictions = iso_forest.fit_predict(X)
+
+# 1 = Inlier (Normal), -1 = Anomaly
+n_anomalies = np.sum(predictions == -1)
+print(f"Detected Anomalies: {n_anomalies} out of {len(X)} records.")</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0007-support-vector-machines-and-knn.html">← Lesson 07: SVM & KNN</a>
+    <a href="0009-neural-networks-and-backpropagation-calculus.html">Lesson 09: Neural Networks & Backprop Calculus →</a>
+  </nav>
+</body>
+</html>

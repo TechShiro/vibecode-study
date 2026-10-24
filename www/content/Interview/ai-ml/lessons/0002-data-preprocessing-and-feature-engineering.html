@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 02 – Data Preprocessing & Feature Engineering</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module A · Lesson 2 of 17 · Data Pipelines</div>
+  <h1>Data Preprocessing & Feature Engineering</h1>
+  <p class="subtitle">Turning noisy raw tables into clean, scaled mathematical representations without catastrophic data leakage.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module A – Foundations & Data Pipelines</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In industry, 80% of machine learning success comes from <strong>data preparation and feature engineering</strong>, not tuning hyperparameter knobs. Garbage in, garbage out: feeding unscaled features, unencoded categorical strings, or missing values into an algorithm guarantees failure. More dangerously, <strong>Data Leakage</strong> (accidentally letting test information contaminate training transforms) creates models that score 99% in local validation but crash completely in live production.</p>
+
+  <h2>2 · The Core Preprocessing Pipeline</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Step</th><th>Problem Solved</th><th>Industry Best Practice / Technique</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Missing Values</strong></td>
+        <td>Linear models and Neural Nets crash on <code>NaN</code>.</td>
+        <td>Median for skewed numeric; Mode for categories; KNN / Iterative Imputer for correlated features.</td>
+      </tr>
+      <tr>
+        <td><strong>Categorical Encoding</strong></td>
+        <td>Algorithms only compute on numbers, not strings.</td>
+        <td><strong>One-Hot Encoding</strong> for nominal (low cardinality &le; 10); <strong>Target / Frequency Encoding</strong> for high cardinality; <strong>Ordinal</strong> for ranked data.</td>
+      </tr>
+      <tr>
+        <td><strong>Feature Scaling</strong></td>
+        <td>Variables with large magnitude (Salary $100,000) dominate small ones (Age 25).</td>
+        <td><strong>StandardScaler</strong> (&mu;=0, &sigma;=1) for Gaussian/linear models; <strong>MinMaxScaler</strong> ([0, 1]) for image pixels and neural nets; <strong>RobustScaler</strong> when outliers exist.</td>
+      </tr>
+      <tr>
+        <td><strong>Class Imbalance</strong></td>
+        <td>Fraud detection: 99.9% legit, 0.1% fraud. Naive model predicting all legit achieves 99.9% accuracy!</td>
+        <td>SMOTE (Synthetic Minority Over-sampling), Random Under-sampling, or class-weighted loss functions (<code>class_weight='balanced'</code>).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Data Leakage: The Silent Model Killer</h2>
+  <div class="callout danger">
+    <h4>The Golden Rule of ML Splits</h4>
+    <p>NEVER fit a scaler, imputer, or encoder on the full dataset before splitting! If you compute <code>scaler.fit(X)</code> across all data, the test set's mean and variance leak into the training process.</p>
+    <p><strong>Correct Protocol:</strong></p>
+    <ol>
+      <li>Split raw data into <code>X_train</code> and <code>X_test</code> first.</li>
+      <li>Fit transforms ONLY on <code>X_train</code>: <code>scaler.fit(X_train)</code>.</li>
+      <li>Apply fitted parameters to both: <code>scaler.transform(X_train)</code> and <code>scaler.transform(X_test)</code>.</li>
+    </ol>
+  </div>
+
+  <h2>4 · Production Scikit-Learn Pipeline Implementation</h2>
+  <p>Using <code>Pipeline</code> and <code>ColumnTransformer</code> guarantees leak-free training and deployment reproducibility:</p>
+
+  <pre><code>import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.ensemble import RandomForestClassifier
+
+# 1. Sample Realistic Data
+data = pd.DataFrame({
+    'age': [25, 45, np.nan, 35, 52, 23],
+    'income': [50000, 120000, 85000, np.nan, 140000, 48000],
+    'city': ['NYC', 'London', 'Paris', 'NYC', 'London', 'Tokyo'],
+    'purchased': [0, 1, 1, 0, 1, 0]
+})
+
+X = data.drop(columns=['purchased'])
+y = data['purchased']
+
+# 2. Strict Train/Test Split (Stratified to maintain class ratio)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.33, random_state=42
+)
+
+# 3. Define Pipeline Transformers by Feature Type
+numeric_cols = ['age', 'income']
+categorical_cols = ['city']
+
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='median')),
+    ('scaler', StandardScaler())
+])
+
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+    ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+])
+
+preprocessor = ColumnTransformer(transformers=[
+    ('num', numeric_transformer, numeric_cols),
+    ('cat', categorical_transformer, categorical_cols)
+])
+
+# 4. Assemble Full Leak-Free Pipeline
+model_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', RandomForestClassifier(n_estimators=100, random_state=42))
+])
+
+# 5. Fit strictly on train, evaluate on test
+model_pipeline.fit(X_train, y_train)
+test_accuracy = model_pipeline.score(X_test, y_test)
+print(f"Test Accuracy: {test_accuracy:.2f}")</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0001-math-foundations-linear-algebra-calculus-probability.html">← Lesson 01: Math Foundations</a>
+    <a href="0003-dimensionality-reduction-pca-tsne-umap.html">Lesson 03: Dimensionality Reduction →</a>
+  </nav>
+</body>
+</html>

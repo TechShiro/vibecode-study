@@ -1,0 +1,114 @@
+<title>File System Implementation and Allocation Methods</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit IV &middot; Lesson 22 of 24</p>
+<h1>File System Implementation and Allocation Methods</h1>
+<p class="deck">On-disk structures (boot block, super block, directory implementation), three allocation methods (contiguous, linked, indexed), and free-space management (bit vector, linked list).</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>&ldquo;Compare contiguous, linked, and indexed allocation&rdquo;</strong> is a guaranteed 10-marker. Draw diagrams for each. <strong>Free-space management</strong> with bit vectors is a common short-note.</p></div>
+
+<h2>On-disk structures</h2>
+<ul>
+<li><strong>Boot control block:</strong> info to boot OS from that partition (boot sector / boot block).</li>
+<li><strong>Volume control block:</strong> partition details &mdash; number of blocks, block size, free-block count (superblock in UNIX).</li>
+<li><strong>Directory structure:</strong> file names, inode numbers (UNIX) or full attributes (FAT).</li>
+<li><strong>FCB (File Control Block):</strong> per-file metadata &mdash; permissions, timestamps, data block pointers (= inode in UNIX).</li>
+</ul>
+
+<h2>Allocation methods</h2>
+
+<h3>Contiguous allocation</h3>
+<p>Each file occupies <strong>contiguous blocks</strong>. Directory stores (start block, length).</p>
+<p><strong>Pro:</strong> fast sequential and direct access. <strong>Con:</strong> external fragmentation, file cannot grow easily.</p>
+
+<h3>Linked allocation</h3>
+<p>Each block has a pointer to the next. Directory stores (first block, last block).</p>
+<p><strong>Pro:</strong> no external fragmentation, file can grow. <strong>Con:</strong> no direct access (must traverse), pointer space overhead, reliability (lost pointer = lost file).</p>
+<p><strong>FAT (File Allocation Table):</strong> linked allocation where pointers are stored in a separate table &mdash; improves random access.</p>
+
+<h3>Indexed allocation</h3>
+<p>An <strong>index block</strong> contains all pointers to the file&rsquo;s data blocks.</p>
+<p><strong>Pro:</strong> supports direct access, no external fragmentation. <strong>Con:</strong> index block overhead, may need multi-level index for large files.</p>
+<p><strong>UNIX inode:</strong> 12 direct + 1 single-indirect + 1 double-indirect + 1 triple-indirect pointers.</p>
+
+<div class="tw"><table>
+<thead><tr><th></th><th>Contiguous</th><th>Linked</th><th>Indexed</th></tr></thead>
+<tbody>
+<tr><td><strong>Sequential access</strong></td><td>Excellent</td><td>Good</td><td>Good</td></tr>
+<tr><td><strong>Direct access</strong></td><td>Excellent</td><td>Poor (traverse)</td><td>Good</td></tr>
+<tr><td><strong>External fragmentation</strong></td><td>Yes</td><td>No</td><td>No</td></tr>
+<tr><td><strong>File growth</strong></td><td>Difficult</td><td>Easy</td><td>Easy</td></tr>
+<tr><td><strong>Overhead</strong></td><td>None</td><td>Pointer per block</td><td>Index block</td></tr>
+</tbody></table></div>
+
+<h2>Free-space management</h2>
+<ul>
+<li><strong>Bit vector (bitmap):</strong> one bit per block (1=free, 0=allocated). Fast to find free blocks. Space: 1 bit/block.</li>
+<li><strong>Linked list:</strong> link all free blocks. Space-efficient but slow to find contiguous free blocks.</li>
+<li><strong>Grouping:</strong> first free block stores n free-block addresses. Last points to next group.</li>
+<li><strong>Counting:</strong> store (start, count) for each contiguous run of free blocks.</li>
+</ul>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">File Allocation Methods & UNIX Inode Architecture</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>Contiguous Allocation</strong><span class="sub">Contiguous disk blocks &bull; Fast sequential/direct access &bull; Suffer external fragmentation & file growth limits</span></div>
+    <div class="flow-box highlight"><strong>Linked Allocation</strong><span class="sub">Each block has pointer to next &bull; No external fragmentation &bull; Slow direct access & reliability risk if link breaks</span></div>
+    <div class="flow-box ok"><strong>UNIX Inode (Indexed)</strong><span class="sub">12 Direct pointers &bull; 1 Single Indirect &bull; 1 Double Indirect &bull; 1 Triple Indirect block &bull; Supports multi-gigabyte files!</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">File Allocation & Inode</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">File Allocation Methods & UNIX Inode Structure Explained</div>
+    <div class="v-desc">Comprehensive comparison of contiguous, linked, and indexed file allocation with deep dive into the UNIX Inode pointer calculation.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=S6lLRz7SQUw" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. Linked allocation has poor:</p>
+<div class="opts">
+<button class="opt">File creation speed</button>
+<button class="opt" data-ok="1">Direct (random) access — must traverse pointers from the start</button>
+<button class="opt">Free space utilisation</button>
+<button class="opt">Sequential access</button>
+</div><p class="why">No direct access because blocks are scattered and linked by pointers. Must follow the chain.</p></div>
+<div class="q"><p class="stem">2. UNIX inodes use:</p>
+<div class="opts">
+<button class="opt">Linked allocation</button>
+<button class="opt">Contiguous allocation</button>
+<button class="opt">FAT only</button>
+<button class="opt" data-ok="1">Indexed allocation with direct, single-, double-, triple-indirect pointers</button>
+</div><p class="why">12 direct pointers for small files, indirect pointers for larger files. Efficient for all sizes.</p></div>
+<div class="q"><p class="stem">3. A bit vector for free-space management uses:</p>
+<div class="opts">
+<button class="opt">A linked list of free blocks</button>
+<button class="opt">A tree structure</button>
+<button class="opt">One byte per block</button>
+<button class="opt" data-ok="1">One bit per block — fast to find free blocks</button>
+</div><p class="why">Bit vector is compact and allows quick scanning for contiguous free blocks using bit operations.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>Three allocation methods — one line each.</summary><p class="ans">Contiguous: consecutive blocks, fast but fragments. Linked: pointer chain, no fragmentation but no direct access. Indexed: index block with all pointers, best of both.</p></details>
+<details class="card"><summary>UNIX inode structure.</summary><p class="ans">12 direct + 1 single-indirect + 1 double-indirect + 1 triple-indirect pointers. Handles small to very large files.</p></details>
+</div>
+
+<div class="nav">
+<a href="0021-file-system-interface.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0023-disk-scheduling.html">Next: Disk Scheduling &rarr;</a>
+<a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

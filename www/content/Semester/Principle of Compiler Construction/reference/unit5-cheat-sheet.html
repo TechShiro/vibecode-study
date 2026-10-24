@@ -1,0 +1,112 @@
+<title>PCC Unit V Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.6rem 0 .4rem;font-size:1.12rem}
+  .formula{padding:.5rem .75rem;margin:.5rem 0;font-size:.95rem}
+  table{font-size:.85rem}
+  th,td{padding:.3rem .45rem}
+  ul,ol{margin:.35rem 0 .35rem 1.1rem}
+  li{margin:.12rem 0}
+  .tag{display:inline-block;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--paper);padding:.12rem .45rem;border-radius:3px;vertical-align:.15em;margin-left:.4rem}
+  @media print{body{font-size:9.2pt}.wrap{max-width:100%}h2{margin:.7rem 0 .25rem}}
+</style>
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Reference</p>
+<h1>Unit V &mdash; Exam Sheet</h1>
+<p class="deck">Code Optimization, Basic Blocks, DAGs, Data-Flow Analysis, Loop Optimization, Code Generation &amp; Peephole Optimization on one printable page.</p>
+
+<h2>1. Sources of Optimization <span class="tag">guaranteed theory</span></h2>
+<ul>
+  <li><strong>Preservation Criteria:</strong> 1. Must preserve program semantics. 2. Must speed up execution. 3. Compilation time must remain reasonable.</li>
+  <li><strong>Function-Preserving:</strong>
+    <ul>
+      <li><strong>Common Subexpression Elimination (CSE):</strong> Reuses previously computed identical values.</li>
+      <li><strong>Copy Propagation:</strong> Replaces <code>x</code> with <code>y</code> after <code>x = y</code> until redefinition.</li>
+      <li><strong>Dead-Code Elimination:</strong> Prunes instructions whose outputs are never read.</li>
+      <li><strong>Constant Folding:</strong> Evaluates compile-time operations directly (<code>2 * 3.14 &rarr; 6.28</code>).</li>
+    </ul>
+  </li>
+  <li><strong>Loop Transformations:</strong>
+    <ul>
+      <li><strong>Code Motion / Hoisting:</strong> Moves loop-invariant computations to loop preheader.</li>
+      <li><strong>Induction Variables:</strong> Variables changing by fixed amounts per iteration ($i = i + c$).</li>
+      <li><strong>Strength Reduction:</strong> Replaces expensive ops ($t = i * 4$) with cheap ones ($t = t + 4$).</li>
+    </ul>
+  </li>
+</ul>
+
+<h2>2. Basic Blocks &amp; Control Flow Graphs (CFG) <span class="tag">guaranteed rules</span></h2>
+<div class="formula">
+<strong>Three Rules for Finding Leaders:</strong><br>
+1. Statement 1 is a leader.<br>
+2. Any statement that is the target of a conditional or unconditional goto is a leader.<br>
+3. Any statement immediately following a conditional or unconditional goto is a leader.
+</div>
+<p><strong>Block construction:</strong> A basic block starts with a leader and includes all statements up to (not including) the next leader or program end.</p>
+<p><strong>CFG Edges $B_i \to B_j$:</strong> Exists if $B_j$ is a jump target of $B_i$, or if $B_j$ immediately follows $B_i$ sequentially and $B_i$ does not end with an unconditional jump.</p>
+
+<h2>3. DAG for Basic Blocks <span class="tag">guaranteed numerical</span></h2>
+<ul>
+  <li><strong>Leaves:</strong> Constants or entering variables (e.g. $i_0$).</li>
+  <li><strong>Interior nodes:</strong> Operators ($+$, $-$, $*$, $/$, $[]=$). Attached labels: variable names currently holding that value.</li>
+  <li><strong>Optimizations enabled:</strong> Detects local common subexpressions (reuses existing node $(op, l, r)$), eliminates dead code (nodes with no parents whose variables are dead), applies algebraic identities ($x*1=x$, $x+0=x$, $x*0=0$).</li>
+</ul>
+
+<h2>4. Data-Flow Analysis Framework <span class="tag">master comparison</span></h2>
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Reaching Definitions</th><th>Available Expressions</th><th>Live Variable Analysis</th></tr></thead>
+<tbody>
+<tr><td><strong>Direction</strong></td><td>Forward ($\text{In} \to \text{Out}$)</td><td>Forward ($\text{In} \to \text{Out}$)</td><td>Backward ($\text{Out} \to \text{In}$)</td></tr>
+<tr><td><strong>Meet Operator</strong></td><td>Union ($\cup$ &mdash; any path)</td><td>Intersection ($\cap$ &mdash; all paths)</td><td>Union ($\cup$ &mdash; any path)</td></tr>
+<tr><td><strong>Transfer Equation</strong></td><td>$\text{Out}[B] = \text{gen}_B \cup (\text{In}[B] - \text{kill}_B)$</td><td>$\text{Out}[B] = \text{gen}_B \cup (\text{In}[B] - \text{kill}_B)$</td><td>$\text{In}[B] = \text{use}_B \cup (\text{Out}[B] - \text{def}_B)$</td></tr>
+<tr><td><strong>Boundary Cond.</strong></td><td>$\text{Out}[\text{Entry}] = \emptyset$</td><td>$\text{Out}[\text{Entry}] = \emptyset$; all others $U$</td><td>$\text{In}[\text{Exit}] = \emptyset$</td></tr>
+<tr><td><strong>Primary Use</strong></td><td>Copy/constant propagation</td><td>Global common subexpression elim.</td><td>Dead code elimination, register alloc.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. Dominators &amp; Natural Loops <span class="tag">definitions</span></h2>
+<p><strong>Dominance ($d \text{ dom } n$):</strong> Every path from entry to $n$ must pass through $d$.</p>
+<p><strong>Back edge:</strong> An edge $m \to d$ where head $d$ dominates tail $m$ ($d \text{ dom } m$).</p>
+<p><strong>Natural Loop:</strong> Single loop header $d$ dominating all nodes in loop, containing back edge $m \to d$, and all nodes that reach $m$ without passing through $d$.</p>
+
+<h2>6. Code Generation &amp; Register Allocation <span class="tag">chaitin</span></h2>
+<ul>
+  <li><strong>Issues:</strong> Target language format, instruction selection, register allocation/assignment, evaluation order, memory management.</li>
+  <li><strong>Register Allocation vs Assignment:</strong> Allocation decides <em>which</em> variables stay in registers; assignment chooses the <em>specific</em> hardware register ($R_0, R_1$).</li>
+  <li><strong>Graph Coloring (Chaitin):</strong>
+    <ol>
+      <li>Construct interference graph (nodes = live ranges, edge = overlapping liveness).</li>
+      <li>Simplify: remove nodes with degree $< k$, push onto stack.</li>
+      <li>Spill: if all degrees $\ge k$, pick candidate with low cost to spill to RAM.</li>
+      <li>Select: pop stack and assign colors (registers).</li>
+    </ol>
+  </li>
+</ul>
+
+<h2>7. Peephole Optimization <span class="tag">guaranteed 5-marker</span></h2>
+<p>Examines a sliding window of target instructions and replaces inefficient sequences:</p>
+<ol>
+  <li><strong>Redundant Load/Store:</strong> <code>MOV R0, a; MOV a, R0</code> &rarr; delete 2nd instruction.</li>
+  <li><strong>Unreachable Code:</strong> Instructions immediately following unconditional jumps without a label are deleted.</li>
+  <li><strong>Flow of Control (Jump Chaining):</strong> <code>goto L1; ... L1: goto L2</code> &rarr; <code>goto L2</code>.</li>
+  <li><strong>Algebraic Simplification:</strong> <code>x = x + 0</code> pruned; <code>x = x * 2</code> &rarr; <code>SHL x, 1</code>.</li>
+  <li><strong>Machine Idioms:</strong> <code>ADD R0, #1</code> &rarr; <code>INC R0</code>.</li>
+</ol>
+
+<h2>Ten-Minute Exam Final Scan</h2>
+<ol>
+  <li><strong>Leader rules:</strong> 1 = first stmt; 2 = jump target; 3 = stmt immediately following jump.</li>
+  <li><strong>DAG interior node:</strong> Reused if (op, left, right) matches an existing node &rarr; eliminates local CSE.</li>
+  <li><strong>Available expressions:</strong> Forward + Intersection ($\cap$). Powers Global Common Subexpression Elimination.</li>
+  <li><strong>Live variables:</strong> Backward + Union ($\cup$). Powers Dead Code Elimination and Register Allocation.</li>
+  <li><strong>Dominance:</strong> $d \text{ dom } n$ means $d$ is on every path from entry to $n$. Natural loop defined by back-edge $m \to d$.</li>
+  <li><strong>Register allocation by graph coloring:</strong> $k$ registers = $k$-coloring of interference graph. Push degree $< k$ onto stack.</li>
+  <li><strong>Peephole 5 types:</strong> Redundant load/store, unreachable code, jump to jump, algebraic reduction in strength, machine idioms (INC/DEC).</li>
+</ol>
+
+</div>

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Lesson 01 — Functional &amp; Non-Functional Requirements</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">System Design · HLD · Lesson 1 of 66 · requirements gathering</div>
+<h1>Functional &amp; Non-Functional Requirements</h1>
+<p class="subtitle">Before you draw a single box or arrow, you must know what you're building and how well it needs to work — this lesson teaches you the very first step of every system design interview.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master System Design for interviews — HLD + LLD. This is Lesson 1 of 66.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+
+<!-- ─── SECTION 1: THE ONE IDEA ─── -->
+<h2>1 · The One Idea</h2>
+<p>
+Every system design starts with a single question: <strong>"What should this system do, and how well should it do it?"</strong>
+The answer splits into two clean buckets:
+</p>
+<ul>
+  <li><strong>Functional Requirements (FRs)</strong> — <em>what</em> the system does (features, behaviours, use cases)</li>
+  <li><strong>Non-Functional Requirements (NFRs)</strong> — <em>how well</em> the system does it (performance, scalability, reliability, security…)</li>
+</ul>
+<p>
+In an interview, the first 3–5 minutes should be spent <strong>clarifying requirements</strong>. If you jump straight into drawing boxes, the interviewer will think you don't know what you're doing. Requirements are the compass — they decide every architectural choice that follows.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview golden rule</span>
+  Never start designing without asking clarifying questions. The interviewer is testing whether you can identify ambiguity and scope the problem. A great candidate spends 3–5 minutes just on requirements.
+</div>
+
+<!-- ─── SECTION 2: FUNCTIONAL REQUIREMENTS ─── -->
+<h2>2 · Functional Requirements — The "What"</h2>
+<p>
+Functional requirements define the <strong>features and behaviour</strong> of the system. They answer: "What does the user want to do?" Each FR is a concrete action or capability.
+</p>
+
+<h3>2.1 · Definition</h3>
+<p>
+A functional requirement describes a specific <strong>input → processing → output</strong> behaviour.
+If someone asks "What does the system do?", your FRs should answer completely.
+</p>
+
+<h3>2.2 · Examples by System</h3>
+<table>
+  <thead><tr><th>System</th><th>Functional Requirements</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>URL Shortener</strong> (like bit.ly)</td>
+      <td>
+        <ul>
+          <li>Given a long URL, generate a short unique URL</li>
+          <li>Given a short URL, redirect to the original long URL</li>
+          <li>Users can optionally set custom short links</li>
+          <li>Links should expire after a configurable time (optional)</li>
+          <li>Analytics: track click counts per link</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Twitter/X</strong></td>
+      <td>
+        <ul>
+          <li>Users can post tweets (text, images, video)</li>
+          <li>Users can follow/unfollow other users</li>
+          <li>Users see a feed of tweets from people they follow</li>
+          <li>Users can like, retweet, and reply to tweets</li>
+          <li>Users can search tweets by keyword/hashtag</li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>WhatsApp</strong></td>
+      <td>
+        <ul>
+          <li>1:1 messaging between users</li>
+          <li>Group messaging</li>
+          <li>Sent/delivered/read receipts</li>
+          <li>Media sharing (images, video, documents)</li>
+          <li>Last-seen & online status</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.3 · How to Extract FRs in an Interview</h3>
+<p>Use the <strong>actor-action</strong> framework. For each type of user (actor), list what they can do (actions):</p>
+<pre><code><span class="cmt">// Actor-Action Framework</span>
+Actor: End User
+  → Post a message
+  → View feed
+  → Search content
+  → Follow/unfollow
+
+Actor: Admin
+  → Ban/suspend accounts
+  → View analytics dashboard
+  → Manage content moderation
+
+Actor: System (automated)
+  → Send push notifications
+  → Generate recommendations
+  → Archive old data</code></pre>
+
+<div class="callout">
+  <span class="label">Key questions to ask the interviewer</span>
+  <ul>
+    <li>"Who are the users of this system?" (end-users, admins, internal services?)</li>
+    <li>"What are the core features?" (don't design everything — scope it)</li>
+    <li>"What are the input/output for each feature?"</li>
+    <li>"Are there any features we should explicitly NOT build?"</li>
+  </ul>
+</div>
+
+<!-- ─── SECTION 3: NON-FUNCTIONAL REQUIREMENTS ─── -->
+<h2>3 · Non-Functional Requirements — The "How Well"</h2>
+<p>
+Non-functional requirements define the <strong>quality attributes</strong> of the system. They don't say what the system does — they say how well it does it. They are the constraints under which the system must operate.
+</p>
+
+<h3>3.1 · The Big Categories</h3>
+<p>There are many NFRs, but for system design interviews, these are the ones that matter most:</p>
+
+<table>
+  <thead><tr><th>NFR</th><th>What It Means</th><th>Example Target</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Scalability</strong></td><td>Handle growth — more users, more data, more requests</td><td>Support 100M DAU, 10K requests/sec</td></tr>
+    <tr><td><strong>Availability</strong></td><td>System is up and reachable (uptime)</td><td>99.99% uptime (≈ 52 min downtime/year)</td></tr>
+    <tr><td><strong>Reliability</strong></td><td>System works correctly, data isn't lost</td><td>Zero data loss, exactly-once processing</td></tr>
+    <tr><td><strong>Latency / Performance</strong></td><td>How fast responses come back</td><td>P99 latency &lt; 200ms for reads</td></tr>
+    <tr><td><strong>Consistency</strong></td><td>All users see the same data at the same time</td><td>Strong consistency for payments, eventual for feeds</td></tr>
+    <tr><td><strong>Durability</strong></td><td>Data survives failures (disk crash, power loss)</td><td>Data persisted to at least 3 replicas</td></tr>
+    <tr><td><strong>Security</strong></td><td>Protection from unauthorized access and attacks</td><td>Encryption at rest + in transit, OAuth 2.0</td></tr>
+    <tr><td><strong>Fault Tolerance</strong></td><td>System continues working when components fail</td><td>No single point of failure, auto-failover</td></tr>
+    <tr><td><strong>Maintainability</strong></td><td>Easy to update, debug, and operate</td><td>Microservices, CI/CD, structured logging</td></tr>
+    <tr><td><strong>Cost</strong></td><td>Budget constraints — cloud bills, hardware</td><td>Stay within $X/month infrastructure</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 · The Availability Nines Table</h3>
+<p>This table comes up in almost every system design discussion. <strong>Memorize it.</strong></p>
+
+<table>
+  <thead><tr><th>Availability %</th><th>Allowed Downtime/Year</th><th>Allowed Downtime/Month</th><th>Common Name</th></tr></thead>
+  <tbody>
+    <tr><td>99% (two nines)</td><td>3.65 days</td><td>7.31 hours</td><td>Basic</td></tr>
+    <tr><td>99.9% (three nines)</td><td>8.77 hours</td><td>43.83 minutes</td><td>Standard</td></tr>
+    <tr><td>99.99% (four nines)</td><td>52.60 minutes</td><td>4.38 minutes</td><td>High Availability</td></tr>
+    <tr><td>99.999% (five nines)</td><td>5.26 minutes</td><td>26.3 seconds</td><td>Ultra HA (banking)</td></tr>
+  </tbody>
+</table>
+
+<div class="formula">
+  Availability = Uptime / (Uptime + Downtime) × 100%
+</div>
+
+<div class="callout warn">
+  <span class="label">Reality check</span>
+  Going from 99.9% to 99.99% is NOT 10x harder — it's 100x harder and 100x more expensive. Each additional "nine" requires exponentially more redundancy, monitoring, and engineering effort. Always ask: "How much availability does this system actually need?"
+</div>
+
+<!-- ─── SECTION 4: FR vs NFR ─── -->
+<h2>4 · FR vs NFR — The Complete Comparison</h2>
+
+<table class="vs-table">
+  <thead><tr><th>Aspect</th><th>Functional Requirement</th><th>Non-Functional Requirement</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Answers</strong></td><td>"What does the system do?"</td><td>"How well does the system do it?"</td></tr>
+    <tr><td><strong>Nature</strong></td><td>Feature / behaviour</td><td>Quality attribute / constraint</td></tr>
+    <tr><td><strong>Example</strong></td><td>User can upload a photo</td><td>Photo upload completes in &lt; 2s for 5MB files</td></tr>
+    <tr><td><strong>Testable?</strong></td><td>Yes — pass/fail (it works or doesn't)</td><td>Yes — measurable metric (latency, uptime %)</td></tr>
+    <tr><td><strong>Impact of ignoring</strong></td><td>System is incomplete — missing features</td><td>System works but is slow/down/insecure/unscalable</td></tr>
+    <tr><td><strong>Who cares most?</strong></td><td>End users, product managers</td><td>Engineers, SREs, security teams</td></tr>
+    <tr><td><strong>When defined?</strong></td><td>First — during product planning</td><td>Alongside FRs — shapes architecture</td></tr>
+    <tr><td><strong>Affects architecture?</strong></td><td>Determines components &amp; APIs</td><td>Determines infrastructure &amp; design patterns</td></tr>
+  </tbody>
+</table>
+
+<!-- ─── SECTION 5: FLOW DIAGRAM ─── -->
+<h2>5 · The Requirement Gathering Flow</h2>
+<p>Here's the step-by-step process you should follow at the start of every system design interview:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg">
+  <!-- Step 1 -->
+  <rect class="node" x="220" y="10" width="260" height="45" rx="8"/>
+  <text class="lbl" x="350" y="33" font-size="13">1. Listen to the problem</text>
+  
+  <!-- Arrow 1→2 -->
+  <line class="edge hl" x1="350" y1="55" x2="350" y2="80" marker-end="url(#arrowSD)"/>
+  
+  <!-- Step 2 -->
+  <rect class="node" x="220" y="80" width="260" height="45" rx="8"/>
+  <text class="lbl" x="350" y="103" font-size="13">2. Ask clarifying questions</text>
+  
+  <!-- Arrow 2→3 -->
+  <line class="edge hl" x1="350" y1="125" x2="350" y2="150" marker-end="url(#arrowSD)"/>
+  
+  <!-- Step 3 -->
+  <rect class="node" x="220" y="150" width="260" height="45" rx="8"/>
+  <text class="lbl" x="350" y="173" font-size="13">3. Identify actors (who uses it?)</text>
+  
+  <!-- Arrow 3→fork -->
+  <line class="edge hl" x1="350" y1="195" x2="350" y2="230" marker-end="url(#arrowSD)"/>
+  
+  <!-- Fork -->
+  <line class="edge hl" x1="170" y1="230" x2="530" y2="230"/>
+  <line class="edge hl" x1="170" y1="230" x2="170" y2="260" marker-end="url(#arrowSD)"/>
+  <line class="edge hl" x1="530" y1="230" x2="530" y2="260" marker-end="url(#arrowSD)"/>
+  
+  <!-- FR box -->
+  <rect class="node done" x="60" y="260" width="220" height="50" rx="8"/>
+  <text class="lbl" x="170" y="280" font-size="12">4a. List Functional Reqs</text>
+  <text class="wt" x="170" y="298">(features, user actions)</text>
+  
+  <!-- NFR box -->
+  <rect class="node done" x="420" y="260" width="220" height="50" rx="8"/>
+  <text class="lbl" x="530" y="280" font-size="12">4b. List Non-Functional Reqs</text>
+  <text class="wt" x="530" y="298">(scale, latency, availability)</text>
+  
+  <!-- Merge -->
+  <line class="edge hl" x1="170" y1="310" x2="170" y2="345"/>
+  <line class="edge hl" x1="530" y1="310" x2="530" y2="345"/>
+  <line class="edge hl" x1="170" y1="345" x2="530" y2="345"/>
+  <line class="edge hl" x1="350" y1="345" x2="350" y2="370" marker-end="url(#arrowSD)"/>
+  
+  <!-- Step 5 -->
+  <rect class="node" x="220" y="370" width="260" height="45" rx="8"/>
+  <text class="lbl" x="350" y="393" font-size="13">5. Prioritize &amp; scope down</text>
+  
+  <!-- Arrow 5→6 -->
+  <line class="edge hl" x1="350" y1="415" x2="350" y2="445" marker-end="url(#arrowSD)"/>
+  
+  <!-- Step 6 -->
+  <rect class="node cur" x="220" y="445" width="260" height="45" rx="8"/>
+  <text class="lbl inv" x="350" y="468" font-size="13">6. Start designing! 🎯</text>
+
+  <defs>
+    <marker id="arrowSD" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon class="arrow" points="0 0, 10 3.5, 0 7" fill="var(--accent)"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>The requirement gathering flow — always fork into FR + NFR before designing</figcaption>
+</figure>
+
+<!-- ─── SECTION 6: DEEP DIVE NFR ─── -->
+<h2>6 · Deep Dive: Each NFR Explained</h2>
+
+<h3>6.1 · Scalability</h3>
+<p>
+The ability to handle increasing load. There are two dimensions:
+</p>
+<ul>
+  <li><strong>Vertical Scaling (Scale Up)</strong> — bigger machine (more CPU, RAM)</li>
+  <li><strong>Horizontal Scaling (Scale Out)</strong> — more machines (add servers)</li>
+</ul>
+<p>In interviews, always think about:</p>
+<ul>
+  <li>How many users? (DAU/MAU)</li>
+  <li>How many requests per second? (QPS)</li>
+  <li>How much data will we store? (TB/PB)</li>
+  <li>What's the read:write ratio?</li>
+</ul>
+
+<div class="real-world">
+  <div class="rw-title">🏢 Real-world example</div>
+  <strong>Instagram</strong> serves 2B+ MAU. Reads massively outnumber writes (~100:1). This means the architecture is heavily read-optimized: CDN for images, aggressive caching, read replicas, and pre-computed feeds.
+</div>
+
+<h3>6.2 · Availability vs Reliability</h3>
+<p>People often confuse these. Here's the difference:</p>
+<ul>
+  <li><strong>Availability</strong> = "Is the system UP?" (can I reach it?)</li>
+  <li><strong>Reliability</strong> = "Does the system give CORRECT results?" (does it work right?)</li>
+</ul>
+<p>
+A system can be <em>available but unreliable</em> (it's up but returns wrong data). Or <em>reliable but unavailable</em> (when it's up it works perfectly, but it's down a lot). Ideally you want both.
+</p>
+
+<div class="callout">
+  <span class="label">Analogy</span>
+  A <strong>vending machine</strong> that is always powered on but sometimes gives you the wrong drink is <em>available but unreliable</em>. A vending machine that always gives the right drink but is often out of order is <em>reliable but unavailable</em>.
+</div>
+
+<h3>6.3 · Latency</h3>
+<p>
+Time from request to response. Measured in percentiles:
+</p>
+<ul>
+  <li><strong>P50</strong> (median) — 50% of requests are faster than this</li>
+  <li><strong>P95</strong> — 95% of requests are faster. This is what most teams target.</li>
+  <li><strong>P99</strong> — 99% of requests are faster. Used for critical systems.</li>
+  <li><strong>P99.9</strong> — "tail latency" — the worst cases that affect your most engaged users</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Why percentiles, not averages?</span>
+  Averages hide outliers. If 99 requests take 10ms and 1 takes 10 seconds, the average is 109ms — looks fine! But that one user waited 10 seconds. P99 = 10s tells the real story. <strong>Amazon found that every 100ms of latency cost them 1% in sales.</strong>
+</div>
+
+<h3>6.4 · Consistency</h3>
+<p>Can all users see the same data at the same time?</p>
+<ul>
+  <li><strong>Strong Consistency</strong> — Every read returns the most recent write. Required for banking, payments.</li>
+  <li><strong>Eventual Consistency</strong> — Reads might return stale data, but will eventually catch up. Fine for social media feeds, likes count.</li>
+  <li><strong>Causal Consistency</strong> — Operations that are causally related are seen in order. Good for chat apps.</li>
+</ul>
+<p>We'll explore this deeply in Lesson 12.</p>
+
+<h3>6.5 · Durability</h3>
+<p>
+Once data is written, it won't be lost — even if servers crash, disks fail, or a whole data center goes down.
+Achieved through:
+</p>
+<ul>
+  <li>Replication (copies across machines/regions)</li>
+  <li>Write-Ahead Logs (WAL)</li>
+  <li>Backups (periodic snapshots)</li>
+</ul>
+
+<h3>6.6 · Fault Tolerance</h3>
+<p>
+The system continues operating when parts fail. Key strategies:
+</p>
+<ul>
+  <li><strong>Redundancy</strong> — no single point of failure</li>
+  <li><strong>Replication</strong> — data copied across nodes</li>
+  <li><strong>Failover</strong> — automatic switch to backup</li>
+  <li><strong>Graceful degradation</strong> — offer reduced functionality instead of complete failure</li>
+</ul>
+
+<div class="real-world">
+  <div class="rw-title">🏢 Real-world example</div>
+  <strong>Netflix</strong> uses <em>Chaos Monkey</em> to randomly kill servers in production. If the system can survive random failures during normal operation, it can survive real outages. This is called <strong>Chaos Engineering</strong>.
+</div>
+
+<!-- ─── SECTION 7: WORKED EXAMPLE ─── -->
+<h2>7 · Worked Example: Design a URL Shortener — Requirements Phase</h2>
+<p>Let's walk through exactly what you'd say in the first 3–5 minutes of this interview:</p>
+
+<h3>Step 1: Clarifying Questions</h3>
+<pre><code><span class="cmt">You → Interviewer:</span>
+"What's the main use case — is this for internal use or public-facing like bit.ly?"
+"How many URLs do we expect to shorten per day?"
+"What's the expected read:write ratio?"
+"Should short URLs expire?"
+"Do we need analytics (click tracking)?"
+"Should users be authenticated, or is it open?"</code></pre>
+
+<h3>Step 2: Functional Requirements (agreed with interviewer)</h3>
+<pre><code><span class="cmt">// Functional Requirements</span>
+FR1: Given a long URL → generate a unique short URL
+FR2: Given a short URL → redirect (301/302) to the original URL
+FR3: Optional: users can create custom aliases
+FR4: Optional: links can have expiration dates
+FR5: Optional: analytics dashboard (click count, referrer, geo)</code></pre>
+
+<h3>Step 3: Non-Functional Requirements (agreed with interviewer)</h3>
+<pre><code><span class="cmt">// Non-Functional Requirements</span>
+NFR1: Scale — 100M new URLs/day, 10:1 read:write ratio → 1B redirects/day
+NFR2: Latency — redirect should be &lt; 50ms (P99)
+NFR3: Availability — 99.99% (URL shortener must always work)
+NFR4: Durability — shortened URLs should never be lost
+NFR5: Consistency — eventual consistency is fine (a 1-second delay to propagate a new URL is acceptable)
+NFR6: URL length — short URL should be ≤ 7 characters after domain</code></pre>
+
+<h3>Step 4: Back-of-Envelope Estimation</h3>
+<pre><code><span class="cmt">// Quick math</span>
+Writes: 100M URLs/day = ~1,200 writes/sec
+Reads:  1B redirects/day = ~12,000 reads/sec (10:1 ratio)
+Storage: 100M × 365 days × 5 years = 182.5B URLs
+         Each URL ≈ 500 bytes → 182.5B × 500B ≈ 91 TB
+         Need: DB that can handle ~100 TB, heavy reads</code></pre>
+
+<div class="callout tip">
+  <span class="label">This is the template</span>
+  Every system design interview follows this flow: clarify → FRs → NFRs → estimate → then design. Master this template and you'll never freeze in an interview.
+</div>
+
+<!-- ─── SECTION 8: NFR DRIVES ARCHITECTURE ─── -->
+<h2>8 · How NFRs Drive Architecture Decisions</h2>
+<p>
+This is the key insight: <strong>NFRs determine your architecture, not FRs</strong>. The same feature set can be built in wildly different architectures depending on the NFRs.
+</p>
+
+<table>
+  <thead><tr><th>If the NFR says…</th><th>Then the architecture needs…</th></tr></thead>
+  <tbody>
+    <tr><td>High read throughput (100K+ QPS)</td><td>Caching layer (Redis), read replicas, CDN</td></tr>
+    <tr><td>Low latency (&lt; 50ms)</td><td>In-memory cache, edge servers, no heavy DB joins</td></tr>
+    <tr><td>High availability (99.99%)</td><td>Multiple regions, auto-failover, no SPOF</td></tr>
+    <tr><td>Strong consistency</td><td>Synchronous replication, consensus protocol (Raft/Paxos)</td></tr>
+    <tr><td>Eventual consistency is fine</td><td>Async replication, message queues, simpler architecture</td></tr>
+    <tr><td>Handle huge data (PB scale)</td><td>Sharding, partitioning, distributed storage (HDFS/S3)</td></tr>
+    <tr><td>High write throughput</td><td>Write-ahead log, batching, message queue buffer</td></tr>
+    <tr><td>Must be secure</td><td>Encryption, auth, rate limiting, WAF, audit logs</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">The Architecture Connection</span>
+  Think of FRs as "what rooms does the house need?" and NFRs as "should the house survive an earthquake?" The same rooms can be built with wood (cheap, fine for low-risk areas) or reinforced concrete (expensive, needed for earthquake zones). The NFRs determine the building material — i.e., your architecture.
+</div>
+
+<!-- ─── SECTION 9: COMMON NFR PATTERNS ─── -->
+<h2>9 · Common Interview Scenarios — Which NFRs to Prioritize</h2>
+
+<table>
+  <thead><tr><th>System</th><th>Top NFRs</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Payment system (Stripe)</td>
+      <td>Consistency, Durability, Security</td>
+      <td>Can't lose money, can't double-charge</td>
+    </tr>
+    <tr>
+      <td>Social media feed (Twitter)</td>
+      <td>Availability, Latency, Scalability</td>
+      <td>Must always be fast, eventual consistency is fine</td>
+    </tr>
+    <tr>
+      <td>Messaging (WhatsApp)</td>
+      <td>Reliability, Latency, Consistency (causal)</td>
+      <td>Messages must arrive, in order, fast</td>
+    </tr>
+    <tr>
+      <td>Video streaming (Netflix)</td>
+      <td>Availability, Latency, Scalability</td>
+      <td>Buffer-free playback at massive scale</td>
+    </tr>
+    <tr>
+      <td>E-commerce (Amazon)</td>
+      <td>Availability, Consistency (eventual for catalog, strong for orders), Latency</td>
+      <td>Always up, correct orders, fast browsing</td>
+    </tr>
+    <tr>
+      <td>Ride-sharing (Uber)</td>
+      <td>Latency, Availability, Consistency (strong for rides)</td>
+      <td>Real-time matching, can't double-book a ride</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── SECTION 10: INTERVIEW CHEAT SHEET ─── -->
+<h2>10 · Interview Cheat Sheet — Requirement Gathering Template</h2>
+<p>Copy this mental template into every interview:</p>
+
+<pre><code><span class="cmt">// ──── STEP 1: CLARIFYING QUESTIONS ────</span>
+1. Who are the users? (consumer, business, internal?)
+2. What are the core features? (scope down to 3-5)
+3. How many users? (DAU/MAU)
+4. Read-heavy or write-heavy?
+5. What's acceptable latency?
+6. What's acceptable downtime?
+7. Geographic distribution? (single region vs global?)
+8. Any data compliance requirements? (GDPR, HIPAA?)
+
+<span class="cmt">// ──── STEP 2: WRITE DOWN FRs ────</span>
+FR1: [core feature 1]
+FR2: [core feature 2]
+FR3: [core feature 3]
+...
+
+<span class="cmt">// ──── STEP 3: WRITE DOWN NFRs ────</span>
+Scale:        _____ DAU, _____ QPS
+Latency:      P99 &lt; _____ ms
+Availability: _____ % (how many nines?)
+Consistency:  Strong / Eventual / Causal
+Durability:   Data loss tolerance? (none / some)
+Security:     Auth required? Encryption?
+
+<span class="cmt">// ──── STEP 4: BACK-OF-ENVELOPE ────</span>
+Storage:    _____ TB over _____ years
+Bandwidth:  _____ MB/s
+QPS:        _____ reads/sec, _____ writes/sec</code></pre>
+
+<!-- ─── SECTION 11: EDGE CASES ─── -->
+<h2>11 · Edge Cases &amp; Gotchas</h2>
+<ul>
+  <li><strong>Don't over-scope FRs.</strong> An interviewer says "design Twitter" — they don't want DMs, Spaces, ads, and bookmarks. Pick 3–5 core features.</li>
+  <li><strong>Don't ignore NFRs.</strong> If you never mention scalability or availability, the interviewer will prompt you — and you've lost initiative.</li>
+  <li><strong>NFRs conflict.</strong> Consistency vs Availability (CAP theorem), Latency vs Accuracy. Acknowledge the trade-off and justify your choice.</li>
+  <li><strong>Don't guess numbers.</strong> Ask the interviewer: "Should we assume 1M DAU or 100M DAU?" They'll either give you a number or say "whatever you think is reasonable."</li>
+  <li><strong>Extended requirements.</strong> If the interviewer says "what else would you add?", suggest: monitoring/logging, rate limiting, analytics, A/B testing.</li>
+</ul>
+
+<!-- ─── SECTION 12: QUIZ ─── -->
+<h2>12 · Check Yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A user should be able to upload photos — is this a Functional or Non-Functional requirement?</div>
+  <button class="opt">Non-Functional — it's about system capability</button>
+  <button class="opt">Functional — it describes a feature/behaviour the user performs</button>
+  <button class="opt">Both — it's a hybrid requirement</button>
+  <div class="fb" data-correct="Correct! 'Upload a photo' describes WHAT the system does — a user action. It's a functional requirement." data-wrong="Not quite. Ask: does it describe WHAT the system does or HOW WELL? Uploading is a feature → functional."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Your URL shortener must handle 10,000 redirects per second with P99 latency under 50ms. Which two NFRs does this primarily represent?</div>
+  <button class="opt">Availability and Durability</button>
+  <button class="opt">Consistency and Security</button>
+  <button class="opt">Scalability (throughput) and Latency (performance)</button>
+  <div class="fb" data-correct="Exactly! 10K QPS is a scalability/throughput target. P99 < 50ms is a latency/performance target." data-wrong="Think again: 10,000 QPS talks about handling load (scalability), and P99 < 50ms talks about response speed (latency)."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In a payment system, which consistency model should you pick?</div>
+  <button class="opt">Strong consistency — you can't show a user $100 balance then debit $150</button>
+  <button class="opt">Eventual consistency — it's fine if balances take a few seconds to update</button>
+  <button class="opt">No consistency needed — just log everything and reconcile later</button>
+  <div class="fb" data-correct="Right! Money requires strong consistency. A stale balance read could allow overdrafts or double-spending." data-wrong="For money, 'eventually correct' isn't good enough. A stale read could let someone spend money they don't have. Strong consistency is required."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">What's the maximum downtime per year for a system with 99.99% availability?</div>
+  <button class="opt">8.77 hours</button>
+  <button class="opt">52.6 minutes</button>
+  <button class="opt">5.26 minutes</button>
+  <button class="opt">26.3 seconds</button>
+  <div class="fb" data-correct="Correct! 99.99% = 4 nines = ~52.6 minutes/year. Memorize this table!" data-wrong="Check the nines table. 99.9% = 8.77h, 99.99% = 52.6min, 99.999% = 5.26min."></div>
+</div>
+
+<!-- ─── SECTION 13: DO THIS NEXT ─── -->
+<h2>13 · Do This Next</h2>
+<p><strong>Practice requirements gathering</strong> — pick any system below and write out FRs + NFRs + estimation in under 5 minutes:</p>
+<ol>
+  <li>Design a parking lot system</li>
+  <li>Design Instagram</li>
+  <li>Design a notification service</li>
+  <li>Design an online bookstore</li>
+</ol>
+<p>Useful resources:</p>
+<ul>
+  <li><a href="https://github.com/donnemartin/system-design-primer" target="_blank">System Design Primer (GitHub)</a> — the most comprehensive free resource</li>
+  <li><a href="https://bytebytego.com" target="_blank">ByteByteGo</a> — Alex Xu's visual system design course</li>
+  <li><a href="https://www.youtube.com/c/GauravSen" target="_blank">Gaurav Sen (YouTube)</a> — excellent system design video series</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Your teacher</span>
+  I'm your system design teacher. If anything is unclear, ask me to explain further.
+  When you're ready, say <strong>"next"</strong> to advance to Lesson 2 — Serverless vs Serverful Architecture.
+</div>
+
+<div class="nav">
+  <span>← (start)</span>
+  <a href="../INDEX.md">Index</a>
+  <a href="0002-serverless-vs-serverful.html">Lesson 2 →</a>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

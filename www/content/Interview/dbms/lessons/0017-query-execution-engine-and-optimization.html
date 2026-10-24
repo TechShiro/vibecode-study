@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 17 – Query Execution Engine & Optimizer</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module D · Lesson 17 of 17 · From SQL Text to Hardware Execution</div>
+  <h1>Query Execution Engine & Cost-Based Optimizer</h1>
+  <p class="subtitle">How the DBMS parses, rewrites, plans, and executes complex relational queries using the Volcano model and join algorithms.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Storage & Indexing</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>When you run <code>SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id WHERE u.country = 'IN';</code>, the database does not naively run nested loops. It is a compiler! The DBMS translates the declarative SQL query into an Abstract Syntax Tree (AST), applies mathematical rewrite rules (Logical Optimization), computes estimated disk I/O and CPU costs for hundreds of physical permutations (Cost-Based Physical Optimization), and streams results through an iterator tree (the Volcano Model).</p>
+
+  <h2>2 · The Query Processing Pipeline</h2>
+  <div class="arch-flow">
+    <div class="box">SQL Query String</div>
+    <div class="arrow-right"></div>
+    <div class="box">Parser & AST</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Logical Plan (Rule-based)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Cost-Based Optimizer (CBO)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Execution Engine</div>
+  </div>
+
+  <h2>3 · Logical Optimization: Rule-Based Transformations</h2>
+  <p>The logical optimizer applies relational algebra equivalence theorems to simplify queries without needing table data statistics:</p>
+  <ul>
+    <li><strong>Predicate Pushdown (Filter Early)</strong>: Pushes <code>WHERE</code> filters down before joins: &sigma;<sub>country='IN'</sub>(Users &bowtie; Orders) becomes (&sigma;<sub>country='IN'</sub>(Users)) &bowtie; Orders. This reduces the number of rows entering the expensive join by 99%!</li>
+    <li><strong>Projection Pushdown</strong>: Drops unneeded columns as early as possible to minimize memory buffer usage.</li>
+    <li><strong>Constant Folding & Dead Branch Elimination</strong>: E.g., simplifying <code>1 + 1</code> to <code>2</code>, or eliminating <code>WHERE 1 = 0</code>.</li>
+  </ul>
+
+  <h2>4 · Physical Join Algorithms Compared</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Join Algorithm</th><th>Complexity</th><th>How It Works</th><th>Best When</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Nested Loop Join</strong></td>
+        <td>$O(M 	imes N)$</td>
+        <td>For each outer tuple, scan every inner tuple.</td>
+        <td>Outer table is tiny (&lt; 100 rows) and no indexes exist.</td>
+      </tr>
+      <tr>
+        <td><strong>Index Nested Loop Join</strong></td>
+        <td>$O(M 	imes \log N)$</td>
+        <td>For each outer tuple, perform a B+ tree index lookup into the inner table.</td>
+        <td>Inner table has a clustered or secondary index on the join column.</td>
+      </tr>
+      <tr>
+        <td><strong>Sort-Merge Join</strong></td>
+        <td>$O(M \log M + N \log N)$</td>
+        <td>Sort both relations on join key, then scan both concurrently like merging two sorted arrays.</td>
+        <td>Both inputs are already sorted (e.g. from an index) or join condition is range-based.</td>
+      </tr>
+      <tr>
+        <td><strong>Grace Hash Join</strong></td>
+        <td>$O(M + N)$</td>
+        <td>Hash build the smaller table into an in-memory hash table; probe it sequentially with the larger table.</td>
+        <td>Large tables, unsorted data, equality join conditions (<code>=</code>).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5 · The Volcano Iterator Execution Model</h2>
+  <p>Introduced by Goetz Graefe, the <strong>Volcano Iterator Model</strong> executes queries pipelined tuple-at-a-time. Every execution operator (Scan, Filter, Join, Sort, Aggregate) implements a uniform interface:</p>
+  <ul>
+    <li><code>open()</code>: Initializes operator state and allocates memory buffers.</li>
+    <li><code>next()</code>: Pulls and returns the single next tuple matching the criteria, or EOF.</li>
+    <li><code>close()</code>: Cleans up and frees memory.</li>
+  </ul>
+  <p><em>Benefit:</em> Results can stream immediately to the client without materializing gigabytes of intermediate relations in RAM!</p>
+
+  <h2>6 · Deciphering EXPLAIN and EXPLAIN ANALYZE</h2>
+  <pre><code>EXPLAIN ANALYZE 
+SELECT * FROM users WHERE email = 'alice@example.com';</code></pre>
+  <ul>
+    <li><strong>Seq Scan / Table Scan</strong>: Scans every single block of the table sequentially. High cost if table is large.</li>
+    <li><strong>Index Scan</strong>: Traverses the B+ Tree to find matching leaf nodes, then performs random I/O lookups into table pages.</li>
+    <li><strong>Bitmap Index Scan + Bitmap Heap Scan</strong>: First collects matching page offsets into an in-memory bitmap, sorts them physically, and reads table blocks sequentially to eliminate random disk seek latency.</li>
+    <li><strong>Actual Time vs Estimated Cost</strong>: <code>cost=0.42..8.44 rows=1 width=64</code> (Optimizer prediction) vs <code>actual time=0.045..0.047 rows=1 loops=1</code> (Real execution measurement).</li>
+  </ul>
+
+  <nav class="bottom-nav">
+    <a href="0016-hash-indexing-and-lsm-trees.html">← Lesson 16: Hash Indexing & LSM Trees</a>
+    <a href="../INDEX.md">Return to Course Index →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,790 @@
+<title>CN Numericals — Method Handbook</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .wrap{max-width:52rem}
+  h2{margin:2rem 0 .6rem; font-size:1.18rem; border-bottom:2px solid var(--rule); padding-bottom:.25rem}
+  .m{border:1px solid var(--rule); border-radius:6px; margin:1.1rem 0; background:var(--panel)}
+  .m > h3{margin:0; padding:.6rem .9rem; font-size:1rem; border-bottom:1px solid var(--rule)}
+  .m > h3 .lsn{float:right; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.68rem;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); font-weight:400;
+    padding-top:.18rem}
+  .m > .in{padding:.7rem .9rem .8rem}
+  .m dl{margin:0}
+  .m dt{font-family:ui-sans-serif,system-ui,sans-serif; font-size:.68rem; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--accent); font-weight:700; margin:.7rem 0 .18rem}
+  .m dt:first-child{margin-top:0}
+  .m dd{margin:0 0 0 0; font-size:.93rem; line-height:1.6}
+  .m dd ol{margin:.2rem 0 0 1.15rem; padding:0}
+  .m dd ol li{margin:.16rem 0}
+  .m .fx{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9rem;
+    background:var(--formula-bg); padding:.4rem .6rem; border-radius:4px; display:block; margin:.2rem 0}
+  .trap{color:var(--ink)}
+  .idx td{font-size:.87rem; padding:.3rem .5rem}
+  .idx a{font-weight:600}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} .m{break-inside:avoid} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Reference &middot; method handbook</p>
+<h1>Numericals &mdash; How to Solve Them</h1>
+<p class="deck">Every numerical type in the CO&nbsp;CSC&nbsp;501 syllabus, with the method rather than just the answer: <strong>how to recognise the question, the formula, the steps in order, the specific trap, and the check that catches your own mistake</strong>. The lessons have the worked examples; this has the procedure.</p>
+
+<div class="box exam">
+  <span class="lbl">How to attack ANY numerical &mdash; the four steps that apply to all of them</span>
+  <ol style="margin:.3rem 0 0 1.1rem">
+    <li><strong>Write the formula down before substituting anything.</strong> Most lost marks are not conceptual &mdash; they are substituting into a half-remembered formula. Writing it first also earns partial credit if the arithmetic then fails.</li>
+    <li><strong>Convert every unit before you start.</strong> ms to s, kbps to bps, KB to bits, dB to a plain ratio. Do all conversions in one visible line, so a marker can see the working.</li>
+    <li><strong>Show the substitution, then the result.</strong> Two lines per step. Never jump from formula to answer.</li>
+    <li><strong>Run the sanity check</strong> named in the relevant section below, and <strong>write that you ran it</strong>. It catches your own errors and it frequently carries a mark of its own.</li>
+  </ol>
+</div>
+
+<h2 id="index">Recognition index &mdash; which method does this question want?</h2>
+
+<p style="font-size:.92rem; color:var(--ink-soft)">In an exam the hard part is not the arithmetic, it is knowing <em>which</em> method applies. Scan the left column for the words in the question.</p>
+
+<div class="tw">
+<table class="idx">
+<thead><tr><th>If the question mentions&hellip;</th><th>It is&hellip;</th></tr></thead>
+<tbody>
+<tr><td>distance, propagation speed, message size, bandwidth</td><td><a href="#n1">Latency and delay</a></td></tr>
+<tr><td>"how many links / cables / ports" for n devices</td><td><a href="#n2">Topology counts</a></td></tr>
+<tr><td>period, frequency, wavelength, highest/lowest frequency</td><td><a href="#n3">Signal basics</a></td></tr>
+<tr><td>power halved/doubled, dB, SNR</td><td><a href="#n4">Decibels and SNR</a></td></tr>
+<tr><td><strong>signal levels</strong>, noiseless</td><td><a href="#n5">Nyquist</a></td></tr>
+<tr><td><strong>SNR</strong>, noisy channel, "maximum capacity"</td><td><a href="#n6">Shannon</a></td></tr>
+<tr><td><strong>both</strong> SNR and "how many levels"</td><td><a href="#n7">Nyquist + Shannon combined</a></td></tr>
+<tr><td>frames per minute, "actual data rate"</td><td><a href="#n8">Throughput</a></td></tr>
+<tr><td>channels, guard bands, "minimum bandwidth of the link"</td><td><a href="#n9">FDM bandwidth</a></td></tr>
+<tr><td>sources multiplexed, frame size, slot duration</td><td><a href="#n10">Synchronous TDM</a></td></tr>
+<tr><td>packets, links/hops, "total time to reach"</td><td><a href="#n11">Packet-switching delay</a></td></tr>
+<tr><td>d<sub>min</sub>, "how many errors can it detect/correct"</td><td><a href="#n12">Hamming distance</a></td></tr>
+<tr><td>dataword and <strong>divisor / generator polynomial</strong></td><td><a href="#n13">CRC</a></td></tr>
+<tr><td>words to be added, one's complement</td><td><a href="#n14">Checksum</a></td></tr>
+<tr><td>"encode using Hamming", parity bits, syndrome</td><td><a href="#n15">Hamming code</a></td></tr>
+<tr><td>a bit stream and the flag 01111110</td><td><a href="#n16">Bit stuffing</a></td></tr>
+<tr><td>T<sub>p</sub>, T<sub>t</sub>, efficiency, window size, sequence bits</td><td><a href="#n17">Sliding window efficiency</a></td></tr>
+<tr><td>stations, frames per second, pure/slotted</td><td><a href="#n18">ALOHA throughput</a></td></tr>
+<tr><td>"minimum frame size", CSMA/CD, slot time</td><td><a href="#n19">CSMA/CD minimum frame</a></td></tr>
+<tr><td>chip codes, composite signal, &plusmn;1</td><td><a href="#n20">CDMA</a></td></tr>
+<tr><td>an IP address with no prefix given</td><td><a href="#n21">Classful addressing</a></td></tr>
+<tr><td>an address with <strong>/n</strong>, "first and last address"</td><td><a href="#n22">CIDR block</a></td></tr>
+<tr><td>"divide into N subnets" or "subnets of X hosts"</td><td><a href="#n23">Subnetting</a></td></tr>
+<tr><td>departments of <strong>different sizes</strong></td><td><a href="#n24">VLSM</a></td></tr>
+<tr><td>MTU, datagram size, offset, MF</td><td><a href="#n25">Fragmentation</a></td></tr>
+<tr><td>link costs, routing table, neighbours</td><td><a href="#n26">Distance vector</a></td></tr>
+<tr><td>ISN, seq, ack, SYN/FIN</td><td><a href="#n27">TCP sequence numbers</a></td></tr>
+<tr><td>rwnd, cwnd, "bytes outstanding"</td><td><a href="#n28">Effective window</a></td></tr>
+<tr><td>ssthresh, timeout, duplicate ACKs, rounds</td><td><a href="#n29">Congestion window trace</a></td></tr>
+<tr><td>RTT<sub>M</sub>, &alpha;, &beta;, retransmission timeout</td><td><a href="#n30">RTO calculation</a></td></tr>
+<tr><td>objects on a page, RTT, persistent</td><td><a href="#n31">HTTP load time</a></td></tr>
+<tr><td>two primes, e, plaintext</td><td><a href="#n32">RSA</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Unit I</h2>
+
+<div class="m" id="n1">
+<h3>1. Latency, propagation, transmission, BDP <span class="lsn">Lesson 1</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>The question gives a <strong>distance</strong> and a <strong>propagation speed</strong>, and/or a <strong>message size</strong> and a <strong>bandwidth</strong>.</dd>
+<dt>Formulas</dt>
+<dd><span class="fx">Propagation time = distance &divide; propagation speed
+Transmission time = message size &divide; bandwidth
+Latency = propagation + transmission + queuing + processing
+BDP = bandwidth &times; propagation delay
+RTT = 2 &times; propagation time</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Convert everything to base units: km &rarr; m, ms &rarr; s, Mbps &rarr; bps, bytes &rarr; bits (&times;8).</li>
+<li>Compute propagation time from the <em>distance</em> pair only.</li>
+<li>Compute transmission time from the <em>size</em> pair only.</li>
+<li>Add. Ignore queuing and processing unless the question gives them.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd><strong>Propagation time never uses message size; transmission time never uses distance.</strong> Writing both formulas before substituting makes it impossible to cross them. If no speed is given, state your assumption &mdash; usually 2 &times; 10<sup>8</sup> m/s in cable.</dd>
+<dt>Check</dt>
+<dd>Compare the message size with the BDP. If the message is <em>larger</em> than the BDP, transmission time must be the bigger of the two; if smaller, propagation dominates.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n2">
+<h3>2. Topology link and port counts <span class="lsn">Lesson 4</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>"n devices connected in a mesh/star/ring &mdash; how many links / ports?" Or the reverse: given the links, find n.</dd>
+<dt>Formulas</dt>
+<dd><span class="fx">Mesh: duplex links = n(n&minus;1)/2 &nbsp; simplex links = n(n&minus;1)
+Mesh ports per device = n&minus;1 &nbsp; total ports = n(n&minus;1)
+Star: n links, 1 port each, n on the hub
+Ring: n links, 2 ports each</span></dd>
+<dt>Method (forwards)</dt>
+<dd>Substitute n and evaluate. Read the question for <strong>"duplex" or "simplex"</strong>; if it says neither, assume duplex and <em>write that you assumed it</em>.</dd>
+<dt>Method (backwards)</dt>
+<dd><ol>
+<li>Set n(n&minus;1)/2 = given links, so n(n&minus;1) = 2 &times; links.</li>
+<li><strong>Find two consecutive integers with that product</strong> &mdash; faster than the quadratic. For 132: 11&times;12, so n = 12.</li>
+<li>Only set up n&sup2; &minus; n &minus; 2L = 0 if the numbers are awkward. Discard the negative root.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Halving twice, or not at all. Simplex count is exactly double the duplex count, and it also equals the total port count.</dd>
+<dt>Check</dt>
+<dd><strong>Total ports = 2 &times; duplex links</strong>, because every duplex link has two ends. For n = 8: 28 links, 56 ports. &#10003;</dd>
+</dl></div>
+</div>
+
+<h2>Unit II</h2>
+
+<div class="m" id="n3">
+<h3>3. Signal basics &mdash; period, frequency, wavelength, bandwidth <span class="lsn">Lesson 7</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">f = 1/T &nbsp; T = 1/f
+&lambda; = propagation speed &divide; f
+Bandwidth of a composite signal = f(highest) &minus; f(lowest)
+Bit interval = 1 &divide; bit rate
+Bit length = propagation speed &times; bit interval
+A signal with L levels carries log&#8322;L bits per level</span></dd>
+<dt>Method</dt>
+<dd>Convert to base units first (ms &rarr; s, kHz &rarr; Hz), substitute, then convert the answer to whatever unit the question asked for. State the unit on every line.</dd>
+<dt class="trap">Trap</dt>
+<dd>Bandwidth is a <strong>width</strong>. Sliding the whole band up or down does not change it &mdash; so "the lowest frequency is shifted to X, bandwidth unchanged" means the new highest is simply X + bandwidth.</dd>
+<dt>Check</dt>
+<dd>A long period must give a low frequency, and vice versa. If both came out large, you inverted the wrong one.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n4">
+<h3>4. Decibels and SNR <span class="lsn">Lesson 7</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">dB = 10 log&#8321;&#8320;(P&#8322; / P&#8321;)
+SNR = average signal power &divide; average noise power
+SNR(dB) = 10 log&#8321;&#8320;(SNR)
+To convert back: SNR = 10^(SNR(dB) / 10)</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Form the ratio P&#8322;/P&#8321; &mdash; <em>after</em> over <em>before</em>.</li>
+<li>Take log&#8321;&#8320; and multiply by 10.</li>
+<li>For a chain of links, <strong>add the dB values</strong>; do not multiply the ratios.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>A <strong>negative dB means attenuation</strong>, positive means amplification. Getting the sign wrong usually means you inverted the ratio.</dd>
+<dt>Check</dt>
+<dd>Memorise <strong>halving the power = &minus;3 dB</strong>, doubling = +3 dB, one tenth = &minus;10 dB. Nearly every dB question in this syllabus is built from those.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n5">
+<h3>5. Nyquist bit rate &mdash; noiseless channel <span class="lsn">Lesson 8</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>The question gives <strong>bandwidth and the number of signal levels L</strong>, and says the channel is noiseless. Or it gives a bit rate and asks for L.</dd>
+<dt>Formula</dt>
+<dd><span class="fx">BitRate = 2 &times; B &times; log&#8322;L</span></dd>
+<dt>Method (forwards)</dt>
+<dd>Evaluate log&#8322;L first as a plain number (L = 2&rarr;1, 4&rarr;2, 8&rarr;3, 16&rarr;4), then multiply.</dd>
+<dt>Method (backwards &mdash; find L)</dt>
+<dd><ol>
+<li>Rearrange: log&#8322;L = BitRate &divide; (2B).</li>
+<li>L = 2 raised to that value.</li>
+<li><strong>If L is not a power of 2, say so explicitly</strong> &mdash; the answer to that question is "this bit rate is not achievable on this channel; increase the bandwidth or lower the rate." The impossibility <em>is</em> the answer.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Forgetting the factor of <strong>2</strong>. Nyquist has it; Shannon does not. Also: doubling L does <em>not</em> double the rate &mdash; going 4&rarr;8 multiplies it by 3/2, because log&#8322; goes 2&rarr;3.</dd>
+<dt>Check</dt>
+<dd>The bit rate must be a whole multiple of 2B. If it is not, either L is wrong or the arithmetic is.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n6">
+<h3>6. Shannon capacity &mdash; noisy channel <span class="lsn">Lesson 8</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>The question gives <strong>SNR</strong>, or mentions noise, or asks for the "maximum/highest possible" data rate. <strong>No signal levels are given</strong>, and none are needed.</dd>
+<dt>Formula</dt>
+<dd><span class="fx">Capacity = B &times; log&#8322;(1 + SNR)</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li><strong>If SNR is given in dB, convert first:</strong> SNR = 10^(dB/10). This is the step most often skipped.</li>
+<li>Add 1 to the SNR.</li>
+<li>Take log&#8322; of that. Examiners choose SNR = 1, 3, 7, 15, 31, 63, 127 so that 1+SNR is a clean power of 2.</li>
+<li>Multiply by B.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd><strong>No factor of 2, and no L.</strong> If you wrote 2 &times; B &times; log&#8322;(1+SNR) you have merged the two formulas. And substituting a dB value directly is the single commonest error in Unit II.</dd>
+<dt>Check</dt>
+<dd>If 1+SNR came out as a clean power of 2, you are on the intended path. If SNR = 0 the capacity is 0 no matter how wide the channel &mdash; a useful edge case to recognise. Shortcut for large SNR: Capacity &asymp; B &times; SNR(dB) / 3.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n7">
+<h3>7. Nyquist and Shannon together <span class="lsn">Lesson 8</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>The question gives bandwidth <strong>and</strong> SNR, then asks for "the appropriate bit rate <strong>and signal level</strong>". Two answers are wanted.</dd>
+<dt>Method &mdash; three steps, in this order</dt>
+<dd><ol>
+<li><strong>Shannon gives the ceiling.</strong> C = B log&#8322;(1+SNR).</li>
+<li><strong>Choose a working rate below it</strong> &mdash; Shannon's limit is theoretical and unreachable in practice. Two thirds of C is a sensible choice; state that you chose it.</li>
+<li><strong>Nyquist gives the levels</strong> for that chosen rate: rate = 2B log&#8322;L, solve for L.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Stopping after step 1. The question asked for two things, and most answers give only the capacity.</dd>
+<dt>Check</dt>
+<dd>L must come out a power of 2. Close with the sentence <strong>"Shannon gives the limit; Nyquist gives the signal design."</strong></dd>
+</dl></div>
+</div>
+
+<div class="m" id="n8">
+<h3>8. Throughput <span class="lsn">Lesson 8</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>"A network passes X frames per minute, each of Y bits &mdash; find the throughput."</dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Total bits = frames &times; bits per frame.</li>
+<li>Divide by the time period <strong>in seconds</strong> (per minute &rarr; &divide;60).</li>
+<li><strong>Compare with the stated bandwidth</strong> and say what fraction it is.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Leaving the answer in bits per minute. And omitting step 3 &mdash; the comparison is usually worth a mark, because it turns a calculation into a conclusion.</dd>
+<dt>Check</dt>
+<dd>Throughput can never exceed bandwidth. If it did, re-read the units.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n9">
+<h3>9. FDM bandwidth with guard bands <span class="lsn">Lesson 10</span></h3>
+<div class="in"><dl>
+<dt>Formula</dt>
+<dd><span class="fx">Link bandwidth = (n &times; channel bandwidth) + ((n&minus;1) &times; guard band)</span></dd>
+<dt>Method</dt>
+<dd>Multiply channels by their bandwidth, then add <strong>n&minus;1</strong> guard bands.</dd>
+<dt class="trap">Trap</dt>
+<dd><strong>n channels need n&minus;1 guard bands, not n.</strong> Guard bands sit <em>between</em> channels, so there is none before the first or after the last.</dd>
+<dt>Check</dt>
+<dd>Draw five boxes on your page and count the gaps between them: four. That settles it in two seconds.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n10">
+<h3>10. Synchronous TDM <span class="lsn">Lesson 10</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Frame rate = input data rate &divide; bits per slot
+Frame duration = 1 &divide; frame rate
+Frame size = (n &times; bits per slot) + framing bits
+Output data rate = frame rate &times; frame size
+Output bit duration = input bit duration &divide; n</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Find the <strong>input bit duration</strong> = 1 &divide; input rate.</li>
+<li>Find the <strong>frame rate</strong> &mdash; for bit interleaving it equals the input rate; for character interleaving it equals characters per second.</li>
+<li>Build the <strong>frame size</strong>: n slots plus any framing bits.</li>
+<li>Output rate = frame rate &times; frame size. Slot duration = frame duration &divide; n.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Forgetting the framing bits in the frame size, which makes the output rate slightly too low.</dd>
+<dt>Check</dt>
+<dd><strong>Frame duration must equal the input bit duration.</strong> In the time one source produces a single bit, the multiplexer completes exactly one full round. If those two numbers differ, something is wrong. Also cross-check: data-only output rate = n &times; input rate, and the framing overhead is the difference.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n11">
+<h3>11. Packet-switching delay <span class="lsn">Lesson 12</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Per-packet, per-link time t = packet size &divide; bandwidth
+Packet switching total = (L + p &minus; 1) &times; t
+Circuit switching total = setup time + (whole message &divide; bandwidth)</span>
+where L = number of <strong>links</strong> (hops), p = number of packets.</dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Count the <strong>links, not the switches</strong>. Two intermediate switches means three links.</li>
+<li>Compute t for one packet on one link.</li>
+<li>Apply (L + p &minus; 1) &times; t. Add propagation delay per link if the question gives it.</li>
+<li>For circuit switching, the bits stream through continuously &mdash; there is <strong>no store-and-forward at the switches</strong>, so it is setup plus one whole-message transmission.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Computing L &times; p &times; t. That ignores <strong>pipelining</strong> &mdash; later packets move along earlier links while the first packet is still travelling. The &minus;1 is where the pipelining lives.</dd>
+<dt>Check</dt>
+<dd>With p = 1 the formula must reduce to L &times; t, which is just one packet crossing every link. If it does not, you have mis-set L or p.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n12">
+<h3>12. Hamming distance and error capability <span class="lsn">Lesson 13</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">d(x,y) = number of differing bit positions = count of 1s in (x XOR y)
+To DETECT up to s errors: d(min) &ge; s + 1
+To CORRECT up to t errors: d(min) &ge; 2t + 1</span></dd>
+<dt>Method</dt>
+<dd>XOR the two words, count the 1s. For capability, rearrange: s = d<sub>min</sub> &minus; 1, and t = the largest integer with 2t + 1 &le; d<sub>min</sub>, i.e. <strong>t = floor((d<sub>min</sub> &minus; 1)/2)</strong>.</dd>
+<dt class="trap">Trap</dt>
+<dd>Giving the same number for both. Detection is always the larger &mdash; d<sub>min</sub> = 4 detects 3 but corrects only 1.</dd>
+<dt>Check</dt>
+<dd>Detection count must exceed correction count. If they are equal, you applied one rule twice.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n13">
+<h3>13. CRC <span class="lsn">Lesson 13</span></h3>
+<div class="in"><dl>
+<dt>Method &mdash; sender</dt>
+<dd><ol>
+<li>Count the divisor's bits, n. <strong>Append n&minus;1 zeros</strong> to the dataword.</li>
+<li>Take the leading n bits as the current value.</li>
+<li><strong>If the leading bit is 1, XOR with the divisor. If it is 0, XOR with all zeros</strong> &mdash; do not skip the step.</li>
+<li>Drop the (now zero) leading bit and bring down the next dividend bit.</li>
+<li>Repeat until every dividend bit has been brought down. What remains is the <strong>remainder = CRC</strong>.</li>
+<li>Codeword = dataword with the appended zeros <strong>replaced</strong> by the CRC.</li>
+</ol></dd>
+<dt>Method &mdash; receiver</dt>
+<dd>Divide the received codeword by the same divisor. <strong>Zero remainder &rarr; accept.</strong> Always show this; it is usually a mark and it verifies your own division.</dd>
+<dt class="trap">Trap</dt>
+<dd>Skipping the leading-zero steps, which loses a bring-down and silently shifts everything. And using subtraction with borrows &mdash; CRC is <strong>mod 2: XOR only, no carries, no borrows</strong>.</dd>
+<dt>Check</dt>
+<dd><strong>The remainder must have exactly one fewer bit than the divisor.</strong> A 5-bit divisor gives a 4-bit remainder. Also: the number of division steps equals the number of appended-zero positions plus the dataword length minus the divisor length plus 1.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n14">
+<h3>14. Checksum <span class="lsn">Lesson 13</span></h3>
+<div class="in"><dl>
+<dt>Method &mdash; sender</dt>
+<dd><ol>
+<li>Split the data into equal-size words.</li>
+<li>Add them using <strong>one's complement addition</strong>: if the sum carries out of the leftmost bit, <strong>add that carry back into the rightmost bit</strong>.</li>
+<li><strong>Complement the final sum</strong> &mdash; that is the checksum. Send it with the data.</li>
+</ol></dd>
+<dt>Method &mdash; receiver</dt>
+<dd>Add all the words <em>including</em> the checksum, then complement. <strong>All zeros &rarr; accept.</strong></dd>
+<dt class="trap">Trap</dt>
+<dd>Forgetting the wraparound carry, and forgetting to complement at the end.</dd>
+<dt>Check</dt>
+<dd><strong>At the receiver, the sum before complementing must be all 1s.</strong> If it is not, either an error occurred or your arithmetic did.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n15">
+<h3>15. Hamming code <span class="lsn">Lesson 13</span></h3>
+<div class="in"><dl>
+<dt>Method &mdash; encoding</dt>
+<dd><ol>
+<li><strong>Find r</strong> from 2<sup>r</sup> &ge; m + r + 1, testing r = 1, 2, 3&hellip; upward until it holds.</li>
+<li>Draw positions <strong>1 to m+r, numbered from 1 at the left</strong>. Put parity bits at the <strong>powers of two</strong> (1, 2, 4, 8) and the data bits, in order, everywhere else.</li>
+<li>For each parity bit p, list the positions it covers: <em>check p, skip p</em> &mdash; p&#8321; covers 1,3,5,7&hellip;; p&#8322; covers 2,3,6,7,10,11&hellip;; p&#8324; covers 4,5,6,7,12&hellip;; p&#8328; covers 8&ndash;15.</li>
+<li>Sum the <strong>data bits</strong> in each group and set p to make the total even (for even parity).</li>
+</ol></dd>
+<dt>Method &mdash; detecting and correcting</dt>
+<dd><ol>
+<li>Recompute each check, now <strong>including the parity bit itself</strong>. Write <strong>1 if the count of 1s is odd</strong>, 0 if even.</li>
+<li>Read the results as a binary number with the <strong>highest-numbered check as the most significant bit</strong>: c&#8328;c&#8324;c&#8322;c&#8321;.</li>
+<li>That number <em>is</em> the position of the wrong bit. Flip it.</li>
+<li>Strip positions 1, 2, 4, 8 to recover the data.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd><strong>Reading the syndrome backwards.</strong> c&#8321;c&#8322;c&#8324;c&#8328; produces a plausible-looking but wrong position every single time, with nothing to signal the error. Also: a syndrome of all zeros means <strong>no error</strong>, not "error at position 0".</dd>
+<dt>Check</dt>
+<dd>Recompute the checks on your <em>corrected</em> word &mdash; the syndrome must come out all zeros. And confirm the recovered data matches the original.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n16">
+<h3>16. Bit stuffing <span class="lsn">Lesson 14</span></h3>
+<div class="in"><dl>
+<dt>Method</dt>
+<dd>Scan left to right. <strong>After every run of five consecutive 1s, insert a 0.</strong> The count then <strong>restarts from zero</strong> &mdash; the stuffed 0 breaks the run.</dd>
+<dt class="trap">Trap</dt>
+<dd>Counting to six before inserting. By then the false flag already exists. Also forgetting that the counter resets after each insertion, which matters for a run of ten or more 1s.</dd>
+<dt>Check</dt>
+<dd>Read your answer back and confirm it contains <strong>nowhere six consecutive 1s</strong>. If it does, you missed an insertion.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n17">
+<h3>17. Sliding window efficiency <span class="lsn">Lesson 14</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">T(t) = frame size &divide; bandwidth
+T(p) = distance &divide; propagation speed
+a = T(p) / T(t)
+Stop-and-Wait: efficiency = 1 / (1 + 2a)
+Go-Back-N and Selective Repeat: efficiency = N / (1 + 2a), capped at 1
+Throughput = efficiency &times; bandwidth
+Optimal window N = 1 + 2a
+GBN sender window = 2^m &minus; 1 &nbsp; SR sender window = 2^(m&minus;1)</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Compute T<sub>t</sub> and T<sub>p</sub> separately.</li>
+<li><strong>Compute a</strong> &mdash; everything else depends on it, so get it right first.</li>
+<li>Apply the efficiency formula for the named protocol.</li>
+<li>Throughput = efficiency &times; bandwidth. Add the comparison sentence: "the link delivers X of its Y capacity."</li>
+<li>If asked for sequence-number bits: set the window formula &ge; the required N and solve for the smallest m.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd><strong>Forgetting to double a.</strong> The acknowledgement has to travel back, so the cycle is 1 + 2a, not 1 + a. And if efficiency comes out above 1, <strong>cap it at 100%</strong> &mdash; the window is simply larger than needed.</dd>
+<dt>Check</dt>
+<dd>If N is less than the optimal 1+2a, efficiency must be below 100%. Selective Repeat always needs one more sequence-number bit than Go-Back-N for the same window &mdash; if yours came out equal, re-check which formula you used.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n18">
+<h3>18. ALOHA throughput <span class="lsn">Lesson 16</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">T(fr) = frame size &divide; bandwidth
+G = stations &times; frames per second per station &times; T(fr)
+Pure ALOHA: S = G &times; e^(&minus;2G) &nbsp; max 0.184 at G = 0.5
+Slotted ALOHA: S = G &times; e^(&minus;G) &nbsp; max 0.368 at G = 1
+Successful frames per second = S &divide; T(fr)</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Compute the <strong>frame time</strong> T<sub>fr</sub> first.</li>
+<li>Compute <strong>G</strong> = the average number of frames generated <em>per frame-time</em> across all stations.</li>
+<li>Substitute into the right formula &mdash; pure has the 2 in the exponent, slotted does not.</li>
+<li>If asked for frames per second, divide S by T<sub>fr</sub>.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Using frames per <em>second</em> as G. G is measured <strong>per frame-time</strong>, so it must be multiplied by T<sub>fr</sub>.</dd>
+<dt>Check</dt>
+<dd>Slotted must always beat pure at the same G. Neither can exceed its maximum (0.184 / 0.368). If yours does, G was computed wrongly.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n19">
+<h3>19. CSMA/CD minimum frame size <span class="lsn">Lesson 16</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Slot time = 2 &times; T(p) &nbsp; (the round trip)
+L(min) = 2 &times; T(p) &times; bandwidth
+Backoff after k collisions: a random wait from 0 to (2^k &minus; 1) slots</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Get the <strong>one-way</strong> propagation time T<sub>p</sub> &mdash; from distance and speed if not given directly.</li>
+<li><strong>Double it</strong> for the round trip.</li>
+<li>Multiply by the bandwidth. Convert bits to bytes if asked.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Forgetting the factor of 2. The station must <em>still be transmitting</em> when the collision signal gets back to it, so the round trip is what matters.</dd>
+<dt>Check</dt>
+<dd>For 10 Mbps Ethernet with T<sub>p</sub> = 25.6 &micro;s the answer is <strong>512 bits = 64 bytes</strong>, which is Ethernet's real minimum frame size. If a question's numbers give something near that, you are on track &mdash; and saying so earns a mark.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n20">
+<h3>20. CDMA encode and decode <span class="lsn">Lesson 17</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Composite = &Sigma; (d(i) &times; c(i))  over all stations
+Decode station i: d(i) = (Composite &middot; c(i)) &divide; N
+where the dot is element-wise multiply then sum, and N = code length</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li><strong>Convert the data to &plusmn;1 first</strong>: bit 1 &rarr; +1, bit 0 &rarr; &minus;1, <strong>silent &rarr; 0</strong>.</li>
+<li>Multiply each station's code by its data value, giving one vector each.</li>
+<li>Add the vectors <strong>element by element</strong> to get the composite.</li>
+<li>To decode, multiply the composite by that station's code element by element, sum the results, and divide by N.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Treating a <strong>silent</strong> station as sending 0, i.e. as &minus;1. Silent contributes <strong>nothing</strong>; sending a 0 bit contributes the <em>negated</em> code. Confusing the two corrupts the whole composite.</dd>
+<dt>Check</dt>
+<dd>Every decoded value must come out as exactly <strong>+1, &minus;1 or 0</strong>. Orthogonal codes guarantee clean integers &mdash; a fraction means an arithmetic slip. Decode all stations, not just the one asked for; it takes seconds and proves the composite.</dd>
+</dl></div>
+</div>
+
+<h2>Unit III</h2>
+
+<div class="m" id="n21">
+<h3>21. Classful addressing <span class="lsn">Lesson 20</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>An IP address is given with <strong>no /prefix</strong>. The default mask comes from its class.</dd>
+<dt>Method</dt>
+<dd><ol>
+<li><strong>Read only the first byte</strong> to get the class: 1&ndash;126 = A, 128&ndash;191 = B, 192&ndash;223 = C, 224&ndash;239 = D, 240&ndash;255 = E.</li>
+<li>Write the default mask: A = /8, B = /16, C = /24.</li>
+<li><strong>Network address</strong> = replace all host bytes with <strong>0</strong>.</li>
+<li><strong>Broadcast address</strong> = replace all host bytes with <strong>255</strong>.</li>
+<li>Host range = network+1 to broadcast&minus;1. Usable hosts = 2<sup>(host bits)</sup> &minus; 2.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Forgetting the <strong>&minus;2</strong>, and setting only the last byte for a Class B (both last two bytes are host bytes).</dd>
+<dt>Check</dt>
+<dd>First host = network + 1 and last host = broadcast &minus; 1, always. Show the AND operation in binary once to demonstrate the mechanism, then use the shortcut.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n22">
+<h3>22. CIDR block &mdash; first and last address <span class="lsn">Lesson 21</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Number of addresses N = 2^(32 &minus; n)
+Usable hosts = N &minus; 2
+Mask byte + block size = 256   (use this to rebuild the mask table)</span></dd>
+<dt>Method &mdash; without binary</dt>
+<dd><ol>
+<li>Compute the block size N = 2<sup>(32&minus;n)</sup>.</li>
+<li><strong>Find which byte the prefix falls in</strong>: /1&ndash;8 first byte, /9&ndash;16 second, /17&ndash;24 third, /25&ndash;32 fourth.</li>
+<li>In that byte, <strong>count up in steps of the block size</strong>: 0, N, 2N, 3N&hellip; The given address falls inside one of those intervals; its start is the first address.</li>
+<li>Bytes <em>before</em> the split are copied unchanged. Bytes <em>after</em> become <strong>0</strong> for the first address and <strong>255</strong> for the last.</li>
+<li>Last address = first + N &minus; 1.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Assuming the given address <em>is</em> the first address. It only is if it happens to be divisible by the block size. Also: for a prefix shorter than /24, the block spans several values of an earlier byte.</dd>
+<dt>Check</dt>
+<dd>The first address must be <strong>divisible by the block size</strong> (rule 3 of CIDR). And "number of addresses in the block" and "usable hosts" differ by exactly 2 &mdash; read which one was asked.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n23">
+<h3>23. Subnetting <span class="lsn">Lesson 22</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Number of subnets = 2^s   (s = bits borrowed)
+Addresses per subnet = 2^h   (h = 32 &minus; new prefix)
+Usable hosts per subnet = 2^h &minus; 2
+New prefix = old prefix + s</span></dd>
+<dt>Method &mdash; five steps</dt>
+<dd><ol>
+<li><strong>Decide s.</strong> Given a <em>subnet count</em>: smallest s with 2<sup>s</sup> &ge; subnets needed. Given a <em>host count</em>: smallest h with 2<sup>h</sup> &minus; 2 &ge; hosts needed, then s = 32 &minus; old prefix &minus; h.</li>
+<li><strong>New prefix</strong> = old + s. Write its mask.</li>
+<li><strong>Block size</strong> = 2<sup>h</sup> = 256 &minus; (last non-255 byte of the mask).</li>
+<li><strong>List the subnets</strong> by counting up in block-size steps in the relevant byte.</li>
+<li>For each, write <strong>network address, first host, last host, broadcast</strong> &mdash; four columns.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Stopping at the first s you try instead of testing upward. And with a non-power-of-two requirement (6 subnets &rarr; s = 3 &rarr; 8 subnets), <strong>say explicitly how many subnets go unused</strong> &mdash; that comment is often a mark.</dd>
+<dt>Check</dt>
+<dd>Three checks, all quick: each subnet's <strong>broadcast is one less than the next subnet's network address</strong>; the <strong>last broadcast equals the last address of the original block</strong>; and <strong>subnets &times; addresses per subnet = the original block size</strong>.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n24">
+<h3>24. VLSM <span class="lsn">Lesson 22</span></h3>
+<div class="in"><dl>
+<dt>Recognise it</dt>
+<dd>Several departments with <strong>different</strong> host requirements out of one block. Fixed-size subnetting will not fit them.</dd>
+<dt>Method</dt>
+<dd><ol>
+<li><strong>Sort the requirements into descending order.</strong> This is the whole trick &mdash; do it before anything else.</li>
+<li>For each, find the smallest power of two with 2<sup>h</sup> &minus; 2 &ge; hosts needed, and the prefix that gives it.</li>
+<li><strong>Allocate consecutively from the start of the block, largest first</strong>, each new block starting where the previous one ended.</li>
+<li>For each, write network/prefix, host range, broadcast.</li>
+<li>State what remains unallocated.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd><strong>Allocating in the order the question lists the departments.</strong> This puts a large block at a boundary that cannot hold it, breaking the divisibility rule, and the whole plan then fails. The error is unrecoverable &mdash; you have to start again.</dd>
+<dt>Check</dt>
+<dd>Two checks: <strong>the allocated sizes plus the leftover must sum to the block size</strong>; and <strong>every block's start offset must be divisible by that block's own size</strong>. Write both out.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n25">
+<h3>25. IPv4 fragmentation <span class="lsn">Lesson 23</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Data per fragment = MTU &minus; header, ROUNDED DOWN to a multiple of 8
+Number of fragments = ceiling(total data &divide; data per fragment)
+Offset = (bytes of data before this fragment) &divide; 8
+Total length = this fragment's data + header
+MF = 1 on every fragment except the last</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li><strong>Total data</strong> = datagram size &minus; header (usually 20).</li>
+<li><strong>Data per fragment</strong> = MTU &minus; header, then <strong>round down to a multiple of 8</strong>.</li>
+<li><strong>Number of fragments</strong> = total data &divide; data per fragment, <strong>rounded UP</strong>.</li>
+<li>Build a table: fragment number, data bytes, total length, MF, offset. The last fragment carries the remainder.</li>
+<li>Offsets rise by (data per fragment &divide; 8) each time.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Two opposite roundings in one question: the fragment <strong>size rounds DOWN</strong>, the fragment <strong>count rounds UP</strong>. Conflating them is the commonest failure. Second trap: reporting offsets as byte positions instead of dividing by 8.</dd>
+<dt>Check</dt>
+<dd>The fragment data bytes must <strong>sum to the original data</strong>; only the last has MF = 0; all share the same identification; and the total transmitted exceeds the original by (fragments &minus; 1) &times; header bytes.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n26">
+<h3>26. Distance vector routing <span class="lsn">Lesson 26</span></h3>
+<div class="in"><dl>
+<dt>Formula</dt>
+<dd><span class="fx">D(x&rarr;y) = minimum over all neighbours v of [ cost(x,v) + D(v&rarr;y) ]</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Write each router's <strong>initial table</strong>: 0 to itself, the direct cost to each neighbour, &infin; to everything else.</li>
+<li>For the router asked about, take each destination in turn and <strong>evaluate the Bellman-Ford expression through every neighbour</strong>, including the direct link if one exists.</li>
+<li>Take the minimum and <strong>record the next hop</strong>, not just the cost.</li>
+<li><strong>Run another exchange.</strong> If nothing changes, the algorithm has converged &mdash; say so.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Assuming the direct link is the best route. Examiners choose costs specifically so it is not &mdash; always compare it against the via-neighbour options. Also: omitting the next-hop column, which is half the answer.</dd>
+<dt>Check</dt>
+<dd>Costs can only ever <strong>decrease or stay the same</strong> across iterations. And state explicitly that you ran one more round to confirm convergence &mdash; that step is usually a mark and most answers skip it.</dd>
+</dl></div>
+</div>
+
+<h2>Unit IV</h2>
+
+<div class="m" id="n27">
+<h3>27. TCP sequence and acknowledgement numbers <span class="lsn">Lessons 30, 31</span></h3>
+<div class="in"><dl>
+<dt>Rules</dt>
+<dd><span class="fx">Sequence number = number of the FIRST data byte in this segment
+Acknowledgement number = number of the NEXT byte expected (cumulative)
+SYN consumes 1 sequence number
+FIN consumes 1 sequence number
+A pure ACK consumes 0</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Draw a table with columns: <strong>direction, flags, seq, ack, data bytes</strong>. One row per segment.</li>
+<li>Fill the handshake: SYN seq = x; SYN+ACK seq = y, ack = <strong>x+1</strong>; ACK seq = x+1, ack = <strong>y+1</strong>.</li>
+<li>For each data segment, seq = the previous seq from that side <strong>plus the bytes that side has already sent</strong>.</li>
+<li>Each ack = the other side's last seq + its data bytes (+1 for a SYN or FIN).</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Acknowledging the <em>last byte received</em> rather than the <strong>next byte expected</strong> &mdash; off by one every time. And forgetting that a pure ACK consumes no sequence number, so the following data segment <strong>reuses</strong> the same seq.</dd>
+<dt>Check</dt>
+<dd>Every acknowledgement number should equal the other side's sequence number plus what it sent. Trace one side's seq down the table &mdash; it must rise only by data bytes and by the 1s for SYN and FIN.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n28">
+<h3>28. Effective (usable) window <span class="lsn">Lesson 32</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Send window = minimum(rwnd, cwnd)
+Usable window = send window &minus; bytes outstanding</span></dd>
+<dt>Method</dt>
+<dd>Take the <strong>smaller</strong> of rwnd and cwnd, then subtract the bytes already sent but not yet acknowledged.</dd>
+<dt class="trap">Trap</dt>
+<dd>Using rwnd alone. If cwnd is the smaller, <strong>opening the receiver's window changes nothing</strong> &mdash; congestion is the binding constraint. Saying which limit is actually operating is worth a mark.</dd>
+<dt>Check</dt>
+<dd>The usable window can never be negative. If it is, either the outstanding count is wrong or the receiver shrank its window &mdash; the situation TCP discourages.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n29">
+<h3>29. Congestion window trace <span class="lsn">Lesson 33</span></h3>
+<div class="in"><dl>
+<dt>Rules</dt>
+<dd><span class="fx">Slow start: cwnd DOUBLES each RTT, until cwnd reaches ssthresh
+Congestion avoidance: cwnd increases by 1 each RTT
+TIMEOUT:        ssthresh = cwnd/2, cwnd = 1, go to slow start
+3 DUPLICATE ACKs (Reno): ssthresh = cwnd/2, cwnd = ssthresh, STAY in congestion avoidance
+3 DUPLICATE ACKs (Tahoe): same as a timeout &mdash; cwnd = 1</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Draw a table: <strong>RTT, cwnd, ssthresh, phase</strong>. One row per round &mdash; do not try to do it in your head.</li>
+<li>Double each round while in slow start, <strong>stopping at ssthresh</strong> and switching phase there.</li>
+<li>Add 1 each round in congestion avoidance.</li>
+<li>At a loss event, halve ssthresh <strong>from the cwnd value at the moment of loss</strong>, then set cwnd per the rule above.</li>
+<li>The reduced window applies from the <strong>next</strong> round. State that convention.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd><strong>Doubling past ssthresh.</strong> If cwnd is 4 and ssthresh is 6, the next value is 6 &mdash; not 8. Second trap: treating duplicate ACKs like a timeout, which is Tahoe, not Reno.</dd>
+<dt>Check</dt>
+<dd>cwnd must never exceed ssthresh while in slow start. ssthresh should be halved from the loss-moment cwnd, not from the old ssthresh. If your Reno and Tahoe traces are identical, you applied one rule to both events.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n30">
+<h3>30. Retransmission timeout (RTO) <span class="lsn">Lesson 34</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">First measurement:  RTT(S) = RTT(M),  RTT(D) = RTT(M)/2
+Afterwards:  RTT(S) = (1&minus;&alpha;)&times;old RTT(S) + &alpha;&times;RTT(M)      &alpha; = 1/8
+             RTT(D) = (1&minus;&beta;)&times;old RTT(D) + &beta;&times;|RTT(S) &minus; RTT(M)|   &beta; = 1/4
+             RTO = RTT(S) + 4 &times; RTT(D)</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Handle the <strong>first measurement specially</strong> &mdash; it is taken as-is, with deviation half of it.</li>
+<li>For each later measurement, compute the <strong>new RTT<sub>S</sub> first</strong>.</li>
+<li>Then compute RTT<sub>D</sub> <strong>using that new RTT<sub>S</sub></strong>, not the old one.</li>
+<li>Then RTO. Repeat per measurement, showing all three values each time.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Using the <em>old</em> RTT<sub>S</sub> in the deviation line. The order matters: smoothed first, deviation second, RTO third.</dd>
+<dt>Check</dt>
+<dd>RTO must be comfortably larger than RTT<sub>S</sub> &mdash; that is the whole purpose of the 4&times;deviation term. If RTO ever came out close to or below RTT<sub>S</sub>, something is wrong.</dd>
+</dl></div>
+</div>
+
+<h2>Unit V</h2>
+
+<div class="m" id="n31">
+<h3>31. HTTP page load time <span class="lsn">Lesson 39</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">Non-persistent: total = (number of objects) &times; 2 &times; RTT
+Persistent:     total = 1 RTT (setup) + (number of objects) &times; 1 RTT
+With P parallel connections: batches = ceiling(images &divide; P)</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li><strong>Count the objects, including the base HTML file.</strong> "A page with 10 images" means 11 objects.</li>
+<li>Non-persistent: each object pays 1 RTT for its own handshake plus 1 RTT for request-and-response.</li>
+<li>Persistent: one handshake for the whole session, then 1 RTT per object.</li>
+<li>If parallel connections are mentioned, the base file goes first alone, then the images in batches.</li>
+<li>Ignore transmission time unless the question gives object sizes and a bandwidth.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Forgetting the base HTML file in the object count. And charging a setup RTT per object in the persistent case &mdash; that is exactly what persistence removes.</dd>
+<dt>Check</dt>
+<dd>Persistent must beat non-persistent for the same number of parallel connections. If it does not, you double-counted the setup.</dd>
+</dl></div>
+</div>
+
+<div class="m" id="n32">
+<h3>32. RSA <span class="lsn">Lesson 41</span></h3>
+<div class="in"><dl>
+<dt>Formulas</dt>
+<dd><span class="fx">n = p &times; q
+&phi;(n) = (p&minus;1)(q&minus;1)
+choose e with 1 &lt; e &lt; &phi;(n) and gcd(e, &phi;(n)) = 1
+find d with e &times; d &equiv; 1 (mod &phi;(n))
+Public key (e, n)   Private key (d, n)
+Encrypt: C = P^e mod n     Decrypt: P = C^d mod n</span></dd>
+<dt>Method</dt>
+<dd><ol>
+<li>Compute n and <strong>&phi;(n)</strong> &mdash; keep them clearly labelled; they are used for different things.</li>
+<li><strong>Find d by trial:</strong> multiply e by 1, 2, 3&hellip; until the product is exactly 1 more than a multiple of &phi;(n). (Extended Euclid is faster but trial is fine at exam sizes.)</li>
+<li><strong>Encrypt by square and multiply:</strong> write the exponent as a sum of powers of two, compute P&sup2;, P&#8308;, P&#8312;&hellip; each time <strong>reducing mod n</strong>, then multiply the needed ones together, reducing at every multiplication.</li>
+<li><strong>Decrypt the same way</strong> and confirm you get the original plaintext back.</li>
+</ol></dd>
+<dt class="trap">Trap</dt>
+<dd>Confusing <strong>n with &phi;(n)</strong> &mdash; &phi; is used only to find d, n is used in all the modular arithmetic. Second trap: computing the power in full. 48<sup>103</sup> has 173 digits; reduce at every single step.</dd>
+<dt>Check</dt>
+<dd>Every intermediate value must be <strong>less than n</strong>. If one is not, you did not reduce. And <strong>always decrypt to verify</strong> &mdash; if you do not recover the plaintext, something upstream is wrong, and the verification usually carries a mark.</dd>
+</dl></div>
+</div>
+
+<hr class="rule">
+
+<div class="box win">
+  <span class="lbl">The five sanity checks worth memorising above all others</span>
+  <ol style="margin:.3rem 0 0 1.1rem">
+    <li><strong>CRC:</strong> the remainder has one fewer bit than the divisor.</li>
+    <li><strong>Subnetting:</strong> subnets &times; addresses per subnet = the original block size.</li>
+    <li><strong>TDM:</strong> frame duration = input bit duration.</li>
+    <li><strong>Fragmentation:</strong> the fragment data bytes sum to the original data.</li>
+    <li><strong>RSA:</strong> decrypt to recover the plaintext.</li>
+  </ol>
+  <p style="margin:.55rem 0 0">Each takes under ten seconds and each catches a whole class of error. <strong>Write that you ran the check</strong> &mdash; markers award for it, and it is the difference between a wrong answer and a right one you can trust.</p>
+</div>
+
+<p class="ask">Work the <a href="diagnostic-six-problems.html">six-problem diagnostic</a> to find out which of these methods actually need drilling, rather than guessing.</p>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="diagnostic-six-problems.html">Diagnostic</a>
+  <a href="unit1-cheat-sheet.html">Unit I</a>
+  <a href="unit2-cheat-sheet.html">Unit II</a>
+  <a href="unit3-cheat-sheet.html">Unit III</a>
+  <a href="unit4-cheat-sheet.html">Unit IV</a>
+  <a href="unit5-cheat-sheet.html">Unit V</a>
+</div>
+
+</div>

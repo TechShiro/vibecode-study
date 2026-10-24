@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 11 - Database Sharding | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 11 of 66 · Shard Keys, Rebalancing, Cross-Shard Joins</div>
+  
+  <h1>Database Sharding</h1>
+  <p class="subtitle">Splitting your database across completely separate database servers to achieve infinite horizontal scale.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module B — Databases</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>When a single database server runs out of disk space, RAM, or CPU power, buying a bigger machine (vertical scaling) quickly becomes impossibly expensive or hits physical hardware limits. <strong>Sharding</strong> solves this by breaking one giant database into multiple independent databases called <strong>shards</strong>, where each shard runs on its own separate machine and holds a unique portion of the total rows.</p>
+
+  <div class="arch-flow">
+    <div class="box">Client Request</div>
+    <div class="arrow-right"></div>
+    <div class="box">Router / Coordinator</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Shard 1 (Users A-H)</div>
+    <div class="box db">Shard 2 (Users I-P)</div>
+    <div class="box db">Shard 3 (Users Q-Z)</div>
+  </div>
+
+  <h2>2 · Partitioning vs Sharding: What's the Difference?</h2>
+  <p>People often mix these terms up. Here is the zero-level difference:</p>
+  <ul>
+    <li><strong>Partitioning:</strong> Dividing a table into smaller parts on the <em>same</em> database server (e.g., PostgreSQL table partitions stored on different disk directories of one machine).</li>
+    <li><strong>Sharding:</strong> Horizontal partitioning across <em>multiple independent physical machines</em> or database instances across a network. Each shard has zero knowledge of the other shards (Shared-Nothing Architecture).</li>
+  </ul>
+
+  <h2>3 · The Shard Key: The Most Critical Decision</h2>
+  <p>The <strong>Shard Key</strong> (or Partition Key) is the column used to decide which shard stores a specific record. If you pick the wrong shard key, your system will suffer from severe lag and unbalanced servers.</p>
+
+  <h3>Attributes of a Great Shard Key:</h3>
+  <ol>
+    <li><strong>High Cardinality:</strong> Must have millions of distinct values (e.g., <code>user_id</code> or <code>uuid</code>), not something like <code>gender</code> or <code>status</code> which only has 2–5 values.</li>
+    <li><strong>Uniform Distribution:</strong> Writes and reads should spread evenly across all shards, preventing any single shard from getting overloaded.</li>
+    <li><strong>Query Alignment:</strong> Most of your application's common queries should include the shard key so the request goes directly to one shard instead of searching every shard in the cluster.</li>
+  </ol>
+
+  <h2>4 · Common Sharding Strategies</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Strategy</th>
+        <th>How it Works</th>
+        <th>Pros &amp; Cons</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Range-Based Sharding</strong></td>
+        <td>Assign records based on a range of values (e.g., User IDs 1-1M on Shard 1, 1M-2M on Shard 2).</td>
+        <td><strong>Pros:</strong> Very simple to query ranges.<br><strong>Cons:</strong> Severe hotspots! If new users are auto-incrementing, 100% of new writes hammer only the latest shard while older shards sit idle.</td>
+      </tr>
+      <tr>
+        <td><strong>Hash-Based Sharding</strong></td>
+        <td>Apply a hash function to the key: <code>Shard = Hash(user_id) % Number_of_Shards</code>.</td>
+        <td><strong>Pros:</strong> Spreads data uniformly across all shards.<br><strong>Cons:</strong> Resharding is painful when you add more servers, unless you use Consistent Hashing.</td>
+      </tr>
+      <tr>
+        <td><strong>Directory-Based (Lookup) Sharding</strong></td>
+        <td>A central lookup service or table maps each key to its designated shard server.</td>
+        <td><strong>Pros:</strong> Extremely flexible; easy to move records or balance shards dynamically.<br><strong>Cons:</strong> The lookup service is an extra network hop and a Single Point of Failure (SPOF).</td>
+      </tr>
+      <tr>
+        <td><strong>Geographic Sharding</strong></td>
+        <td>Sharding by user country or region (e.g., EU users on Frankfurt servers, US users on Virginia servers).</td>
+        <td><strong>Pros:</strong> Ultra-low latency for local users; satisfies GDPR / data sovereignty laws.<br><strong>Cons:</strong> Uneven shard sizes (some countries have 100x more traffic than others).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5 · The 4 Great Nightmares of Sharding</h2>
+  <p>Sharding introduces significant architectural complexity. You should only shard when your database is genuinely bursting at the seams.</p>
+  
+  <h3>1. Cross-Shard Joins</h3>
+  <p>In a single SQL database, <code>JOIN</code> operations are fast and native. When your <code>users</code> table is on Shard 1 and your <code>orders</code> table is on Shard 3, the database cannot perform an internal join. Your backend application must manually query Shard 1, query Shard 3, and stitch the records together in application memory.</p>
+
+  <h3>2. Cross-Shard Transactions</h3>
+  <p>Executing an ACID transaction across multiple shards requires distributed transaction protocols like <strong>Two-Phase Commit (2PC)</strong> or the <strong>Saga Pattern</strong>. These protocols introduce heavy network latency, lock contention, and failure points.</p>
+
+  <h3>3. The Celebrity (Hotspot) Problem</h3>
+  <p>If you shard Twitter by <code>user_id</code>, a typical user might write 1 tweet a week. But a celebrity account gets 50,000 comments and likes every second. The specific shard hosting that celebrity server will crash under the load, even if the other 99 shards are 95% idle.</p>
+
+  <h3>4. Resharding &amp; Rebalancing</h3>
+  <p>When your data doubles and you need to grow from 10 shards to 20 shards, redistributing billions of rows across active production databases without downtime is one of the most challenging operations in distributed engineering.</p>
+
+  <h2>6 · Real-World Architecture: How Instagram Sharded PostgreSQL</h2>
+  <p>Early in its hypergrowth, Instagram hit scale limits on Amazon EC2. Instead of abandoning PostgreSQL for NoSQL, they sharded PostgreSQL using a custom 64-bit ID generator:</p>
+  <ul>
+    <li><strong>41 bits:</strong> Milliseconds since custom epoch (gives 69 years of timestamps).</li>
+    <li><strong>13 bits:</strong> Shard ID (supports up to $2^{13} = 8192$ logical shards).</li>
+    <li><strong>10 bits:</strong> Auto-incrementing sequence number (allows 1024 unique IDs per millisecond per shard).</li>
+  </ul>
+  <p>Because the Shard ID is embedded directly inside every entity's primary key, any backend service can immediately determine which shard holds a photo or comment just by bit-shifting its ID — no central lookup table required!</p>
+
+  <div class="callout tip">
+    <span class="label">Architecture takeaway</span>
+    Sharding should be your <strong>last resort</strong>, not your first step. First optimize queries and indexes, then add read replicas, then add a caching layer (Redis). Only shard when writes exceed what a single master instance can physically write to disk.
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Notice how sharding breaks ACID transactions. Next, we explore what happens to data consistency in distributed databases.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0010-data-partitioning.html">← Previous: Data Partitioning</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0012-data-consistency-levels.html">Next: Data Consistency &amp; Its Levels →</a>
+  </div>
+</body>
+</html>

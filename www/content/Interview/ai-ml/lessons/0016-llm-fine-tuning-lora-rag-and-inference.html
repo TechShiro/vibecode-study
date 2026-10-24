@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 16 – LLM Fine-Tuning, LoRA & RAG</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module E · Lesson 16 of 17 · Generative AI Engineering</div>
+  <h1>LLM Fine-Tuning, LoRA, RAG & Inference Optimization</h1>
+  <p class="subtitle">Instruction tuning, Low-Rank Adaptation (LoRA), Vector DB retrieval pipelines, and KV Cache latency acceleration.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module E – NLP & Large Language Models</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Pre-training a base Large Language Model from scratch requires hundreds of millions of dollars and thousands of H100 GPUs. In practical engineering, developers take existing open-weight models (Llama 3, Mistral) and customize them via two dominant paradigms: <strong>Fine-Tuning with LoRA/QLoRA</strong> (teaching the model new styles, instruction formats, or task behaviors) and <strong>Retrieval-Augmented Generation (RAG)</strong> (grounding the model with private corporate documents without changing weights).</p>
+
+  <h2>2 · Parameter-Efficient Fine-Tuning: LoRA & QLoRA</h2>
+  <p>Full fine-tuning of a 70B parameter model requires over 1.2 Terabytes of VRAM to store optimizer states (Adam stores 8 bytes per parameter!). <strong>Low-Rank Adaptation (LoRA)</strong> freezes the original weight matrix <code>W<sub>0</sub> &isin; R<sup>d&times;k</sup></code> and injects two low-rank trainable decomposition matrices <code>B &isin; R<sup>d&times;r</sup></code> and <code>A &isin; R<sup>r&times;k</sup></code> where rank <code>r &ll; d</code> (e.g. <em>r = 16</em>):</p>
+  <div class="callout good">
+    <h4>The LoRA Invariant</h4>
+    <p><code>W = W<sub>0</sub> + &Delta;W = W<sub>0</sub> + (B &times; A) &times; (&alpha; / r)</code></p>
+    <ul>
+      <li>Reduces trainable parameters by <strong>99.9%</strong> (from 7 billion to a few megabytes!).</li>
+      <li><strong>QLoRA (Dettmers et al.)</strong>: Quantizes the frozen base model to <strong>4-bit NormalFloat (NF4)</strong> while keeping LoRA adapters in 16-bit. Allows fine-tuning a 70B LLM on two consumer GPUs!</li>
+    </ul>
+  </div>
+
+  <h2>3 · Retrieval-Augmented Generation (RAG) Architecture</h2>
+  <div class="arch-flow">
+    <div class="box">User Query</div>
+    <div class="arrow-right"></div>
+    <div class="box">Embedding Model (Dense Vector)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Vector DB (Top-k Chunks via Cosine)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">LLM Context Prompt &rarr; Answer</div>
+  </div>
+
+  <h2>4 · KV Caching: Accelerating Autoregressive Generation</h2>
+  <p>When an LLM generates text token-by-token, naively recomputing Keys and Values for all past tokens at every step results in $O(N^2)$ redundant matrix multiplications. <strong>KV Caching</strong> stores previously computed Key and Value tensors in GPU VRAM, so each new token only computes a single new vector. Production inference engines like <strong>vLLM</strong> implement <strong>PagedAttention</strong> to manage fragmented KV cache memory like OS virtual memory paging.</p>
+
+  <h2>5 · Practical PEFT / LoRA Code with Hugging Face</h2>
+  <pre><code>from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
+from peft import LoraConfig, get_peft_model, TaskType
+
+# 1. Load Base Model and Tokenizer
+model_id = "mistralai/Mistral-7B-v0.1"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+# 2. Configure Low-Rank Adaptation (LoRA)
+lora_config = LoraConfig(
+    r=16,                           # Low rank dimension
+    lora_alpha=32,                  # Scaling factor
+    target_modules=["q_proj", "v_proj"], # Target attention layers
+    lora_dropout=0.05,
+    bias="none",
+    task_type=TaskType.CAUSAL_LM
+)
+
+# 3. Wrap Model with Trainable Adapters
+base_model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float16, device_map="auto")
+model = get_peft_model(base_model, lora_config)
+model.print_trainable_parameters()
+# Output: trainable params: 6.8M || all params: 7.2B || trainable%: 0.094%</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="0015-the-transformer-architecture-and-self-attention.html">← Lesson 15: The Transformer Architecture</a>
+    <a href="0017-mlops-experiment-tracking-and-model-serving.html">Lesson 17: MLOps & Model Serving →</a>
+  </nav>
+</body>
+</html>

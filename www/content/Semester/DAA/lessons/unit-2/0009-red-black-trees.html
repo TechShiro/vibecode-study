@@ -1,0 +1,357 @@
+<title>Red–Black Trees</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 9 of 15</p>
+<h1>Red&ndash;Black Trees</h1>
+<p class="deck">The five properties, the height bound and why it holds, the three insertion cases with a seven-key worked trace, the double-black deletion cases, and the AVL comparison.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two questions. <strong>&ldquo;State the properties of a red&ndash;black tree and insert the following keys&rdquo;</strong> &mdash; write the <strong>five properties verbatim first</strong> (they are worth marks on their own), then trace the insertion, <strong>naming the case</strong> at every fix-up. <strong>&ldquo;Compare AVL and red&ndash;black trees&rdquo;</strong> &mdash; the table at the end. Learn the <strong>height bound h &le; 2 log<sub>2</sub>(n+1)</strong> and the one-line reason for it. Deletion is examined far less often than insertion; know the vocabulary and the four cases, but drill insertion.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Red-Black Tree 5 Properties & Uncle Rebalancing Rules</div>
+  <div class="flow-col">
+    <div class="flow-box" style="max-width:34rem;">
+      <strong>5 R-B Properties:</strong> (1) Every node Red or Black &bull; (2) Root is Black &bull; (3) Leaves (NIL) are Black &bull; (4) Red node has Black children (no two adjacent Reds) &bull; (5) All paths have identical Black Height
+    </div>
+    <div class="flow-arrow-down">&darr; Insert Red Node &bull; If Parent is Red: Check Uncle Color</div>
+    <div class="flow-row">
+      <div class="flow-box highlight"><strong>Case 1: Uncle is RED</strong><span class="sub"><strong>Recolor:</strong> Parent & Uncle &rarr; Black<br>Grandparent &rarr; Red &bull; Recur upward</span></div>
+      <div class="flow-box ok"><strong>Case 2: Uncle is BLACK</strong><span class="sub"><strong>Rotate + Recolor:</strong> Perform LL/LR/RR/RL rotation &bull; Swap colors of Parent and Grandparent</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Red-Black Trees</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-62 & Lec-63: Red-Black Tree Insertion & Rotations</div>
+    <div class="v-desc">Complete rule-based guide to maintaining the black height invariant and resolving red-red violations using uncle color cases.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=hq_3iqS0Hq0" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>The five properties &mdash; learn these verbatim</h2>
+
+<div class="formula">
+  <span class="name">A red&ndash;black tree is a BST in which every node carries one extra bit of colour, and</span>
+  <strong>1.</strong> Every node is either <strong>RED</strong> or <strong>BLACK</strong>.<br>
+  <strong>2.</strong> The <strong>root is BLACK</strong>.<br>
+  <strong>3.</strong> Every <strong>leaf (the NIL sentinel) is BLACK</strong>.<br>
+  <strong>4.</strong> If a node is <strong>RED</strong>, then <strong>both its children are BLACK</strong> &mdash; equivalently, <strong>no two red nodes may be adjacent</strong>.<br>
+  <strong>5.</strong> For every node, <strong>all simple paths from that node to its descendant leaves contain the same number of BLACK nodes.</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Black-height, bh(x)</strong></td><td>The number of black nodes on any path from x down to a leaf, <strong>not counting x itself but counting the NIL leaf</strong>. Property 5 says this is well defined</td></tr>
+<tr><td><strong>NIL / sentinel</strong></td><td>A single shared black &ldquo;external node&rdquo; standing in for every null pointer. It simplifies the code and makes property 3 easy to state</td></tr>
+<tr><td><strong>Internal node</strong></td><td>A node carrying an actual key &mdash; as opposed to a NIL leaf</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-line reason it works &mdash; say this before any proof</span>
+  <p><strong>Property 5 forces every root-to-leaf path to contain the same number of black nodes; property 4 forbids two reds in a row, so no path can be more than <em>twice</em> as long as any other.</strong> A tree in which no path exceeds twice the shortest is <strong>approximately balanced</strong>, which is all we need for O(log n).</p>
+</div>
+
+<div class="formula">
+  <span class="name">The height bound</span>
+  A red&ndash;black tree with <strong>n internal nodes</strong> has height<br><br>
+  <strong>h &le; 2 log<sub>2</sub>(n + 1)</strong><br><br>
+  <em>Sketch:</em> a subtree rooted at x contains at least <strong>2<sup>bh(x)</sup> &minus; 1</strong> internal nodes. Since at least half the nodes on any root-to-leaf path are black, <strong>bh(root) &ge; h/2</strong>. Hence n &ge; 2<sup>h/2</sup> &minus; 1, and rearranging gives the bound.
+</div>
+
+<p>Therefore <strong>search, insert and delete are all O(log n) in the worst case</strong> &mdash; the same guarantee as AVL, with a looser constant.</p>
+
+<h2>Insertion &mdash; the algorithm</h2>
+
+<div class="formula">
+  <span class="name">The procedure</span>
+  <strong>Step 1.</strong> Insert the key exactly as in an ordinary BST.<br>
+  <strong>Step 2.</strong> <strong>Colour the new node RED.</strong><br>
+  <strong>Step 3.</strong> If a violation has occurred, fix it up and colour the root black.
+</div>
+
+<div class="box">
+  <span class="lbl">Why the new node is coloured red</span>
+  <p>Colouring it <strong>black</strong> would add a black node to one path only, breaking <strong>property 5</strong> &mdash; the hardest property to repair. Colouring it <strong>red</strong> can only break <strong>property 4</strong>, the no-two-reds rule, and only if its parent happens to be red. <strong>Red is the cheaper mistake.</strong> That sentence earns a mark.</p>
+</div>
+
+<div class="formula">
+  <span class="name">The fix-up &mdash; three cases, decided by the UNCLE's colour</span>
+  Let <strong>z</strong> = the new red node, <strong>p</strong> = its parent, <strong>g</strong> = its grandparent, <strong>u</strong> = its uncle (g's other child).<br>
+  A violation exists only when <strong>p is RED</strong>.<br><br>
+  <strong>CASE 1 &mdash; the uncle u is RED.</strong><br>
+  &nbsp;&nbsp;&rarr; <strong>RECOLOUR</strong>: make p and u <strong>black</strong>, make g <strong>red</strong>. Then <strong>move z up to g</strong> and repeat.<br>
+  &nbsp;&nbsp;<em>No rotation. The violation may move up the tree.</em><br><br>
+  <strong>CASE 2 &mdash; the uncle u is BLACK, and z is an &ldquo;inner&rdquo; child</strong> (z is a right child of a left parent, or a left child of a right parent &mdash; a <em>triangle</em>).<br>
+  &nbsp;&nbsp;&rarr; <strong>Rotate at p</strong> in the direction that turns the triangle into a line, then continue into Case 3.<br><br>
+  <strong>CASE 3 &mdash; the uncle u is BLACK, and z is an &ldquo;outer&rdquo; child</strong> (a <em>line</em>).<br>
+  &nbsp;&nbsp;&rarr; <strong>Rotate at g</strong> in the opposite direction, then <strong>recolour: p becomes black, g becomes red.</strong> Done &mdash; no further propagation.<br><br>
+  <strong>Finally: always colour the root BLACK.</strong>
+</div>
+
+<div class="box win">
+  <span class="lbl">The two-word summary</span>
+  <p><strong>Red uncle &rarr; recolour. Black uncle &rarr; rotate.</strong> That is the entire decision, and it is the first thing to write in the answer.</p>
+</div>
+
+<h2>The worked trace</h2>
+
+<div class="solve">
+  <span class="lbl">Q. Insert 10, 20, 30, 15, 25, 5, 1 into an empty red&ndash;black tree. Show the colour of every node.</span>
+
+  <p><strong>Insert 10.</strong> It is the root, so by property 2 colour it <strong>BLACK</strong>.</p>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem">10(B)</p>
+
+  <p><strong>Insert 20.</strong> Goes right of 10, coloured RED. Its parent 10 is black, so <strong>no violation</strong>.</p>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem">10(B) &mdash; right &rarr; 20(R)</p>
+
+  <p><strong>Insert 30.</strong> Goes right of 20, coloured RED. <strong>Parent 20 is RED &mdash; violation of property 4.</strong></p>
+  <ul>
+    <li>z = 30, p = 20, g = 10, <strong>u = g's left child = NIL, which is BLACK</strong>.</li>
+    <li>z is a <em>right</em> child and p is a <em>right</em> child &mdash; a <strong>line &rarr; CASE 3</strong>.</li>
+    <li><strong>Left-rotate at g = 10</strong>, then recolour: p = 20 becomes <strong>black</strong>, g = 10 becomes <strong>red</strong>.</li>
+  </ul>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;<strong>20(B)</strong><br>
+    &nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    <strong>10(R)</strong>&nbsp;&nbsp;<strong>30(R)</strong>
+    </div>
+  </div>
+
+  <p><strong>Insert 15.</strong> 15 &lt; 20 &rarr; left to 10; 15 &gt; 10 &rarr; right of 10. Coloured RED. <strong>Parent 10 is RED &mdash; violation.</strong></p>
+  <ul>
+    <li>z = 15, p = 10, g = 20, <strong>u = 30, which is RED &rarr; CASE 1</strong>.</li>
+    <li><strong>Recolour:</strong> p = 10 &rarr; black, u = 30 &rarr; black, g = 20 &rarr; red.</li>
+    <li>Move z up to g = 20. But 20 is the <strong>root</strong>, so <strong>colour it black</strong> and stop.</li>
+  </ul>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20(B)</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;<strong>10(B)</strong>&nbsp;&nbsp;&nbsp;<strong>30(B)</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>15(R)</strong>
+    </div>
+  </div>
+
+  <p><strong>Insert 25.</strong> 25 &gt; 20 &rarr; right to 30; 25 &lt; 30 &rarr; left of 30. Coloured RED. <strong>Parent 30 is BLACK &mdash; no violation.</strong></p>
+
+  <p><strong>Insert 5.</strong> 5 &lt; 20 &rarr; left to 10; 5 &lt; 10 &rarr; left of 10. Coloured RED. <strong>Parent 10 is BLACK &mdash; no violation.</strong></p>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20(B)</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;<strong>10(B)</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30(B)</strong><br>
+    &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/<br>
+    <strong>5(R)</strong>&nbsp;&nbsp;<strong>15(R)</strong>&nbsp;<strong>25(R)</strong>
+    </div>
+  </div>
+
+  <p><strong>Insert 1.</strong> 1 &lt; 20 &rarr; 10; 1 &lt; 10 &rarr; 5; 1 &lt; 5 &rarr; left of 5. Coloured RED. <strong>Parent 5 is RED &mdash; violation.</strong></p>
+  <ul>
+    <li>z = 1, p = 5, g = 10, <strong>u = 15, which is RED &rarr; CASE 1</strong>.</li>
+    <li><strong>Recolour:</strong> p = 5 &rarr; black, u = 15 &rarr; black, g = 10 &rarr; red.</li>
+    <li>Move z up to g = 10. Its parent is 20, which is <strong>black</strong> &mdash; <strong>no further violation. Stop.</strong></li>
+  </ul>
+  <div class="formula">
+    <span class="name">Final red&ndash;black tree</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.5">
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>20(B)</strong><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    &nbsp;&nbsp;&nbsp;<strong>10(R)</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>30(B)</strong><br>
+    &nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/<br>
+    <strong>5(B)</strong>&nbsp;&nbsp;<strong>15(B)</strong>&nbsp;&nbsp;<strong>25(R)</strong><br>
+    &nbsp;/<br>
+    <strong>1(R)</strong>
+    </div>
+  </div>
+
+  <p><strong>Verification &mdash; run every property:</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Property</th><th>Check</th></tr></thead>
+  <tbody>
+  <tr><td>1. Every node red or black</td><td>&check;</td></tr>
+  <tr><td>2. Root black</td><td>20 is black &check;</td></tr>
+  <tr><td>3. Leaves (NIL) black</td><td>&check; by convention</td></tr>
+  <tr><td>4. No two adjacent reds</td><td>10(R) has children 5(B) and 15(B); 5(B) has child 1(R) &mdash; parent black &check;; 30(B) has child 25(R) &check;</td></tr>
+  <tr><td>5. Equal black-heights</td><td>20&rarr;10&rarr;5&rarr;1&rarr;NIL: blacks after 20 are 5 and NIL = <strong>2</strong>. &nbsp; 20&rarr;10&rarr;15&rarr;NIL: 15 and NIL = <strong>2</strong>. &nbsp; 20&rarr;30&rarr;25&rarr;NIL: 30 and NIL = <strong>2</strong>. &nbsp; 20&rarr;30&rarr;NIL: 30 and NIL = <strong>2</strong>. <strong>All equal &check;</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Inorder: 1, 5, 10, 15, 20, 25, 30 &mdash; sorted.</strong> &check; <strong>Always finish an insertion answer with the property-5 check</strong>; it is where the examiner looks.</p>
+</div>
+
+<h2>Deletion &mdash; the shape of it</h2>
+
+<p>Deletion is harder, and is examined less often. Know the structure and the vocabulary.</p>
+
+<div class="formula">
+  <span class="name">The procedure</span>
+  <strong>Step 1.</strong> Delete as in an ordinary BST (Lesson 7's three cases). Let <strong>y</strong> be the node actually removed and <strong>x</strong> the node that takes its place.<br>
+  <strong>Step 2.</strong> <strong>If y was RED, nothing is broken</strong> &mdash; removing a red node changes no black-height and creates no adjacent reds. <strong>Stop.</strong><br>
+  <strong>Step 3.</strong> <strong>If y was BLACK</strong>, its path has lost a black node, breaking property 5. Give x an extra unit of &ldquo;blackness&rdquo; &mdash; it becomes <strong>double black</strong> &mdash; and push that extra blackness up the tree until it can be discharged.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Case</th><th>Sibling w of the double-black node x</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td><strong>1</strong></td><td><strong>w is RED</strong></td><td>Recolour w black and the parent red, then <strong>rotate at the parent</strong>. This converts the situation into Case 2, 3 or 4</td></tr>
+<tr><td><strong>2</strong></td><td>w is black and <strong>both of w's children are black</strong></td><td><strong>Recolour w red</strong> and move the double-black problem <strong>up to the parent</strong>. Repeat</td></tr>
+<tr><td><strong>3</strong></td><td>w is black, w's <strong>near</strong> child is red and its far child is black</td><td>Recolour and <strong>rotate at w</strong>, converting it into Case 4</td></tr>
+<tr><td><strong>4</strong></td><td>w is black and w's <strong>far</strong> child is red</td><td>Recolour and <strong>rotate at the parent</strong>. <strong>The extra black is discharged &mdash; done.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Only Case 2 loops</strong>, and it moves the problem strictly upward, so deletion performs <strong>at most three rotations</strong> and O(log n) recolourings.</p>
+
+<h2>The comparison &mdash; AVL vs red&ndash;black</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>AVL tree</strong></th><th><strong>Red&ndash;black tree</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Balance rule</strong></td><td>|BF| &le; 1 at every node</td><td>Five colour properties</td></tr>
+<tr><td><strong>Balance is</strong></td><td><strong>Strict</strong> &mdash; height &le; 1.44 log n</td><td><strong>Loose</strong> &mdash; height &le; 2 log(n+1)</td></tr>
+<tr><td><strong>Extra storage per node</strong></td><td>A balance factor or height (2 bits at least, often an int)</td><td><strong>1 bit</strong> of colour</td></tr>
+<tr><td><strong>Search</strong></td><td><strong>Faster</strong> &mdash; shallower tree</td><td>Slower &mdash; up to twice the height</td></tr>
+<tr><td><strong>Insert / delete</strong></td><td>Slower &mdash; more rotations</td><td><strong>Faster</strong> &mdash; fewer rotations</td></tr>
+<tr><td><strong>Rotations per insert</strong></td><td>At most 1</td><td>At most <strong>2</strong></td></tr>
+<tr><td><strong>Rotations per delete</strong></td><td>Up to <strong>O(log n)</strong></td><td>At most <strong>3</strong></td></tr>
+<tr><td><strong>Best when</strong></td><td><strong>Lookups dominate</strong> &mdash; read-heavy workloads, databases doing mostly queries</td><td><strong>Updates dominate</strong> &mdash; write-heavy workloads</td></tr>
+<tr><td><strong>Used in</strong></td><td>Database indexes; in-memory dictionaries with rare updates</td><td><strong>Linux kernel (CFS scheduler, virtual memory areas), Java TreeMap and TreeSet, C++ STL map and set</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The line to close a comparison answer with</span>
+  <p><strong>Both guarantee O(log n) in the worst case. Red&ndash;black trees win in practice because a bounded number of rotations matters more than a slightly shorter tree &mdash; which is why every standard library uses them rather than AVL.</strong></p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Which is NOT a red–black tree property?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Every black node must have two red children</button>
+    <button class="opt">If a node is red, both its children are black</button>
+    <button class="opt">The root is black</button>
+    <button class="opt">All paths from a node to its descendant leaves contain the same number of black nodes</button>
+  </div>
+  <p class="why">There is no constraint on the children of a black node — a black node may have black children, red children, or none. The constraint runs the other way.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A newly inserted node is coloured red because:</p>
+  <div class="opts">
+    <button class="opt">Red nodes are faster to search</button>
+    <button class="opt">It guarantees no violation ever occurs</button>
+    <button class="opt" data-ok="1">Colouring it black would break the equal-black-height property, which is harder to repair</button>
+    <button class="opt">The root must be red</button>
+  </div>
+  <p class="why">Red can only break the no-two-adjacent-reds rule, and only when the parent is red. Black would add a black node to one path only, breaking property 5 immediately.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. During insertion fix-up, when the uncle is RED you:</p>
+  <div class="opts">
+    <button class="opt">Do nothing</button>
+    <button class="opt">Rotate at the parent</button>
+    <button class="opt">Rotate at the grandparent</button>
+    <button class="opt" data-ok="1">Recolour parent and uncle black, grandparent red, and move up</button>
+  </div>
+  <p class="why">Red uncle means recolour; black uncle means rotate. Case 1 is the only case that propagates the problem upward.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The height of a red–black tree with n internal nodes is at most:</p>
+  <div class="opts">
+    <button class="opt">n − 1</button>
+    <button class="opt">log₂(n + 1)</button>
+    <button class="opt" data-ok="1">2 log₂(n + 1)</button>
+    <button class="opt">1.44 log₂(n + 2)</button>
+  </div>
+  <p class="why">1.44 log₂(n+2) is the AVL bound. The factor 2 here comes from properties 4 and 5 together: no path can exceed twice the length of any other.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Inserting 10, 20, 30, 15, 25, 5, 1 leaves the root as:</p>
+  <div class="opts">
+    <button class="opt">10, coloured black</button>
+    <button class="opt" data-ok="1">20, coloured black</button>
+    <button class="opt">30, coloured black</button>
+    <button class="opt">15, coloured red</button>
+  </div>
+  <p class="why">Inserting 30 triggers Case 3, which left-rotates at 10 and makes 20 the root. Nothing afterwards displaces it, and the root is always coloured black at the end.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A red–black deletion performs at most how many rotations?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Three</button>
+    <button class="opt">O(log n)</button>
+    <button class="opt">One</button>
+    <button class="opt">O(n)</button>
+  </div>
+  <p class="why">Only Case 2 loops, and it recolours rather than rotates. AVL deletion, by contrast, may need O(log n) rotations — which is the main practical reason libraries prefer red–black trees.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Java's TreeMap and the C++ STL map are implemented as:</p>
+  <div class="opts">
+    <button class="opt">Plain binary search trees</button>
+    <button class="opt" data-ok="1">Red–black trees</button>
+    <button class="opt">AVL trees</button>
+    <button class="opt">B-trees</button>
+  </div>
+  <p class="why">A bounded number of rotations per update matters more in practice than a slightly shorter tree. The Linux kernel's CFS scheduler uses them too.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the five properties of a red&ndash;black tree.</summary>
+    <p class="ans">Every node is red or black; the root is black; every leaf (NIL) is black; if a node is red both its children are black, so no two reds are adjacent; and for every node, all simple paths from it to descendant leaves contain the same number of black nodes.</p></details>
+  <details class="card"><summary>Define black-height and give the height bound with its reason.</summary>
+    <p class="ans">The black-height of x is the number of black nodes on any path from x down to a leaf, excluding x but including the NIL leaf. The height satisfies h &le; 2 log₂(n + 1), because property 5 makes all paths contain the same number of blacks and property 4 stops any path having more than that many reds — so no path exceeds twice the length of any other.</p></details>
+  <details class="card"><summary>Give the insertion procedure and say why the new node is red.</summary>
+    <p class="ans">Insert as in a BST, colour the new node red, fix up any violation, and finally colour the root black. Red is chosen because colouring the node black would add a black node to a single path and break property 5, which is the hardest property to repair; red can only break the no-two-reds rule.</p></details>
+  <details class="card"><summary>Give the three insertion fix-up cases.</summary>
+    <p class="ans">Case 1, uncle red: recolour parent and uncle black and grandparent red, then move up to the grandparent and repeat — no rotation. Case 2, uncle black and the node is an inner child forming a triangle: rotate at the parent to turn it into a line, then continue into Case 3. Case 3, uncle black and the node is an outer child forming a line: rotate at the grandparent and recolour parent black and grandparent red — done. Red uncle means recolour, black uncle means rotate.</p></details>
+  <details class="card"><summary>Describe red&ndash;black deletion.</summary>
+    <p class="ans">Delete as in a BST. If the removed node was red nothing breaks. If it was black, its path has lost a black node, so the replacing node becomes double black and that extra blackness is pushed up. Four cases turn on the sibling: red sibling, rotate to convert; black sibling with two black children, recolour it red and move up — the only looping case; black sibling with a red near child, rotate at the sibling; black sibling with a red far child, rotate at the parent and finish. At most three rotations.</p></details>
+  <details class="card"><summary>Compare AVL with red&ndash;black on six points.</summary>
+    <p class="ans">Balance: strict, 1.44 log n, versus loose, 2 log(n+1). Storage: a height or balance factor versus a single colour bit. Search: AVL faster. Update: red–black faster. Rotations per insert: 1 versus 2; per delete: O(log n) versus at most 3. Use AVL when lookups dominate; red–black is what Java's TreeMap, the C++ STL map and the Linux kernel actually use.</p></details>
+</div>
+
+<p class="ask">Next: the balanced tree designed for disks rather than memory &mdash; B-trees, with insertion by splitting and deletion by borrowing and merging.</p>
+
+<div class="nav">
+  <a href="0008-avl-trees.html">&larr; AVL Trees</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0010-b-trees.html">Next: B-Trees &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

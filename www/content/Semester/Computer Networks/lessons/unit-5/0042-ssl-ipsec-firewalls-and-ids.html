@@ -1,0 +1,335 @@
+<title>SSL, IPsec, Firewalls and IDS</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 42 of 42</p>
+<h1>SSL, IPsec, Firewalls and Intrusion Detection</h1>
+<p class="deck">Security applied at three different layers, and the two defensive devices. Where each mechanism sits in the stack is the organising idea of the whole lesson &mdash; and the last lesson of the syllabus.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Usually two or three short questions rather than one long one. <strong>"Compare SSL and IPsec"</strong> &mdash; and the answer starts with <em>which layer each operates at</em>, because everything else follows from that. <strong>"Explain types of firewall"</strong> &mdash; packet filter versus proxy, with the layer each works at. <strong>"Explain IDS and its types"</strong> &mdash; two classifications, by <em>placement</em> and by <em>detection method</em>; giving both is what distinguishes a full answer.</p>
+</div>
+
+<div class="formula">
+  <span class="name">The organising idea &mdash; write this first</span>
+  Security can be applied at <strong>any layer</strong>, and where it sits decides what it protects:<br>
+  <strong>Application layer</strong> &rarr; PGP (mail) &mdash; protects one application<br>
+  <strong>Transport layer</strong> &rarr; <strong>SSL / TLS</strong> &mdash; protects any TCP application that asks for it<br>
+  <strong>Network layer</strong> &rarr; <strong>IPsec</strong> &mdash; protects <em>all</em> traffic, transparently, without the application knowing
+</div>
+
+<h2>SSL and TLS</h2>
+
+<p><strong>SSL</strong> (Secure Sockets Layer) and its standardised successor <strong>TLS</strong> (Transport Layer Security) sit <strong>between the application layer and TCP</strong>. HTTP running over SSL/TLS is <strong>HTTPS</strong>, on <strong>port 443</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Service</th><th>How</th></tr></thead>
+<tbody>
+<tr><td><strong>Confidentiality</strong></td><td>Data encrypted with a <strong>symmetric session key</strong></td></tr>
+<tr><td><strong>Integrity</strong></td><td>A <strong>message authentication code (MAC)</strong> on every record</td></tr>
+<tr><td><strong>Server authentication</strong></td><td>The server presents a <strong>digital certificate</strong> signed by a certificate authority</td></tr>
+<tr><td><strong>Client authentication</strong></td><td><strong>Optional</strong> &mdash; requested by the server only when needed</td></tr>
+<tr><td><strong>Compression</strong></td><td>Optional, applied before encryption</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The four SSL protocols</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Protocol</th><th>Job</th></tr></thead>
+<tbody>
+<tr><td><strong>Handshake Protocol</strong></td><td><strong>The important one.</strong> Negotiates the cipher suite, authenticates the server (and optionally the client), and <strong>establishes the shared session keys</strong>.</td></tr>
+<tr><td><strong>Record Protocol</strong></td><td>Carries the actual data: it <strong>fragments, compresses, adds a MAC, encrypts</strong> and adds a header. Every other SSL protocol travels inside it.</td></tr>
+<tr><td><strong>Change Cipher Spec Protocol</strong></td><td>A single byte, signalling <strong>"everything after this point uses the newly negotiated keys"</strong>.</td></tr>
+<tr><td><strong>Alert Protocol</strong></td><td>Reports errors and warnings &mdash; bad certificate, handshake failure, close notify.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The handshake, in four phases</h3>
+
+<div class="formula">
+  <span class="name">SSL handshake</span>
+  <strong>Phase 1 &mdash; establish security capabilities.</strong> ClientHello (version, random number, cipher suites offered, session id) &rarr; ServerHello (the chosen version, its own random, the chosen cipher suite).<br>
+  <strong>Phase 2 &mdash; server authentication and key exchange.</strong> The server sends its <strong>certificate</strong>, optionally a key exchange message, optionally a certificate request, then ServerHelloDone.<br>
+  <strong>Phase 3 &mdash; client authentication and key exchange.</strong> The client verifies the certificate, sends its own if asked, and sends the <strong>pre-master secret encrypted with the server's public key</strong>.<br>
+  <strong>Phase 4 &mdash; finish.</strong> Both sides derive the same <strong>master secret</strong> and session keys from the pre-master secret and the two randoms, exchange ChangeCipherSpec, and send Finished messages that are already encrypted.
+</div>
+
+<div class="box win">
+  <span class="lbl">The one sentence that explains the whole handshake</span>
+  <p><strong>SSL uses asymmetric cryptography exactly once &mdash; to get a symmetric session key safely across &mdash; and then uses that fast symmetric key for all the actual data.</strong> This is the hybrid scheme from Lesson 41, deployed. It is why the handshake is comparatively slow and the subsequent transfer is not, and it is the single most valuable sentence you can write about SSL.</p>
+</div>
+
+<p><strong>Why the two random numbers?</strong> Because the master secret is derived from the pre-master secret <em>and</em> both randoms, an attacker who replays an old handshake produces different keys. The randoms are what make each session unique &mdash; a good 2-mark point.</p>
+
+<h2>IPsec</h2>
+
+<p><strong>IPsec</strong> secures traffic at the <strong>network layer</strong>, which gives it a property SSL does not have: <strong>it protects every application transparently</strong>, without any of them being modified or even aware. It is built into IPv6 and available as an add-on for IPv4.</p>
+
+<h3>The two protocols</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>AH &mdash; Authentication Header</th><th>ESP &mdash; Encapsulating Security Payload</th></tr></thead>
+<tbody>
+<tr><td><strong>Authentication</strong></td><td><strong>Yes</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Integrity</strong></td><td><strong>Yes</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Confidentiality (encryption)</strong></td><td><strong>NO</strong></td><td><strong>YES</strong></td></tr>
+<tr><td><strong>Protects the IP header</strong></td><td>Yes &mdash; authenticates the outer header too</td><td>No &mdash; covers the payload only</td></tr>
+<tr><td><strong>Protocol number</strong></td><td>51</td><td>50</td></tr>
+<tr><td><strong>In practice</strong></td><td>Rarely used alone</td><td><strong>The one actually deployed</strong>, since encryption is normally wanted</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The AH/ESP fact examiners test</span>
+  <p><strong>AH provides authentication and integrity but NOT confidentiality. ESP provides all three.</strong> If a question asks which to use when the data must be kept secret, the answer is <strong>ESP</strong>. This one row is the most commonly asked fact about IPsec.</p>
+</div>
+
+<h3>The two modes</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Transport mode</th><th>Tunnel mode</th></tr></thead>
+<tbody>
+<tr><td><strong>What is protected</strong></td><td>The <strong>IP payload only</strong> &mdash; the original IP header stays visible</td><td>The <strong>entire original IP datagram</strong>, header included</td></tr>
+<tr><td><strong>New IP header?</strong></td><td>No &mdash; the IPsec header is inserted between the IP header and the payload</td><td><strong>Yes</strong> &mdash; a new outer IP header is added</td></tr>
+<tr><td><strong>Used between</strong></td><td><strong>Host to host</strong></td><td><strong>Router to router, or host to router</strong></td></tr>
+<tr><td><strong>Hides the original addresses?</strong></td><td>No</td><td><strong>Yes</strong> &mdash; they are inside the encrypted payload</td></tr>
+<tr><td><strong>Typical use</strong></td><td>End-to-end security between two hosts</td><td><strong>VPNs</strong> &mdash; connecting two sites over the public Internet</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Security Association (SA)</strong> is IPsec's other named concept: a <strong>one-way (simplex) logical connection</strong> defining the algorithms, keys and parameters in use. Because it is one-way, <strong>two SAs are needed for bidirectional communication</strong>. An SA is identified by three things: the <strong>Security Parameter Index (SPI)</strong>, the <strong>destination IP address</strong>, and the <strong>protocol (AH or ESP)</strong>.</p>
+
+<h3>SSL vs IPsec</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>SSL / TLS</th><th>IPsec</th></tr></thead>
+<tbody>
+<tr><td><strong>Layer</strong></td><td><strong>Transport</strong> (between application and TCP)</td><td><strong>Network</strong></td></tr>
+<tr><td><strong>Protects</strong></td><td>Only applications written to use it</td><td><strong>All traffic, transparently</strong></td></tr>
+<tr><td><strong>Application changes needed</strong></td><td><strong>Yes</strong> &mdash; the application must call SSL</td><td><strong>None</strong> &mdash; applications are unaware</td></tr>
+<tr><td><strong>Configuration</strong></td><td>Simple &mdash; per application</td><td>Complex &mdash; system or network wide</td></tr>
+<tr><td><strong>Typical use</strong></td><td><strong>HTTPS</strong>, secure web and mail</td><td><strong>VPNs</strong>, site-to-site links</td></tr>
+<tr><td><strong>Works with UDP?</strong></td><td>No &mdash; requires TCP (DTLS is the UDP variant)</td><td><strong>Yes</strong> &mdash; it is below the transport layer</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Firewalls</h2>
+
+<p>A <strong>firewall</strong> is a device installed between an organisation's internal network and the rest of the Internet. It <strong>inspects traffic and forwards or blocks it according to a policy</strong> &mdash; it is a filter, not an encryptor, and that distinction is worth stating.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Packet-filter firewall</th><th>Proxy (application gateway) firewall</th></tr></thead>
+<tbody>
+<tr><td><strong>Layer</strong></td><td><strong>Network and transport</strong> (3 and 4)</td><td><strong>Application</strong> (7)</td></tr>
+<tr><td><strong>Decides using</strong></td><td>Source and destination <strong>IP address</strong>, source and destination <strong>port</strong>, and <strong>protocol</strong></td><td>The <strong>content of the message itself</strong></td></tr>
+<tr><td><strong>Can it inspect data?</strong></td><td><strong>No</strong> &mdash; it sees headers only</td><td><strong>Yes</strong> &mdash; it understands the application protocol</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Fast</strong></td><td><strong>Slow</strong> &mdash; it must parse the whole message</td></tr>
+<tr><td><strong>Example rule</strong></td><td>"Block all inbound traffic to port 23 (TELNET)"</td><td>"Block any HTTP request whose URL contains a banned word"</td></tr>
+<tr><td><strong>Weakness</strong></td><td>Cannot distinguish two messages on the same port, so it cannot block <em>some</em> web traffic and allow the rest</td><td>Higher overhead; a separate proxy is needed for each application protocol</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>A third kind is worth a line: a <strong>stateful inspection firewall</strong> tracks the <strong>state of each connection</strong>, so it can allow an inbound packet <em>only if</em> it belongs to a connection that an internal host started. This is what modern firewalls do, and it fixes the packet filter's inability to tell a reply from an unsolicited approach.</p>
+
+<div class="box win">
+  <span class="lbl">The one-line contrast</span>
+  <p><strong>A packet filter reads the envelope; a proxy reads the letter.</strong> The packet filter is fast but blind to content; the proxy sees everything but is slow and needs one implementation per protocol.</p>
+</div>
+
+<h2>Intrusion Detection Systems</h2>
+
+<p>An <strong>IDS</strong> monitors network or system activity for <strong>malicious activity or policy violations</strong> and <strong>raises an alert</strong>. It is a monitor, not a barrier.</p>
+
+<div class="box exam">
+  <span class="lbl">IDS vs IPS vs firewall &mdash; the distinction to state</span>
+  <p><strong>A firewall blocks traffic according to a policy, at the perimeter. An IDS detects and alerts but does not stop anything. An IPS (Intrusion Prevention System) detects and actively blocks.</strong> The neat summary: <strong>a firewall is a locked door, an IDS is a burglar alarm, an IPS is an alarm that also bolts the door.</strong></p>
+</div>
+
+<h3>Classification 1 &mdash; by placement</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>NIDS &mdash; Network-based IDS</th><th>HIDS &mdash; Host-based IDS</th></tr></thead>
+<tbody>
+<tr><td><strong>Placed</strong></td><td>At a <strong>strategic point in the network</strong>, watching traffic to and from all devices</td><td><strong>On an individual host</strong>, watching that machine</td></tr>
+<tr><td><strong>Sees</strong></td><td>Network packets</td><td>System calls, file changes, logs, application activity</td></tr>
+<tr><td><strong>Blind spot</strong></td><td><strong>Encrypted traffic</strong> &mdash; it cannot inspect what it cannot read</td><td>Anything happening on other hosts</td></tr>
+<tr><td><strong>Coverage</strong></td><td><strong>Many hosts at once</strong></td><td>One host, but in far more detail</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Classification 2 &mdash; by detection method</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Signature-based (misuse detection)</th><th>Anomaly-based (behaviour detection)</th></tr></thead>
+<tbody>
+<tr><td><strong>Works by</strong></td><td>Comparing traffic against a <strong>database of known attack patterns</strong></td><td>Building a <strong>baseline of normal behaviour</strong> and flagging deviations from it</td></tr>
+<tr><td><strong>Detects new attacks?</strong></td><td><strong>No</strong> &mdash; an unknown attack has no signature</td><td><strong>Yes</strong>, in principle</td></tr>
+<tr><td><strong>False positives</strong></td><td><strong>Few</strong></td><td><strong>Many</strong> &mdash; unusual but legitimate behaviour is flagged</td></tr>
+<tr><td><strong>Maintenance</strong></td><td>The signature database must be updated constantly</td><td>The baseline must be retrained as normal behaviour changes</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The trade-off in one line</span>
+  <p><strong>Signature-based detection is accurate about attacks it already knows; anomaly-based detection can catch new attacks but cries wolf.</strong> That trade-off is the substance of any IDS comparison question, and real systems use both together.</p>
+</div>
+
+<h3>Types of intruder</h3>
+
+<p>One line each, sometimes asked: <strong>masquerader</strong> (an outsider using a legitimate user's account), <strong>misfeasor</strong> (a legitimate user exceeding their privileges), and <strong>clandestine user</strong> (someone who has seized supervisory control and is suppressing the audit trail).</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Defense-in-Depth Protocol Layering & Perimeter Security</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Protocol Layer Security</strong><span class="sub">End-to-End Cryptography</span></div>
+      <div class="flow-box"><strong>Transport: SSL / TLS</strong><span class="sub">Secures application streams (HTTPS port 443)</span></div>
+      <div class="flow-box ok"><strong>Network: IPsec (AH & ESP)</strong><span class="sub">Transparent VPN tunneling between routers</span></div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box warn"><strong>Perimeter Defense Systems</strong><span class="sub">Traffic Filtering & Inspection</span></div>
+      <div class="flow-box"><strong>Firewalls:</strong> Packet Filtering (Stateless L3/L4) vs Stateful Inspection vs Application Proxy</div>
+      <div class="flow-box ok"><strong>IDS / IPS:</strong> Signature-based & Anomaly-based intrusion detection & active prevention</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">SSL/TLS & Defense</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Secure Socket Layer (SSL) & SSL Handshake Protocol Architecture</div>
+    <div class="v-desc">Step-by-step breakdown of the SSL handshake (cipher suite negotiation, server certificate verification, session key exchange) and firewall filtering rules.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=SXErMCgrT0o" target="_blank" rel="noopener">Watch on YouTube &rarr; (5 Minutes Engineering)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The essential difference between SSL and IPsec is that:</p>
+  <div class="opts">
+    <button class="opt">SSL is used for VPNs while IPsec is used for secure web browsing</button>
+    <button class="opt">SSL works with UDP while IPsec requires a TCP connection</button>
+    <button class="opt" data-ok="1">SSL is at the transport layer and needs application support; IPsec is at the network layer and is transparent</button>
+    <button class="opt">SSL encrypts while IPsec only authenticates the two endpoints</button>
+  </div>
+  <p class="why">The layer decides everything else. SSL protects only applications written to call it; IPsec sits below the transport layer and protects all traffic without applications knowing. The typical uses are also the other way round — IPsec for VPNs, SSL for HTTPS.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which IPsec protocol provides confidentiality?</p>
+  <div class="opts">
+    <button class="opt">AH, which provides authentication, integrity and encryption</button>
+    <button class="opt">Both equally &mdash; they differ only in mode of operation</button>
+    <button class="opt">Neither &mdash; IPsec authenticates but never encrypts</button>
+    <button class="opt" data-ok="1">ESP, which provides authentication, integrity and encryption</button>
+  </div>
+  <p class="why">AH gives authentication and integrity but <em>no</em> encryption; ESP gives all three, which is why ESP is what is actually deployed. This single row is the most commonly asked IPsec fact.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. IPsec tunnel mode differs from transport mode in that tunnel mode:</p>
+  <div class="opts">
+    <button class="opt">Protects only the payload and leaves the IP header visible</button>
+    <button class="opt" data-ok="1">Protects the entire original datagram and adds a new outer IP header</button>
+    <button class="opt">Provides authentication but no encryption of the payload</button>
+    <button class="opt">Can be used only between two hosts, never between routers</button>
+  </div>
+  <p class="why">Tunnel mode wraps the whole datagram inside a new one, hiding the original addresses — which is exactly what a VPN needs. Transport mode protects the payload only, leaves the header visible, and is used host to host.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. During the SSL handshake, asymmetric cryptography is used to:</p>
+  <div class="opts">
+    <button class="opt">Compress the data before the MAC is calculated</button>
+    <button class="opt">Encrypt all the application data for the whole session</button>
+    <button class="opt">Generate the random numbers exchanged in the hello messages</button>
+    <button class="opt" data-ok="1">Transfer the pre-master secret, from which symmetric session keys are derived</button>
+  </div>
+  <p class="why">Asymmetric cryptography is used once, to get a symmetric key across safely; all the bulk data is then encrypted symmetrically because that is roughly a thousand times faster. That hybrid design is the point of the handshake.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A packet-filter firewall cannot:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Block one HTTP request while allowing another on the same port</button>
+    <button class="opt">Filter based on the source and destination IP addresses</button>
+    <button class="opt">Block all inbound traffic destined for port 23</button>
+    <button class="opt">Filter based on which transport protocol is in use</button>
+  </div>
+  <p class="why">It reads headers only — addresses, ports and protocol — so two messages on the same port look identical to it. Distinguishing them needs a proxy firewall, which parses the application content.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Anomaly-based intrusion detection, compared with signature-based:</p>
+  <div class="opts">
+    <button class="opt">Requires the signature database to be updated continuously</button>
+    <button class="opt">Detects only known attacks, but with very few false positives</button>
+    <button class="opt" data-ok="1">Can detect previously unknown attacks, but produces many false positives</button>
+    <button class="opt">Operates on a single host rather than on network traffic</button>
+  </div>
+  <p class="why">Anomaly detection compares against a baseline of normal behaviour, so a novel attack can stand out — but so can unusual legitimate activity, hence the false positives. Signature databases and their updates belong to the other method, and host-versus-network is a separate classification entirely.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Which layer does each security mechanism operate at, and what follows from that?</summary>
+    <p class="ans">Application layer — PGP, protecting one application. Transport layer — SSL/TLS, protecting any TCP application written to call it. Network layer — IPsec, protecting all traffic transparently without applications knowing. The layer determines the scope of protection and whether applications must be modified.</p></details>
+  <details class="card"><summary>Name the four SSL protocols and what each does.</summary>
+    <p class="ans">Handshake — negotiates the cipher suite, authenticates the server, establishes session keys. Record — fragments, compresses, adds a MAC, encrypts, and carries everything else. Change Cipher Spec — one byte signalling that the new keys are now in use. Alert — reports errors and warnings.</p></details>
+  <details class="card"><summary>Describe the four phases of the SSL handshake.</summary>
+    <p class="ans">1. Establish security capabilities — ClientHello and ServerHello exchange version, randoms and cipher suite. 2. Server authentication and key exchange — certificate, optional key exchange, optional certificate request, ServerHelloDone. 3. Client authentication and key exchange — the client verifies the certificate and sends the pre-master secret encrypted with the server's public key. 4. Finish — both derive the master secret and session keys, exchange ChangeCipherSpec and encrypted Finished messages.</p></details>
+  <details class="card"><summary>Why does SSL use both asymmetric and symmetric cryptography?</summary>
+    <p class="ans">Asymmetric is used once to get a symmetric session key across safely, because public keys can be distributed openly. All bulk data is then encrypted symmetrically because that is roughly a thousand times faster. This is the hybrid scheme in practice.</p></details>
+  <details class="card"><summary>Compare AH and ESP.</summary>
+    <p class="ans">AH provides authentication and integrity and also authenticates the outer IP header, but provides no confidentiality; protocol number 51. ESP provides authentication, integrity <em>and</em> encryption, covering the payload only; protocol number 50. ESP is what is actually deployed.</p></details>
+  <details class="card"><summary>Compare IPsec transport and tunnel modes.</summary>
+    <p class="ans">Transport mode protects the IP payload only, adds no new header, is used host to host, and leaves the original addresses visible. Tunnel mode protects the entire original datagram, adds a new outer IP header, is used router to router or host to router, hides the original addresses, and is what VPNs use.</p></details>
+  <details class="card"><summary>What is a Security Association?</summary>
+    <p class="ans">A one-way (simplex) logical connection defining the algorithms, keys and parameters in use — so two are needed for bidirectional communication. It is identified by the Security Parameter Index (SPI), the destination IP address, and the protocol (AH or ESP).</p></details>
+  <details class="card"><summary>Compare packet-filter and proxy firewalls.</summary>
+    <p class="ans">Packet filter works at layers 3 and 4 using IP addresses, ports and protocol; it is fast but sees headers only, so it cannot distinguish two messages on the same port. Proxy works at layer 7 and inspects message content, so it can filter precisely, but it is slow and needs a separate implementation per protocol. Stateful inspection firewalls track connection state so a reply can be told from an unsolicited approach.</p></details>
+  <details class="card"><summary>Distinguish firewall, IDS and IPS.</summary>
+    <p class="ans">A firewall blocks traffic by policy at the perimeter — a locked door. An IDS detects and alerts but stops nothing — a burglar alarm. An IPS detects and actively blocks — an alarm that also bolts the door.</p></details>
+  <details class="card"><summary>Give both IDS classifications.</summary>
+    <p class="ans">By placement: NIDS at a strategic network point, seeing packets for many hosts but blind to encrypted traffic; HIDS on one host, seeing system calls, file changes and logs in detail. By detection method: signature-based, matching known attack patterns — accurate but blind to new attacks; anomaly-based, flagging deviations from a learned baseline — can catch new attacks but produces many false positives.</p></details>
+</div>
+
+<p class="ask">That is the whole syllabus &mdash; forty-two lessons across five units. The one thing still worth asking for is a drill sheet on subnetting, CRC and Hamming; those three are where practice, not reading, converts into marks.</p>
+
+<div class="nav">
+  <a href="0041-network-security-and-cryptography.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

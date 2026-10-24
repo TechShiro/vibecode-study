@@ -1,0 +1,186 @@
+<title>Virtual Memory and Demand Paging</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit III &middot; Lesson 19 of 22</p>
+<h1>Virtual Memory and Demand Paging</h1>
+<p class="deck">Why virtual memory exists, demand paging with lazy swapper, page fault handling, the effective access time formula, and copy-on-write.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain demand paging with page fault handling steps&rdquo;</strong> is a guaranteed 5&ndash;10 marker. The <strong>effective access time numerical</strong> (given page fault rate and access times) is a common calculation.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Demand Paging & 6-Step Page Fault Handling Sequence</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>1. CPU References Logical Page p &bull; Page Table Valid Bit = 0 (Page Fault Trap!)</strong>
+    </div>
+    <div class="flow-arrow-down">&darr; Trap to OS Kernel</div>
+    <div class="flow-box" style="max-width:32rem;">
+      <strong>2. OS verifies legal reference & finds a free physical frame in RAM</strong>
+    </div>
+    <div class="flow-arrow-down">&darr; Disk I/O</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>3. Read missing page from Swap Space on Disk into Free Frame</strong>
+      <span class="sub">4. Update Page Table: Frame = f, Valid Bit = 1 &bull; 5. Restart faulting instruction!</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 17 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Demand Paging & Page Faults</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Virtual Memory & Demand Paging with Page Fault Handling</div>
+    <div class="v-desc">Step-by-step trace of page fault service time, effective access time (EAT = (1-p)*ma + p*fault_time), and lazy swappers.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=o2nSFUVEGks" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Virtual memory concept</h2>
+
+<p>Virtual memory allows a process to use more memory than physically available. Only <strong>needed pages</strong> are in RAM; the rest stay on disk. The OS maintains the illusion of a large contiguous address space.</p>
+
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Programs larger than physical memory can run.</li>
+<li>More processes can be in memory simultaneously (higher multiprogramming).</li>
+<li>Less I/O needed (only load pages when needed).</li>
+</ul>
+
+<h2>Demand paging</h2>
+
+<p><strong>Demand paging = bring a page into memory only when it is referenced.</strong> A <em class="term">lazy swapper</em> (or pager) never swaps in a page unless needed.</p>
+
+<div class="formula">
+  <span class="name">Valid-invalid bit</span>
+  Each page table entry has a <strong>valid-invalid bit</strong>:<br>
+  <strong>Valid (v):</strong> page is in memory.<br>
+  <strong>Invalid (i):</strong> page is on disk (or not part of the address space).<br>
+  Accessing an invalid page triggers a <strong>page fault</strong>.
+</div>
+
+<h2>Page fault handling</h2>
+
+<ol>
+<li>Process references a page marked <strong>invalid</strong> &rarr; <strong>trap to OS</strong> (page fault).</li>
+<li>OS checks: is the reference legal? If not, terminate process.</li>
+<li>Find a <strong>free frame</strong> (or use page replacement to free one).</li>
+<li><strong>Read the page</strong> from disk into the free frame.</li>
+<li>Update the page table: set valid bit, record frame number.</li>
+<li><strong>Restart the instruction</strong> that caused the fault.</li>
+</ol>
+
+<div class="box win">
+  <span class="lbl">Pure demand paging</span>
+  <p>Start a process with <strong>no pages</strong> in memory. Every page is brought in by a page fault. After a while, the working set is in memory and faults become rare &mdash; <strong>locality of reference</strong>.</p>
+</div>
+
+<h2>Effective Access Time (EAT)</h2>
+
+<div class="formula">
+  <span class="name">EAT formula</span>
+  Let p = page fault rate (0 &le; p &le; 1), m = memory access time, f = page fault service time.<br><br>
+  <strong>EAT = (1 &minus; p) &times; m + p &times; f</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; EAT</span>
+  <p>Memory access time = 200 ns. Page fault service time = 8 ms = 8,000,000 ns. Page fault rate = 1/1000 = 0.001.</p>
+  <p>EAT = (1 &minus; 0.001) &times; 200 + 0.001 &times; 8,000,000</p>
+  <p>= 0.999 &times; 200 + 0.001 &times; 8,000,000</p>
+  <p>= 199.8 + 8,000 = <strong>8,199.8 ns</strong></p>
+  <p>Even a 0.1% page fault rate slows memory access by <strong>40&times;</strong>!</p>
+</div>
+
+<h2>Copy-on-Write (COW)</h2>
+
+<p>When a process forks, both parent and child share the same pages (marked read-only). A page is copied <strong>only when one process tries to write</strong> to it. Saves memory and avoids unnecessary copying.</p>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. A page fault occurs when:</p>
+  <div class="opts">
+    <button class="opt">The page table is full</button>
+    <button class="opt" data-ok="1">A referenced page is not in physical memory (valid-invalid bit = invalid)</button>
+    <button class="opt">Two processes access the same page</button>
+    <button class="opt">The TLB is empty</button>
+  </div>
+  <p class="why">Invalid bit means the page is on disk. The OS must bring it into a frame before the process can continue.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The correct page fault handling order is:</p>
+  <div class="opts">
+    <button class="opt">Disk read &rarr; trap &rarr; update &rarr; restart</button>
+    <button class="opt">Check legality &rarr; terminate process</button>
+    <button class="opt" data-ok="1">Trap &rarr; check legality &rarr; find frame &rarr; disk read &rarr; update page table &rarr; restart instruction</button>
+    <button class="opt">Restart &rarr; trap &rarr; disk read &rarr; update</button>
+  </div>
+  <p class="why">The trap comes first (hardware), then the OS validates, finds a frame, reads from disk, updates the table, and restarts.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. EAT with p = 0.01, memory time = 100 ns, fault time = 10 ms is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">0.99 &times; 100 + 0.01 &times; 10,000,000 = 100,099 ns</button>
+    <button class="opt">100 &times; 10,000,000 = 10<sup>9</sup> ns</button>
+    <button class="opt">100 + 10,000,000 = 10,000,100 ns</button>
+    <button class="opt">0.01 &times; 100 = 1 ns</button>
+  </div>
+  <p class="why">EAT = (1-p)&times;m + p&times;f. A 1% fault rate with 10 ms service time makes average access ~100 &mu;s, 1000&times; slower than pure RAM.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Copy-on-write defers page copying until:</p>
+  <div class="opts">
+    <button class="opt">The page is swapped out</button>
+    <button class="opt">The page is read for the first time</button>
+    <button class="opt" data-ok="1">A process writes to the shared page</button>
+    <button class="opt">The process terminates</button>
+  </div>
+  <p class="why">Both processes share the same physical pages after fork. Only when one writes does the OS copy that page.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Locality of reference means:</p>
+  <div class="opts">
+    <button class="opt">Pages are accessed in sequential order only</button>
+    <button class="opt" data-ok="1">Processes tend to access a small set of pages repeatedly over short periods</button>
+    <button class="opt">The OS pre-loads all pages</button>
+    <button class="opt">All pages are accessed equally often</button>
+  </div>
+  <p class="why">Temporal locality (same page accessed again soon) and spatial locality (nearby pages accessed) make demand paging effective.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Six steps of page fault handling.</summary>
+    <p class="ans">1. Trap to OS. 2. Check legality. 3. Find free frame. 4. Read page from disk. 5. Update page table (valid bit). 6. Restart instruction.</p></details>
+  <details class="card"><summary>EAT formula.</summary>
+    <p class="ans">EAT = (1-p) &times; memory_access_time + p &times; page_fault_service_time. Even small p causes huge slowdown because disk is ~10<sup>5</sup>&times; slower than RAM.</p></details>
+  <details class="card"><summary>What is copy-on-write?</summary>
+    <p class="ans">After fork, parent and child share same pages (read-only). Page is copied only when one writes. Saves memory and fork time.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0018-memory-management.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0020-page-replacement-and-thrashing.html">Next: Page Replacement &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

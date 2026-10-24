@@ -1,0 +1,276 @@
+<title>Electronic Mail</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 40 of 42</p>
+<h1>Electronic Mail</h1>
+<p class="deck">The three components, the push-versus-pull split that explains why three protocols are needed, SMTP, POP3 and IMAP4, and MIME. The last application-layer lesson before the security half.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Explain the architecture of e-mail"</strong> or <strong>"Compare SMTP, POP3 and IMAP"</strong> &mdash; 5 to 10 marks. The single insight that organises the whole answer is <strong>push versus pull</strong>: SMTP pushes, POP and IMAP pull. Draw the sender-to-receiver diagram showing where each protocol operates, and the answer writes itself. <strong>MIME</strong> is a separate 3-mark question &mdash; know what problem it solves.</p>
+</div>
+
+<h2>The architecture</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Component</th><th>Full name</th><th>Job</th></tr></thead>
+<tbody>
+<tr><td><strong>UA</strong></td><td>User Agent</td><td>The program the user actually touches &mdash; composing, reading, replying, forwarding, and handling mailboxes. Outlook, Thunderbird, a webmail interface.</td></tr>
+<tr><td><strong>MTA</strong></td><td>Message Transfer Agent</td><td>Moves the message <strong>across the network</strong>, mail server to mail server. This is where <strong>SMTP</strong> operates.</td></tr>
+<tr><td><strong>MAA</strong></td><td>Message Access Agent</td><td>Lets the recipient <strong>retrieve</strong> the message from their mailbox. This is where <strong>POP3</strong> and <strong>IMAP4</strong> operate.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The path of one message &mdash; and which protocol runs where</span>
+  Sender's UA &nbsp;<strong>&mdash;SMTP&rarr;</strong>&nbsp; Sender's mail server &nbsp;<strong>&mdash;SMTP&rarr;</strong>&nbsp; Receiver's mail server &nbsp;<strong>&larr;POP3/IMAP4&mdash;</strong>&nbsp; Receiver's UA<br><br>
+  Note the <strong>direction of the last arrow</strong>. The first two hops <em>push</em>; the last one <em>pulls</em>.
+</div>
+
+<div class="box win">
+  <span class="lbl">Why three protocols and not one &mdash; the key idea</span>
+  <p><strong>SMTP is a push protocol: the sender initiates the transfer.</strong> That works for the first two hops, where the sender has a message and wants it delivered onward.</p>
+  <p><strong>The last hop cannot be a push</strong>, because the recipient's machine may be switched off, may be behind a firewall, or may not have a fixed address. So the last hop must be a <strong>pull</strong>: the recipient asks their own mail server for mail whenever they are ready. <strong>That is why POP3 and IMAP4 exist and why SMTP alone is not enough.</strong> Say this sentence; it is the whole architecture in one line.</p>
+</div>
+
+<h2>SMTP &mdash; Simple Mail Transfer Protocol</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Port and transport</strong></td><td><strong>25</strong>, over TCP</td></tr>
+<tr><td><strong>Direction</strong></td><td><strong>Push</strong> &mdash; used twice: UA to sender's server, and server to server</td></tr>
+<tr><td><strong>Message format</strong></td><td>Commands and responses in <strong>NVT ASCII</strong> text &mdash; human readable</td></tr>
+<tr><td><strong>Limitation</strong></td><td>Handles <strong>7-bit ASCII only</strong>, which is exactly the problem MIME solves</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three phases</h3>
+
+<div class="formula">
+  <span class="name">An SMTP session</span>
+  <strong>1. Connection establishment</strong> &mdash; TCP connects to port 25; the server sends code <strong>220</strong> (service ready); the client sends <strong>HELO</strong> / <strong>EHLO</strong>; the server replies <strong>250</strong> (OK).<br>
+  <strong>2. Message transfer</strong> &mdash; <strong>MAIL FROM</strong> (the sender), <strong>RCPT TO</strong> (each recipient, one command each), <strong>DATA</strong>, then the message, ended by a <strong>line containing only a full stop</strong>.<br>
+  <strong>3. Connection termination</strong> &mdash; <strong>QUIT</strong>, and the server replies <strong>221</strong> (closing).
+</div>
+
+<p>Two details that are asked: <strong>a separate RCPT TO is sent for each recipient</strong>, so the server can accept some and reject others; and <strong>the message body ends with a line containing a single dot</strong>, which is why a line of the message that is itself a single dot must be escaped.</p>
+
+<h3>Mail relaying and mail gateways</h3>
+
+<ul>
+<li><strong>Relaying</strong> &mdash; an SMTP server forwarding mail towards another server rather than delivering it locally. <strong>Open relays</strong> (which relay for anyone) are now closed everywhere, because spammers abused them.</li>
+<li><strong>Mail gateway</strong> &mdash; a relay that also <strong>translates between different mail formats</strong>, connecting an SMTP world to a non-SMTP one.</li>
+</ul>
+
+<h2>MIME &mdash; Multipurpose Internet Mail Extensions</h2>
+
+<p><strong>The problem:</strong> SMTP was designed for <strong>7-bit ASCII text only</strong>. It cannot carry an image, a PDF, an executable, or text in a language whose characters are not in ASCII.</p>
+
+<div class="formula">
+  <span class="name">What MIME does</span>
+  MIME is <strong>not a mail protocol and does not replace SMTP</strong>. It is a <strong>supplementary protocol</strong> that <strong>converts non-ASCII data into ASCII at the sender and back again at the receiver</strong>, so that ordinary SMTP can carry it unchanged.
+</div>
+
+<p>That framing &mdash; a converter wrapped around SMTP rather than a replacement for it &mdash; is the point examiners look for.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>MIME header</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>MIME-Version</strong></td><td>The version, currently 1.1</td></tr>
+<tr><td><strong>Content-Type</strong></td><td>The <strong>type and subtype</strong> of the data &mdash; <code>text/plain</code>, <code>text/html</code>, <code>image/jpeg</code>, <code>audio/mpeg</code>, <code>video/mp4</code>, <code>application/pdf</code>, <code>multipart/mixed</code></td></tr>
+<tr><td><strong>Content-Transfer-Encoding</strong></td><td><strong>How the data was encoded into ASCII</strong> &mdash; <code>7bit</code>, <code>8bit</code>, <code>binary</code>, <strong><code>base64</code></strong> (binary to printable ASCII, expanding by about 33%), <strong><code>quoted-printable</code></strong> (mostly ASCII with occasional non-ASCII characters escaped)</td></tr>
+<tr><td><strong>Content-Id</strong></td><td>A unique identifier for the message part</td></tr>
+<tr><td><strong>Content-Description</strong></td><td>A human-readable description of what the part contains</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Base64 versus quoted-printable</strong> is a common sub-question: <strong>base64 for data that is mostly non-ASCII</strong> (images, executables), <strong>quoted-printable for data that is mostly ASCII with a few special characters</strong> (European-language text). Choosing the wrong one wastes space rather than failing outright.</p>
+
+<h2>POP3 and IMAP4</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>POP3</th><th>IMAP4</th></tr></thead>
+<tbody>
+<tr><td><strong>Full name</strong></td><td>Post Office Protocol version 3</td><td>Internet Mail Access Protocol version 4</td></tr>
+<tr><td><strong>Port</strong></td><td class="num">110</td><td class="num">143</td></tr>
+<tr><td><strong>Where mail is stored</strong></td><td><strong>Downloaded to the client</strong>; by default deleted from the server</td><td><strong>Kept on the server</strong>; the client works with it remotely</td></tr>
+<tr><td><strong>Multiple devices</strong></td><td><strong>Poor</strong> &mdash; mail downloaded on one device is not on the others</td><td><strong>Excellent</strong> &mdash; every device sees the same synchronised mailbox</td></tr>
+<tr><td><strong>Partial download</strong></td><td>No &mdash; the whole message must be downloaded</td><td><strong>Yes</strong> &mdash; a user can read the header, or one part of a multipart message, before deciding to download</td></tr>
+<tr><td><strong>Search</strong></td><td>Not possible on the server</td><td><strong>Can search the server</strong> before downloading</td></tr>
+<tr><td><strong>Folders / mailboxes</strong></td><td>Not supported on the server</td><td><strong>Can create, delete and rename mailboxes</strong> on the server</td></tr>
+<tr><td><strong>Modes</strong></td><td><strong>Delete mode</strong> (removed after download) and <strong>keep mode</strong> (retained)</td><td>Always retained unless deleted explicitly</td></tr>
+<tr><td><strong>Complexity / storage</strong></td><td>Simple; little server storage needed</td><td>More complex; <strong>needs substantial server storage</strong></td></tr>
+<tr><td><strong>Offline working</strong></td><td><strong>Good</strong> &mdash; mail is local</td><td>Needs a connection, unless the client caches</td></tr>
+<tr><td><strong>Best for</strong></td><td>One device, limited server storage</td><td><strong>Several devices &mdash; the normal case today</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The one-line distinction</span>
+  <p><strong>POP3 downloads and (by default) deletes; IMAP4 leaves the mail on the server and synchronises.</strong> Everything else in the table follows from that: multi-device support, server search, folders and partial download are all consequences of the mail staying on the server.</p>
+</div>
+
+<h3>Web-based mail</h3>
+
+<p>In webmail (Gmail, Outlook.com), the last hop uses neither POP3 nor IMAP4 &mdash; it uses <strong>HTTP</strong>. The mail server also runs a web server; the browser fetches messages over HTTP and the mail never leaves the provider's storage. <strong>SMTP is still used for the first two hops.</strong> One line on this is a good modern addition, and it shows the architecture is understood rather than memorised.</p>
+
+<div class="solve">
+  <span class="lbl">Worked walkthrough &mdash; one message end to end</span>
+  <p><strong>Q.</strong> Trace an e-mail with a JPEG attachment from <code>alice@a.com</code> to <code>bob@b.com</code>, naming the protocol and port at each step.</p>
+
+  <ol>
+    <li><strong>Alice's UA prepares the message.</strong> The JPEG is not ASCII, so <strong>MIME</strong> encodes it with <strong>base64</strong> and adds Content-Type: <code>image/jpeg</code> and Content-Transfer-Encoding: <code>base64</code>. The message is now entirely 7-bit ASCII.</li>
+    <li><strong>UA &rarr; a.com's mail server</strong> using <strong>SMTP, port 25</strong> &mdash; a push. Commands: HELO, MAIL FROM, RCPT TO, DATA, the message, a lone dot, QUIT.</li>
+    <li><strong>a.com's server looks up b.com's mail server</strong> by asking DNS for the <strong>MX record</strong> of b.com.</li>
+    <li><strong>a.com &rarr; b.com</strong> using <strong>SMTP, port 25</strong> &mdash; a push again. The message is placed in Bob's mailbox.</li>
+    <li><strong>Bob's UA &larr; b.com</strong> using <strong>IMAP4 port 143</strong> (or POP3 port 110) &mdash; a <strong>pull</strong>, whenever Bob chooses to check.</li>
+    <li><strong>Bob's UA decodes the base64</strong> back into the original JPEG using the MIME headers.</li>
+  </ol>
+
+  <p><em>Three things worth pointing out in an answer:</em> <strong>SMTP appears twice and always pushes</strong>; <strong>DNS is required in the middle</strong>, via the MX record, which is why Lesson 36 comes first; and <strong>MIME encodes at the very start and decodes at the very end</strong>, with everything in between handling plain ASCII.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Electronic Mail Architecture: Push vs Pull Protocol Pipeline</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>Sender MUA</strong><span class="sub">Mail Client</span></div>
+    <div class="flow-arrow-right">&rarr; SMTP (Port 25/587) [Push] &rarr;</div>
+    <div class="flow-box highlight"><strong>Sender Mail Server</strong><span class="sub">Message Queue (MTA)</span></div>
+    <div class="flow-arrow-right">&rarr; SMTP (Port 25) [Push] &rarr;</div>
+    <div class="flow-box ok"><strong>Receiver Mail Server</strong><span class="sub">User Mailbox (MTA)</span></div>
+    <div class="flow-arrow-right">&rarr; POP3 (110) / IMAP (143) [Pull] &rarr;</div>
+    <div class="flow-box"><strong>Receiver MUA</strong><span class="sub">Recipient Client</span></div>
+  </div>
+  <div class="flow-col" style="margin-top:0.6rem;">
+    <div class="flow-box" style="max-width:32rem;"><strong>MIME (Multipurpose Internet Mail Extensions)</strong><span class="sub">Enables transfer of non-ASCII text, images, audio, video attachments using Base64 encoding</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">E-Mail Protocols</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-85: SMTP vs POP3 vs IMAP with Real-Life Examples</div>
+    <div class="v-desc">Masterclass explaining why SMTP is push-only, why pull protocols (POP3/IMAP) are required at the receiver, and POP3 vs IMAP server synchronization.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=cjPVlxmf_Vk" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. SMTP cannot be used for the final hop to the recipient because:</p>
+  <div class="opts">
+    <button class="opt">It cannot carry attachments or non-ASCII characters</button>
+    <button class="opt">Port 25 is blocked by most residential networks</button>
+    <button class="opt" data-ok="1">It is a push protocol, and the recipient's machine may be switched off</button>
+    <button class="opt">It has no way to authenticate the receiving user</button>
+  </div>
+  <p class="why">A push requires the destination to be reachable and listening. A recipient's machine may be off, mobile or firewalled, so the last hop must be a pull the recipient initiates — which is exactly why POP3 and IMAP4 exist.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. MIME's role is to:</p>
+  <div class="opts">
+    <button class="opt">Replace SMTP with a protocol that handles binary data</button>
+    <button class="opt">Encrypt attachments so they cannot be read in transit</button>
+    <button class="opt" data-ok="1">Convert non-ASCII data to ASCII so SMTP can carry it unchanged</button>
+    <button class="opt">Retrieve mail from the server on the recipient's behalf</button>
+  </div>
+  <p class="why">MIME is a supplementary protocol, not a replacement: it encodes at the sender and decodes at the receiver, leaving SMTP to move plain ASCII as it always did. It provides no encryption at all.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The principal advantage of IMAP4 over POP3 is that IMAP4:</p>
+  <div class="opts">
+    <button class="opt">Downloads mail faster because it uses a smaller header</button>
+    <button class="opt">Works offline whereas POP3 requires a live connection</button>
+    <button class="opt">Encrypts the mailbox contents while POP3 does not</button>
+    <button class="opt" data-ok="1">Keeps mail on the server, so several devices see the same mailbox</button>
+  </div>
+  <p class="why">Server-side storage is the root difference, and multi-device sync, server search, folders and partial download all follow from it. Offline working is POP3's advantage, since the mail is already local.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which SMTP command is sent once per recipient?</p>
+  <div class="opts">
+    <button class="opt">DATA</button>
+    <button class="opt">HELO</button>
+    <button class="opt" data-ok="1">RCPT TO</button>
+    <button class="opt">MAIL FROM</button>
+  </div>
+  <p class="why">One RCPT TO per recipient, so the server can accept some and reject others individually. MAIL FROM names the single sender, DATA introduces the body, and HELO opens the session once.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Base64 rather than quoted-printable should be used when the data is:</p>
+  <div class="opts">
+    <button class="opt">Mostly ASCII with a few accented characters</button>
+    <button class="opt">To be compressed before it is transmitted</button>
+    <button class="opt" data-ok="1">Mostly non-ASCII, such as an image or an executable</button>
+    <button class="opt">Already 7-bit ASCII and needs no encoding</button>
+  </div>
+  <p class="why">Base64 expands everything by about a third but handles arbitrary binary. Quoted-printable leaves ASCII untouched and escapes only the occasional special character, so it is far more compact for European-language text. The wrong choice wastes space rather than failing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Before delivering to another domain, a sending mail server must consult DNS for:</p>
+  <div class="opts">
+    <button class="opt">The PTR record of the destination domain</button>
+    <button class="opt">The CNAME record of the sending domain</button>
+    <button class="opt">The SOA record of the root name server</button>
+    <button class="opt" data-ok="1">The MX record of the destination domain</button>
+  </div>
+  <p class="why">MX names the mail exchange server for a domain, with a preference value so several can be ranked. PTR does reverse lookups, CNAME defines aliases, and SOA carries zone parameters.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the three e-mail components and the protocol each uses.</summary>
+    <p class="ans">User Agent (UA) — composing and reading. Message Transfer Agent (MTA) — moves mail across the network, using SMTP. Message Access Agent (MAA) — retrieves mail from the mailbox, using POP3 or IMAP4.</p></details>
+  <details class="card"><summary>Trace the path of an e-mail, naming the protocol at each hop.</summary>
+    <p class="ans">Sender's UA —SMTP→ sender's mail server —SMTP→ receiver's mail server ←POP3/IMAP4— receiver's UA. The first two hops push; the last one pulls.</p></details>
+  <details class="card"><summary>Why can the last hop not use SMTP?</summary>
+    <p class="ans">SMTP is a push protocol, requiring the destination to be reachable and listening. The recipient's machine may be switched off, mobile or firewalled, so the last hop must be a pull that the recipient initiates whenever they are ready.</p></details>
+  <details class="card"><summary>Describe the three phases of an SMTP session.</summary>
+    <p class="ans">Connection establishment — TCP to port 25, server sends 220, client sends HELO/EHLO, server replies 250. Message transfer — MAIL FROM, one RCPT TO per recipient, DATA, the message, ended by a line containing only a full stop. Termination — QUIT, server replies 221.</p></details>
+  <details class="card"><summary>What is MIME and what problem does it solve?</summary>
+    <p class="ans">SMTP handles 7-bit ASCII only, so it cannot carry images, PDFs, executables or non-ASCII text. MIME is a supplementary protocol — not a replacement — that converts non-ASCII data into ASCII at the sender and back at the receiver, so ordinary SMTP carries it unchanged.</p></details>
+  <details class="card"><summary>Name the five MIME headers.</summary>
+    <p class="ans">MIME-Version, Content-Type (type/subtype), Content-Transfer-Encoding (7bit, 8bit, binary, base64, quoted-printable), Content-Id, Content-Description.</p></details>
+  <details class="card"><summary>Give six differences between POP3 and IMAP4.</summary>
+    <p class="ans">Port 110 vs 143; mail downloaded and usually deleted vs kept on the server; poor vs excellent multi-device support; no partial download vs partial download of headers or parts; no server-side search or folders vs both supported; simple with little server storage vs more complex needing substantial storage. POP3 works better offline.</p></details>
+  <details class="card"><summary>Which protocol does webmail use for the last hop?</summary>
+    <p class="ans">HTTP — the mail server also runs a web server and the browser fetches messages over HTTP, so the mail never leaves the provider. SMTP is still used for the first two hops.</p></details>
+</div>
+
+<p class="ask">The application layer is done. The last two lessons are the security half &mdash; cryptography with a worked RSA numerical, then SSL, IPsec, firewalls and IDS.</p>
+
+<div class="nav">
+  <a href="0039-www-and-http.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0041-network-security-and-cryptography.html">Next: Security and Cryptography &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

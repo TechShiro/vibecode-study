@@ -1,0 +1,308 @@
+<title>Digital Signature</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit II &middot; Lesson 10 of 14</p>
+<h1>Digital Signature</h1>
+<p class="deck">The process, the properties a signature must have, why the digest is signed rather than the message, direct versus arbitrated signatures, and the comparison tables against MAC and against a handwritten signature.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Near-certain 10-mark question: <strong>&ldquo;What is a digital signature? Explain the signing and verification process with a diagram.&rdquo;</strong> The diagram carries half the marks &mdash; draw <strong>hash &rarr; encrypt with private key &rarr; send M + signature &rarr; hash again, decrypt with public key, compare</strong>. Add the <strong>three services (authentication, integrity, non-repudiation)</strong> and the sentence <strong>&ldquo;signing gives no confidentiality unless the message is separately encrypted&rdquo;</strong>. The MAC-versus-signature table is the standard follow-up.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Digital Signature Principles &amp; Process</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=y6e70OKHg7c" target="_blank">Digital Signature Explained: Signing vs Verification &amp; Security Services</a>
+    <span class="v-meta">Abhishek Sharma &middot; 12:54</span>
+    <div class="v-why">High-scoring lecture detailing message hashing, signing with private key, public verification, and the three core services: message authentication, data integrity, and non-repudiation.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Direct vs Arbitrated Digital Signatures</span>
+      <span class="best-tag">Top Exam Theory</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=F9vKJDo-A1I" target="_blank">Digital Signature Explained | Process, Security Services &amp; Attacks</a>
+    <span class="v-meta">T V Nagaraju Technical &middot; 16:17</span>
+    <div class="v-why">Comprehensive contrast of direct peer-to-peer verification versus arbitrated architectures involving timestamps and trusted authorities to prevent sender repudiation.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: SIGNATURE WORKFLOW -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Canonical Digital Signature Protocol</span>
+  <div class="flow-col">
+    <div class="flow-row" style="gap:2rem;">
+      <!-- Alice -->
+      <div style="border:1.5px solid var(--accent); border-radius:6px; padding:1rem; background:var(--panel); min-width:14rem;">
+        <div style="text-align:center; font-weight:700; color:var(--accent); font-size:0.85rem; text-transform:uppercase;">Signer (Alice)</div>
+        <div class="flow-col" style="margin-top:0.4rem;">
+          <div class="flow-box"><strong>Message $M$</strong></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box highlight"><strong>Hash $H(M)$</strong></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box warn"><strong>Sign: $S = E(PR_A, H(M))$</strong><span class="sub">Alice's PRIVATE Key</span></div>
+        </div>
+      </div>
+      <!-- Bob -->
+      <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--panel); min-width:14rem;">
+        <div style="text-align:center; font-weight:700; color:var(--ok); font-size:0.85rem; text-transform:uppercase;">Verifier (Bob)</div>
+        <div class="flow-col" style="margin-top:0.4rem;">
+          <div class="flow-box"><strong>Received $(M, S)$</strong></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box highlight"><strong>Decrypt: $D(PU_A, S)$</strong><span class="sub">Alice's PUBLIC Key</span></div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box ok"><strong>Compare with $H(M)$</strong><span class="sub">Match = Authentic</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>The gap a MAC leaves</h2>
+
+<p>Unit I ended with a MAC: integrity plus source authentication, from a key both parties hold. <strong>That shared key is the problem.</strong> Since the receiver can produce any tag the sender can, the receiver cannot prove to a judge that the sender wrote the message &mdash; and the sender can deny it. A dispute between the two parties is unresolvable.</p>
+
+<div class="box">
+  <span class="lbl">The definition to write</span>
+  <p>A <strong>digital signature</strong> is a value computed from a message using the <strong>signer&rsquo;s private key</strong>, which anyone can verify with the corresponding <strong>public key</strong>. Because only the signer holds the private key, a valid signature proves the message came from them and has not changed &mdash; and proves it <strong>to a third party</strong>, which is what makes it a signature rather than a checksum.</p>
+</div>
+
+<h2>The process</h2>
+
+<div class="formula">
+  <span class="name">Signing and verification</span>
+  <strong>SIGNING (sender):</strong> &nbsp; h = H(M) &nbsp;&rarr;&nbsp; <strong>S = E<sub>K<sub>private</sub></sub>(h)</strong> &nbsp;&rarr;&nbsp; send <strong>M &#8214; S</strong><br><br>
+  <strong>VERIFICATION (receiver):</strong> &nbsp; h<sub>1</sub> = H(M&prime;) &nbsp;and&nbsp; <strong>h<sub>2</sub> = D<sub>K<sub>public</sub></sub>(S)</strong><br>
+  <strong>h<sub>1</sub> = h<sub>2</sub> &rarr; signature valid.</strong> Otherwise reject.
+</div>
+
+<div class="box win">
+  <span class="lbl">The rule that decides every public-key question</span>
+  <p><strong>Encrypt with the key of the person who must be the only one able to do it.</strong> For <em>confidentiality</em> use the <strong>receiver&rsquo;s public key</strong> &mdash; only they can decrypt. For a <em>signature</em> use the <strong>sender&rsquo;s private key</strong> &mdash; only they can sign, and everyone can check. Getting these the wrong way round is the single commonest error in this topic.</p>
+</div>
+
+<h3>Why the digest is signed, not the message</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Reason</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Speed</strong></td><td>Asymmetric encryption is roughly a thousand times slower than hashing. Signing a 100 MB file means encrypting a <strong>512-bit digest</strong>, not 100 MB.</td></tr>
+<tr><td><strong>Size</strong></td><td>The signature stays short and fixed-length whatever the message size.</td></tr>
+<tr><td><strong>Block limits</strong></td><td>RSA can only encrypt a value smaller than the modulus; a long message would have to be split and each block signed separately.</td></tr>
+<tr><td><strong>Security</strong></td><td>Signing raw message blocks exposes RSA&rsquo;s multiplicative property, which allows forgery (Lesson 11). Hashing first destroys that structure.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The four steps as a diagram</h3>
+
+<div class="solve">
+  <span class="lbl">Draw it exactly like this</span>
+  <p><strong>Sender side:</strong> M &rarr; [Hash] &rarr; h &rarr; [Encrypt with sender&rsquo;s <strong>private</strong> key] &rarr; S. Transmit M and S together.</p>
+  <p><strong>Receiver side:</strong> the received M&prime; &rarr; [Hash] &rarr; h<sub>1</sub>; in parallel, S &rarr; [Decrypt with sender&rsquo;s <strong>public</strong> key] &rarr; h<sub>2</sub>. Both feed a <strong>comparator</strong>.</p>
+  <p><strong>Label the comparator&rsquo;s two outputs</strong> &mdash; equal means accept (authentic, unaltered, undeniable); unequal means reject. Examiners look for that comparator.</p>
+</div>
+
+<h2>What a signature provides &mdash; and what it does not</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Service</th><th>Provided?</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Message authentication</strong></td><td><strong>Yes</strong></td><td>Only the private key holder could have produced a signature that verifies</td></tr>
+<tr><td><strong>Message integrity</strong></td><td><strong>Yes</strong></td><td>Any change to M changes the recomputed digest</td></tr>
+<tr><td><strong>Non-repudiation</strong></td><td><strong>Yes</strong></td><td>The receiver cannot forge it, so the sender cannot credibly deny it &mdash; usually with a trusted third party holding the certificate</td></tr>
+<tr><td><strong>Confidentiality</strong></td><td><strong>NO</strong></td><td><strong>The message travels in the clear.</strong> For secrecy, encrypt separately with the receiver&rsquo;s public key</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Signature <em>then</em> encryption is the usual order: <strong>sign the message, then encrypt {M, S} with the receiver&rsquo;s public key</strong> &mdash; so that the signature is not exposed and the receiver knows who signed the plaintext they actually read.</p>
+
+<h3>Requirements of a digital signature scheme</h3>
+
+<ul>
+<li>The signature must be a <strong>bit pattern that depends on the message being signed</strong> &mdash; it cannot be a fixed token.</li>
+<li>It must use <strong>information unique to the sender</strong>, to prevent forgery and denial.</li>
+<li>It must be <strong>relatively easy to produce, easy to verify and easy to recognise</strong>.</li>
+<li>It must be <strong>computationally infeasible to forge</strong> &mdash; either by constructing a new message for an existing signature, or a fraudulent signature for a given message.</li>
+<li>It must be <strong>practical to retain a copy</strong> of the signature in storage, for later dispute resolution.</li>
+</ul>
+
+<h2>Direct versus arbitrated signatures</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Direct digital signature</th><th>Arbitrated digital signature</th></tr></thead>
+<tbody>
+<tr><td><strong>Parties</strong></td><td>Only sender and receiver</td><td>Sender, receiver and a <strong>trusted arbiter</strong></td></tr>
+<tr><td><strong>How it works</strong></td><td>Sender signs with their private key; receiver verifies with the public key</td><td>Every signed message goes <strong>through the arbiter</strong>, who checks it, dates it and forwards it with their own attestation</td></tr>
+<tr><td><strong>Weakness it has</strong></td><td>Rests entirely on the <strong>sender&rsquo;s private key staying secret</strong>. A sender can <strong>falsely claim their key was stolen</strong> and repudiate a genuine signature. A stolen key allows backdated forgeries.</td><td>The arbiter must be <strong>completely trusted</strong> and becomes a bottleneck and a single point of failure</td></tr>
+<tr><td><strong>Remedy</strong></td><td>Include a <strong>timestamp</strong>, and report compromised keys to a central authority at once</td><td>&mdash;</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Two approaches to building the signature</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>RSA approach</th><th>DSS approach</th></tr></thead>
+<tbody>
+<tr><td><strong>What is sent</strong></td><td>M and one value: <strong>E<sub>PR</sub>[H(M)]</strong></td><td>M and <strong>a pair (r, s)</strong></td></tr>
+<tr><td><strong>Verification</strong></td><td><strong>Recovers the digest</strong> from the signature and compares</td><td><strong>Cannot recover the digest</strong>; recomputes a value v and checks v = r</td></tr>
+<tr><td><strong>Randomness</strong></td><td>Deterministic &mdash; the same message always signs the same way</td><td><strong>Uses a fresh random k per signature</strong>, so the same message signs differently each time</td></tr>
+<tr><td><strong>Also usable for encryption?</strong></td><td><strong>Yes</strong></td><td><strong>No &mdash; signature only</strong></td></tr>
+<tr><td><strong>Examples</strong></td><td>RSA (Lesson 12)</td><td>ElGamal, Schnorr, DSA, ECDSA (Lessons 12&ndash;14)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>This split is the frame for the next four lessons, and drawing the <strong>two side-by-side block diagrams</strong> is itself a standard exam question.</p>
+
+<h2>Digital signature versus MAC</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>MAC</th><th>Digital signature</th></tr></thead>
+<tbody>
+<tr><td><strong>Cryptography</strong></td><td>Symmetric &mdash; one shared key</td><td><strong>Asymmetric</strong> &mdash; private key signs, public key verifies</td></tr>
+<tr><td><strong>Who can verify</strong></td><td>Only the holder of the shared key</td><td><strong>Anyone</strong> with the public key</td></tr>
+<tr><td><strong>Non-repudiation</strong></td><td>No</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Fast</strong></td><td>Slow</td></tr>
+<tr><td><strong>Key distribution</strong></td><td>Needs a secure channel to share the key</td><td>Public key is published; needs a <strong>certificate</strong> to bind it to an identity</td></tr>
+<tr><td><strong>Typical use</strong></td><td>Per-packet integrity inside TLS or IPsec</td><td>Certificates, contracts, software and code signing</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Digital signature versus handwritten signature</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Handwritten</th><th>Digital</th></tr></thead>
+<tbody>
+<tr><td>The <strong>same mark on every document</strong></td><td><strong>Different for every message</strong> &mdash; it is a function of the content</td></tr>
+<tr><td>Physically part of the document</td><td>A separate value transmitted alongside</td></tr>
+<tr><td>Verified by comparison with a specimen &mdash; subjective</td><td>Verified by computation &mdash; <strong>an exact yes or no</strong></td></tr>
+<tr><td>Copying it is a forgery that may pass inspection</td><td>Copying it onto another message <strong>always fails verification</strong></td></tr>
+<tr><td>Cannot detect a later alteration of the document</td><td><strong>Detects any alteration</strong>, of even a single bit</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Legal note worth one line in an applications answer: in India the <strong>Information Technology Act, 2000</strong> gives digital signatures legal recognition, and <strong>Digital Signature Certificates (DSC)</strong> issued by licensed CAs are used for income-tax e-filing, GST, MCA filings and e-tendering.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. A digital signature is created by encrypting the message digest with:</p>
+  <div class="opts">
+    <button class="opt">A secret key shared in advance by the sender and the receiver</button>
+    <button class="opt">The receiver's private key, held in escrow by a trusted authority</button>
+    <button class="opt" data-ok="1">The sender's private key, so that anyone may verify it with the public key</button>
+    <button class="opt">The receiver's public key, so that only the receiver may verify it</button>
+  </div>
+  <p class="why">Only the sender holds the private key, which is what makes the signature unforgeable and undeniable. Encrypting with the receiver's public key would give confidentiality instead.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Digital signatures sign the digest rather than the message chiefly because:</p>
+  <div class="opts">
+    <button class="opt">The digest is encrypted, which also keeps the message confidential</button>
+    <button class="opt">A message may be too large to fit inside a single network packet</button>
+    <button class="opt" data-ok="1">Asymmetric encryption is slow, and the digest is small and fixed in size</button>
+    <button class="opt">Hash functions can be reversed to recover the original message</button>
+  </div>
+  <p class="why">Speed and size are the main reasons, with RSA's block limit and its multiplicative property behind them. Signing gives no confidentiality at all.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A digital signature provides all of the following except:</p>
+  <div class="opts">
+    <button class="opt">Authentication of the identity of the sender</button>
+    <button class="opt" data-ok="1">Confidentiality of the message being signed</button>
+    <button class="opt">Integrity of the message as it was transmitted</button>
+    <button class="opt">Non-repudiation of the message by its sender</button>
+  </div>
+  <p class="why">The message travels in the clear beside its signature. For secrecy, encrypt {M, S} with the receiver's public key after signing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The main weakness of a direct digital signature scheme is that:</p>
+  <div class="opts">
+    <button class="opt">The arbiter can read every message that passes through the system</button>
+    <button class="opt" data-ok="1">A sender may falsely claim their private key was stolen and repudiate a genuine signature</button>
+    <button class="opt">Verification requires a secure channel between sender and receiver</button>
+    <button class="opt">The receiver must hold a copy of the sender's private key to verify</button>
+  </div>
+  <p class="why">Its whole validity rests on the private key staying secret, and there is no third party to fix the time of signing. Timestamps and prompt reporting of compromise are the usual remedies.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Compared with the RSA approach, the DSS approach to signing:</p>
+  <div class="opts">
+    <button class="opt">Is deterministic, so the same message always signs identically</button>
+    <button class="opt">Produces one value from which the digest is recovered and compared</button>
+    <button class="opt" data-ok="1">Produces a pair (r, s) and cannot recover the digest during verification</button>
+    <button class="opt">Can also be used to encrypt messages for confidentiality</button>
+  </div>
+  <p class="why">DSS-style schemes use a fresh random k per signature, output two values, and verify by recomputing v and testing v = r. They cannot be used for encryption.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A MAC cannot replace a digital signature because:</p>
+  <div class="opts">
+    <button class="opt">It cannot detect modification of the message during transmission</button>
+    <button class="opt">It is far slower to compute than a public key signature</button>
+    <button class="opt" data-ok="1">Its key is shared, so the receiver could have produced the tag themselves</button>
+    <button class="opt">It produces a variable-length tag that cannot be stored for disputes</button>
+  </div>
+  <p class="why">Symmetry destroys non-repudiation: a judge cannot tell sender from receiver. Only the asymmetry of a private key resolves a dispute.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a digital signature.</summary>
+    <p class="ans">A value computed from a message using the signer&rsquo;s private key, verifiable by anyone holding the matching public key. Because only the signer has the private key, a valid signature proves the message came from them and has not been altered, and proves it to a third party.</p></details>
+  <details class="card"><summary>Give the signing and verification procedures.</summary>
+    <p class="ans">Signing: hash the message to get h, encrypt h with the sender&rsquo;s private key to get S, and transmit M with S. Verification: hash the received message to get h₁, decrypt S with the sender&rsquo;s public key to get h₂, and compare. Equal digests mean the signature is valid.</p></details>
+  <details class="card"><summary>Why is the digest signed rather than the message?</summary>
+    <p class="ans">Asymmetric encryption is about a thousand times slower than hashing, so signing a fixed 512-bit digest is far cheaper; the signature stays short; RSA can only encrypt values below the modulus; and hashing destroys the algebraic structure that would otherwise permit forgery through RSA&rsquo;s multiplicative property.</p></details>
+  <details class="card"><summary>What services does a digital signature provide, and which does it not?</summary>
+    <p class="ans">It provides message authentication, message integrity and non-repudiation. It does not provide confidentiality — the message travels in the clear, so it must be separately encrypted with the receiver&rsquo;s public key if secrecy is needed.</p></details>
+  <details class="card"><summary>List the requirements of a digital signature scheme.</summary>
+    <p class="ans">The signature must depend on the message being signed; it must use information unique to the sender; it must be relatively easy to produce, verify and recognise; it must be computationally infeasible to forge either by making a new message for an old signature or a new signature for a given message; and it must be practical to store a copy for later disputes.</p></details>
+  <details class="card"><summary>Distinguish direct from arbitrated digital signatures.</summary>
+    <p class="ans">A direct signature involves only sender and receiver and depends entirely on the sender&rsquo;s private key staying secret — the sender can falsely claim theft and repudiate, and a stolen key allows backdated forgery, which timestamps partly address. An arbitrated signature routes every message through a trusted arbiter who validates, dates and forwards it, at the cost of requiring complete trust in that arbiter.</p></details>
+  <details class="card"><summary>Give five differences between a MAC and a digital signature.</summary>
+    <p class="ans">Symmetric versus asymmetric cryptography; verifiable only by the key holder versus by anyone; no non-repudiation versus non-repudiation; fast versus slow; and a key needing a secure channel versus a public key needing a certificate. MACs protect packets inside TLS and IPsec; signatures secure certificates, contracts and code.</p></details>
+</div>
+
+<p class="ask">Next: the attacks &mdash; what an adversary is actually allowed to do, the four levels of forgery, and the specific attacks on RSA signatures worked with numbers.</p>
+
+<div class="nav">
+  <a href="0009-ecc-cryptosystems.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0011-attacks-on-digital-signatures.html">Next: Attacks on Digital Signatures &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

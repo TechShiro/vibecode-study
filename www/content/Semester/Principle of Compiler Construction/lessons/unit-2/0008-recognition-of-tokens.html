@@ -1,0 +1,421 @@
+<title>Recognition of Tokens</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit II &middot; Lesson 8 of 10</p>
+<h1>Recognition of Tokens &mdash; Transition Diagrams, NFA and the Subset Construction</h1>
+<p class="deck">Transition diagrams for real tokens, finite automata compared, Thompson's construction from a regular expression to an NFA, and the subset construction from NFA to DFA &mdash; both worked in full on (a|b)*abb.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>This is the highest-value lesson in Unit II, and it is entirely mechanical.</strong> Two guaranteed questions: <strong>&ldquo;Convert the given regular expression to an NFA using Thompson's construction&rdquo;</strong> and <strong>&ldquo;Convert the NFA to a DFA using the subset construction&rdquo;</strong> &mdash; often as one question in two parts on the same expression. The marks are in the working: <strong>number every NFA state</strong>, and for the subset construction <strong>show the &epsilon;-closure of every set you form</strong> and lay the answer out as a transition table with named states A, B, C&hellip; Learn <strong>(a|b)*abb</strong> by heart &mdash; it is the example in Aho, so it is the example your examiner will set.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Thompson's Construction (RE &rarr; NFA)</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=LT3wwkpt7ak" target="_blank">Thompson Construction (Regular Expression to NFA)</a>
+    <span class="v-meta">CSE concepts with Parinita &middot; 7:24</span>
+    <div class="v-why">Step-by-step structural rules converting basic symbols, union (|), concatenation, and Kleene closure (*) into NFA states with &epsilon;-transitions.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Subset Construction on (a|b)*abb</span>
+      <span class="best-tag">Exact Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=HWiX08FF1us" target="_blank">Subset Construction method NFA to DFA conversion example (a|b)*abb</a>
+    <span class="v-meta">CSE concepts with Parinita &middot; 16:28</span>
+    <div class="v-why">Works through the exact Dragon Book example with every &epsilon;-closure calculation shown explicitly and states labelled A, B, C, D, E.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Alternative &middot; NFA to DFA (Hindi)</span>
+      <span class="best-tag">Top Hindi Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=LEigAZN6RdY" target="_blank">Lec-20: Convert NFA to DFA with example</a>
+    <span class="v-meta">Gate Smashers &middot; 9:37</span>
+    <div class="v-why">Fast-paced Hindi breakdown of &epsilon;-closure transition tables and finding unreachable DFA states.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: RECOGNITION CONVERSION ROADMAP -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Master Conversion Roadmap: From Regular Expression to Executable Scanner</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:.8rem; flex-wrap:wrap; margin:1rem 0;">
+    <div class="flow-box highlight" style="min-width:11rem; max-width:13rem;">
+      <strong>Regular Expression</strong>
+      <span class="sub"><code>(a|b)*abb</code></span>
+    </div>
+    
+    <span class="flow-arrow-right">&rarr;</span>
+
+    <div class="flow-box" style="min-width:11rem; max-width:13rem;">
+      <strong>NFA with &epsilon;-transitions</strong>
+      <span class="sub">Thompson's Construction</span>
+    </div>
+
+    <span class="flow-arrow-right">&rarr;</span>
+
+    <div class="flow-box warn" style="min-width:11rem; max-width:13rem;">
+      <strong>DFA (Unminimised)</strong>
+      <span class="sub">Subset Construction</span>
+    </div>
+
+    <span class="flow-arrow-right">&rarr;</span>
+
+    <div class="flow-box ok" style="min-width:11rem; max-width:13rem;">
+      <strong>Minimal DFA</strong>
+      <span class="sub">Partitioning (Lesson 9)</span>
+    </div>
+  </div>
+  
+  <div style="text-align:center; font-size:.82rem; color:var(--ink-soft); margin-top:.6rem;">
+    <strong>The Alternative Direct Route:</strong> Regular Expression &rarr; Direct Minimal DFA via Syntax Tree (Nullable, Firstpos, Lastpos, Followpos) &mdash; covered in Lesson 9.
+  </div>
+</div>
+
+<h2>Finite automata</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>finite automaton</strong> is a recogniser: it takes a string x and answers <strong>&ldquo;yes&rdquo; if x is in the language and &ldquo;no&rdquo; otherwise</strong>. Formally it is a <strong>five-tuple (Q, &Sigma;, &delta;, q<sub>0</sub>, F)</strong>:<br><br>
+  <strong>Q</strong> &mdash; a finite set of <strong>states</strong><br>
+  <strong>&Sigma;</strong> &mdash; the <strong>input alphabet</strong>; <strong>&epsilon; is never in &Sigma;</strong><br>
+  <strong>&delta;</strong> &mdash; the <strong>transition function</strong><br>
+  <strong>q<sub>0</sub></strong> &mdash; the <strong>start state</strong>, exactly one<br>
+  <strong>F</strong> &mdash; the set of <strong>accepting (final) states</strong>, F &sube; Q
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>NFA</strong> &mdash; non-deterministic</th><th><strong>DFA</strong> &mdash; deterministic</th></tr></thead>
+<tbody>
+<tr><td><strong>&epsilon;-transitions</strong></td><td><strong>Allowed</strong></td><td><strong>Not allowed</strong></td></tr>
+<tr><td><strong>Transitions per symbol</strong></td><td><strong>Zero, one or many</strong> &mdash; &delta;(q, a) is a <em>set</em> of states</td><td><strong>Exactly one</strong> &mdash; &delta;(q, a) is a <em>single</em> state</td></tr>
+<tr><td><strong>&delta; signature</strong></td><td>Q &times; (&Sigma; &cup; {&epsilon;}) &rarr; <strong>2<sup>Q</sup></strong></td><td>Q &times; &Sigma; &rarr; <strong>Q</strong></td></tr>
+<tr><td><strong>Easier to</strong></td><td><strong>Build</strong> from a regular expression</td><td><strong>Simulate</strong> &mdash; no backtracking, no guessing</td></tr>
+<tr><td><strong>Number of states</strong></td><td>Few &mdash; at most <strong>2&middot;|r|</strong> for a regular expression of length |r|</td><td>Can be up to <strong>2<sup>n</sup></strong> for an n-state NFA</td></tr>
+<tr><td><strong>Simulation cost</strong> for a string of length |x|</td><td><strong>O(|r| &times; |x|)</strong> &mdash; a set of states must be tracked</td><td><strong>O(|x|)</strong> &mdash; one table lookup per character</td></tr>
+<tr><td><strong>Space</strong></td><td>Small</td><td>Potentially exponential</td></tr>
+<tr><td><strong>Power</strong></td><td colspan="2" style="text-align:center"><strong>Exactly equal</strong> &mdash; both recognise precisely the regular languages</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The trade-off that motivates the whole lesson</span>
+  <p><strong>An NFA is small and easy to build but slow to run; a DFA is fast to run but can be large.</strong> Since a scanner is <em>built once</em> and <em>run on every character of every program ever compiled</em>, we build the NFA for convenience and then <strong>convert it to a DFA for speed</strong>. That sentence is why the subset construction exists.</p>
+</div>
+
+<h2>Transition diagrams for real tokens</h2>
+
+<p>Before the formal constructions, this is how a scanner is actually laid out by hand &mdash; one diagram per token, tried in order.</p>
+
+<div class="formula">
+  <span class="name">Identifiers and keywords</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left; line-height:1.6">
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;letter or digit<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#8635;<br>
+  start &rarr;(9)&mdash; letter &rarr;(10)&mdash; other &rarr;((11))<strong>*</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>return( getToken(), installID() )</strong>
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.4rem"><strong>The keyword problem.</strong> <code>if</code> matches the identifier pattern too. Two standard solutions: <strong>(1) install the keywords in the symbol table first</strong>, marked as reserved, so <code>installID</code> looks a lexeme up and returns the keyword token if it finds one &mdash; this is the usual choice; or <strong>(2) give each keyword its own transition diagram, placed BEFORE the identifier diagram</strong>, so it is tried first.</span>
+</div>
+
+<div class="formula">
+  <span class="name">Unsigned numbers &mdash; digits, optional fraction, optional exponent</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.78rem; text-align:left; line-height:1.6">
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;digit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;digit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;digit<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#8635;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#8635;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#8635;<br>
+  start&rarr;(12)&mdash;digit&rarr;(13)&mdash;<strong>.</strong>&rarr;(14)&mdash;digit&rarr;(15)&mdash;<strong>E</strong>&rarr;(16)&mdash;<strong>+|&minus;</strong>&rarr;(17)&mdash;digit&rarr;(19)<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|other&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|other&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|other<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&darr;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&darr;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&darr;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;((integer))<strong>*</strong>&nbsp;&nbsp;((float))<strong>*</strong>&nbsp;&nbsp;&nbsp;&nbsp;((scientific))<strong>*</strong>
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.4rem"><strong>The longest-match rule matters here.</strong> Scanning <code>6.336E4</code>, the machine could stop at <code>6</code> or at <code>6.336</code>, but it must go as far as it can. Hence the three exits, each retracting one character.</span>
+</div>
+
+<div class="formula">
+  <span class="name">Whitespace</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.8rem; text-align:left; line-height:1.6">
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delim<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#8635;<br>
+  start &rarr;(20)&mdash; delim &rarr;(21)&mdash; other &rarr;((22))<strong>*</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>no token is returned — go back to the start</strong>
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.4rem">where <code>delim</code> is blank, tab or newline. <strong>This is the one accepting state that returns nothing</strong> &mdash; it simply restarts the scanner, which is how whitespace gets stripped.</span>
+</div>
+
+<h2>Thompson's construction &mdash; regular expression to NFA</h2>
+
+<div class="formula">
+  <span class="name">The four rules</span>
+  <strong>BASIS 1 &mdash; for &epsilon;:</strong> &nbsp; start &rarr;(i)&mdash; &epsilon; &rarr;((f))<br><br>
+  <strong>BASIS 2 &mdash; for a symbol a:</strong> &nbsp; start &rarr;(i)&mdash; a &rarr;((f))<br><br>
+  <strong>INDUCTION &mdash; for r = s | t (UNION):</strong> a new start state with <strong>&epsilon; to the starts of N(s) and N(t)</strong>, and <strong>&epsilon; from both their finals to a new final state</strong>.<br><br>
+  <strong>INDUCTION &mdash; for r = st (CONCATENATION):</strong> the <strong>final state of N(s) is merged with the start state of N(t)</strong>. No new states.<br><br>
+  <strong>INDUCTION &mdash; for r = s* (CLOSURE):</strong> a new start i and new final f, with <strong>&epsilon; from i to the start of N(s)</strong>, <strong>&epsilon; from N(s)'s final back to N(s)'s start</strong> (the loop), <strong>&epsilon; from N(s)'s final to f</strong>, and <strong>&epsilon; directly from i to f</strong> (the &ldquo;zero occurrences&rdquo; bypass).
+</div>
+
+<div class="box">
+  <span class="lbl">The four properties of the result &mdash; quote them</span>
+  <p>The NFA produced by Thompson's construction always has: <strong>(1) exactly one start state and exactly one accepting state</strong>; <strong>(2) no edge entering the start state and no edge leaving the accepting state</strong>; <strong>(3) at most two edges leaving any state</strong>; and <strong>(4) at most 2|r| states for a regular expression of length |r|</strong>. Those properties are what make the subset construction manageable.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Construct an NFA for <strong>(a|b)*abb</strong> by Thompson's construction.</span>
+  <p><strong>Step 1 &mdash; the pieces.</strong> Build <strong>a</strong> as 2&mdash;a&rarr;3 and <strong>b</strong> as 4&mdash;b&rarr;5.</p>
+  <p><strong>Step 2 &mdash; the union a|b.</strong> New start 1, new final 6:</p>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem">1 &mdash;&epsilon;&rarr; 2 &mdash;a&rarr; 3 &mdash;&epsilon;&rarr; 6 &nbsp;&nbsp;and&nbsp;&nbsp; 1 &mdash;&epsilon;&rarr; 4 &mdash;b&rarr; 5 &mdash;&epsilon;&rarr; 6</p>
+  <p><strong>Step 3 &mdash; the closure (a|b)*.</strong> New start 0, new final 7; add the loop 6&rarr;1 and the bypass 0&rarr;7:</p>
+  <p style="font-family:ui-monospace,monospace; font-size:.82rem">0 &mdash;&epsilon;&rarr; 1 &nbsp;&middot;&nbsp; 6 &mdash;&epsilon;&rarr; 7 &nbsp;&middot;&nbsp; <strong>6 &mdash;&epsilon;&rarr; 1</strong> (loop) &nbsp;&middot;&nbsp; <strong>0 &mdash;&epsilon;&rarr; 7</strong> (bypass)</p>
+  <p><strong>Step 4 &mdash; concatenate abb.</strong> Merge and chain: 7&mdash;a&rarr;8, 8&mdash;b&rarr;9, 9&mdash;b&rarr;10.</p>
+
+  <div class="formula">
+    <span class="name">The complete NFA &mdash; 11 states, start 0, accepting 10</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left; line-height:1.7">
+    0 &mdash;&epsilon;&rarr; 1, 7<br>
+    1 &mdash;&epsilon;&rarr; 2, 4<br>
+    2 &mdash;<strong>a</strong>&rarr; 3<br>
+    3 &mdash;&epsilon;&rarr; 6<br>
+    4 &mdash;<strong>b</strong>&rarr; 5<br>
+    5 &mdash;&epsilon;&rarr; 6<br>
+    6 &mdash;&epsilon;&rarr; 1, 7<br>
+    7 &mdash;<strong>a</strong>&rarr; 8<br>
+    8 &mdash;<strong>b</strong>&rarr; 9<br>
+    9 &mdash;<strong>b</strong>&rarr; <strong>((10))</strong>
+    </div>
+  </div>
+  <p><em>Sanity check:</em> |r| = 7 symbols (a, |, b, *, a, b, b), and 2|r| = 14 &ge; 11 states. &check; Only states 2, 4, 7, 8, 9 have non-&epsilon; edges &mdash; exactly one per symbol occurrence in the expression, as the construction guarantees.</p>
+</div>
+
+<h2>The subset construction &mdash; NFA to DFA</h2>
+
+<div class="formula">
+  <span class="name">The two operations you must define first</span>
+  <strong>&epsilon;-closure(s)</strong> &mdash; the set of NFA states reachable from state s <strong>on &epsilon;-transitions alone</strong>, <strong>including s itself</strong>.<br><br>
+  <strong>&epsilon;-closure(T)</strong> &mdash; the union of &epsilon;-closure(s) over all s in T.<br><br>
+  <strong>move(T, a)</strong> &mdash; the set of NFA states to which there is a transition <strong>on input symbol a</strong> from some state in T. <strong>&epsilon;-transitions are not followed here.</strong><br><br>
+  <span style="font-size:.9em">The order is always <strong>move first, then &epsilon;-closure</strong> &mdash; that is, the new DFA state is <strong>&epsilon;-closure(move(T, a))</strong>.</span>
+</div>
+
+<div class="formula">
+  <span class="name">The algorithm</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.84rem; text-align:left; line-height:1.6">
+  <strong>Start state</strong> of the DFA = <strong>&epsilon;-closure(s<sub>0</sub>)</strong>, marked unmarked;<br>
+  while there is an unmarked DFA state T {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;mark T;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;for each input symbol a {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>U = &epsilon;-closure( move(T, a) );</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if U is not already a DFA state, add it unmarked;<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Dtran[T, a] = U;</strong><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+  }<br>
+  <strong>A DFA state is ACCEPTING iff it contains at least one accepting NFA state.</strong>
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Convert the NFA above for <strong>(a|b)*abb</strong> into a DFA by the subset construction.</span>
+
+  <p><strong>Start state.</strong> &epsilon;-closure(0): from 0 take &epsilon; to 1 and 7; from 1 take &epsilon; to 2 and 4. Nothing more.</p>
+  <p style="text-align:center"><strong>A = {0, 1, 2, 4, 7}</strong></p>
+
+  <p><strong>From A.</strong></p>
+  <p>move(A, a): only state 2 and state 7 have <strong>a</strong>-edges &rarr; {3, 8}. <br>
+  &epsilon;-closure({3,8}): 3&rarr;6; 6&rarr;1,7; 1&rarr;2,4. Add all. &nbsp; = <strong>{1, 2, 3, 4, 6, 7, 8} = B</strong></p>
+  <p>move(A, b): only state 4 has a <strong>b</strong>-edge &rarr; {5}. <br>
+  &epsilon;-closure({5}): 5&rarr;6; 6&rarr;1,7; 1&rarr;2,4. &nbsp; = <strong>{1, 2, 4, 5, 6, 7} = C</strong></p>
+
+  <p><strong>From B = {1,2,3,4,6,7,8}.</strong></p>
+  <p>move(B, a) = {3, 8} (from 2 and 7) &rarr; &epsilon;-closure = <strong>B</strong> again.</p>
+  <p>move(B, b) = {5, 9} (from 4 and 8) &rarr; &epsilon;-closure: add 6, then 1, 7, then 2, 4. State 9 has no &epsilon;-edge. &nbsp; = <strong>{1, 2, 4, 5, 6, 7, 9} = D</strong></p>
+
+  <p><strong>From C = {1,2,4,5,6,7}.</strong></p>
+  <p>move(C, a) = {3, 8} &rarr; <strong>B</strong>. &nbsp;&nbsp; move(C, b) = {5} &rarr; <strong>C</strong>.</p>
+
+  <p><strong>From D = {1,2,4,5,6,7,9}.</strong></p>
+  <p>move(D, a) = {3, 8} &rarr; <strong>B</strong>.</p>
+  <p>move(D, b) = {5, <strong>10</strong>} (from 4 and 9) &rarr; &epsilon;-closure = <strong>{1, 2, 4, 5, 6, 7, 10} = E</strong>. <strong>E contains 10, the accepting NFA state, so E is accepting.</strong></p>
+
+  <p><strong>From E = {1,2,4,5,6,7,10}.</strong></p>
+  <p>move(E, a) = {3, 8} &rarr; <strong>B</strong>. &nbsp;&nbsp; move(E, b) = {5} &rarr; <strong>C</strong>.</p>
+
+  <p><strong>No new sets appear, so the construction terminates.</strong></p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>DFA state</th><th>NFA states</th><th class="num">on <strong>a</strong></th><th class="num">on <strong>b</strong></th></tr></thead>
+  <tbody>
+  <tr><td><strong>A</strong> &mdash; start</td><td>{0, 1, 2, 4, 7}</td><td class="num">B</td><td class="num">C</td></tr>
+  <tr><td><strong>B</strong></td><td>{1, 2, 3, 4, 6, 7, 8}</td><td class="num">B</td><td class="num">D</td></tr>
+  <tr><td><strong>C</strong></td><td>{1, 2, 4, 5, 6, 7}</td><td class="num">B</td><td class="num">C</td></tr>
+  <tr><td><strong>D</strong></td><td>{1, 2, 4, 5, 6, 7, 9}</td><td class="num">B</td><td class="num">E</td></tr>
+  <tr><td><strong>E</strong> &mdash; <strong>accepting</strong></td><td>{1, 2, 4, 5, 6, 7, <strong>10</strong>}</td><td class="num">B</td><td class="num">C</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Result: an 11-state NFA became a 5-state DFA with one accepting state, E.</strong></p>
+  <p><em>Sanity checks worth running:</em></p>
+  <ul>
+    <li><strong>Every row is complete</strong> &mdash; each of the five states has exactly one entry per input symbol. A DFA has no missing transitions.</li>
+    <li><strong>On <code>a</code>, every state goes to B.</strong> That is right: seeing an <code>a</code> always means &ldquo;I may have just started the final <code>abb</code>&rdquo;, so the machine resets to the same position.</li>
+    <li><strong>Trace <code>abb</code>:</strong> A &mdash;a&rarr; B &mdash;b&rarr; D &mdash;b&rarr; <strong>E</strong>. Accepted. &check;</li>
+    <li><strong>Trace <code>babb</code>:</strong> A &mdash;b&rarr; C &mdash;a&rarr; B &mdash;b&rarr; D &mdash;b&rarr; <strong>E</strong>. Accepted. &check;</li>
+    <li><strong>Trace <code>ab</code>:</strong> A &mdash;a&rarr; B &mdash;b&rarr; D. <strong>D is not accepting</strong> &mdash; correctly rejected. &check;</li>
+  </ul>
+</div>
+
+<div class="box win">
+  <span class="lbl">The three things to write in every subset-construction answer</span>
+  <p><strong>1. The &epsilon;-closure of the start state, shown as a set.</strong> <strong>2. A table with one row per DFA state, giving both the NFA state set and the transitions.</strong> <strong>3. The statement of which states are accepting and why</strong> &mdash; &ldquo;E is accepting because it contains NFA state 10&rdquo;. Then trace one accepted and one rejected string as a check.</p>
+</div>
+
+<h2>Simulating a DFA</h2>
+
+<div class="formula">
+  <span class="name">The scanner's inner loop</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.84rem; text-align:left; line-height:1.6">
+  s = s<sub>0</sub>;<br>
+  c = nextChar();<br>
+  while ( c != eof ) {<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>s = move(s, c);</strong>&nbsp;&nbsp;/* one array lookup */<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;c = nextChar();<br>
+  }<br>
+  if ( s is in F ) return "yes"; else return "no";
+  </div>
+  <span style="font-size:.85em; display:block; margin-top:.4rem"><strong>One table lookup per input character &mdash; O(|x|) total, independent of the size of the pattern.</strong> That is the speed the whole conversion was for.</span>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In the subset construction, a DFA state is accepting when:</p>
+  <div class="opts">
+    <button class="opt">It is reachable from the start state</button>
+    <button class="opt">All the NFA states it contains are accepting</button>
+    <button class="opt">It has no outgoing transitions</button>
+    <button class="opt" data-ok="1">The set it represents contains at least one accepting NFA state</button>
+  </div>
+  <p class="why">In the worked example, E is accepting solely because it contains NFA state 10 — the other six states in E are ordinary.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The start state of the DFA is:</p>
+  <div class="opts">
+    <button class="opt">{s₀} on its own</button>
+    <button class="opt">move(s₀, a) for the first symbol</button>
+    <button class="opt">The set of all NFA states</button>
+    <button class="opt" data-ok="1">ε-closure(s₀) — the ε-closure of the NFA start state</button>
+  </div>
+  <p class="why">For (a|b)*abb that gives A = {0,1,2,4,7}: 0 reaches 1 and 7 by ε, and 1 reaches 2 and 4. Forgetting to close the start state is the most common error.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The correct order of operations for a new DFA state is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">ε-closure(move(T, a)) — move first, then close</button>
+    <button class="opt">move(ε-closure(T), a) — close first, then move</button>
+    <button class="opt">move(T, a) alone</button>
+    <button class="opt">ε-closure(T) alone</button>
+  </div>
+  <p class="why">T is already ε-closed when it was created, so closing again changes nothing; the closure must be applied <em>after</em> the symbol transition, to absorb any ε-edges reachable from the new states.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Thompson's construction for r = st (concatenation):</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Merges the final state of N(s) with the start state of N(t), adding no new states</button>
+    <button class="opt">Adds a loop back edge</button>
+    <button class="opt">Adds four ε-transitions</button>
+    <button class="opt">Adds a new start and a new final state</button>
+  </div>
+  <p class="why">Union adds a new start and final with four ε-edges; closure adds a new start and final plus a loop and a bypass. Concatenation is the only rule that adds nothing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. For (a|b)*abb, the NFA has 11 states and the DFA has:</p>
+  <div class="opts">
+    <button class="opt">4</button>
+    <button class="opt">11</button>
+    <button class="opt" data-ok="1">5</button>
+    <button class="opt">2¹¹</button>
+  </div>
+  <p class="why">A, B, C, D and E, with E the only accepting state. The 2ⁿ bound is the worst case, not the usual outcome — most conversions shrink the machine, as here.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Simulating an NFA on a string of length |x| costs:</p>
+  <div class="opts">
+    <button class="opt">O(2^|x|)</button>
+    <button class="opt">O(1)</button>
+    <button class="opt" data-ok="1">O(|r| × |x|), because a set of states must be tracked</button>
+    <button class="opt">O(|x|), one lookup per character</button>
+  </div>
+  <p class="why">A DFA costs O(|x|) — one table lookup per character, independent of pattern size. That gap is exactly why we pay the conversion cost once at scanner-build time.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. In the transition diagram for identifiers, keywords are handled by:</p>
+  <div class="opts">
+    <button class="opt">Ignoring them entirely</button>
+    <button class="opt" data-ok="1">Pre-installing them in the symbol table as reserved, so installID returns the keyword token</button>
+    <button class="opt">A separate pass after parsing</button>
+    <button class="opt">Making them illegal identifiers in the pattern</button>
+  </div>
+  <p class="why">The alternative is a separate transition diagram per keyword, placed <em>before</em> the identifier diagram so it is tried first. Both are standard; the symbol-table method is the usual choice.</p>
+</div>
+
+<div class="q">
+  <p class="stem">8. Which is true of NFAs and DFAs?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">They have exactly equal expressive power — both recognise precisely the regular languages</button>
+    <button class="opt">DFAs recognise strictly more languages</button>
+    <button class="opt">NFAs recognise strictly more languages</button>
+    <button class="opt">Neither can recognise all regular languages</button>
+  </div>
+  <p class="why">The subset construction is the proof: every NFA can be converted to an equivalent DFA. The difference is only in size and simulation speed, not in power.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the five-tuple definition of a finite automaton and compare NFA with DFA.</summary>
+    <p class="ans">(Q, Σ, δ, q₀, F): states, input alphabet not containing ε, transition function, one start state, set of accepting states. NFA: ε-transitions allowed, δ maps to a set of states, easy to build, few states — at most 2|r| — but simulation costs O(|r|×|x|). DFA: no ε, exactly one transition per symbol, easy to simulate at O(|x|), but up to 2ⁿ states. Their expressive power is exactly equal.</p></details>
+  <details class="card"><summary>Give Thompson's four construction rules.</summary>
+    <p class="ans">For ε and for a single symbol a: a two-state machine with that label. For s|t: a new start with ε-edges to both sub-machines' starts, and ε-edges from both finals to a new final. For st: merge the final of N(s) with the start of N(t), adding no states. For s*: a new start i and final f, with ε from i to N(s)'s start, ε from N(s)'s final back to its start, ε from N(s)'s final to f, and ε directly from i to f.</p></details>
+  <details class="card"><summary>State the four properties of a Thompson NFA.</summary>
+    <p class="ans">Exactly one start and one accepting state; no edge enters the start and none leaves the accepting state; at most two edges leave any state; and at most 2|r| states for a regular expression of length |r|.</p></details>
+  <details class="card"><summary>Define ε-closure and move, and give the subset-construction algorithm.</summary>
+    <p class="ans">ε-closure(s) is the set of states reachable from s on ε-transitions alone, including s. move(T, a) is the set of states reachable from any state of T on input a, following no ε-edges. The DFA start state is ε-closure(s₀); while an unmarked state T exists, mark it and for each symbol a set U = ε-closure(move(T,a)), adding U as a new state if unseen, and Dtran[T,a] = U. A DFA state is accepting if it contains any accepting NFA state.</p></details>
+  <details class="card"><summary>Give the NFA and the DFA for (a|b)*abb.</summary>
+    <p class="ans">NFA, 11 states, start 0, accepting 10: 0→ε→1,7; 1→ε→2,4; 2→a→3; 3→ε→6; 4→b→5; 5→ε→6; 6→ε→1,7; 7→a→8; 8→b→9; 9→b→10. DFA: A={0,1,2,4,7} start; B={1,2,3,4,6,7,8}; C={1,2,4,5,6,7}; D={1,2,4,5,6,7,9}; E={1,2,4,5,6,7,10} accepting. Transitions: A→B,C; B→B,D; C→B,C; D→B,E; E→B,C on a and b respectively.</p></details>
+  <details class="card"><summary>How are keywords and whitespace handled in transition diagrams?</summary>
+    <p class="ans">Keywords either are pre-installed in the symbol table as reserved, so installID returns the keyword token, or get their own transition diagrams placed before the identifier diagram. Whitespace has a diagram whose accepting state returns no token at all and simply restarts the scanner — the only accepting state that returns nothing.</p></details>
+  <details class="card"><summary>Give the DFA simulation loop and its cost.</summary>
+    <p class="ans">s = s₀; c = nextChar(); while c ≠ eof { s = move(s,c); c = nextChar(); } accept if s is in F. One array lookup per input character, so O(|x|) total, independent of the size of the pattern.</p></details>
+</div>
+
+<p class="ask">Next: shrinking that DFA to the smallest possible, and the direct route from regular expression to DFA that Lex actually uses.</p>
+
+<div class="nav">
+  <a href="0007-specification-of-tokens.html">&larr; Specification of Tokens</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0009-dfa-minimisation-and-direct-method.html">Next: DFA Minimisation and the Direct Method &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 05 – Logistic Regression & Classification Metrics</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module B · Lesson 5 of 17 · Classification Foundations</div>
+  <h1>Logistic Regression & Classification Metrics</h1>
+  <p class="subtitle">Binary and multiclass probability modeling, Log-Loss derivation, and comprehensive evaluation beyond naive accuracy.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Classical Machine Learning</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Linear Regression cannot be used for classification: a line unbounded from -&infin; to +&infin; produces nonsensical probabilities like <code>P(spam) = 2.4</code> or <code>-0.8</code>. <strong>Logistic Regression</strong> passes the linear combination through the <strong>Sigmoid function &sigma;(z)</strong>, smoothly mapping any real-valued number into the valid probability range <code>(0, 1)</code>.</p>
+
+  <h2>2 · The Sigmoid Function & Odds Ratio</h2>
+  <div class="arch-flow">
+    <div class="box">Linear Score: z = w·x + b</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Sigmoid: &sigma;(z) = 1 / (1 + e<sup>-z</sup>)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Probability: P(y=1 | x) &isin; [0, 1]</div>
+  </div>
+  <p>The <strong>Odds Ratio</strong> is the ratio of probability of success to failure: <code>Odds = p / (1 - p)</code>. Taking the natural log gives the <strong>Logit</strong>: <code>ln(p / (1 - p)) = w·x + b</code>. Logistic Regression is a linear model in the log-odds space!</p>
+
+  <h2>3 · Loss Function: Binary Cross-Entropy (Log-Loss)</h2>
+  <p>Because the Sigmoid function is non-linear, using MSE would create a non-convex cost surface with dozens of local minima. Instead, we derive the cost function using <strong>Maximum Likelihood Estimation (MLE)</strong>:</p>
+  <div class="callout info">
+    <p><code>Loss = - (1 / N) &sum; [ y<sup>(i)</sup> log(&sigma;(z<sup>(i)</sup>)) + (1 - y<sup>(i)</sup>) log(1 - &sigma;(z<sup>(i)</sup>)) ]</code></p>
+    <ul>
+      <li>When true <code>y = 1</code>: loss = <code>-log(y&#770;)</code>. If model predicts 1.0, loss = 0. If model predicts 0.0, loss &rarr; &infin;.</li>
+      <li>When true <code>y = 0</code>: loss = <code>-log(1 - y&#770;)</code>. Highly penalizes confident wrong predictions.</li>
+    </ul>
+  </div>
+
+  <h2>4 · Complete NumPy Implementation</h2>
+  <pre><code>import numpy as np
+
+class LogisticRegressionScratch:
+    def __init__(self, lr=0.01, epochs=1000):
+        self.lr = lr
+        self.epochs = epochs
+        self.weights = None
+        self.bias = None
+
+    def _sigmoid(self, z):
+        # Clip to prevent numerical overflow in exp(-z)
+        z = np.clip(z, -500, 500)
+        return 1.0 / (1.0 + np.exp(-z))
+
+    def fit(self, X, y):
+        n_samples, n_features = X.shape
+        self.weights = np.zeros(n_features)
+        self.bias = 0.0
+
+        for _ in range(self.epochs):
+            # 1. Forward Pass
+            linear_model = np.dot(X, self.weights) + self.bias
+            y_pred = self._sigmoid(linear_model)
+
+            # 2. Compute Gradients
+            dw = (1 / n_samples) * np.dot(X.T, (y_pred - y))
+            db = (1 / n_samples) * np.sum(y_pred - y)
+
+            # 3. Update Parameters
+            self.weights -= self.lr * dw
+            self.bias -= self.lr * db
+
+    def predict_proba(self, X):
+        return self._sigmoid(np.dot(X, self.weights) + self.bias)
+
+    def predict(self, X, threshold=0.5):
+        return (self.predict_proba(X) >= threshold).astype(int)</code></pre>
+
+  <h2>5 · Comprehensive Classification Metrics</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Metric</th><th>Formula</th><th>When to Prioritize</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Precision</strong></td>
+        <td><code>TP / (TP + FP)</code></td>
+        <td>When <strong>False Positives are costly</strong> (e.g. Spam filter: never mark an urgent business email as spam).</td>
+      </tr>
+      <tr>
+        <td><strong>Recall (Sensitivity)</strong></td>
+        <td><code>TP / (TP + FN)</code></td>
+        <td>When <strong>False Negatives are fatal</strong> (e.g. Cancer diagnosis, fraud detection: never miss a positive case).</td>
+      </tr>
+      <tr>
+        <td><strong>F1-Score</strong></td>
+        <td><code>2 &times; (Precision &times; Recall) / (Precision + Recall)</code></td>
+        <td>Harmonic mean balancing both; essential for <strong>imbalanced datasets</strong> where accuracy is deceptive.</td>
+      </tr>
+      <tr>
+        <td><strong>ROC-AUC</strong></td>
+        <td>Area under True Positive Rate vs False Positive Rate curve</td>
+        <td>Measures model's ranking ability across <em>all possible classification thresholds</em> (0.0 to 1.0). 0.5 = random guess; 1.0 = perfect.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <nav class="bottom-nav">
+    <a href="0004-linear-regression-and-gradient-descent.html">← Lesson 04: Linear Regression</a>
+    <a href="0006-decision-trees-and-ensemble-learning.html">Lesson 06: Decision Trees & Ensemble Learning →</a>
+  </nav>
+</body>
+</html>

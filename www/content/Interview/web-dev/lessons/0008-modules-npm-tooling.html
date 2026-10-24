@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 08 — Modules, npm &amp; Tooling</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 8 of 24 · modules, npm, semver, bundlers</div>
+<h1>Modules, npm &amp; Tooling</h1>
+<p class="subtitle">How JavaScript went from copy-pasted script tags to a real ecosystem — imports, packages, and the build tools every project you'll ever join relies on.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 8 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The mess before modules</h2>
+<p>
+Java has had packages and <code>import</code> since day one — every class lives in a namespace, and the
+compiler wires dependencies. Early JavaScript had <em>nothing</em>. You "structured" a project as a stack
+of script tags:
+</p>
+
+<pre><code>&lt;script src="utils.js"&gt;&lt;/script&gt;
+&lt;script src="cart.js"&gt;&lt;/script&gt;   <span class="cmt">&lt;!-- must come AFTER utils.js, or crash --&gt;</span>
+&lt;script src="app.js"&gt;&lt;/script&gt;    <span class="cmt">&lt;!-- must come last... good luck at 40 files --&gt;</span></code></pre>
+
+<p>Every top-level variable in every file landed in <strong>one shared global scope</strong>. Two consequences:</p>
+<ul>
+  <li><strong>Global-scope pollution.</strong> <code>utils.js</code> defines <code>var format = ...</code>; three weeks later <code>report.js</code> also defines <code>format</code> — and silently overwrites the first. No error, just wrong behaviour somewhere far away. Imagine Java where every class's fields were static fields on one giant class shared by the whole program.</li>
+  <li><strong>Ordering pain.</strong> Dependencies existed only in your head. Reorder the script tags and things explode with <code>undefined is not a function</code>. Nothing declared "cart.js needs utils.js".</li>
+</ul>
+<p>
+A <strong>module system</strong> fixes both: each file gets its <em>own scope</em> (nothing leaks unless
+exported), and each file <em>declares</em> what it needs (imports), so load order is computed, not
+hand-maintained. JS ended up with two module systems — CommonJS (Node's original, 2009) and ES Modules
+(the official standard, 2015) — and you will meet both.
+</p>
+
+<h2>2 · ES Modules (ESM) — the standard</h2>
+<p>
+An ES module is any file using <code>import</code>/<code>export</code>. In the browser you opt in with
+<code>&lt;script type="module" src="app.js"&gt;</code>; in Node with the <code>.mjs</code> extension or
+<code>"type": "module"</code> in package.json. Two kinds of exports:
+</p>
+
+<pre><code><span class="cmt">// ---- math.js — NAMED exports: a module can have many ----</span>
+export const PI = 3.14159;
+export function area(r) { return PI * r * r; }
+
+function helper() { }              <span class="cmt">// NOT exported → invisible outside this file.</span>
+                                   <span class="cmt">// That's encapsulation — like package-private in Java.</span>
+
+<span class="cmt">// alternative style: declare first, export a list at the bottom</span>
+export { PI as CIRCLE_PI };        <span class="cmt">// can rename on the way out</span>
+
+<span class="cmt">// ---- logger.js — DEFAULT export: at most ONE per module ----</span>
+export default function log(msg) { console.log(`[app] ${msg}`); }
+<span class="cmt">// "this module basically IS one thing" → default. A grab-bag of utils → named.</span></code></pre>
+
+<p>And every import form you'll encounter in real code:</p>
+
+<pre><code><span class="cmt">// named — braces, names must match the export (destructuring-LIKE, not destructuring)</span>
+import { PI, area } from "./math.js";
+
+<span class="cmt">// named + rename — dodge a name clash</span>
+import { area as circleArea } from "./math.js";
+
+<span class="cmt">// namespace — everything under one object, like a Java static import of a class</span>
+import * as math from "./math.js";
+math.area(2);
+
+<span class="cmt">// default — NO braces, and YOU pick the local name</span>
+import log from "./logger.js";
+import whateverIWant from "./logger.js";   <span class="cmt">// same function — name is yours</span>
+
+<span class="cmt">// default + named together (you'll see this constantly with React)</span>
+import React, { useState } from "react";
+
+<span class="cmt">// side-effect only — run the module, import nothing (polyfills, global CSS)</span>
+import "./setup.js";
+
+<span class="cmt">// re-export — barrel files (index.js) that gather a folder's public API</span>
+export { area } from "./math.js";
+export * from "./strings.js";</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha</span>
+  <code>import { log } from "./logger.js"</code> fails if <code>log</code> was a <em>default</em> export —
+  braces mean <em>named</em>. The reverse mistake (no braces for a named export) imports
+  <code>undefined</code>-ish errors too. When an import mysteriously arrives as <code>undefined</code>,
+  check default-vs-named first. It is the most common beginner module bug.
+</div>
+
+<p>
+<strong>Dynamic import</strong> is the escape hatch when a static top-of-file import won't do —
+<code>import("path")</code> is a <em>function-like call, available anywhere, returning a promise</em> for
+the module's namespace object:
+</p>
+
+<pre><code>button.addEventListener("click", async () =&gt; {
+  const { drawChart } = await import("./charts.js");  <span class="cmt">// loaded ONLY when clicked</span>
+  drawChart();
+});
+<span class="cmt">// This is how "lazy loading" / code-splitting works — heavy code ships</span>
+<span class="cmt">// only to users who need it. React.lazy (Lesson 14) is built on this.</span></code></pre>
+
+<h2>3 · CommonJS (CJS) — Node's original system</h2>
+<p>
+Before the standard existed, Node.js invented its own: <code>require()</code> to import,
+<code>module.exports</code> to export. Millions of packages and most Node tutorials still use it, so you
+must read it fluently:
+</p>
+
+<pre><code><span class="cmt">// math.js — CommonJS exports</span>
+const PI = 3.14159;
+function area(r) { return PI * r * r; }
+module.exports = { PI, area };        <span class="cmt">// export an object with both</span>
+<span class="cmt">// or single-value style:  module.exports = area;</span>
+
+<span class="cmt">// app.js — CommonJS imports</span>
+const { PI, area } = require("./math.js");   <span class="cmt">// THIS one is real destructuring</span>
+const math = require("./math.js");           <span class="cmt">// or grab the whole object</span></code></pre>
+
+<p>
+Where you'll meet each: <strong>browsers understand only ESM</strong>. Modern frontend code and modern Node
+are ESM. Older Node codebases, many npm packages, and most config files you'll copy-paste
+(<code>module.exports = {...}</code>) are CJS. NestJS (Lesson 20) compiles TypeScript to CJS by default.
+Both work; ESM is the direction of travel.
+</p>
+
+<h2>4 · ESM vs CJS — the differences that matter</h2>
+<table>
+  <thead><tr><th></th><th>ES Modules</th><th>CommonJS</th></tr></thead>
+  <tbody>
+    <tr><td>Syntax</td><td><code>import / export</code></td><td><code>require / module.exports</code></td></tr>
+    <tr><td>Loading</td><td><strong>Static</strong> — imports fixed at parse time, hoisted to top</td><td><strong>Dynamic</strong> — <code>require</code> is a normal function call, can sit in an <code>if</code></td></tr>
+    <tr><td>Enables</td><td>Tree-shaking, static analysis, auto-complete on exports</td><td>Conditional/computed requires</td></tr>
+    <tr><td>What importer gets</td><td><strong>Live read-only bindings</strong> — a window onto the export; if the module reassigns it later, you see the new value</td><td>A <strong>snapshot copy</strong> of module.exports at require time</td></tr>
+    <tr><td>Async</td><td>Loads asynchronously; <strong>top-level await allowed</strong></td><td>Loads synchronously; no top-level await</td></tr>
+    <tr><td>Strict mode</td><td>Always on automatically</td><td>Opt-in per file</td></tr>
+    <tr><td>Runs in</td><td>Browsers + modern Node</td><td>Node only (browsers need a bundler to translate)</td></tr>
+    <tr><td>File hints (Node)</td><td><code>.mjs</code> or <code>"type":"module"</code></td><td><code>.cjs</code> or default</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "ESM is static — the dependency graph is known before any code runs, which enables tree-shaking and live
+  bindings, and it supports top-level await. CommonJS is dynamic and synchronous — <code>require</code> is
+  just a function returning a copied exports object. Browsers only speak ESM; Node speaks both."
+</div>
+
+<h2>5 · npm — the package manager</h2>
+<p>
+npm is Java's Maven Central + the <code>mvn</code> tool in one: a public registry of ~3 million packages,
+and a CLI that installs them and records what you depend on. The record lives in
+<strong>package.json</strong> — your project's <code>pom.xml</code>:
+</p>
+
+<pre><code>{
+  "name": "qhess-web",
+  "version": "0.1.0",
+  "type": "module",                      <span class="cmt">// .js files are ESM</span>
+  "scripts": {                           <span class="cmt">// runnable commands — see below</span>
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint ."
+  },
+  "dependencies": {                      <span class="cmt">// needed AT RUNTIME, ships to production</span>
+    "express": "^4.19.2"
+  },
+  "devDependencies": {                   <span class="cmt">// needed only while DEVELOPING/BUILDING</span>
+    "vite": "^5.2.0",                    <span class="cmt">// bundler, eslint, test runner, typescript…</span>
+    "eslint": "^9.0.0"
+  }
+}</code></pre>
+
+<p>The commands you'll actually type:</p>
+<pre><code>npm init -y                 <span class="cmt"># create a package.json</span>
+npm install express         <span class="cmt"># add runtime dep (writes to dependencies)</span>
+npm install -D vite         <span class="cmt"># add dev-only dep (-D → devDependencies)</span>
+npm install                 <span class="cmt"># fresh clone? install EVERYTHING listed</span>
+npm run dev                 <span class="cmt"># run a script from "scripts"</span>
+npx cowsay "hi"             <span class="cmt"># run a package's CLI without permanent install</span></code></pre>
+
+<p>
+<strong>npm scripts</strong> are the project's command palette — like Maven goals. <code>npm run build</code>
+runs whatever the "build" script says, with <code>node_modules/.bin</code> on the PATH, so locally-installed
+CLIs work. Convention: every JS repo you clone answers to <code>npm install</code> then
+<code>npm run dev</code>. <strong>npx</strong> runs a package binary directly (downloading it temporarily if
+needed) — that's why setup docs say things like <code>npx create-vite@latest</code>.
+</p>
+
+<h2>6 · Semver and the lockfile</h2>
+<p>Versions follow <strong>semantic versioning</strong>: <code>MAJOR.MINOR.PATCH</code> = <code>4.19.2</code>.</p>
+<ul>
+  <li><strong>MAJOR</strong> — breaking changes: upgrading may require code changes;</li>
+  <li><strong>MINOR</strong> — new features, backwards-compatible;</li>
+  <li><strong>PATCH</strong> — bug fixes only.</li>
+</ul>
+<p>The prefix in package.json says how far npm may drift when installing:</p>
+<table>
+  <thead><tr><th>Spec</th><th>Meaning</th><th>Accepts</th><th>Rejects</th></tr></thead>
+  <tbody>
+    <tr><td><code>^4.19.2</code></td><td>same MAJOR (the npm default)</td><td>4.19.3, 4.20.0</td><td>5.0.0</td></tr>
+    <tr><td><code>~4.19.2</code></td><td>same MINOR — patches only</td><td>4.19.9</td><td>4.20.0</td></tr>
+    <tr><td><code>4.19.2</code></td><td>exactly this version</td><td>4.19.2</td><td>anything else</td></tr>
+  </tbody>
+</table>
+<p>
+Ranges create a reproducibility problem: <code>^4.19.2</code> could give teammates different versions on
+different days. The fix is <strong>package-lock.json</strong> — an auto-generated file recording the
+<em>exact</em> resolved version (and integrity hash) of every package <em>and every package's packages</em>.
+Commit it. With a lockfile present, <code>npm install</code> (and its stricter CI cousin
+<code>npm ci</code>) reproduces the identical tree everywhere. package.json states your <em>intent</em>
+("any 4.x"), the lockfile records the <em>outcome</em> ("4.19.2, hash sha512-…").
+</p>
+<p>
+And <strong>node_modules</strong> — the folder npm installs into — is famously huge because it holds your
+dependencies' dependencies' dependencies, flattened onto disk. It is disposable and machine-specific:
+never commit it (<code>.gitignore</code> it), never email it; <code>npm install</code> rebuilds it from the
+lockfile anytime. Delete-and-reinstall is the JS equivalent of "turn it off and on again", and it works
+surprisingly often.
+</p>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  package.json ≈ <code>pom.xml</code> dependencies; package-lock.json ≈ Gradle's lockfile /
+  effective resolved versions; node_modules ≈ the local <code>~/.m2</code> cache, except copied
+  <em>into every project</em> — which is why it's gigabytes across your machine. devDependencies ≈
+  Maven's <code>test</code>/<code>provided</code>-scope idea: needed to build, absent at runtime.
+</div>
+
+<h2>7 · Tooling — what actually happens to your code</h2>
+<p>
+Between "code I write" and "code the browser runs" sits a pipeline. Java has one too — javac, JAR
+packaging, maybe ProGuard — you just met it in one tool. JS grew each stage separately, so job posts
+name-drop them all. Here's the honest map:
+</p>
+<ul>
+  <li><strong>Dev server</strong> — serves your files locally at <code>localhost:5173</code>, auto-reloading the browser when you save (hot module replacement, HMR). This is why <code>npm run dev</code> is the first command of every workday.</li>
+  <li><strong>Bundler</strong> — follows your import graph and combines hundreds of modules into a few optimised files for production, so the browser doesn't make 500 tiny requests. It also lets you import npm packages and non-JS assets (CSS, images) as modules.</li>
+  <li><strong>Transpiler (Babel &amp; friends)</strong> — rewrites modern syntax into older syntax for old browsers, source-to-source: e.g. optional chaining <code>a?.b</code> becomes an <code>a == null ? undefined : a.b</code> check. Like compiling Java 21 source so it runs on a Java 8 JVM. Also how TypeScript and JSX become plain JS.</li>
+  <li><strong>Minifier</strong> — shrinks output: strips whitespace/comments, renames <code>calculateTotal</code> to <code>t</code>. Purely for download size; behaviour unchanged.</li>
+  <li><strong>Tree-shaking</strong> — dead-code elimination powered by ESM's static imports: import one function from lodash, ship one function, not the library. This is a headline reason ESM beats CJS for frontend code.</li>
+  <li><strong>Source maps</strong> — generated <code>.map</code> files that let DevTools show your original readable code while the browser actually runs the minified bundle. Why your debugger isn't gibberish.</li>
+</ul>
+
+<p>
+<strong>Vite</strong> is the modern default that wraps all of the above: instant dev server (it serves
+native ESM in dev, bundling only for production builds) plus an optimised production pipeline. It's what
+you'll use for React. <strong>webpack</strong> was the previous-generation bundler that did the same job
+with heavy configuration — you'll meet it in older codebases and interview questions ("what does a bundler
+do?"), rarely in new projects. One command scaffolds a working setup:
+</p>
+
+<pre><code>npm create vite@latest my-app     <span class="cmt"># pick a template (vanilla / react / react-ts)</span>
+cd my-app
+npm install
+npm run dev                       <span class="cmt"># → http://localhost:5173 with hot reload</span>
+npm run build                     <span class="cmt"># → dist/ folder of minified, tree-shaken files</span></code></pre>
+
+<h2>8 · ESLint &amp; Prettier — the code police and the code stylist</h2>
+<p>Two tools, two different jobs, always mentioned together, endlessly confused:</p>
+<ul>
+  <li><strong>ESLint</strong> finds <em>problems</em>: unused variables, using a variable before definition, <code>==</code> where you meant <code>===</code>, missing <code>await</code>. It's static analysis — the closest thing dynamic JS has to javac's compile errors plus SpotBugs. Rules are configurable; frameworks ship recommended sets.</li>
+  <li><strong>Prettier</strong> enforces <em>formatting</em>: quotes, semicolons, line width, indentation. It doesn't judge your logic — it rewrites layout so the whole team's code looks identical and style debates die in code review.</li>
+</ul>
+
+<pre><code>npm install -D eslint prettier
+npx eslint .              <span class="cmt"># report problems (many are auto-fixable with --fix)</span>
+npx prettier --write .    <span class="cmt"># reformat every file in place</span>
+<span class="cmt"># In real teams both run automatically: on save (editor) and on commit (hooks/CI).</span></code></pre>
+
+<h2>9 · A short, honest TypeScript teaser</h2>
+<p>
+TypeScript = JavaScript + a static type layer, transpiled to plain JS before running. Everything you've
+learned is valid TS; TS adds the compile-time checking your Java instincts miss:
+</p>
+
+<pre><code><span class="cmt">// TypeScript</span>
+function area(r: number): number {        <span class="cmt">// param + return types, Java-style</span>
+  return Math.PI * r * r;
+}
+area("5");                                <span class="cmt">// ✗ compile error BEFORE running —</span>
+                                          <span class="cmt">// plain JS would happily coerce and misbehave</span>
+
+interface User { id: number; name: string; email?: string }   <span class="cmt">// shape types; ? = optional</span>
+const u: User = { id: 1, name: "Krish" };</code></pre>
+
+<p>
+The honest part: types vanish at runtime (no runtime checks — it's not Java's JVM verification), there's a
+learning curve around its type system, and small scripts don't need it. But every serious codebase you'll
+touch professionally uses it, and in this track <strong>NestJS (Lesson 20) and Drizzle (Lesson 23) are
+TypeScript-first</strong> — you'll get a proper primer there. For now, when you see
+<code>: number</code> or <code>interface</code> in docs, you can read it.
+</p>
+
+<h2>10 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"Why do we need modules in JavaScript?"</strong><br>
+  Without them every file shares one global scope — name collisions overwrite silently — and dependency
+  order is maintained by hand via script-tag order. Modules give per-file scope with explicit
+  exports/imports, so encapsulation is real and load order is derived from the declared dependency graph.</li>
+  <li><strong>"Difference between ESM and CommonJS?"</strong><br>
+  ESM: standard <code>import/export</code>, static (analyzable before execution → tree-shaking), live
+  read-only bindings, async loading with top-level await, works in browsers. CJS:
+  <code>require/module.exports</code>, dynamic and synchronous, exports copied at require time, Node-only.</li>
+  <li><strong>"Default export vs named export?"</strong><br>
+  Named: many per module, imported with braces and matching names (renameable via <code>as</code>).
+  Default: at most one per module, imported without braces under any local name. Mixing up braces is the
+  classic "my import is undefined" bug.</li>
+  <li><strong>"What do ^ and ~ mean in package.json? What is package-lock.json for?"</strong><br>
+  <code>^</code> allows minor+patch updates within the major version; <code>~</code> allows patch updates
+  only; a bare version pins exactly. The lockfile records the exact resolved version of the entire
+  dependency tree so every machine and CI installs identical code — commit it.</li>
+  <li><strong>"dependencies vs devDependencies?"</strong><br>
+  dependencies are required at runtime and installed in production; devDependencies (bundler, linter, test
+  tools, TypeScript) are needed only to develop and build, and production installs can skip them.</li>
+  <li><strong>"What does a bundler do? What is tree-shaking?"</strong><br>
+  A bundler follows the import graph and combines modules into optimised files, transpiling and minifying
+  along the way. Tree-shaking is dead-code elimination — possible because ESM imports are static, so unused
+  exports are provably unreachable and get dropped from the bundle.</li>
+  <li><strong>"ESLint vs Prettier?"</strong><br>
+  ESLint is static analysis for correctness problems (unused vars, suspicious patterns); Prettier is an
+  opinionated formatter for layout. Lint catches bugs, Prettier ends style arguments; teams run both
+  automatically.</li>
+</ul>
+
+<h2>11 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q"><code>logger.js</code> contains <code>export default function log() {...}</code>. Which import is correct?</div>
+  <button class="opt"><code>import { log } from "./logger.js"</code></button>
+  <button class="opt"><code>import printer from "./logger.js"</code></button>
+  <button class="opt"><code>import default from "./logger.js"</code></button>
+  <div class="fb" data-correct="Default exports are imported WITHOUT braces, and the importer chooses the local name — 'printer' is fine. Braces are only for named exports." data-wrong="Braces = named exports, and there is no named export called 'log' here — only a default. Default imports take no braces and any name you like: import printer from './logger.js'."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">package.json says <code>"express": "^4.19.2"</code>. Which version will npm REFUSE to install?</div>
+  <button class="opt">4.19.5</button>
+  <button class="opt">4.25.0</button>
+  <button class="opt">5.0.1</button>
+  <div class="fb" data-correct="^ means 'stay within the same MAJOR version'. Minor and patch bumps (4.19.5, 4.25.0) are allowed; 5.x is a breaking-change major and is excluded." data-wrong="^4.19.2 accepts any 4.x at or above 4.19.2 — so 4.19.5 and 4.25.0 both qualify. Only the major bump to 5.0.1 is out of range."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does tree-shaking work with ESM but not (reliably) with CommonJS?</div>
+  <button class="opt">ESM imports are static, so tools can prove which exports are unused before running any code</button>
+  <button class="opt">ESM files are smaller, so there is less code to shake out</button>
+  <button class="opt">CommonJS modules are encrypted inside node_modules</button>
+  <div class="fb" data-correct="Exactly — static import/export means the full dependency graph is known at build time, so unused exports are provably dead. require() is a runtime function call that could depend on anything, so tools can't safely remove code." data-wrong="It's about analyzability, not size: ESM's import/export are fixed at parse time, so bundlers can prove code unused. CJS's require() is a dynamic call — could be conditional or computed — so dead code can't be proven dead."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A teammate clones your repo. Which files/folders should exist in git for <code>npm install</code> to reproduce your exact setup?</div>
+  <button class="opt">package.json and node_modules — the lockfile is machine-specific</button>
+  <button class="opt">package.json and package-lock.json — node_modules is rebuilt, never committed</button>
+  <button class="opt">Only node_modules — it already contains everything</button>
+  <div class="fb" data-correct="package.json states intent, the lockfile pins exact resolved versions of the whole tree, and npm install rebuilds node_modules from them. node_modules is huge, disposable, and gitignored." data-wrong="node_modules is never committed — it's enormous and fully reproducible. Commit package.json (intent) plus package-lock.json (exact resolved versions); npm install regenerates the rest."></div>
+</div>
+
+<h2>12 · Do this next</h2>
+<ul>
+  <li>Make a folder with three ES modules: <code>math.js</code> (named exports <code>add</code>, <code>PI</code>), <code>logger.js</code> (default export), and <code>main.js</code> importing from both. Add <code>index.html</code> with <code>&lt;script type="module" src="main.js"&gt;&lt;/script&gt;</code>, serve it with <code>npx serve</code> (modules need a server, not file://), and confirm it runs. Then deliberately import the default with braces and read the error you get.</li>
+  <li>Run <code>npm create vite@latest playground</code> (vanilla template), then: <code>npm run dev</code> and edit a file to watch hot reload; <code>npm run build</code> and open <code>dist/</code> to see minified output; add your own script <code>"hello": "node -e \"console.log('hi')\""</code> and run <code>npm run hello</code>.</li>
+  <li>In that project, install a package (<code>npm i canvas-confetti</code>), import and fire it on click, then open <code>package.json</code> and <code>package-lock.json</code> and find the package in each — notice intent (<code>^x.y.z</code>) vs pinned reality (exact version + integrity hash).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Confused about when a file is ESM vs CJS, what exactly Vite does that a plain server doesn't, or why
+  everyone commits a lockfile? Ask in the chat — tooling questions feel dumb and never are. When you can
+  explain named-vs-default imports, <code>^</code> vs <code>~</code>, and what tree-shaking needs from ESM,
+  say <strong>"next"</strong> and we move to Lesson 9: DOM, Events &amp; Browser APIs — where your JS finally
+  touches the page.
+</div>
+
+<div class="nav">
+  <span><a href="0007-async-await-fetch.html">← async/await &amp; fetch</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0009-dom-events-browser-apis.html">DOM &amp; Events →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

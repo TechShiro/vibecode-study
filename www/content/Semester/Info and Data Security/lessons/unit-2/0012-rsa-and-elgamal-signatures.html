@@ -1,0 +1,341 @@
+<title>RSA and ElGamal Signatures</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit II &middot; Lesson 12 of 14</p>
+<h1>RSA and ElGamal Digital Signature Schemes</h1>
+<p class="deck">The two founding schemes, each worked end to end with numbers &mdash; key generation, signing, verification, and the algebra that proves the verification works. Plus the nonce-reuse attack that recovers ElGamal&rsquo;s private key, worked in full.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Both schemes are <strong>guaranteed numericals</strong>. RSA signing is the easier of the two and is often a 5-mark sub-question; ElGamal is a full 10-mark question because it has more moving parts. <strong>Always write the formula, then substitute, then check the verification condition</strong> &mdash; a verification that comes out equal is your own proof that the arithmetic is right. Learn the ElGamal verification equation <strong>&alpha;<sup>M</sup> &equiv; y<sup>r</sup>r<sup>s</sup></strong> as a unit; it is the line most often forgotten.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; RSA Digital Signature Scheme</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=jXw-CXYT01M" target="_blank">Digital Signature Scheme using RSA Concept with Solved Example</a>
+    <span class="v-meta">Abhishek Sharma &middot; 9:10</span>
+    <div class="v-why">Step-by-step numerical tracing key generation, signing $S = M^d \pmod n$, verification $M' = S^e \pmod n$, and Euler's theorem proof.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; ElGamal Digital Signature Scheme</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=EUK4_d_ixoY" target="_blank">ElGamal Digital Signature &mdash; Example &amp; Step-by-Step Working</a>
+    <span class="v-meta">Trouble-Free &middot; 10:25</span>
+    <div class="v-why">Complete numerical calculating prime $p=19$, generator $g=10$, signing pair $(S_1, S_2)$, verification equality $v_1 = v_2$, and ephemeral key vulnerability.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: RSA VS ELGAMAL -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: RSA vs ElGamal Signature Scheme Comparison</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem;">
+    <div style="border:1.5px solid var(--accent); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--accent); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        RSA Signature Scheme
+      </div>
+      <div class="flow-col">
+        <div class="flow-box"><strong>Signing Equation</strong><span class="sub">$S = M^d \pmod n$</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box ok"><strong>Verification Equation</strong><span class="sub">$M' = S^e \pmod n$</span></div>
+      </div>
+      <p style="font-size:.8rem; color:var(--ink-soft); margin:.8rem 0 0; text-align:center;">Deterministic &middot; Based on Integer Factorization Problem (IFP).</p>
+    </div>
+
+    <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--ok); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        ElGamal Signature Scheme
+      </div>
+      <div class="flow-col">
+        <div class="flow-box warn"><strong>Signing Pair $(S_1, S_2)$</strong><span class="sub">$S_1 = g^k \pmod p$<br>$S_2 = k^{-1}(M - x S_1) \pmod{p-1}$</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box ok"><strong>Verification Test</strong><span class="sub">$g^M \equiv y^{S_1} \cdot S_1^{S_2} \pmod p$</span></div>
+      </div>
+      <p style="font-size:.8rem; color:var(--ok); margin:.8rem 0 0; text-align:center;">Randomized &middot; Based on Discrete Logarithm Problem (DLP).</p>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>Part 1 &mdash; The RSA signature scheme</h2>
+
+<div class="formula">
+  <span class="name">The scheme</span>
+  <strong>Key generation:</strong> choose primes p, q; n = pq; &phi;(n) = (p&minus;1)(q&minus;1);<br>
+  choose e with gcd(e, &phi;(n)) = 1; find d with <strong>ed &equiv; 1 mod &phi;(n)</strong>.<br>
+  <strong>Public key (e, n) &middot; Private key (d, n)</strong><br><br>
+  <strong>Sign:</strong> &nbsp; S = <strong>[H(M)]<sup>d</sup> mod n</strong> &nbsp;&nbsp;&mdash;&nbsp; private key, so only the owner can do it<br>
+  <strong>Verify:</strong> &nbsp; compute <strong>S<sup>e</sup> mod n</strong> and compare with H(M&prime;). Equal &rarr; valid.
+</div>
+
+<p>Note the exact reversal of RSA encryption: <strong>encryption raises to e (public) and decryption to d (private); signing raises to d and verification to e.</strong> Same algorithm, opposite key order, opposite purpose.</p>
+
+<div class="solve">
+  <span class="lbl">Numerical 1 &mdash; RSA signature, worked in full</span>
+  <p><strong>Q. Take p = 17 and q = 11. Using e = 7, generate the key pair and sign the message digest M = 88. Verify the signature.</strong></p>
+  <p><strong>Step 1 &mdash; the modulus.</strong> n = 17 &times; 11 = <strong>187</strong></p>
+  <p><strong>Step 2 &mdash; the totient.</strong> &phi;(n) = 16 &times; 10 = <strong>160</strong></p>
+  <p><strong>Step 3 &mdash; check e.</strong> gcd(7, 160) = 1 &check;, so e = 7 is valid. <strong>Public key = (7, 187)</strong></p>
+  <p><strong>Step 4 &mdash; find d</strong> such that 7d &equiv; 1 mod 160. Try multiples of 160 plus 1 and divide by 7: 161 &divide; 7 = <strong>23</strong> exactly. So <strong>d = 23</strong>, and 7 &times; 23 = 161 = 160 + 1 &check;. <strong>Private key = (23, 187)</strong></p>
+  <p><strong>Step 5 &mdash; sign: S = 88<sup>23</sup> mod 187</strong>, by square-and-multiply. Write 23 = 16 + 4 + 2 + 1.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Power</th><th>Computation</th><th class="num">Value mod 187</th></tr></thead>
+  <tbody>
+  <tr><td>88<sup>1</sup></td><td>&mdash;</td><td class="num">88</td></tr>
+  <tr><td>88<sup>2</sup></td><td>88<sup>2</sup> = 7744; 7744 &minus; 41(187) = 7744 &minus; 7667</td><td class="num">77</td></tr>
+  <tr><td>88<sup>4</sup></td><td>77<sup>2</sup> = 5929; 5929 &minus; 31(187) = 5929 &minus; 5797</td><td class="num">132</td></tr>
+  <tr><td>88<sup>8</sup></td><td>132<sup>2</sup> = 17424; 17424 &minus; 93(187)</td><td class="num">33</td></tr>
+  <tr><td>88<sup>16</sup></td><td>33<sup>2</sup> = 1089; 1089 &minus; 5(187)</td><td class="num">154</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p>Multiply the needed powers: <strong>88<sup>23</sup> = 88<sup>16</sup> &middot; 88<sup>4</sup> &middot; 88<sup>2</sup> &middot; 88<sup>1</sup> = 154 &middot; 132 &middot; 77 &middot; 88</strong><br>
+  154 &times; 132 = 20328 &equiv; <strong>132</strong>; &nbsp; 132 &times; 77 = 10164 &equiv; <strong>66</strong>; &nbsp; 66 &times; 88 = 5808 &equiv; <strong>11</strong></p>
+  <p><strong>Signature S = 11.</strong> Alice sends {M = 88, S = 11}.</p>
+  <p><strong>Step 6 &mdash; verify: S<sup>e</sup> mod n = 11<sup>7</sup> mod 187.</strong><br>
+  11<sup>2</sup> = 121; &nbsp; 11<sup>4</sup> = 121<sup>2</sup> = 14641 &equiv; <strong>55</strong>; &nbsp; 11<sup>7</sup> = 11<sup>4</sup> &middot; 11<sup>2</sup> &middot; 11 = 55 &times; 121 &times; 11.<br>
+  55 &times; 121 = 6655 &equiv; <strong>110</strong>; &nbsp; 110 &times; 11 = 1210 &equiv; <strong>88</strong></p>
+  <p><strong>88 = M, so the signature is valid. &check;</strong></p>
+  <p><em>Sanity check:</em> verification must return the <em>original digest</em>. If it returns anything else, recheck d &mdash; the commonest error is a d that does not satisfy ed &equiv; 1 mod &phi;(n).</p>
+</div>
+
+<h3>Why it works</h3>
+
+<div class="formula">
+  <span class="name">The proof, in one line</span>
+  <strong>S<sup>e</sup> = (M<sup>d</sup>)<sup>e</sup> = M<sup>de</sup> = M<sup>1 + k&phi;(n)</sup> = M &middot; (M<sup>&phi;(n)</sup>)<sup>k</sup> &equiv; M &middot; 1<sup>k</sup> = M (mod n)</strong><br>
+  <span style="font-size:.85em">by Euler&rsquo;s theorem, since ed &equiv; 1 mod &phi;(n).</span>
+</div>
+
+<h3>Properties and weaknesses of RSA signatures</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Deterministic</strong></td><td>The same message always produces the same signature &mdash; unlike every DSS-type scheme</td></tr>
+<tr><td><strong>Message recovery</strong></td><td>Verification <strong>recovers the digest</strong>, rather than merely testing a condition</td></tr>
+<tr><td><strong>Signature size</strong></td><td>As large as the modulus &mdash; 2048 or 3072 bits</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Slow to sign</strong> (exponent d is large), <strong>fast to verify</strong> (e is typically 65537)</td></tr>
+<tr><td><strong>Weaknesses</strong></td><td><strong>Existential forgery</strong> and the <strong>multiplicative property</strong> if the message is signed raw (Lesson 11) &mdash; both fixed by hashing and <strong>PSS padding</strong></td></tr>
+<tr><td><strong>Security rests on</strong></td><td>The difficulty of <strong>factoring n</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Part 2 &mdash; The ElGamal signature scheme</h2>
+
+<p>Published by Taher ElGamal in 1985, based on the <strong>discrete logarithm problem</strong> rather than factoring. It is the ancestor of Schnorr, DSA and ECDSA, so understanding it makes the next two lessons almost free.</p>
+
+<div class="formula">
+  <span class="name">The scheme</span>
+  <strong>Key generation:</strong> choose a large prime <strong>p</strong> and a primitive root <strong>&alpha;</strong> of p.<br>
+  Choose a private key <strong>x</strong> with 1 &lt; x &lt; p&minus;1, and compute <strong>y = &alpha;<sup>x</sup> mod p</strong>.<br>
+  <strong>Public key (p, &alpha;, y) &middot; Private key x</strong><br><br>
+  <strong>Sign M:</strong> choose a random <strong>k</strong> with <strong>gcd(k, p&minus;1) = 1</strong>, then<br>
+  <strong>r = &alpha;<sup>k</sup> mod p</strong> &nbsp;&nbsp; <strong>s = k<sup>&minus;1</sup>(M &minus; x&middot;r) mod (p&minus;1)</strong><br>
+  The signature is the <strong>pair (r, s)</strong>.<br><br>
+  <strong>Verify:</strong> accept if &nbsp; <strong>&alpha;<sup>M</sup> &equiv; y<sup>r</sup> &middot; r<sup>s</sup> (mod p)</strong>
+</div>
+
+<div class="box win">
+  <span class="lbl">The two moduli &mdash; the trap in every ElGamal question</span>
+  <p><strong>r is computed mod p; s is computed mod (p&minus;1).</strong> The exponent arithmetic lives mod p&minus;1 (by Fermat&rsquo;s little theorem) while the group arithmetic lives mod p. Mixing them up is the single most common way to lose this numerical. The verification, in contrast, is entirely <strong>mod p</strong>.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 2 &mdash; ElGamal signature, worked in full</span>
+  <p><strong>Q. Take p = 19 with primitive root &alpha; = 2. Alice&rsquo;s private key is x = 5. She signs the message digest M = 7 using k = 5. Find the signature and verify it.</strong></p>
+  <p><strong>Step 1 &mdash; the public key.</strong> y = &alpha;<sup>x</sup> mod p = 2<sup>5</sup> = 32 &equiv; <strong>13 mod 19</strong>. Public key = <strong>(19, 2, 13)</strong>.</p>
+  <p><strong>Step 2 &mdash; check k.</strong> p &minus; 1 = 18, and gcd(5, 18) = 1 &check;, so k = 5 is usable.</p>
+  <p><strong>Step 3 &mdash; compute r.</strong> &nbsp; r = &alpha;<sup>k</sup> mod p = 2<sup>5</sup> = 32 &equiv; <strong>13</strong></p>
+  <p><strong>Step 4 &mdash; find k<sup>&minus;1</sup> mod 18.</strong> Try multiples: 5 &times; 11 = 55 = 54 + 1 &equiv; 1 mod 18, so <strong>k<sup>&minus;1</sup> = 11</strong>.</p>
+  <p><strong>Step 5 &mdash; compute s.</strong><br>
+  s = k<sup>&minus;1</sup>(M &minus; x&middot;r) mod 18 = 11 &times; (7 &minus; 5 &times; 13) mod 18 = 11 &times; (7 &minus; 65) = 11 &times; (&minus;58) mod 18<br>
+  &minus;58 mod 18: &minus;58 + 72 = <strong>14</strong>. &nbsp; So s = 11 &times; 14 = 154 mod 18 = 154 &minus; 144 = <strong>10</strong></p>
+  <p><strong>Signature = (r, s) = (13, 10).</strong> Alice sends {M = 7, (13, 10)}.</p>
+  <p><strong>Step 6 &mdash; verify: is &alpha;<sup>M</sup> &equiv; y<sup>r</sup>r<sup>s</sup> mod 19?</strong></p>
+  <p><strong>Left side:</strong> &alpha;<sup>M</sup> = 2<sup>7</sup> = 128 &equiv; 128 &minus; 114 = <strong>14</strong></p>
+  <p><strong>Right side:</strong> y<sup>r</sup>r<sup>s</sup> = 13<sup>13</sup> &times; 13<sup>10</sup> mod 19. Build the powers of 13:<br>
+  13<sup>2</sup> = 169 &equiv; <strong>17</strong>; &nbsp; 13<sup>4</sup> = 17<sup>2</sup> = 289 &equiv; <strong>4</strong>; &nbsp; 13<sup>8</sup> = 4<sup>2</sup> = <strong>16</strong><br>
+  13<sup>10</sup> = 13<sup>8</sup> &middot; 13<sup>2</sup> = 16 &times; 17 = 272 &equiv; <strong>6</strong><br>
+  13<sup>13</sup> = 13<sup>8</sup> &middot; 13<sup>4</sup> &middot; 13 = 16 &times; 4 &times; 13 = 832 &equiv; 832 &minus; 817 = <strong>15</strong><br>
+  Product: 15 &times; 6 = 90 &equiv; 90 &minus; 76 = <strong>14</strong></p>
+  <p><strong>14 = 14, so the signature is valid. &check;</strong></p>
+</div>
+
+<h3>Why the verification works</h3>
+
+<div class="formula">
+  <span class="name">The derivation, worth two lines in a long answer</span>
+  From s = k<sup>&minus;1</sup>(M &minus; xr) mod (p&minus;1), multiply by k: &nbsp; <strong>ks &equiv; M &minus; xr</strong>, so <strong>M &equiv; xr + ks (mod p&minus;1)</strong>.<br>
+  Then &nbsp; &alpha;<sup>M</sup> = &alpha;<sup>xr + ks</sup> = (&alpha;<sup>x</sup>)<sup>r</sup>(&alpha;<sup>k</sup>)<sup>s</sup> = <strong>y<sup>r</sup>r<sup>s</sup> (mod p)</strong> &mdash; which is the verification equation.
+</div>
+
+<h3>The nonce k &mdash; and the attack when it repeats</h3>
+
+<div class="box exam">
+  <span class="lbl">Three rules for k, each worth a mark</span>
+  <p><strong>(i) k must be random</strong>, <strong>(ii) k must be kept secret</strong>, and <strong>(iii) k must never be reused</strong> for a second message. Breaking any one of them <strong>reveals the private key x</strong> &mdash; a total break, the worst forgery level of Lesson 11.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical 3 &mdash; recovering the private key from a reused k</span>
+  <p><strong>Q. Alice signs two digests M<sub>1</sub> = 7 and M<sub>2</sub> = 8 with the same k = 5, giving (13, 10) and (13, 3). Recover k and her private key x.</strong></p>
+  <p><strong>Step 1 &mdash; spot the reuse.</strong> Both signatures share the same <strong>r = 13</strong>. Since r = &alpha;<sup>k</sup>, an identical r means an identical k. <strong>That is the giveaway an attacker looks for.</strong></p>
+  <p><strong>Step 2 &mdash; subtract the two s equations.</strong> With s<sub>1</sub> = k<sup>&minus;1</sup>(M<sub>1</sub> &minus; xr) and s<sub>2</sub> = k<sup>&minus;1</sup>(M<sub>2</sub> &minus; xr), the unknown xr cancels:<br>
+  <strong>s<sub>1</sub> &minus; s<sub>2</sub> &equiv; k<sup>&minus;1</sup>(M<sub>1</sub> &minus; M<sub>2</sub>) &nbsp;&rArr;&nbsp; k = (M<sub>1</sub> &minus; M<sub>2</sub>)(s<sub>1</sub> &minus; s<sub>2</sub>)<sup>&minus;1</sup> mod (p&minus;1)</strong></p>
+  <p>s<sub>1</sub> &minus; s<sub>2</sub> = 10 &minus; 3 = 7. &nbsp; 7<sup>&minus;1</sup> mod 18 = <strong>13</strong> (7 &times; 13 = 91 = 90 + 1 &check;).<br>
+  k = (7 &minus; 8) &times; 13 = &minus;13 &equiv; &minus;13 + 18 = <strong>5</strong> &mdash; the nonce is recovered.</p>
+  <p><strong>Step 3 &mdash; recover x</strong> from either signature: &nbsp; <strong>x = (M<sub>1</sub> &minus; k&middot;s<sub>1</sub>) &middot; r<sup>&minus;1</sup> mod (p&minus;1)</strong><br>
+  M<sub>1</sub> &minus; ks<sub>1</sub> = 7 &minus; 50 = &minus;43 &equiv; &minus;43 + 54 = <strong>11</strong>. &nbsp; r<sup>&minus;1</sup> = 13<sup>&minus;1</sup> mod 18 = <strong>7</strong> (13 &times; 7 = 91 &check;).<br>
+  x = 11 &times; 7 = 77 &equiv; 77 &minus; 72 = <strong>5</strong></p>
+  <p><strong>x = 5 &mdash; Alice&rsquo;s private key, recovered from two signatures and a page of arithmetic.</strong> This is exactly how the PlayStation 3 code-signing key was extracted in 2010, and why RFC 6979 now specifies deterministic nonces derived from the message and the key.</p>
+</div>
+
+<h3>Properties of ElGamal signatures</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Randomised</strong></td><td>A fresh k per signature, so <strong>the same message signs differently every time</strong></td></tr>
+<tr><td><strong>Signature size</strong></td><td><strong>Two values (r, s), each about the size of p</strong> &mdash; so twice the message digest, and larger than DSA&rsquo;s</td></tr>
+<tr><td><strong>No message recovery</strong></td><td>Verification tests a condition; it cannot reproduce the digest</td></tr>
+<tr><td><strong>Signature only</strong></td><td>Unlike RSA, the signature scheme is not an encryption scheme (though ElGamal <em>encryption</em> exists separately)</td></tr>
+<tr><td><strong>Security rests on</strong></td><td>The <strong>discrete logarithm problem</strong> in Z<sub>p</sub><sup>*</sup> &mdash; recovering x from y = &alpha;<sup>x</sup></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>RSA versus ElGamal &mdash; the comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>RSA signature</th><th>ElGamal signature</th></tr></thead>
+<tbody>
+<tr><td><strong>Hard problem</strong></td><td>Integer factorisation</td><td>Discrete logarithm</td></tr>
+<tr><td><strong>Signature</strong></td><td>One value, size of n</td><td><strong>A pair (r, s)</strong>, roughly 2 log p bits</td></tr>
+<tr><td><strong>Random per signature</strong></td><td>None &mdash; deterministic</td><td><strong>Required</strong> &mdash; a fresh k each time</td></tr>
+<tr><td><strong>Same message twice</strong></td><td>Identical signature</td><td>Different signature</td></tr>
+<tr><td><strong>Verification</strong></td><td>Recovers the digest and compares</td><td>Checks &alpha;<sup>M</sup> &equiv; y<sup>r</sup>r<sup>s</sup></td></tr>
+<tr><td><strong>Also an encryption scheme?</strong></td><td><strong>Yes</strong></td><td>No (signature form)</td></tr>
+<tr><td><strong>Main risk</strong></td><td>Forgery if the message is not hashed and padded</td><td><strong>Total break if k repeats or is predictable</strong></td></tr>
+<tr><td><strong>Descendants</strong></td><td>RSA-PSS</td><td><strong>Schnorr, DSA, ECDSA</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. With p = 17, q = 11 and e = 7, the RSA private exponent d is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">23, because 7 × 23 = 161 ≡ 1 mod 160</button>
+    <button class="opt">27, because 7 × 27 = 189 ≡ 1 mod 187</button>
+    <button class="opt">11, because 7 × 11 = 77 ≡ 1 mod 160</button>
+    <button class="opt">33, because 7 × 33 = 231 ≡ 1 mod 160</button>
+  </div>
+  <p class="why">d is the inverse of e modulo φ(n) = 160, not modulo n = 187. That substitution is the classic slip in RSA questions.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the ElGamal signature scheme, s is computed modulo:</p>
+  <div class="opts">
+    <button class="opt">q, a prime divisor of p − 1 chosen during key generation</button>
+    <button class="opt">φ(p − 1), the totient of the group order</button>
+    <button class="opt">p, the same modulus that is used for r</button>
+    <button class="opt" data-ok="1">p − 1, while r is computed modulo p</button>
+  </div>
+  <p class="why">Exponents live mod p − 1 by Fermat's little theorem; group elements live mod p. Option three describes DSA, which introduces a separate q.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The ElGamal verification condition is:</p>
+  <div class="opts">
+    <button class="opt">r^M ≡ y^s · α^r (mod p)</button>
+    <button class="opt">α^s ≡ y^r · r^M (mod p)</button>
+    <button class="opt">y^M ≡ α^r · r^s (mod p − 1)</button>
+    <button class="opt" data-ok="1">α^M ≡ y^r · r^s (mod p)</button>
+  </div>
+  <p class="why">It follows from M ≡ xr + ks mod (p − 1): raise α to both sides and the right-hand side becomes y^r r^s. The check itself is entirely mod p.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Two ElGamal signatures from the same signer share the same value of r. This tells an attacker that:</p>
+  <div class="opts">
+    <button class="opt">The two messages had identical digests, so one is a forgery</button>
+    <button class="opt">The signer's public key y was regenerated between the two signings</button>
+    <button class="opt" data-ok="1">The same nonce k was used twice, so the private key can be recovered</button>
+    <button class="opt">The signatures were produced with two different private keys</button>
+  </div>
+  <p class="why">r = α^k, so equal r means equal k. Subtracting the two s equations cancels xr, giving k and then x — a total break, as the worked numerical shows.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. An RSA signature is deterministic, which means:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Signing the same message twice yields the identical signature both times</button>
+    <button class="opt">The scheme needs no hash function before the signing operation</button>
+    <button class="opt">The signature can be computed without knowing the private exponent</button>
+    <button class="opt">Verification always recovers the message rather than the digest</button>
+  </div>
+  <p class="why">There is no random input to RSA signing. ElGamal, Schnorr, DSA and ECDSA all inject a fresh k, so their signatures differ every time.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The security of the ElGamal signature scheme rests on the difficulty of:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Computing x from y = αˣ mod p — the discrete logarithm problem</button>
+    <button class="opt">Factoring the modulus p into two large prime factors</button>
+    <button class="opt">Inverting k modulo p − 1 without knowing the private key x</button>
+    <button class="opt">Finding a collision in the hash function used before signing</button>
+  </div>
+  <p class="why">ElGamal is a discrete-log scheme; RSA is the factoring one. Collisions in the hash are a separate weakness that affects every signature scheme equally.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State RSA key generation, signing and verification.</summary>
+    <p class="ans">Choose primes p and q; n = pq; φ(n) = (p−1)(q−1); choose e coprime to φ(n); find d with ed ≡ 1 mod φ(n). Public key (e, n), private key (d, n). Sign: S = [H(M)]ᵈ mod n. Verify: compute Sᵉ mod n and compare with the digest of the received message.</p></details>
+  <details class="card"><summary>Work the RSA signature for p = 17, q = 11, e = 7, M = 88.</summary>
+    <p class="ans">n = 187, φ(n) = 160, d = 23 since 7 × 23 = 161 ≡ 1 mod 160. S = 88²³ mod 187 = 11, by square-and-multiply through 88² = 77, 88⁴ = 132, 88⁸ = 33, 88¹⁶ = 154. Verification: 11⁷ mod 187 = 88, which matches the digest, so the signature is valid.</p></details>
+  <details class="card"><summary>Prove that RSA verification works.</summary>
+    <p class="ans">Sᵉ = (Mᵈ)ᵉ = M^{de}. Since ed ≡ 1 mod φ(n), write de = 1 + kφ(n), so M^{de} = M·(M^{φ(n)})ᵏ ≡ M·1ᵏ = M mod n by Euler&rsquo;s theorem.</p></details>
+  <details class="card"><summary>State the ElGamal signature scheme in full.</summary>
+    <p class="ans">Public: prime p, primitive root α, and y = αˣ mod p; private: x. To sign digest M, pick random k with gcd(k, p−1) = 1, compute r = α^k mod p and s = k⁻¹(M − xr) mod (p−1); the signature is (r, s). Verify by testing α^M ≡ y^r·r^s mod p.</p></details>
+  <details class="card"><summary>Work the ElGamal signature for p = 19, α = 2, x = 5, M = 7, k = 5.</summary>
+    <p class="ans">y = 2⁵ = 13. gcd(5, 18) = 1 so k is valid. r = 2⁵ mod 19 = 13. k⁻¹ mod 18 = 11. s = 11(7 − 65) mod 18 = 11 × 14 = 154 ≡ 10. Signature (13, 10). Verify: α^M = 2⁷ ≡ 14, and y^r r^s = 13¹³ × 13¹⁰ = 15 × 6 = 90 ≡ 14. Equal, so valid.</p></details>
+  <details class="card"><summary>Show how a reused k breaks ElGamal.</summary>
+    <p class="ans">Two signatures with the same k share the same r. Subtracting gives s₁ − s₂ ≡ k⁻¹(M₁ − M₂), so k = (M₁ − M₂)(s₁ − s₂)⁻¹ mod (p−1); then x = (M₁ − k s₁)r⁻¹ mod (p−1). With p = 19, M₁ = 7, M₂ = 8, s₁ = 10, s₂ = 3 and r = 13: k = (−1)(7)⁻¹ = −13 ≡ 5, and x = 11 × 7 = 77 ≡ 5. The private key is fully recovered.</p></details>
+  <details class="card"><summary>Give six differences between RSA and ElGamal signatures.</summary>
+    <p class="ans">Factoring versus discrete logarithm; one value versus a pair (r, s); deterministic versus randomised with a fresh k; identical versus different signatures on a repeated message; verification recovering the digest versus checking a congruence; and RSA doubling as an encryption scheme where ElGamal signing does not.</p></details>
+</div>
+
+<p class="ask">Next: Schnorr and DSS &mdash; the two schemes that shrink ElGamal&rsquo;s signature by working in a small subgroup of order q, both worked with numbers.</p>
+
+<div class="nav">
+  <a href="0011-attacks-on-digital-signatures.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0013-schnorr-and-dss.html">Next: Schnorr and DSS &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

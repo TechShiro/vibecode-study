@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 22 - WebRTC &amp; Video Streaming | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 22 of 66 · Peer-to-Peer, STUN/TURN, HLS/DASH</div>
+  
+  <h1>WebRTC &amp; Video Streaming</h1>
+  <p class="subtitle">Architecting peer-to-peer real-time video calls and planetary-scale video streaming (Netflix, YouTube).</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module E — Networking</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Video architectures split into two totally different engineering paradigms based on latency requirements:</p>
+  <ul>
+    <li><strong>Interactive Video (Zoom, Google Meet, WhatsApp Calls):</strong> Latency must be &lt; 200ms. Uses <strong>WebRTC</strong> over UDP, connecting peers directly without intermediate storage.</li>
+    <li><strong>Broadcasting &amp; VOD (YouTube, Netflix, Twitch):</strong> Latency can be 2–10 seconds. Uses chunked HTTP streaming (<strong>HLS</strong> or <strong>MPEG-DASH</strong>), caching video slices across global CDNs.</li>
+  </ul>
+
+  <h2>2 · WebRTC Architecture: How P2P Traverses Firewalls</h2>
+  <p>In the real world, smartphones and laptops do not have public IP addresses; they sit behind home Wi-Fi routers with <strong>NAT (Network Address Translation)</strong> and firewalls. Two phones cannot simply talk to each other without help.</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Role</th>
+        <th>How It Works</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Signaling Server</strong></td>
+        <td>Session Discovery</td>
+        <td>A lightweight WebSocket server where peers exchange SDP (Session Description Protocol) offers/answers to agree on codecs and resolutions.</td>
+      </tr>
+      <tr>
+        <td><strong>STUN Server</strong></td>
+        <td>Public IP Discovery</td>
+        <td>The client asks STUN: "What is my public IP address and port as seen from the open internet?" (Works for 85% of standard NATs).</td>
+      </tr>
+      <tr>
+        <td><strong>TURN Server</strong></td>
+        <td>Fallback Relay</td>
+        <td>When strict corporate firewalls block direct P2P connections, TURN acts as an encrypted relay server in the cloud, passing packets between peers.</td>
+      </tr>
+      <tr>
+        <td><strong>ICE Framework</strong></td>
+        <td>Orchestration</td>
+        <td>Collects all candidate network paths (direct LAN, STUN, TURN) and picks the fastest viable connection.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Video on Demand (Netflix / YouTube): HLS &amp; Adaptive Bitrate</h2>
+  <p>Why doesn't Netflix send you one giant 5GB <code>movie.mp4</code> file?</p>
+  <ol>
+    <li><strong>Chunking:</strong> The video is transcoded into small 2 to 6-second fragments (chunks).</li>
+    <li><strong>Multi-Bitrate Encoding:</strong> Every chunk is rendered in multiple resolutions: 360p, 720p, 1080p, and 4K.</li>
+    <li><strong>Manifest File (<code>playlist.m3u8</code>):</strong> A master index file tells the video player which chunks correspond to which resolution.</li>
+    <li><strong>Adaptive Bitrate (ABR):</strong> The client's video player constantly measures network download speed. If your Wi-Fi dips, the player smoothly requests the next 2-second chunk in 720p instead of 4K without pausing playback or showing a buffering wheel!</li>
+  </ol>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We now enter Module F: Load Balancers and Traffic Management. How do we distribute incoming millions of requests? Next: Load Balancing Algorithms.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0021-websockets.html">← Previous: WebSockets</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0023-load-balancing-algorithms.html">Next: Load Balancing Algorithms →</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OS Lesson 01 — Architecture, Dual Mode &amp; System Calls</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Operating Systems · Architecture · Lesson 1 of 18 · Dual Mode, Ring 0 vs 3, Traps</div>
+  <h1>OS Architecture, Dual Mode &amp; System Calls</h1>
+  <p class="subtitle">How hardware CPU rings protect operating system integrity from runaway user applications.</p>
+  <div class="ribbon"><a href="../INDEX.md">↑ Back to Course Index</a><span>Module A — Process &amp; Architecture</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>An Operating System is fundamentally a <strong>resource allocator and control program</strong>. If user programs could write directly to physical hard drives or network chips, a single bug in a video game could wipe your family photos or freeze the CPU. Hardware CPUs solve this via <strong>Dual Mode Operation</strong>: the CPU switches between <strong>User Mode (Ring 3)</strong> (restricted instructions) and <strong>Kernel Mode (Ring 0)</strong> (privileged instructions). Whenever an app needs to read a file or open a socket, it executes a <strong>System Call</strong>, triggering a software trap to Kernel Mode.</p>
+
+  <div class="arch-flow">
+    <div class="box">User App (Ring 3)</div>
+    <div class="arrow-right"></div>
+    <div class="box" style="border-color:red">Trap / Syscall (e.g. read())</div>
+    <div class="arrow-right"></div>
+    <div class="box good">OS Kernel (Ring 0)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Hardware Disk / Network</div>
+  </div>
+
+  <h2>2 · User Mode vs Kernel Mode</h2>
+  <table class="vs-table">
+    <thead><tr><th>Mode</th><th>Privilege Level</th><th>What is Allowed</th></tr></thead>
+    <tbody>
+      <tr><td><strong>User Mode (Ring 3)</strong></td><td>Restricted</td><td>General computation in user memory. Cannot modify interrupt vectors or execute I/O instructions.</td></tr>
+      <tr><td><strong>Kernel Mode (Ring 0)</strong></td><td>Unrestricted</td><td>Full access to CPU hardware, memory management unit (MMU), and physical hardware registers.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The Lifecycle of a System Call</h2>
+  <ol>
+    <li>App calls C library wrapper (e.g. <code>read(fd, buffer, 1024)</code>).</li>
+    <li>Library places system call number in CPU register (e.g. <code>RAX = 0</code> on Linux x86_64).</li>
+    <li>Executes CPU instruction <code>syscall</code> (or <code>int 0x80</code>), triggering a hardware trap.</li>
+    <li>CPU switches from Ring 3 to Ring 0 and jumps to the kernel's <strong>System Call Table</strong>.</li>
+    <li>Kernel verifies arguments, executes device driver I/O, switches back to Ring 3, and returns control.</li>
+  </ol>
+
+  <div class="nav"><a href="../INDEX.md">Course Index</a><a href="../INDEX.md">Index</a><a href="0002-process-concept-states-pcb.html">Next: Process Concept &amp; PCB →</a></div>
+</body>
+</html>

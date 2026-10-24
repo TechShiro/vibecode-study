@@ -1,0 +1,286 @@
+<title>TCP Connection Management</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit IV &middot; Lesson 31 of 42</p>
+<h1>TCP Connection Management</h1>
+<p class="deck">The three-way handshake, data transfer, the four-way termination, half-close, and the state transition diagram. The handshake diagram alone is worth drawing until you can produce it in ninety seconds.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Explain TCP connection establishment and termination with a diagram"</strong> is a 10-mark question and among the most certain in the paper. <strong>Draw the timeline diagram</strong> &mdash; two vertical lines, arrows between them, each arrow labelled with its flags, seq and ack. That diagram carries most of the marks. Then the sub-questions: <strong>why three ways and not two</strong>, and <strong>why termination needs four</strong>.</p>
+</div>
+
+<h2>Connection establishment: the three-way handshake</h2>
+
+<p>The client performs an <strong>active open</strong>; the server has already performed a <strong>passive open</strong>, meaning it is listening and prepared to accept connections.</p>
+
+<div class="formula">
+  <span class="name">The three segments</span>
+  <strong>1. Client &rarr; Server: SYN</strong><br>
+  &nbsp;&nbsp;&nbsp;flags: <strong>SYN</strong> &nbsp;|&nbsp; seq = x (the client's random ISN) &nbsp;|&nbsp; no data<br><br>
+  <strong>2. Server &rarr; Client: SYN + ACK</strong><br>
+  &nbsp;&nbsp;&nbsp;flags: <strong>SYN, ACK</strong> &nbsp;|&nbsp; seq = y (the server's own random ISN) &nbsp;|&nbsp; ack = <strong>x + 1</strong> &nbsp;|&nbsp; no data<br><br>
+  <strong>3. Client &rarr; Server: ACK</strong><br>
+  &nbsp;&nbsp;&nbsp;flags: <strong>ACK</strong> &nbsp;|&nbsp; seq = x + 1 &nbsp;|&nbsp; ack = <strong>y + 1</strong> &nbsp;|&nbsp; may carry data
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Segment</th><th>What it accomplishes</th></tr></thead>
+<tbody>
+<tr><td><strong>SYN</strong></td><td>The client announces its ISN and requests the connection. It <strong>consumes one sequence number</strong> although it carries no data.</td></tr>
+<tr><td><strong>SYN + ACK</strong></td><td>A single segment doing two jobs: it <strong>acknowledges the client's SYN</strong> (ack = x + 1) and <strong>announces the server's own ISN</strong> in the other direction. It also consumes one sequence number.</td></tr>
+<tr><td><strong>ACK</strong></td><td>The client acknowledges the server's SYN. <strong>Consumes no sequence number if it carries no data</strong> &mdash; and it may carry data, which is how the first request often rides along.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why three and not two &mdash; the sub-question</span>
+  <p>TCP is <strong>full-duplex</strong>, so <strong>both directions must be initialised</strong>. Each side has to announce its own ISN and have it acknowledged &mdash; that is four events. The handshake is three segments rather than four only because the server <strong>combines its SYN and its ACK into one segment</strong>.</p>
+  <p>A two-way handshake would also be unsafe: a <strong>delayed duplicate SYN</strong> from an old connection could arrive later and open a connection the client never asked for, with the client unable to say so. The third segment is the client's confirmation that the connection is genuinely wanted <em>now</em>.</p>
+</div>
+
+<h3>SYN flooding &mdash; the attack that follows from the handshake</h3>
+
+<p>Worth two lines, and often asked as a security sub-question. An attacker sends a stream of <strong>SYN segments with forged (spoofed) source addresses</strong>. For each, the server allocates resources for a half-open connection and sends SYN + ACK to an address that never replies. The server's connection table fills with <strong>half-open connections</strong>, and legitimate clients are refused &mdash; a <strong>denial-of-service attack</strong>.</p>
+<p><strong>The defence is SYN cookies:</strong> the server does not allocate resources on the SYN. Instead it encodes the connection state into the ISN it returns, and allocates only when the third segment comes back carrying that value.</p>
+
+<h2>Data transfer</h2>
+
+<p>Once established, data flows in <strong>both directions simultaneously</strong>. Points worth stating:</p>
+
+<ul>
+<li><strong>Piggybacking</strong> &mdash; an acknowledgement travelling in the direction of the data flow rides on a data segment rather than being sent separately, saving a segment.</li>
+<li><strong>Pure acknowledgement</strong> &mdash; when there is no data to send in that direction, an ACK-only segment is sent. It <strong>consumes no sequence number</strong>.</li>
+<li><strong>Delayed acknowledgement</strong> &mdash; TCP may wait briefly before acknowledging, hoping either to piggyback on outgoing data or to acknowledge two segments at once. The delay is bounded (typically 500 ms).</li>
+<li><strong>Pushing data</strong> &mdash; the <strong>PSH</strong> flag forces both the sending TCP to transmit immediately and the receiving TCP to deliver to the application immediately, instead of buffering.</li>
+<li><strong>Urgent data</strong> &mdash; the <strong>URG</strong> flag plus the urgent pointer marks bytes to be handed to the application out of band.</li>
+</ul>
+
+<h2>Connection termination: the four-way handshake</h2>
+
+<p>Because TCP is full-duplex, <strong>each direction must be closed separately</strong>. That is why termination takes four segments where establishment took three.</p>
+
+<div class="formula">
+  <span class="name">The four segments</span>
+  <strong>1. Client &rarr; Server: FIN</strong> &nbsp;(flags FIN, or FIN + ACK) &mdash; "I have no more data"<br>
+  <strong>2. Server &rarr; Client: ACK</strong> &mdash; acknowledges the FIN; the server may still keep sending<br>
+  <strong>3. Server &rarr; Client: FIN</strong> &nbsp;(flags FIN + ACK) &mdash; "now I have no more data either"<br>
+  <strong>4. Client &rarr; Server: ACK</strong> &mdash; acknowledges the server's FIN; the connection closes
+</div>
+
+<p><strong>FIN and FIN + ACK each consume one sequence number.</strong> The final ACK does not.</p>
+
+<div class="box exam">
+  <span class="lbl">Why four segments, not three</span>
+  <p>The server's <strong>ACK and its own FIN cannot always be combined</strong>, because after acknowledging the client's FIN the server may still have data to send. Only when it has finished can it send its own FIN. If the server happens to have nothing left to send, the two <em>can</em> be combined and the termination becomes a <strong>three-way handshake</strong> &mdash; mention this; it is the follow-up question.</p>
+</div>
+
+<h3>Half-close</h3>
+
+<p>One end can close its outgoing direction while <strong>continuing to receive</strong>. Normally the client does this: it sends all its data, sends FIN to say it has finished sending, but keeps reading the server's reply until the server closes too.</p>
+<p>The standard example: a client sends a long list of records to a server for sorting. The client must signal that the list is complete &mdash; so it half-closes &mdash; but it still needs to receive the sorted result. <strong>Data can still flow from server to client after the client's half-close; only the client's own sending direction is shut.</strong></p>
+
+<h2>The state transition diagram</h2>
+
+<p>Named states are frequently asked individually. The important ones:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>State</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>CLOSED</strong></td><td>No connection exists</td></tr>
+<tr><td><strong>LISTEN</strong></td><td>The <strong>server</strong> is waiting after a passive open</td></tr>
+<tr><td><strong>SYN-SENT</strong></td><td>The <strong>client</strong> has sent its SYN and is waiting for SYN + ACK</td></tr>
+<tr><td><strong>SYN-RCVD</strong></td><td>The server has received a SYN and sent SYN + ACK, awaiting the final ACK</td></tr>
+<tr><td><strong>ESTABLISHED</strong></td><td>The connection is open; <strong>data transfer takes place here</strong></td></tr>
+<tr><td><strong>FIN-WAIT-1</strong></td><td>The side that closed first has sent FIN, awaiting its acknowledgement</td></tr>
+<tr><td><strong>FIN-WAIT-2</strong></td><td>Its FIN has been acknowledged; now waiting for the <em>other</em> side's FIN</td></tr>
+<tr><td><strong>CLOSE-WAIT</strong></td><td>The passive side has received a FIN and acknowledged it, but still has data to send</td></tr>
+<tr><td><strong>LAST-ACK</strong></td><td>The passive side has sent its own FIN and awaits the final acknowledgement</td></tr>
+<tr><td><strong>TIME-WAIT</strong></td><td>The active closer waits <strong>2 &times; MSL</strong> before fully closing</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">TIME-WAIT and 2 &times; MSL &mdash; a favourite 3-mark question</span>
+  <p><strong>MSL</strong> is the <em>Maximum Segment Lifetime</em>, the longest a segment can survive in the network (commonly taken as 30 seconds, 1 minute or 2 minutes). After sending its final ACK, the closing side waits <strong>2 &times; MSL</strong> before releasing the connection, for two reasons:</p>
+  <ol style="margin:.3rem 0 0 1.1rem">
+    <li><strong>If the final ACK is lost</strong>, the other end will resend its FIN. Staying in TIME-WAIT means there is still someone there to re-acknowledge it. Without the wait, the resent FIN would meet a closed port and provoke an RST.</li>
+    <li><strong>To let all old segments of this connection die out</strong>, so that a new connection reusing the same port pair cannot receive a stray segment from the old one.</li>
+  </ol>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; trace the numbers</span>
+  <p><strong>Q.</strong> A client with ISN 8000 opens a connection to a server whose ISN is 15,000. The client then sends 200 bytes of data, and the server replies with 300 bytes. Trace the sequence and acknowledgement numbers of every segment through to the client's first data acknowledgement.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>#</th><th>Direction</th><th>Flags</th><th>seq</th><th>ack</th><th>Data</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>C &rarr; S</td><td>SYN</td><td class="num">8000</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td>2</td><td>S &rarr; C</td><td>SYN, ACK</td><td class="num">15,000</td><td class="num"><strong>8001</strong></td><td>&mdash;</td></tr>
+  <tr><td>3</td><td>C &rarr; S</td><td>ACK</td><td class="num">8001</td><td class="num"><strong>15,001</strong></td><td>&mdash;</td></tr>
+  <tr><td>4</td><td>C &rarr; S</td><td>ACK, PSH</td><td class="num">8001</td><td class="num">15,001</td><td>200 bytes</td></tr>
+  <tr><td>5</td><td>S &rarr; C</td><td>ACK</td><td class="num">15,001</td><td class="num"><strong>8201</strong></td><td>300 bytes</td></tr>
+  <tr><td>6</td><td>C &rarr; S</td><td>ACK</td><td class="num">8201</td><td class="num"><strong>15,301</strong></td><td>&mdash;</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><em>The three places to check your working:</em></p>
+  <ul>
+    <li>Segment 2's ack is <strong>8001</strong>, not 8000 &mdash; the SYN consumed sequence number 8000.</li>
+    <li>Segment 4 reuses <strong>seq 8001</strong>. The pure ACK in segment 3 consumed no sequence number, so the first data byte is still 8001.</li>
+    <li>Segment 5's ack is <strong>8201</strong> = 8001 + 200. Segment 6's ack is <strong>15,301</strong> = 15,001 + 300.</li>
+  </ul>
+  <p><em>Sanity check:</em> every acknowledgement number equals the other side's last sequence number plus the bytes it sent (plus 1 for a SYN or FIN).</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">TCP 3-Way Handshake & 4-Way Teardown Finite State Machine</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>3-Way Handshake (Establish)</strong><span class="sub">Client &rarr; Server</span></div>
+      <div class="flow-box">1. Client sends <strong>SYN</strong> (seq = x)</div>
+      <div class="flow-arrow-down">&darr;</div>
+      <div class="flow-box">2. Server sends <strong>SYN + ACK</strong> (seq = y, ack = x + 1)</div>
+      <div class="flow-arrow-down">&darr;</div>
+      <div class="flow-box ok">3. Client sends <strong>ACK</strong> (ack = y + 1) &bull; ESTABLISHED</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box warn"><strong>4-Way Handshake (Teardown)</strong><span class="sub">Graceful Close</span></div>
+      <div class="flow-box">1. Active close sends <strong>FIN</strong> (seq = u)</div>
+      <div class="flow-arrow-down">&darr;</div>
+      <div class="flow-box">2. Passive close sends <strong>ACK</strong> (ack = u + 1)</div>
+      <div class="flow-arrow-down">&darr;</div>
+      <div class="flow-box">3. Passive close sends <strong>FIN</strong> (seq = v)</div>
+      <div class="flow-arrow-down">&darr;</div>
+      <div class="flow-box">4. Active sends <strong>ACK</strong> (ack = v + 1) &bull; Enters <strong>TIME-WAIT (2MSL)</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">TCP Handshake & Teardown</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-71 & Lec-73: TCP Connection Establishment & Termination</div>
+    <div class="v-desc">Step-by-step ladder diagram showing sequence increments, simultaneous closes, SYN flood denial-of-service, and why TIME-WAIT 2MSL is required.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=qIEHUUt2Wfc" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In the three-way handshake, the second segment carries which flags?</p>
+  <div class="opts">
+    <button class="opt">SYN only, announcing the server's own ISN</button>
+    <button class="opt">ACK only, acknowledging the client's SYN</button>
+    <button class="opt" data-ok="1">SYN and ACK together in one segment</button>
+    <button class="opt">FIN and ACK, closing the client's direction</button>
+  </div>
+  <p class="why">The handshake is three segments rather than four precisely because the server combines its own SYN with the ACK of the client's SYN. Both directions still get initialised — that is why two segments would not be enough.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A client sends SYN with seq = 3000. The server's SYN+ACK will carry ack =</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">3001, because the SYN consumed one sequence number</button>
+    <button class="opt">1, because acknowledgement numbering restarts</button>
+    <button class="opt">3002, because both SYN and ACK consume a number</button>
+    <button class="opt">3000, because no data bytes were actually sent</button>
+  </div>
+  <p class="why">SYN and FIN each consume one sequence number despite carrying no data. So the next byte expected is 3001, and that is what the acknowledgement names.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Connection termination normally needs four segments because:</p>
+  <div class="opts">
+    <button class="opt">Each segment must be acknowledged twice for reliability</button>
+    <button class="opt" data-ok="1">Each direction must be closed separately, and the server may still have data</button>
+    <button class="opt">Four segments are needed to release the port numbers safely</button>
+    <button class="opt">The FIN flag cannot be combined with the ACK flag</button>
+  </div>
+  <p class="why">TCP is full-duplex, so both directions close independently. The server acknowledges the client's FIN first, keeps sending if it has data, then sends its own FIN. If it has nothing left, the two can combine and termination becomes three-way.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The TIME-WAIT state lasts 2 × MSL so that:</p>
+  <div class="opts">
+    <button class="opt">The port number can be registered again with IANA</button>
+    <button class="opt">The receiver has time to reassemble out-of-order segments</button>
+    <button class="opt">The congestion window can decay back to its initial value</button>
+    <button class="opt" data-ok="1">A lost final ACK can be re-acknowledged, and old segments can die out</button>
+  </div>
+  <p class="why">If the final ACK is lost, the other end resends its FIN and needs someone still listening to re-acknowledge it. The wait also ensures no stray segment from this connection can reach a new connection reusing the same port pair.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. In a half-close:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">One end stops sending but keeps receiving until the other end closes</button>
+    <button class="opt">Half the data is discarded and the rest is retransmitted</button>
+    <button class="opt">The connection is aborted immediately with an RST segment</button>
+    <button class="opt">Both ends stop sending but the connection stays allocated</button>
+  </div>
+  <p class="why">The classic case: a client sends a list for sorting, half-closes to signal the list is complete, then keeps reading until the sorted result has arrived. Data still flows server-to-client after the client's FIN.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. SYN flooding works by:</p>
+  <div class="opts">
+    <button class="opt">Sending so much data that the receiver's window drops to zero</button>
+    <button class="opt" data-ok="1">Sending SYNs with spoofed sources so half-open connections fill the server's table</button>
+    <button class="opt">Resending old FIN segments to close other users' connections</button>
+    <button class="opt">Guessing sequence numbers to inject data into a live connection</button>
+  </div>
+  <p class="why">The server allocates state and replies SYN+ACK to an address that never answers, so half-open connections accumulate and legitimate clients are refused. SYN cookies defend against it by encoding the state in the ISN and allocating nothing until the third segment returns.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Describe the three-way handshake with flags and numbers.</summary>
+    <p class="ans">1. Client → Server: SYN, seq = x (client's random ISN). 2. Server → Client: SYN + ACK, seq = y (server's ISN), ack = x + 1. 3. Client → Server: ACK, seq = x + 1, ack = y + 1, and it may carry data. SYN consumes one sequence number; a pure ACK consumes none.</p></details>
+  <details class="card"><summary>Why three segments rather than two?</summary>
+    <p class="ans">TCP is full-duplex, so both directions must be initialised — each side announces its ISN and has it acknowledged, which is four events compressed into three segments because the server combines SYN and ACK. A two-way handshake would also let a delayed duplicate SYN from an old connection open an unwanted connection.</p></details>
+  <details class="card"><summary>Describe the four-way termination.</summary>
+    <p class="ans">1. Client → Server: FIN. 2. Server → Client: ACK (the server may still send data). 3. Server → Client: FIN + ACK. 4. Client → Server: ACK. FIN consumes one sequence number; the final ACK does not. If the server has no data left, steps 2 and 3 combine into a three-way close.</p></details>
+  <details class="card"><summary>What is a half-close, and give an example.</summary>
+    <p class="ans">One end closes its sending direction while continuing to receive. A client sends a list of records for sorting and half-closes to signal the list is complete, then keeps receiving until the sorted result arrives.</p></details>
+  <details class="card"><summary>Name the main TCP states.</summary>
+    <p class="ans">CLOSED, LISTEN (server passive open), SYN-SENT (client), SYN-RCVD (server), ESTABLISHED (data transfer), FIN-WAIT-1, FIN-WAIT-2, CLOSE-WAIT, LAST-ACK, TIME-WAIT.</p></details>
+  <details class="card"><summary>Explain TIME-WAIT and 2 × MSL.</summary>
+    <p class="ans">MSL is the maximum segment lifetime. The active closer waits 2 × MSL after its final ACK so that (a) if that ACK was lost and the other end resends FIN, someone is still there to re-acknowledge it, and (b) all old segments of this connection die out before a new connection can reuse the same port pair.</p></details>
+  <details class="card"><summary>Define piggybacking, pure acknowledgement and delayed acknowledgement.</summary>
+    <p class="ans">Piggybacking — an acknowledgement rides on an outgoing data segment instead of being sent separately. Pure acknowledgement — an ACK-only segment, sent when there is no data going that way; it consumes no sequence number. Delayed acknowledgement — TCP waits briefly (bounded, typically 500 ms) hoping to piggyback or to acknowledge two segments at once.</p></details>
+  <details class="card"><summary>What is SYN flooding and how is it defended against?</summary>
+    <p class="ans">An attacker sends SYNs with spoofed source addresses; the server allocates resources and replies SYN+ACK to addresses that never answer, filling its table with half-open connections and denying service to real clients. SYN cookies defend against it: the server encodes connection state into the ISN it returns and allocates resources only when the third segment comes back carrying that value.</p></details>
+</div>
+
+<p class="ask">Next: flow and error control, where the window field from the last lesson does its actual work.</p>
+
+<div class="nav">
+  <a href="0030-tcp-services-and-header.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0032-tcp-flow-and-error-control.html">Next: TCP Flow and Error Control &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

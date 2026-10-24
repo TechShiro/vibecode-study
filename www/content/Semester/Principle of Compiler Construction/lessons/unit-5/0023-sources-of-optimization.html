@@ -1,0 +1,294 @@
+<title>Sources of Optimization</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit V &middot; Lesson 23 of 27</p>
+<h1>Sources of Optimization</h1>
+<p class="deck">Classification of compiler optimizations, function-preserving transformations, common subexpression elimination, copy propagation, dead-code elimination, constant folding, and loop-invariant code motion.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain the principal sources of optimization with suitable examples&rdquo;</strong> is a recurring 10-mark question. Clearly separate <strong>function-preserving transformations</strong> from <strong>loop transformations</strong> and illustrate each with concise 3-address code fragments.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Code Optimization Principles &amp; Scope</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=EHBQtd142tY" target="_blank">Lec-25: What is Code Optimization | Machine Dependent vs Machine Independent Techniques</a>
+    <span class="v-meta">Gate Smashers &middot; 12:40</span>
+    <div class="v-why">Comprehensive syllabus walkthrough of the three cardinal criteria of optimization, the spectrum from local to loop and global optimizations, and how CSE, copy propagation, and dead code elimination work together.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Loop Optimization &amp; Strength Reduction</span>
+      <span class="best-tag">Top Exam Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Lec-26: Loop Optimization in Compiler Design with Examples</a>
+    <span class="v-meta">Gate Smashers &middot; 11:15</span>
+    <div class="v-why">Step-by-step demonstration of loop-invariant code motion (code hoisting), induction variable strength reduction (replacing multiplication with addition), and loop unrolling/jamming.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: OPTIMIZATION PIPELINE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Multi-Stage Code Optimization Pipeline</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Front-End Output: Intermediate Code</strong>
+      <span class="sub">Unoptimized Three-Address Code (TAC) / Quadruples</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Partition into Basic Blocks</span>
+    <div class="flow-box">
+      <strong>Stage 1 &middot; Local Optimizations (Inside Basic Block)</strong>
+      <span class="sub">DAG-based Value Numbering &middot; Local CSE &middot; Constant Folding &middot; Algebraic Identities</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Construct Control Flow Graph (CFG)</span>
+    <div class="flow-box">
+      <strong>Stage 2 &middot; Global &amp; Loop Optimizations (Machine-Independent)</strong>
+      <span class="sub">Global CSE &middot; Copy Propagation &middot; Loop Invariant Hoisting &middot; Induction Variable Strength Reduction</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Optimized Intermediate Representation</span>
+    <div class="flow-box ok">
+      <strong>Stage 3 &middot; Target Machine-Dependent Optimizations</strong>
+      <span class="sub">Register Allocation (Graph Coloring) &middot; Instruction Scheduling &middot; Peephole Sliding Window</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <div class="flow-box highlight">
+      <strong>High-Performance Target Machine Code</strong>
+      <span class="sub">Assembly / Binary Executable with minimal cycle and memory footprint</span>
+    </div>
+  </div>
+</div>
+
+<h2>What is code optimization?</h2>
+<p>Optimization is the transformation of intermediate code into functionally equivalent code that executes faster, uses fewer machine resources (registers, cache, energy), or occupies less memory space.</p>
+
+<div class="box win">
+  <span class="lbl">Three cardinal criteria for a compiler optimizer</span>
+  <ol>
+    <li><strong>Semantics preservation:</strong> The transformed program must produce the exact same observable output for all valid inputs as the unoptimized version.</li>
+    <li><strong>Measurable speedup:</strong> Transformations must noticeably reduce running time or resource footprint on average.</li>
+    <li><strong>Reasonable compile-time overhead:</strong> The optimization pass must terminate quickly without exponential analysis slowdown.</li>
+  </ol>
+</div>
+
+<h2>Classification of optimizations by scope</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Scope</th><th>Granularity</th><th>Representative techniques</th></tr></thead>
+<tbody>
+<tr><td><strong>Local</strong></td><td>Single basic block (straight-line code)</td><td>Local common subexpression elimination, constant folding, algebraic simplification</td></tr>
+<tr><td><strong>Global / Intraprocedural</strong></td><td>Entire control-flow graph of a function</td><td>Global common subexpressions, copy propagation, code motion, dead code elimination</td></tr>
+<tr><td><strong>Interprocedural</strong></td><td>Across multiple procedure/function calls</td><td>Function inlining, interprocedural constant propagation, alias analysis</td></tr>
+<tr><td><strong>Peephole</strong></td><td>Short sliding window of target assembly instructions</td><td>Redundant load/store elimination, jump chaining, machine idiom substitution</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Function-preserving transformations</h2>
+<p>These transformations preserve the input-output behavior of a basic block or control flow graph without restructuring loop iteration headers.</p>
+
+<h3>1. Common Subexpression Elimination (CSE)</h3>
+<p>An expression <code>E</code> is a <strong>common subexpression</strong> if <code>E</code> was previously computed, and the values of the operands of <code>E</code> have not changed since that prior computation.</p>
+
+<div class="solve">
+  <span class="lbl">Worked comparison &mdash; CSE</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Unoptimized Three-Address Code</th><th>Optimized Three-Address Code</th></tr></thead>
+  <tbody>
+  <tr>
+  <td><pre class="mono">t1 = 4 * i
+t2 = a[t1]
+t3 = 4 * i    /* redundant computation */
+t4 = b[t3]</pre></td>
+  <td><pre class="mono">t1 = 4 * i
+t2 = a[t1]
+/* t3 reused from t1 */
+t4 = b[t1]</pre></td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+  <p>Eliminating <code>t3 = 4 * i</code> saves an expensive multiplication operation.</p>
+</div>
+
+<h3>2. Copy Propagation</h3>
+<p>Assignments of the form <code>x = y</code> are called <strong>copies</strong>. Copy propagation replaces subsequent occurrences of <code>x</code> with <code>y</code>, provided neither <code>x</code> nor <code>y</code> has been reassigned along the execution path.</p>
+<div class="solve">
+  <span class="lbl">Worked trace &mdash; Copy propagation enabling CSE</span>
+  <pre class="mono">/* Before: */
+x = t3
+a[i] = x
+t5 = x * 4
+
+/* After copy propagation: */
+x = t3
+a[i] = t3
+t5 = t3 * 4</pre>
+  <p>If <code>x</code> is no longer needed afterwards, the assignment <code>x = t3</code> becomes dead code.</p>
+</div>
+
+<h3>3. Dead-Code Elimination</h3>
+<p>A variable is <strong>dead</strong> at a point if its value is never used along any path starting from that point. Code that computes values that are never subsequently read is <strong>dead code</strong> and can be eliminated.</p>
+<pre class="mono">/* Example: debug flag known at compile time */
+debug = 0;
+if (debug) {
+    print_status();  /* Unreachable code: pruned completely */
+}</pre>
+
+<h3>4. Constant Folding and Constant Propagation</h3>
+<ul>
+  <li><strong>Constant Folding:</strong> Evaluating expressions with compile-time known constants directly during compilation (e.g., replacing <code>r = 3.14159 * 2</code> with <code>r = 6.28318</code>).</li>
+  <li><strong>Constant Propagation:</strong> If a variable is assigned a constant <code>c = 10</code>, replacing all subsequent uses of <code>c</code> with <code>10</code> as long as <code>c</code> is not modified.</li>
+</ul>
+
+<h2>Loop transformations</h2>
+<p>Programs spend roughly 90% of their runtime executing inside 10% of their code (mostly inner loops). Optimizing loops yields the greatest performance gains.</p>
+
+<h3>1. Code Motion (Loop-Invariant Code Motion)</h3>
+<p>An expression is <strong>loop-invariant</strong> if its value does not change throughout iterations of the loop. Code motion hoists the computation of such expressions outside the loop to the loop preheader.</p>
+<div class="solve">
+  <span class="lbl">Before vs After Hoisting</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Inside Loop (N iterations)</th><th>Hoisted to Preheader (1 execution)</th></tr></thead>
+  <tbody>
+  <tr>
+  <td><pre class="mono">while (i <= limit) {
+    x = y + z;      /* invariant: y & z never change */
+    a[i] = a[i] + x;
+    i = i + 1;
+}</pre></td>
+  <td><pre class="mono">t1 = y + z;         /* executed once */
+while (i <= limit) {
+    a[i] = a[i] + t1;
+    i = i + 1;
+}</pre></td>
+  </tr>
+  </tbody>
+  </table>
+  </div>
+  
+  <!-- VISUAL FLOWCHART: CODE HOISTING -->
+  <div class="diagram-wrap" style="margin:1rem 0;">
+    <span class="diagram-title">Visual Comparison: Loop-Invariant Hoisting</span>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1.2rem;">
+      <div style="border:1.5px solid var(--warn); border-radius:6px; padding:0.9rem; background:var(--panel);">
+        <div style="font-weight:700; color:var(--warn); text-align:center; font-size:0.85rem; margin-bottom:0.6rem; text-transform:uppercase;">Unoptimized: Recomputed on Every Iteration</div>
+        <div class="flow-col">
+          <div class="flow-box warn" style="min-width:13rem;">
+            <strong>Loop Header &amp; Body (Repeated $N$ times)</strong>
+            <span class="sub"><code>x = y + z</code> evaluated $N$ times<br>Multiplication / addition CPU cycles wasted</span>
+          </div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box" style="min-width:13rem;">
+            <strong>Loop Back Edge</strong>
+            <span class="sub">Branch back to recompute invariant</span>
+          </div>
+        </div>
+      </div>
+      <div style="border:1.5px solid var(--ok); border-radius:6px; padding:0.9rem; background:var(--panel);">
+        <div style="font-weight:700; color:var(--ok); text-align:center; font-size:0.85rem; margin-bottom:0.6rem; text-transform:uppercase;">Optimized: Hoisted to Loop Preheader</div>
+        <div class="flow-col">
+          <div class="flow-box highlight" style="min-width:13rem;">
+            <strong>Preheader (Executed Exactly 1 Time)</strong>
+            <span class="sub"><code>t1 = y + z</code> evaluated once before loop entry</span>
+          </div>
+          <div class="flow-arrow-down"></div>
+          <div class="flow-box ok" style="min-width:13rem;">
+            <strong>Optimized Loop Body ($N$ iterations)</strong>
+            <span class="sub"><code>a[i] = a[i] + t1</code><br>Uses precomputed <code>t1</code> directly</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>2. Induction Variables and Reduction in Strength</h3>
+<p>A variable <code>x</code> is an <strong>induction variable</strong> if every time it changes value, it is incremented or decremented by a loop-invariant constant.</p>
+<p><strong>Reduction in Strength:</strong> Replacing an expensive operation (like multiplication) with an equivalent cheaper operation (like addition or bit-shift).</p>
+<div class="solve">
+  <span class="lbl">Strength reduction on induction variable</span>
+  <pre class="mono">/* Before: Multiplication by 4 on each step */
+for (i = 0; i < n; i++) {
+    t1 = i * 4;       /* multiplication inside loop */
+    b[i] = a[t1];
+}
+
+/* After: Strength reduction replaces multiplication with addition */
+t1 = 0;
+for (i = 0; i < n; i++) {
+    b[i] = a[t1];
+    t1 = t1 + 4;      /* cheap addition */
+}</pre>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Replacing `t1 = a + b; ...; t2 = a + b` with `t2 = t1` (when a and b are unmodified) is an example of:</p>
+  <div class="opts">
+    <button class="opt">Loop-invariant code motion</button>
+    <button class="opt">Constant folding</button>
+    <button class="opt">Strength reduction</button>
+    <button class="opt" data-ok="1">Common subexpression elimination</button>
+  </div>
+  <p class="why">Common subexpression elimination avoids recomputing an identical expression whose operands have not changed.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Evaluating `2 * 3.14159` at compile time instead of emitting runtime instructions is called:</p>
+  <div class="opts">
+    <button class="opt">Strength reduction</button>
+    <button class="opt">Dead-code elimination</button>
+    <button class="opt">Copy propagation</button>
+    <button class="opt" data-ok="1">Constant folding</button>
+  </div>
+  <p class="why">Constant folding evaluates operations on literal constants at compile time.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Replacing `x = i * 4` inside an incrementing loop with `x = x + 4` is called:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Reduction in strength on an induction variable</button>
+    <button class="opt">Peephole jump chaining</button>
+    <button class="opt">Dead store elimination</button>
+    <button class="opt">Code hoisting</button>
+  </div>
+  <p class="why">Strength reduction replaces a high-cost operator (multiplication) with a low-cost one (addition).</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>The three criteria of code optimization.</summary>
+    <p class="ans">1. Must preserve program semantics. 2. Must speed up execution or reduce resource usage. 3. Compilation time must remain reasonable.</p></details>
+  <details class="card"><summary>Four primary function-preserving transformations.</summary>
+    <p class="ans">Common subexpression elimination, copy propagation, dead-code elimination, and constant folding/propagation.</p></details>
+  <details class="card"><summary>Loop-invariant code motion vs reduction in strength.</summary>
+    <p class="ans">Loop-invariant code motion hoists loop-unchanging expressions to the loop preheader. Strength reduction replaces expensive operations (e.g., multiplications in induction variables) with cheaper ones (e.g., additions).</p></details>
+</div>
+
+<div class="nav">
+  <a href="../unit-4/0022-runtime-environment.html">&larr; Previous: Runtime Environment</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0024-basic-blocks-and-flow-graphs.html">Next: Basic Blocks and Flow Graphs &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

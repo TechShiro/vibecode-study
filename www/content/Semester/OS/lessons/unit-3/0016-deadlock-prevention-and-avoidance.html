@@ -1,0 +1,207 @@
+<title>Deadlock Prevention and Avoidance</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit III &middot; Lesson 16 of 22</p>
+<h1>Deadlock Prevention and Avoidance</h1>
+<p class="deck">Prevention by breaking one of the four conditions, avoidance using the safe-state concept, and the <strong>Banker&rsquo;s Algorithm</strong> &mdash; the single most important numerical in this unit.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Banker&rsquo;s Algorithm is a guaranteed 10&ndash;15 mark numerical.</strong> You must compute Need = Max &minus; Allocation, then find a safe sequence. Show the Work vector at every step. Prevention is a 5-mark theory question.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Banker's Algorithm Safety State Evaluation Engine</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>1. Compute Need Matrix: Need[i][j] = Max[i][j] - Allocation[i][j]</strong>
+      <span class="sub">Work = Available vector &bull; Finish[i] = false for all processes</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Find process i with Finish[i]==false and Need[i] &le; Work</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>2. Process i Can Safely Execute to Completion!</strong>
+      <span class="sub">Work = Work + Allocation[i] &bull; Finish[i] = true &bull; Add P<sub>i</sub> to Safe Sequence</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Repeat until all finished</div>
+    <div class="flow-box" style="max-width:32rem;"><strong>If all Finish[i] == true: System is in SAFE STATE (Deadlock Free!)</strong></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 19 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Deadlock Avoidance & Banker's</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Banker's Algorithm Solved Example with Safety and Request Algorithms</div>
+    <div class="v-desc">Full walkthrough of matrices, finding safe sequences, evaluating dynamic resource requests, and preventing deadlocks.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=7gMLNiEz3nw" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Deadlock prevention</h2>
+
+<p>Ensure at least one of the four necessary conditions <strong>can never hold</strong>:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Condition</th><th>Prevention strategy</th><th>Drawback</th></tr></thead>
+<tbody>
+<tr><td><strong>Mutual exclusion</strong></td><td>Make resources sharable (impossible for printers, etc.)</td><td>Not practical for most resources</td></tr>
+<tr><td><strong>Hold and wait</strong></td><td>Request ALL resources before starting, or release all before new request</td><td>Low utilisation, possible starvation</td></tr>
+<tr><td><strong>No preemption</strong></td><td>If a process cannot get a resource, preempt all its held resources</td><td>Only works for resources whose state can be saved (CPU, memory)</td></tr>
+<tr><td><strong>Circular wait</strong></td><td>Impose a total ordering on resources; request in order only</td><td>Must know ordering in advance; inconvenient</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Deadlock avoidance &mdash; safe states</h2>
+
+<div class="formula">
+  <span class="name">Safe state</span>
+  A state is <strong>safe</strong> if there exists a sequence &lang;P<sub>1</sub>,&hellip;,P<sub>n</sub>&rang; such that for every P<sub>i</sub>, the resources P<sub>i</sub> still needs can be satisfied by currently available resources plus resources held by all P<sub>j</sub> with j &lt; i.<br><br>
+  <strong>Safe &rArr; no deadlock. Unsafe &ne; deadlock</strong> (but deadlock is possible).
+</div>
+
+<h2>Banker&rsquo;s Algorithm</h2>
+
+<div class="formula">
+  <span class="name">Data structures</span>
+  n = processes, m = resource types.<br>
+  <strong>Available[m]:</strong> currently available instances of each type.<br>
+  <strong>Max[n][m]:</strong> maximum demand of each process.<br>
+  <strong>Allocation[n][m]:</strong> currently allocated to each process.<br>
+  <strong>Need[n][m] = Max &minus; Allocation</strong>
+</div>
+
+<div class="formula">
+  <span class="name">Safety algorithm</span>
+  1. Let Work = Available, Finish[i] = false for all i.<br>
+  2. Find a process i such that Finish[i] = false AND Need[i] &le; Work.<br>
+  3. If found: Work = Work + Allocation[i], Finish[i] = true. Go to step 2.<br>
+  4. If no such i exists: if all Finish[i] = true &rArr; <strong>SAFE</strong>. Otherwise &rArr; <strong>UNSAFE</strong>.
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; Banker&rsquo;s Algorithm</span>
+  <p>3 resource types (A, B, C). 5 processes (P0&ndash;P4). Available = [3, 3, 2].</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Process</th><th>Max (A,B,C)</th><th>Allocation</th><th>Need = Max&minus;Alloc</th></tr></thead>
+  <tbody>
+  <tr><td>P0</td><td>7, 5, 3</td><td>0, 1, 0</td><td>7, 4, 3</td></tr>
+  <tr><td>P1</td><td>3, 2, 2</td><td>2, 0, 0</td><td>1, 2, 2</td></tr>
+  <tr><td>P2</td><td>9, 0, 2</td><td>3, 0, 2</td><td>6, 0, 0</td></tr>
+  <tr><td>P3</td><td>2, 2, 2</td><td>2, 1, 1</td><td>0, 1, 1</td></tr>
+  <tr><td>P4</td><td>4, 3, 3</td><td>0, 0, 2</td><td>4, 3, 1</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Safety check:</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Step</th><th>Select</th><th>Work before</th><th>Work after (+ Alloc)</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>P1 (Need 1,2,2 &le; 3,3,2)</td><td>3, 3, 2</td><td>5, 3, 2</td></tr>
+  <tr><td>2</td><td>P3 (Need 0,1,1 &le; 5,3,2)</td><td>5, 3, 2</td><td>7, 4, 3</td></tr>
+  <tr><td>3</td><td>P4 (Need 4,3,1 &le; 7,4,3)</td><td>7, 4, 3</td><td>7, 4, 5</td></tr>
+  <tr><td>4</td><td>P0 (Need 7,4,3 &le; 7,4,5)</td><td>7, 4, 5</td><td>7, 5, 5</td></tr>
+  <tr><td>5</td><td>P2 (Need 6,0,0 &le; 7,5,5)</td><td>7, 5, 5</td><td>10, 5, 7</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Safe sequence: &lang;P1, P3, P4, P0, P2&rang;</strong> &check; System is in a safe state.</p>
+</div>
+
+<div class="box win">
+  <span class="lbl">The exam shortcut</span>
+  <p>Start by scanning for the process whose Need is smallest &mdash; it is most likely to fit into the current Work vector. After each allocation, Work grows, making subsequent processes easier to satisfy.</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Need[i] in Banker&rsquo;s Algorithm is computed as:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Max[i] &minus; Allocation[i]</button>
+    <button class="opt">Available &minus; Allocation[i]</button>
+    <button class="opt">Max[i] + Allocation[i]</button>
+    <button class="opt">Max[i] &minus; Available</button>
+  </div>
+  <p class="why">Need = maximum demand minus what the process already has. This is how much more it might request.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A safe state means:</p>
+  <div class="opts">
+    <button class="opt">All resources are free</button>
+    <button class="opt">The system will never deadlock regardless of future requests</button>
+    <button class="opt">No process is currently waiting</button>
+    <button class="opt" data-ok="1">There exists at least one sequence in which all processes can finish</button>
+  </div>
+  <p class="why">Safe = at least one completion order exists. The system avoids deadlock by only granting requests that keep it safe.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. To prevent the circular-wait condition:</p>
+  <div class="opts">
+    <button class="opt">Never release resources once allocated</button>
+    <button class="opt">Allow only one process to run at a time</button>
+    <button class="opt" data-ok="1">Impose a total ordering on resources and request in order</button>
+    <button class="opt">Allow processes to hold multiple resources simultaneously</button>
+  </div>
+  <p class="why">If all processes request resources in a fixed order, no circular chain can form.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The Banker&rsquo;s Algorithm is an example of:</p>
+  <div class="opts">
+    <button class="opt">Deadlock prevention</button>
+    <button class="opt" data-ok="1">Deadlock avoidance</button>
+    <button class="opt">Deadlock recovery</button>
+    <button class="opt">Deadlock detection</button>
+  </div>
+  <p class="why">Avoidance = check before granting. Prevention = design constraints. Detection = find after occurrence. Recovery = fix after detection.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. An unsafe state:</p>
+  <div class="opts">
+    <button class="opt">Is the same as deadlock</button>
+    <button class="opt" data-ok="1">May or may not lead to deadlock &mdash; but deadlock is possible</button>
+    <button class="opt">Cannot occur if the Banker&rsquo;s Algorithm is used</button>
+    <button class="opt">Always leads to deadlock</button>
+  </div>
+  <p class="why">Unsafe &ne; deadlocked. It means no safe sequence exists, so processes MIGHT deadlock depending on future requests.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the four prevention strategies and their drawbacks.</summary>
+    <p class="ans">Break ME: share resources (impractical). Break H&W: request all upfront (low util). Break NP: preempt (only for saveable state). Break CW: total ordering (inconvenient).</p></details>
+  <details class="card"><summary>State the Banker's safety algorithm.</summary>
+    <p class="ans">Work = Available. Find process i with Need[i] &le; Work and Finish[i]=false. Set Work += Alloc[i], Finish[i]=true. Repeat. If all finish, safe.</p></details>
+  <details class="card"><summary>Safe vs unsafe vs deadlocked.</summary>
+    <p class="ans">Safe: at least one completion sequence exists. Unsafe: no safe sequence, deadlock possible. Deadlocked: processes actually stuck in circular wait.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0015-deadlock-characterisation.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0017-deadlock-detection-and-recovery.html">Next: Detection &amp; Recovery &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

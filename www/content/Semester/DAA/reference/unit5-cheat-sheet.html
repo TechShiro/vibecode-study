@@ -1,0 +1,114 @@
+<title>DAA Unit V Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.6rem 0 .4rem;font-size:1.12rem}
+  .formula{padding:.5rem .75rem;margin:.5rem 0;font-size:.95rem}
+  table{font-size:.85rem}
+  th,td{padding:.3rem .45rem}
+  ul,ol{margin:.35rem 0 .35rem 1.1rem}
+  li{margin:.12rem 0}
+  .tag{display:inline-block;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--paper);padding:.12rem .45rem;border-radius:3px;vertical-align:.15em;margin-left:.4rem}
+  @media print{body{font-size:9.2pt}.wrap{max-width:100%}h2{margin:.7rem 0 .25rem}}
+</style>
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Reference</p>
+<h1>Unit V &mdash; Exam Sheet</h1>
+<p class="deck">P &amp; NP Complexity Classes, NP-Completeness, Polynomial Reductions, Cook-Levin, 3-SAT, Clique, Vertex Cover, Hamiltonian Cycle, TSP &amp; Approximations on one printable page.</p>
+
+<h2>1. Complexity Classes: P, NP, NP-Hard, NP-Complete <span class="tag">guaranteed definitions</span></h2>
+<div class="tw">
+<table>
+<thead><tr><th>Class</th><th>Formal Definition</th><th>Key Example</th></tr></thead>
+<tbody>
+<tr><td><strong>P</strong></td><td>Decision problems solvable by a deterministic algorithm in polynomial time $O(n^k)$.</td><td>Sorting, Shortest Path, MST</td></tr>
+<tr><td><strong>NP</strong></td><td>Decision problems verifiable by a deterministic verifier in polynomial time given a certificate.</td><td>0/1 Knapsack, SAT, TSP</td></tr>
+<tr><td><strong>NP-Hard</strong></td><td>Problems to which every problem in NP polynomial-time reduces ($Y \le_P X, \forall Y \in \text{NP}$).</td><td>Halting problem, Opt-TSP</td></tr>
+<tr><td><strong>NP-Complete (NPC)</strong></td><td>Hardest problems in NP: <strong>1. $X \in \text{NP}$ AND 2. $X$ is NP-Hard</strong>.</td><td>3-SAT, Clique, Vertex Cover</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>P &sube; NP:</strong> Proven (any poly-time solvable problem is trivially verifiable). <strong>P = NP vs P &ne; NP:</strong> Millennium open problem.</p>
+
+<h2>2. Polynomial-Time Reductions ($L_1 \le_P L_2$) <span class="tag">rules</span></h2>
+<div class="formula">
+$L_1 \le_P L_2$ means $x \in L_1 \iff f(x) \in L_2$ where $f$ is computable in deterministic polynomial time.<br>
+<strong>Meaning:</strong> $L_2$ is at least as hard as $L_1$. If $L_2 \in P \implies L_1 \in P$. If $L_1 \notin P \implies L_2 \notin P$.<br>
+<strong>Transitivity:</strong> If $A \le_P B$ and $B \le_P C \implies A \le_P C$.
+</div>
+
+<h2>3. The 2-Step Recipe to Prove $X$ is NP-Complete</h2>
+<ol>
+  <li><strong>Prove $X \in \text{NP}$</strong>: Specify polynomial certificate and write deterministic verifier running in $O(n^k)$ time.</li>
+  <li><strong>Choose known NPC problem $Y$</strong> (e.g. 3-SAT, Clique, HC).</li>
+  <li><strong>Reduce $Y \le_P X$</strong>: Construct mapping $f$ in polynomial time.</li>
+  <li><strong>Prove equivalence:</strong> $y \in Y \iff f(y) \in X$ (both directions: YES &rArr; YES, and NO &rArr; NO).</li>
+</ol>
+
+<h2>4. The Cook-Levin Theorem (1971) <span class="tag">milestone</span></h2>
+<p><strong>Boolean Satisfiability (SAT) is NP-Complete.</strong> Cook proved from first principles that any non-deterministic Turing machine computation of length $p(n)$ can be encoded as an equivalent polynomial-sized boolean formula $\Phi$.</p>
+
+<h2>5. Classic NP-Complete Reductions Summary <span class="tag">guaranteed proofs</span></h2>
+<div class="tw">
+<table>
+<thead><tr><th>Reduction Step</th><th>Source ($Y$)</th><th>Target ($X$)</th><th>Gadget Construction &amp; Target Parameter</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>SAT &rarr; 3-SAT</strong></td>
+  <td>CNF-SAT</td>
+  <td>3-CNF-SAT</td>
+  <td>Break clauses with $>3$ literals using auxiliary variables: $(l_1 \lor l_2 \lor y_1) \land (\overline{y_1} \lor l_3 \lor l_4)$.</td>
+</tr>
+<tr>
+  <td><strong>3-SAT &rarr; Clique</strong></td>
+  <td>3-SAT ($m$ clauses)</td>
+  <td>Clique in $G(V, E)$</td>
+  <td>$3m$ vertices (one per literal). Connect edges between different clause groups if literals are consistent. <strong>Target $k = m$.</strong></td>
+</tr>
+<tr>
+  <td><strong>Clique &rarr; Vertex Cover</strong></td>
+  <td>Clique ($G, k$)</td>
+  <td>Vertex Cover in $\overline{G}$</td>
+  <td><strong>Duality Theorem:</strong> $S$ is a Clique in $G \iff V \setminus S$ is a Vertex Cover in complement graph $\overline{G}$. <strong>Target $k' = |V| - k$.</strong></td>
+</tr>
+<tr>
+  <td><strong>Vertex Cover &rarr; Set Cover</strong></td>
+  <td>Vertex Cover ($G, k$)</td>
+  <td>Set Cover</td>
+  <td>Universe $U = E$. Subsets $S_v = \text{edges incident to } v$. Target $k$ subsets cover $U$.</td>
+</tr>
+<tr>
+  <td><strong>HC &rarr; TSP</strong></td>
+  <td>Hamiltonian Cycle</td>
+  <td>Decision TSP</td>
+  <td>Complete graph $G'$: $w(u, v) = 1$ if $(u, v) \in E$; $w(u, v) = 2$ if $(u, v) \notin E$. <strong>Target cost $k = n = |V|$.</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>6. Coping with Hardness: Approximation Algorithms <span class="tag">formulas</span></h2>
+<p><strong>Approximation Ratio:</strong> $C / C^* \le \rho(n)$ (for minimization).</p>
+<ul>
+  <li><strong>2-Approximation for Vertex Cover (Maximal Matching):</strong>
+    <p>Find maximal matching $M$ of disjoint edges. Add both endpoints of all edges in $M$ to cover $C$. Since any cover needs $|C^*| \ge |M|$, and $|C| = 2|M|$, we have: <strong>$|C| \le 2 \cdot |C^*|$</strong>. Runs in $O(V + E)$ time.</p>
+  </li>
+  <li><strong>2-Approximation for Metric TSP (Using MST):</strong>
+    <p>Requires Triangle Inequality ($c(u, w) \le c(u, v) + c(v, w)$). Compute MST $T$ ($O(E \log V)$), double edges for Euler tour ($2 \cdot \text{weight}(T)$), shortcut duplicate vertices: <strong>$\text{cost}(\text{Tour}) \le 2 \cdot \text{cost}(T) &lt; 2 \cdot \text{OPT}$</strong>.</p>
+  </li>
+</ul>
+
+<h2>Ten-Minute Exam Final Scan</h2>
+<ol>
+  <li><strong>P vs NP:</strong> P = efficiently solvable ($O(n^k)$); NP = efficiently verifiable ($O(n^k)$ with certificate).</li>
+  <li><strong>NP-Hard vs NP-Complete:</strong> NP-Hard = all NP problems reduce to it. NP-Complete = NP-Hard AND in NP.</li>
+  <li><strong>Reduction direction:</strong> To prove $X$ is NPC, reduce KNOWN to NEW ($Y \le_P X$). Solvability flows back; hardness flows forward.</li>
+  <li><strong>Cook-Levin:</strong> SAT is the foundational first NP-Complete problem.</li>
+  <li><strong>Clique &hArr; Vertex Cover duality:</strong> $S$ is a Clique in $G \iff V \setminus S$ is a Vertex Cover in $\overline{G}$.</li>
+  <li><strong>HC to TSP:</strong> $w=1$ for existing edges, $w=2$ for non-edges. Tour cost $\le n \iff$ Hamiltonian cycle exists.</li>
+  <li><strong>Vertex Cover 2-approx:</strong> Maximal matching $M$; pick both endpoints. $|C| = 2|M| \le 2|C^*|$.</li>
+</ol>
+
+</div>

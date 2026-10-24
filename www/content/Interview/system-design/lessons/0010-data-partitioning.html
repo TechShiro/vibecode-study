@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 10 - Data Partitioning | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 10 of 66 · Horizontal/Vertical Partitioning, Hotspots</div>
+  
+  <h1>Data Partitioning</h1>
+  <p class="subtitle">Splitting your massive dataset into manageable chunks.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module B — Databases</span>
+  </div>
+
+  <h2>The one idea</h2>
+  <p>Replication copies the <em>same</em> data across multiple servers for reliability. <strong>Partitioning</strong> (or Sharding) splits a <em>large</em> dataset across multiple servers because the total data is too big, or the read/write volume is too high, for any single machine to handle.</p>
+
+  <h2>Vertical vs Horizontal Partitioning</h2>
+  <p>There are two primary ways to slice a massive database table.</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Vertical Partitioning (Splitting by Columns)</th>
+        <th>Horizontal Partitioning / Sharding (Splitting by Rows)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>You split tables based on columns. For example, moving the heavy <code>profile_picture_url</code> and <code>bio</code> columns to a different server than the frequently accessed <code>username</code> and <code>password</code> columns.</td>
+        <td>You split tables based on rows. E.g., Users with IDs 1 to 10,000 live on Server A. Users with IDs 10,001 to 20,000 live on Server B. Both servers have the exact same table structure (columns).</td>
+      </tr>
+      <tr>
+        <td><strong>Pros:</strong> Easy to implement initially. Optimizes disk I/O because you aren't pulling heavy, unused columns into memory.</td>
+        <td><strong>Pros:</strong> Truly infinite scale. You can just keep adding servers as your user base grows.</td>
+      </tr>
+      <tr>
+        <td><strong>Cons:</strong> Has a hard limit. Eventually, even the vertically sliced tables will get too many rows to fit on one machine.</td>
+        <td><strong>Cons:</strong> Extremely complex. Cross-partition joins are terribly slow or impossible. Application logic must route queries to the correct server.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>How to horizontally partition (Sharding Strategies)</h2>
+  <p>If you decide to split your data by rows across multiple servers, how do you decide which row goes to which server? You need a <strong>Partition Key</strong> (or Shard Key).</p>
+
+  <h3>1. Range Partitioning</h3>
+  <p>Partition based on a continuous range of the key.<br>
+  <em>Example:</em> Data for Jan-Mar goes to Server 1. Apr-Jun goes to Server 2.<br>
+  <strong>Problem:</strong> Can lead to severe uneven distribution. If your application only reads recent data (e.g., this month's logs), Server 2 will be overloaded while Server 1 sits idle.</p>
+
+  <h3>2. Hash Partitioning</h3>
+  <p>Pass the partition key (e.g., UserID) through a hash function, then modulo the number of servers (<code>Hash(UserID) % N</code>).<br>
+  <em>Example:</em> UserID 50. Hash(50) = 124. 124 % 3 servers = Server 2.<br>
+  <strong>Problem:</strong> What happens when you add a 4th server? The modulo changes (<code>% 4</code> instead of <code>% 3</code>), meaning almost every single row is now mapped to a different server. You have to move massive amounts of data just to add one server. (We solve this later using <em>Consistent Hashing</em>).</p>
+
+  <h3>3. Directory-Based Partitioning</h3>
+  <p>Maintain a lookup table (directory) that keeps track of which server holds which data.<br>
+  <em>Example:</em> A table saying "User 1, 4, 7 → Server A; User 2, 8 → Server B".<br>
+  <strong>Problem:</strong> The directory itself becomes a single point of failure and a performance bottleneck.</p>
+
+  <h2>The "Hot Partition" (Celebrity) Problem</h2>
+  <p>Even with a perfect hashing function, some rows are just accessed way more than others. </p>
+  <p>Imagine you partition Twitter data by <code>UserID</code>. Taylor Swift and a random bot both have a UserID. Millions of people request Taylor Swift's profile every minute, meaning the specific server holding her data (her partition) gets completely overwhelmed, while the other servers do nothing. This is called a <strong>Hotspot</strong>.</p>
+  
+  <div class="callout tip">
+    <strong>Interview Tip - Solving the Hotspot:</strong> If an interviewer asks how to solve the celebrity problem, common answers include:
+    1. <strong>Caching:</strong> Put the celebrity data in Redis/Memcached in front of the database.
+    2. <strong>Dedicated Shard:</strong> Assign massive accounts their own dedicated database servers.
+    3. <strong>Randomization/Splitting:</strong> For writes, append a random number to the key (e.g., <code>taylorswift_1</code>, <code>taylorswift_2</code>) to spread her data across multiple nodes, though this makes reading it back more complex.
+  </div>
+
+  <h2>Trade-offs of Partitioning</h2>
+  <ul>
+    <li><strong>Joins are painful:</strong> If you need to JOIN the <code>Users</code> table and the <code>Orders</code> table, but User 5 is on Server A and their Orders are on Server B, you cannot run a simple SQL JOIN. You must query both servers in your application code and stitch the data together in memory.</li>
+    <li><strong>Distributed Transactions:</strong> Ensuring ACID properties across multiple servers requires complex protocols like Two-Phase Commit (2PC), which are incredibly slow and prone to failure.</li>
+  </ul>
+
+  <h2>Check yourself</h2>
+  <div class="quiz" data-answer="1">
+    <div class="q">Which scenario best describes a "Hot Partition" problem?</div>
+    <button class="opt">A server crashes and loses its data.</button>
+    <button class="opt">One specific user's data is queried so frequently that the single server hosting it is overwhelmed.</button>
+    <button class="opt">The database runs out of disk space across all shards simultaneously.</button>
+    <button class="opt">Cross-shard joins are taking too long to execute.</button>
+    <div class="fb" data-correct="Correct! A hot partition occurs when a highly skewed workload targets a small subset of data on a single node." data-wrong="Focus on the term 'Hot'—it implies intense, localized activity."></div>
+  </div>
+
+  <div class="quiz" data-answer="0">
+    <div class="q">What is the main drawback of using simple Hash Partitioning (Hash(key) % N)?</div>
+    <button class="opt">Adding or removing a server requires moving almost all the data.</button>
+    <button class="opt">It only works for string-based keys.</button>
+    <button class="opt">It cannot distribute data evenly.</button>
+    <button class="opt">It forces the use of vertical partitioning.</button>
+    <div class="fb" data-correct="Correct! Changing N changes the modulo result for almost every key, requiring massive data movement." data-wrong="Hash functions are actually very good at distributing data evenly. The issue arises when the number of servers changes."></div>
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Reflect on how partitioning relates to the CAP theorem. When you partition data, you are explicitly accepting the 'P' (Partition Tolerance).</li>
+  </ul>
+
+  <div class="callout">
+    Say "next" to advance to <strong>Lesson 11: Database Sharding</strong>, where we dive deeper into the mechanics of horizontal partitioning and consistent hashing.
+  </div>
+
+  <div class="nav">
+    <a href="0009-data-replication-schema-migration.html">← Previous: Data Replication</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0011-database-sharding.html">Next: Database Sharding →</a>
+  </div>
+
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

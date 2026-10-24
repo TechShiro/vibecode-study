@@ -1,0 +1,253 @@
+<title>UDP</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit IV &middot; Lesson 29 of 42</p>
+<h1>UDP &mdash; User Datagram Protocol</h1>
+<p class="deck">Eight bytes of header, four fields, and almost no services &mdash; and every one of those omissions is deliberate. The header, the pseudoheader checksum, the applications, and the TCP vs UDP table that is asked every year.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>"Compare TCP and UDP"</strong> is the single most likely question in Unit&nbsp;IV &mdash; answer it as a table of 10&ndash;12 rows. <strong>"Draw the UDP header"</strong> is a 3-mark freebie: four fields, two bytes each, sixteen bytes total is wrong &mdash; it is <strong>eight</strong>. The sub-question that separates answers is <strong>"why would anyone use an unreliable protocol?"</strong>, so have the applications list and the reasoning ready.</p>
+</div>
+
+<h2>What UDP is</h2>
+
+<p>UDP is a <strong>connectionless, unreliable transport protocol</strong>. It adds only what the transport layer minimally must add: <strong>process-to-process addressing</strong> and <strong>optional error checking</strong>. Nothing else.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>UDP provides</th><th>UDP does NOT provide</th></tr></thead>
+<tbody>
+<tr><td>Process-to-process delivery via <strong>port numbers</strong></td><td><strong>No connection establishment</strong> &mdash; no handshake, no setup delay</td></tr>
+<tr><td>Multiplexing and demultiplexing</td><td><strong>No acknowledgement</strong> and <strong>no retransmission</strong></td></tr>
+<tr><td>An <strong>optional checksum</strong> over the whole datagram</td><td><strong>No sequence numbers</strong> &mdash; so no ordering and no duplicate detection</td></tr>
+<tr><td>A very small, fixed 8-byte header</td><td><strong>No flow control</strong> &mdash; a fast sender can swamp a slow receiver</td></tr>
+<tr><td></td><td><strong>No congestion control</strong> &mdash; UDP does not slow down when the network is loaded</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The sentence that answers "why use UDP at all?"</span>
+  <p><strong>Reliability costs time, and for some traffic a late packet is worse than a lost one.</strong> In a live voice call, retransmitting a lost 20 ms of audio means it arrives after the moment it was needed &mdash; the gap is already past. Dropping it and moving on is strictly better. UDP is not "TCP without the good bits"; it is the correct choice whenever <strong>timeliness matters more than completeness</strong>.</p>
+</div>
+
+<h2>The UDP header</h2>
+
+<div class="formula">
+  <span class="name">UDP header &mdash; 8 bytes, four fields of 2 bytes each</span>
+  | <strong>Source Port</strong> (16) | <strong>Destination Port</strong> (16) |<br>
+  | <strong>Total Length</strong> (16) | <strong>Checksum</strong> (16) |
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Source port</strong></td><td>16 bits</td><td>The port of the sending process. If the source is the client it is an ephemeral port; if the server, a well-known port.</td></tr>
+<tr><td><strong>Destination port</strong></td><td>16 bits</td><td>The port of the receiving process.</td></tr>
+<tr><td><strong>Total length</strong></td><td>16 bits</td><td>The length of the <strong>whole user datagram &mdash; header plus data &mdash; in bytes</strong>. Minimum <strong>8</strong> (header only, no data); maximum <strong>65,535</strong>.</td></tr>
+<tr><td><strong>Checksum</strong></td><td>16 bits</td><td>Error detection over the header, the data <strong>and a pseudoheader</strong>. <strong>Optional in IPv4</strong> &mdash; all zeros means "not computed". <strong>Mandatory in IPv6.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The total-length field is technically redundant &mdash; say so</span>
+  <p>The IP header already carries the total datagram length and the header length, so the UDP data length could be derived by subtraction. The field exists anyway, so that <strong>UDP does not have to depend on the service of the IP layer</strong> &mdash; it keeps the layers independent. That reasoning is a genuine 2-mark answer.</p>
+</div>
+
+<h3>The pseudoheader</h3>
+
+<p>The UDP checksum is unusual: it covers not only the UDP header and data but also a <strong>pseudoheader</strong>, a temporary structure built from fields of the <em>IP</em> header.</p>
+
+<div class="formula">
+  <span class="name">The pseudoheader &mdash; 12 bytes, not transmitted</span>
+  | Source IP address (32) |<br>
+  | Destination IP address (32) |<br>
+  | All 0s (8) | Protocol = 17 (8) | UDP total length (16) |
+</div>
+
+<p><strong>Why it exists:</strong> to let the receiver check that the datagram <strong>actually arrived at the right host and was meant for UDP</strong>. Without it, a corrupted IP destination address could deliver a perfectly valid-looking UDP datagram to the wrong machine, which would accept it. The pseudoheader is <strong>added for the calculation and then discarded</strong> &mdash; it is never transmitted, and the protocol field is set to <strong>17</strong>, UDP's IP protocol number.</p>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; UDP length arithmetic</span>
+  <p><strong>Q.</strong> A UDP datagram has a total length field of 48. The IP datagram carrying it has a total length of 92 and a HLEN value of 5. Find (a) the UDP data length, (b) the size of the IP header, (c) whether any padding was added.</p>
+
+  <p><strong>(a) UDP data</strong> = UDP total length &minus; UDP header = 48 &minus; 8 = <strong>40 bytes</strong></p>
+  <p><strong>(b) IP header</strong> = HLEN &times; 4 = 5 &times; 4 = <strong>20 bytes</strong></p>
+  <p><strong>(c)</strong> IP payload = IP total length &minus; IP header = 92 &minus; 20 = <strong>72 bytes</strong>.<br>
+  But the UDP datagram is only 48 bytes. 72 &minus; 48 = <strong>24 bytes unaccounted for.</strong></p>
+  <p>An IP datagram carries exactly one UDP datagram, so this means the IP layer either carried <strong>24 bytes of options</strong> that HLEN did not account for &mdash; impossible, since HLEN = 5 means no options &mdash; or the figures are inconsistent. <strong>In a well-formed datagram, IP total length &minus; IP header must equal the UDP total length.</strong></p>
+  <p><em>The check to state:</em> <strong>IP total length = IP header + UDP total length.</strong> Here that would require 20 + 48 = 68, not 92. Spotting the inconsistency <em>is</em> the answer to this style of question &mdash; examiners set it deliberately.</p>
+</div>
+
+<h2>Where UDP is actually used</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Application</th><th>Why UDP rather than TCP</th></tr></thead>
+<tbody>
+<tr><td><strong>DNS</strong> (port 53)</td><td>A query and a reply are one small exchange each. A three-way handshake would <strong>triple the cost</strong> of a two-packet transaction. If a reply is lost, the resolver simply asks again.</td></tr>
+<tr><td><strong>DHCP</strong> (ports 67, 68)</td><td>The client <strong>has no IP address yet</strong>, so no connection could be established anyway. It must broadcast, and TCP cannot broadcast.</td></tr>
+<tr><td><strong>Streaming audio and video, VoIP</strong></td><td><strong>Timeliness beats completeness</strong> &mdash; a retransmitted frame arrives too late to be played. Better a small glitch than a stall.</td></tr>
+<tr><td><strong>Online gaming</strong></td><td>Position updates are superseded by the next update. Resending a stale one is worse than useless.</td></tr>
+<tr><td><strong>TFTP</strong> (port 69)</td><td>Deliberately simple, for booting diskless machines. It builds its own minimal reliability on top.</td></tr>
+<tr><td><strong>SNMP</strong> (port 161)</td><td>Network management must keep working <em>when the network is already congested</em> &mdash; exactly when TCP would back off and stall.</td></tr>
+<tr><td><strong>RIP</strong></td><td>Routing updates are sent periodically; a lost update is replaced by the next one 30 seconds later.</td></tr>
+<tr><td><strong>Multicast and broadcast</strong></td><td><strong>TCP cannot do either</strong> &mdash; it is inherently a one-to-one connection. Anything one-to-many must use UDP.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The general rule, worth a closing line: <strong>UDP suits processes that need a simple request-reply exchange, that have their own reliability mechanism, that are multicast, or for which speed matters more than accuracy.</strong></p>
+
+<h2>TCP vs UDP &mdash; the table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>TCP</th><th>UDP</th></tr></thead>
+<tbody>
+<tr><td><strong>Full form</strong></td><td>Transmission Control Protocol</td><td>User Datagram Protocol</td></tr>
+<tr><td><strong>Connection</strong></td><td><strong>Connection-oriented</strong> &mdash; three-way handshake first</td><td><strong>Connectionless</strong> &mdash; send immediately</td></tr>
+<tr><td><strong>Reliability</strong></td><td><strong>Reliable</strong> &mdash; acknowledged and retransmitted</td><td><strong>Unreliable</strong> &mdash; best effort, no acknowledgement</td></tr>
+<tr><td><strong>Ordering</strong></td><td>Guaranteed, via sequence numbers</td><td>Not guaranteed</td></tr>
+<tr><td><strong>Header size</strong></td><td><strong>20 to 60 bytes</strong></td><td><strong>8 bytes, fixed</strong></td></tr>
+<tr><td><strong>Data unit</strong></td><td>Segment</td><td>User datagram</td></tr>
+<tr><td><strong>Flow control</strong></td><td>Yes &mdash; sliding window</td><td>No</td></tr>
+<tr><td><strong>Congestion control</strong></td><td>Yes</td><td>No</td></tr>
+<tr><td><strong>Error control</strong></td><td>Checksum + acknowledgement + retransmission</td><td>Checksum only, and <strong>optional in IPv4</strong></td></tr>
+<tr><td><strong>Speed</strong></td><td>Slower</td><td><strong>Faster</strong></td></tr>
+<tr><td><strong>Overhead</strong></td><td>High</td><td><strong>Low</strong></td></tr>
+<tr><td><strong>Data boundaries</strong></td><td><strong>Byte stream</strong> &mdash; boundaries are not preserved</td><td><strong>Message oriented</strong> &mdash; each datagram stays a distinct unit</td></tr>
+<tr><td><strong>Broadcast / multicast</strong></td><td><strong>Not supported</strong></td><td><strong>Supported</strong></td></tr>
+<tr><td><strong>Used by</strong></td><td>HTTP, FTP, SMTP, TELNET, SSH</td><td>DNS, DHCP, TFTP, SNMP, RIP, VoIP, streaming</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The row most answers omit</span>
+  <p><strong>TCP is a byte stream; UDP is message oriented.</strong> If an application writes 100 bytes then 200 bytes to a TCP connection, the receiver may read 300 bytes in one go, or 150 twice &mdash; TCP does not preserve the boundaries. UDP does: one <code>send</code> is one datagram is one <code>receive</code>. This has real consequences for how applications are written, and including it marks out an answer that understands the protocols rather than having memorised a list.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">User Datagram Protocol (UDP) 8-Byte Header Architecture</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>UDP Minimal 8-Byte Datagram Header</strong>
+      <span class="sub">Source Port (16 bits) | Destination Port (16 bits)<br>Total Length (16 bits &ge; 8B) | Checksum (16 bits, optional in IPv4)</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box"><strong>Connectionless & Unreliable</strong><span class="sub">No handshake, no sequence numbers, no ACKs, zero retransmissions</span></div>
+    <div class="flow-box ok"><strong>High Throughput & Low Delay</strong><span class="sub">Ideal for DNS queries, VoIP, live streaming, and gaming</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 12 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">UDP Protocol</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-75 & Lec-76: UDP Header Format & Advantages over TCP</div>
+    <div class="v-desc">Examines the minimal 8-byte header, pseudo-header 1s-complement checksum calculation, and when UDP is strictly preferred over TCP.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=HF_znV8x9a0" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The UDP header is:</p>
+  <div class="opts">
+    <button class="opt">20 to 60 bytes, depending on the options present</button>
+    <button class="opt" data-ok="1">8 bytes, fixed &mdash; four fields of two bytes each</button>
+    <button class="opt">16 bytes, fixed &mdash; four fields of four bytes each</button>
+    <button class="opt">12 bytes, fixed, plus a transmitted pseudoheader</button>
+  </div>
+  <p class="why">Source port, destination port, total length, checksum — four fields, 16 bits each, 8 bytes total. 20–60 bytes describes TCP. The pseudoheader is 12 bytes but is never transmitted.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The pseudoheader is included in the UDP checksum so that the receiver can verify:</p>
+  <div class="opts">
+    <button class="opt">The sending process still has the connection open</button>
+    <button class="opt" data-ok="1">The datagram reached the correct host and was meant for UDP</button>
+    <button class="opt">The datagram arrived in the correct sequence order</button>
+    <button class="opt">The data length matches the receiver's buffer size</button>
+  </div>
+  <p class="why">It carries the IP source and destination addresses plus protocol number 17. Without it, a corrupted IP destination address could deliver an apparently valid UDP datagram to the wrong machine, which would accept it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. DNS uses UDP rather than TCP mainly because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A handshake would cost more than the two-packet exchange itself</button>
+    <button class="opt">DNS replies are too large to fit inside a TCP segment</button>
+    <button class="opt">TCP cannot carry data to well-known port numbers</button>
+    <button class="opt">DNS requires guaranteed in-order delivery of records</button>
+  </div>
+  <p class="why">A query and a reply are one small packet each; adding a three-way handshake and teardown would triple the traffic. If a reply is lost the resolver just asks again — cheaper than maintaining a connection. (DNS does use TCP for large zone transfers.)</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which is true of UDP but not TCP?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">It supports broadcast and multicast delivery</button>
+    <button class="opt">It adjusts its sending rate when the network is congested</button>
+    <button class="opt">It guarantees that segments arrive in the order sent</button>
+    <button class="opt">It establishes a connection before transferring any data</button>
+  </div>
+  <p class="why">TCP is inherently a one-to-one connection, so it cannot broadcast or multicast at all — anything one-to-many must use UDP. The other three options describe TCP exactly.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A UDP total length field contains 8. This means:</p>
+  <div class="opts">
+    <button class="opt">The header uses 8 four-byte words, as in IP</button>
+    <button class="opt" data-ok="1">The datagram carries no data at all &mdash; header only</button>
+    <button class="opt">The value is invalid, since the minimum is 20</button>
+    <button class="opt">The datagram carries 8 bytes of application data</button>
+  </div>
+  <p class="why">Total length covers header plus data, and the header alone is 8 bytes — so 8 means zero data. This is legal: an empty UDP datagram can be sent as a probe or keep-alive.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define UDP and list what it does and does not provide.</summary>
+    <p class="ans">A connectionless, unreliable transport protocol. Provides: process-to-process delivery via ports, multiplexing/demultiplexing, an optional checksum, and an 8-byte header. Does not provide: connection establishment, acknowledgement, retransmission, sequence numbers, flow control or congestion control.</p></details>
+  <details class="card"><summary>Draw the UDP header with field sizes.</summary>
+    <p class="ans">Source Port (16) | Destination Port (16) | Total Length (16) | Checksum (16). Eight bytes, fixed. Total length covers header plus data: minimum 8, maximum 65,535.</p></details>
+  <details class="card"><summary>Why does UDP have a length field when IP already has one?</summary>
+    <p class="ans">The value could be derived from the IP header by subtraction, but the field exists so UDP does not have to depend on the service of the IP layer — it keeps the two layers independent.</p></details>
+  <details class="card"><summary>What is the pseudoheader and why is it used?</summary>
+    <p class="ans">A 12-byte structure of IP source address, IP destination address, all-zero byte, protocol number 17, and the UDP length, added to the checksum calculation and then discarded — never transmitted. It lets the receiver verify the datagram reached the correct host and was intended for UDP.</p></details>
+  <details class="card"><summary>Give six applications of UDP and the reason for each.</summary>
+    <p class="ans">DNS (handshake would cost more than the exchange); DHCP (client has no address yet and must broadcast); streaming and VoIP (timeliness beats completeness); gaming (stale updates are worthless); TFTP (deliberately simple); SNMP (must work when the network is congested); RIP (periodic updates replace lost ones); any multicast or broadcast (TCP cannot do either).</p></details>
+  <details class="card"><summary>Give eight differences between TCP and UDP.</summary>
+    <p class="ans">Connection-oriented vs connectionless; reliable vs unreliable; ordered vs unordered; 20–60 byte vs 8-byte header; segment vs user datagram; flow and congestion control vs neither; full error control vs optional checksum only; slower vs faster; byte stream vs message oriented; no broadcast vs broadcast and multicast supported.</p></details>
+  <details class="card"><summary>Explain "TCP is a byte stream, UDP is message oriented".</summary>
+    <p class="ans">TCP does not preserve the boundaries of application writes — 100 bytes then 200 bytes may be read as one 300-byte chunk. UDP does preserve them: one send is one datagram is one receive.</p></details>
+</div>
+
+<p class="ask">Next: TCP's services and header &mdash; the same job as UDP, done with 20 to 60 bytes instead of 8, and the lesson accounts for every one of them.</p>
+
+<div class="nav">
+  <a href="0028-transport-layer-services.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0030-tcp-services-and-header.html">Next: TCP Services and Header &rarr;</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

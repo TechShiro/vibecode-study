@@ -1,0 +1,247 @@
+<title>Firewalls and Virtual Private Networks (VPN)</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit V &middot; Lesson 28 of 28</p>
+<h1>Firewalls and Virtual Private Networks (VPN)</h1>
+<p class="deck">Perimeter defense architectures, packet filtering vs stateful vs application proxy firewalls, DMZ topologies, bastion hosts, and VPN tunneling protocols (IPSec and SSL/TLS).</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Compare Packet Filtering, Stateful Inspection, and Application Gateway Firewalls&rdquo;</strong> and <strong>&ldquo;Explain DMZ architecture and Bastion Host with neat diagram&rdquo;</strong> are 10-mark staples. Always detail the layer of operation, state table tracking, and performance trade-offs.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Packet Filtering Firewalls</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=o_vyfo3Hw0Y" target="_blank">Lec-93: What is Firewalls and How it Works | Packet Filtering Firewall</a>
+    <span class="v-meta">Gate Smashers &middot; 11:45</span>
+    <div class="v-why">Clear breakdown of stateless packet filtering: inspects source/dest IP, port numbers, TCP flags (SYN/ACK), rule ordering, and default-deny policies.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Application Proxy Firewalls &amp; DMZ Topologies</span>
+      <span class="best-tag">Top Exam Architecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=CHtTLireUCA" target="_blank">Lec-94: Application (Proxy) Firewalls, Stateful Inspection &amp; DMZ Topologies</a>
+    <span class="v-meta">Gate Smashers &middot; 10:20</span>
+    <div class="v-why">The definitive exam lecture detailing proxy relays (terminates client connection, inspects payload, opens new connection to server), stateful tables, and DMZ bastion hosts.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: DMZ NETWORK ARCHITECTURE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Screened Subnet DMZ Firewall Topology</span>
+  <div class="flow-col">
+    <div class="flow-box warn" style="min-width:14rem;">
+      <strong>Public Internet (Untrusted)</strong>
+      <span class="sub">External clients &middot; Potential attackers</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Perimeter Screening</span>
+    
+    <div class="flow-box highlight" style="min-width:20rem;">
+      <strong>External Firewall (Border Router)</strong>
+      <span class="sub">Allows ports 80/443 (HTTP/S) and 25 (SMTP) strictly into DMZ</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    
+    <div class="flow-box" style="border:2px dashed var(--accent); min-width:24rem; background:var(--paper);">
+      <strong>Demilitarized Zone (DMZ &middot; Semi-Trusted Subnet)</strong>
+      <span class="sub">Publicly accessible bastion servers: Web Server &middot; Mail Server &middot; DNS Proxy<br>If compromised, internal LAN remains shielded!</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Strict Internal Isolation</span>
+    
+    <div class="flow-box ok" style="min-width:20rem;">
+      <strong>Internal Firewall (Choke Router)</strong>
+      <span class="sub">Blocks all direct inbound connections from DMZ to Internal LAN</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    
+    <div class="flow-box ok" style="min-width:20rem;">
+      <strong>Internal Corporate LAN (Trusted)</strong>
+      <span class="sub">User workstations &middot; Database servers &middot; Internal Active Directory</span>
+    </div>
+  </div>
+</div>
+
+
+<h2>What is a Firewall?</h2>
+<p>A <strong>firewall</strong> is a network security device or software system that monitors and filters incoming and outgoing network traffic based on an organization's previously established security policies. It creates a controlled barrier between a trusted internal network and an untrusted external network (such as the Internet).</p>
+
+<div class="formula">
+  <span class="name">Firewall Design Philosophies</span>
+  <ul>
+    <li><strong>Default Deny (Whitelisting):</strong> That which is not expressly permitted is prohibited. Recommended best practice. Blocks unknown attacks by default.</li>
+    <li><strong>Default Allow (Blacklisting):</strong> That which is not expressly prohibited is permitted. Extremely vulnerable; any omitted rule leaves an open door.</li>
+  </ul>
+</div>
+
+<h2>The Four Types of Firewalls</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Firewall Type</th><th>OSI Layer</th><th>Inspection Mechanism</th><th>Pros &amp; Cons</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>1. Packet Filtering (Stateless)</strong></td>
+  <td>Layer 3 &amp; 4 (Network / Transport)</td>
+  <td>Examines individual packet headers: Source/Dest IP, Source/Dest Port, Protocol (TCP/UDP/ICMP). Evaluates each packet in total isolation.</td>
+  <td><strong>Pros:</strong> Extremely fast, low latency, transparent.<br><strong>Cons:</strong> No memory of connection state; vulnerable to IP spoofing; cannot inspect application payloads.</td>
+</tr>
+<tr>
+  <td><strong>2. Stateful Inspection</strong></td>
+  <td>Layer 3, 4 &amp; Session</td>
+  <td>Tracks active TCP 3-way handshakes and connection states in a dynamic <strong>State Table</strong>. Packets are admitted only if they belong to an existing, validly initiated connection.</td>
+  <td><strong>Pros:</strong> Closes ports dynamically; blocks unsolicited incoming probes; high throughput.<br><strong>Cons:</strong> Cannot detect attacks hidden inside legitimate application payloads (e.g., SQL injection over port 80).</td>
+</tr>
+<tr>
+  <td><strong>3. Application-Level Gateway (Proxy)</strong></td>
+  <td>Layer 7 (Application)</td>
+  <td>Acts as an intermediary/relay. Terminates incoming TCP connections, reconstructs application protocol data (HTTP, FTP, SMTP), inspects deep content, and re-initiates a new connection to destination.</td>
+  <td><strong>Pros:</strong> Deepest packet inspection, URL filtering, malware scanning, hides internal network structure.<br><strong>Cons:</strong> High computational latency; requires proxy support or client reconfiguration.</td>
+</tr>
+<tr>
+  <td><strong>4. Circuit-Level Gateway</strong></td>
+  <td>Layer 5 (Session / SOCKS)</td>
+  <td>Validates TCP handshakes and circuit establishment without inspecting application payloads. Once established, it copies data back and forth without further parsing.</td>
+  <td><strong>Pros:</strong> Fast relay once circuit is open; protocol-independent.<br><strong>Cons:</strong> No payload inspection after handshake; relies entirely on trust of endpoints.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>Firewall Architectures and DMZ Topologies</h2>
+
+<div class="solve">
+  <span class="lbl">Screened Subnet Architecture with DMZ (Demilitarized Zone)</span>
+  <pre class="mono">      [ The Internet (Untrusted) ]
+                   │
+                   ▼
+       ┌────────────────────────┐
+       │   External Firewall    │ (Filters unroutable IPs, floods)
+       └────────────────────────┘
+                   │
+    ───────────────┼───────────────  &lt;--- DMZ Subnet (Public-facing servers)
+                   │
+      ┌────────────┴────────────┐
+      │  Web, Mail &amp; DNS Bastion│  &lt;--- If compromised, internal LAN remains safe
+      └─────────────────────────┘
+                   │
+                   ▼
+       ┌────────────────────────┐
+       │   Internal Firewall    │ (Strict policy: only DMZ can talk to LAN DB)
+       └────────────────────────┘
+                   │
+    ───────────────┴───────────────  &lt;--- Private Corporate LAN (Workstations, Databases)</pre>
+
+  <p><strong>Key architectural concepts:</strong></p>
+  <ul>
+    <li><strong>Bastion Host:</strong> A publicly accessible computer located in the DMZ that has been systematically hardened (all non-essential services, compilers, and user accounts disabled; logging dialed to maximum).</li>
+    <li><strong>DMZ (Demilitarized Zone):</strong> A neutral buffer subnet separating the external Internet from the internal corporate network. Even if an external hacker compromises the public web server, the internal firewall blocks them from penetrating the private database LAN.</li>
+  </ul>
+</div>
+
+<h2>Virtual Private Networks (VPN)</h2>
+<p>A <strong>Virtual Private Network (VPN)</strong> extends a private network across a public network by encrypting communication traffic, creating a private &ldquo;tunnel&rdquo; over the public Internet.</p>
+
+<div class="box win">
+  <span class="lbl">Core Security Goals of a VPN</span>
+  <ol>
+    <li><strong>Confidentiality:</strong> Encrypts payload and header data so eavesdroppers on public Wi-Fi or ISPs see only ciphered bytes.</li>
+    <li><strong>Data Integrity:</strong> Uses HMAC to ensure packets have not been modified or corrupted in transit.</li>
+    <li><strong>Authentication:</strong> Cryptographically validates the identity of the client or peer gateway before allowing tunnel traffic.</li>
+    <li><strong>Anti-Replay:</strong> Uses monotonically increasing sequence numbers to prevent captured packets from being re-injected.</li>
+  </ol>
+</div>
+
+<h3>VPN Classifications</h3>
+<ul>
+  <li><strong>Remote Access VPN (Client-to-Site):</strong> Enables individual mobile employees to securely connect from home/travel into corporate intranet servers. Uses client software (e.g. AnyConnect, OpenVPN client).</li>
+  <li><strong>Site-to-Site VPN (Gateway-to-Gateway):</strong> Connects branch offices to headquarters over the public Internet. Gateways at each site handle encryption/decryption transparently; end-user workstations require no special software.</li>
+</ul>
+
+<h3>VPN Protocols: IPSec vs SSL/TLS</h3>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>IPSec VPN</th><th>SSL / TLS VPN (e.g., OpenVPN)</th></tr></thead>
+<tbody>
+<tr><td><strong>OSI Layer</strong></td><td>Layer 3 (Network Layer)</td><td>Layer 4 to 7 (Transport / Application)</td></tr>
+<tr><td><strong>Client Requirement</strong></td><td>Requires dedicated client software and OS driver support.</td><td>Clientless (uses standard web browser) or lightweight user-space client.</td></tr>
+<tr><td><strong>Traffic Protection</strong></td><td>Protects <strong>all IP traffic</strong> (TCP, UDP, ICMP, VoIP).</td><td>Typically protects web/TCP applications (HTTP, email, portal).</td></tr>
+<tr><td><strong>Firewall Traversal</strong></td><td>Can be blocked by NAT firewalls (requires NAT-Traversal / UDP 500/4500).</td><td>Traverses NAT and firewalls seamlessly over standard HTTPS port 443.</td></tr>
+<tr><td><strong>Primary Deployment</strong></td><td>Site-to-site branch office interconnects.</td><td>Remote workforce and mobile user access.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. How does a stateful inspection firewall prevent unauthorized incoming connections?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">By dropping inbound packets that do not match an existing session recorded in its state table</button>
+    <button class="opt">By running an antivirus scan on every individual packet header</button>
+    <button class="opt">By blocking all port 80 traffic</button>
+    <button class="opt">By encrypting the entire incoming payload with RSA</button>
+  </div>
+  <p class="why">Stateful firewalls remember outbound requests and permit inbound return packets only if they belong to an established session.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In a screened subnet architecture, where should public web and mail servers reside?</p>
+  <div class="opts">
+    <button class="opt">Directly on the public Internet without any firewall</button>
+    <button class="opt">Directly inside the private internal database LAN</button>
+    <button class="opt">Inside the client's web browser</button>
+    <button class="opt" data-ok="1">In the Demilitarized Zone (DMZ) between external and internal firewalls</button>
+  </div>
+  <p class="why">The DMZ isolates public-facing servers from the internal private network, containing potential compromises.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Why do SSL/TLS VPNs traverse corporate firewalls more easily than IPSec VPNs?</p>
+  <div class="opts">
+    <button class="opt">IPSec VPN is deprecated and unsupported by routers</button>
+    <button class="opt" data-ok="1">SSL/TLS VPN traffic uses standard HTTPS port 443, which is open on almost all corporate firewalls</button>
+    <button class="opt">SSL/TLS VPN does not use any encryption</button>
+    <button class="opt">SSL VPN operates at the physical hardware layer</button>
+  </div>
+  <p class="why">Standard port 443 is universally allowed for web browsing, making SSL VPNs highly portable and NAT-friendly.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Compare packet filtering, stateful, and application proxy firewalls in one line each.</summary>
+    <p class="ans">Packet filter: fast Layer 3/4 header check, no state. Stateful: tracks connection states in dynamic table. Application proxy: Layer 7 deep content inspection, high latency.</p></details>
+  <details class="card"><summary>What is a DMZ and a Bastion Host?</summary>
+    <p class="ans">A DMZ is an isolated perimeter subnet between external and internal firewalls. A Bastion host is a hardened computer inside the DMZ that hosts public services (web, DNS, mail).</p></details>
+  <details class="card"><summary>Site-to-site vs remote access VPN.</summary>
+    <p class="ans">Site-to-site connects two network gateways (transparent to users; uses IPSec). Remote access connects an individual mobile user to the corporate gateway (uses client software or SSL/TLS).</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">Unit V and Information and Data Security are complete!</span>
+  <p>Review the comprehensive printable summary on the <a href="../../reference/unit5-cheat-sheet.html">Unit V Cheat Sheet</a>.</p>
+</div>
+
+<div class="nav">
+  <a href="0027-intrusion-detection-systems-ids.html">&larr; Previous: Intrusion Detection Systems</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Cheat sheet &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

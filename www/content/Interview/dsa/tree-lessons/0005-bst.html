@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree Lesson 05 — Binary Search Trees</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Tree Track · Lesson 5 of 6 · validate, kth smallest, insert/delete, build balanced</div>
+<h1>Binary Search Trees</h1>
+<p class="subtitle">One extra invariant — left &lt; node &lt; right, everywhere — turns a tree into a sorted structure with O(h) search, insert, and delete. Every BST problem is about exploiting or preserving that invariant.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Validate BST (98) is one of the most-failed medium questions in OAs because of one
+  specific misconception this lesson kills. Kth Smallest (230) and Delete (450) round out the standard BST screen.
+  Lesson 5 of 6. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A BST's property is <strong>global, not local</strong>: every node in the left subtree — not just the left child —
+is smaller than the node, and every node in the right subtree is larger. That global ordering buys you three
+superpowers: (1) <strong>search is a walk</strong> — compare and go one way, O(h); (2) <strong>in-order traversal
+is sorted</strong> — instant answers to "kth smallest / successor / sorted output"; (3) <strong>structure mirrors
+order</strong> — the middle of a sorted array makes a balanced root. Nearly every BST problem uses exactly one of
+these three.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  The words "binary <em>search</em> tree" or "BST" in the problem. Then route: <em>validate / kth / sorted /
+  successor</em> → in-order; <em>search / insert / delete / LCA</em> → compare-and-descend walk; <em>build a
+  balanced BST</em> → middle-of-range as root. If the problem gives a plain binary tree, none of these shortcuts
+  apply — that's the trap direction.
+</div>
+
+<h2>2 · Core template</h2>
+
+<h3>Core A — Validate BST with min/max bounds (LC 98)</h3>
+<p>
+The naive check — <code>node.left.val &lt; node.val &lt; node.right.val</code> at each node — is the famous wrong
+answer. It's local; the property is global. Counterexample: root 5, left child 3, and 3's <em>right</em> child 6.
+Every parent-child pair looks fine, but 6 sits in root's left subtree while being &gt; 5. The fix: pass down the
+<strong>window of allowed values</strong> — descending left tightens the upper bound, descending right tightens
+the lower bound.
+</p>
+<pre><code><span class="cmt">// Each node must lie strictly inside (lo, hi). Time O(n), Space O(h).</span>
+boolean isValidBST(TreeNode root) {
+    return valid(root, null, null);        <span class="cmt">// null = unbounded (avoids MIN/MAX_VALUE traps)</span>
+}
+boolean valid(TreeNode n, Integer lo, Integer hi) {
+    if (n == null) return true;
+    if (lo != null &amp;&amp; n.val &lt;= lo) return false;  <span class="cmt">// must be &gt; every ancestor we went right from</span>
+    if (hi != null &amp;&amp; n.val &gt;= hi) return false;  <span class="cmt">// must be &lt; every ancestor we went left from</span>
+    return valid(n.left,  lo, n.val)       <span class="cmt">// going left: my value caps the window above</span>
+        &amp;&amp; valid(n.right, n.val, hi);      <span class="cmt">// going right: my value floors it below</span>
+}</code></pre>
+<p>
+Equivalent alternative: run an in-order traversal and check the output is strictly increasing (keep a
+<code>prev</code> pointer). Same O(n) — know both, say both.
+</p>
+
+<h3>Worked example — dry run (the counterexample)</h3>
+<div class="trace">
+<span class="step">tree: 5 / (3, 8); 3 / (1, 6) — node 6 is the intruder</span>
+<span class="step now">valid(5, −∞, +∞) ✓ → left recurses with window (−∞, <span class="ptr">5</span>)</span>
+<span class="step now">valid(3, −∞, 5) ✓ → right recurses with window (<span class="ptr">3</span>, <span class="ptr">5</span>)</span>
+<span class="step now">valid(6, 3, 5): 6 ≥ hi=5 → <span class="ptr">false</span> — caught!</span>
+<span class="step">the local check would have passed 6 (it's &gt; its parent 3); the WINDOW remembers ancestor 5</span>
+</div>
+
+<h3>Core B — the BST walk (search / insert / LCA share it)</h3>
+<pre><code><span class="cmt">// Search: the shape of every BST operation. Time O(h), Space O(1).</span>
+TreeNode searchBST(TreeNode root, int val) {
+    TreeNode cur = root;
+    while (cur != null &amp;&amp; cur.val != val)
+        cur = val &lt; cur.val ? cur.left : cur.right;  <span class="cmt">// one comparison, one direction</span>
+    return cur;                            <span class="cmt">// node or null — never both sides explored</span>
+}</code></pre>
+<p><strong>Time</strong> O(h) — log n balanced, n degenerate. <strong>Space</strong> O(1) iterative.</p>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Validate</td><td>LC 98</td><td>Core A: pass (lo, hi) window down. Local check is the trap.</td></tr>
+    <tr><td>Kth smallest</td><td>LC 230</td><td>In-order, stop at the kth visit (iterative stack pauses cleanly).</td></tr>
+    <tr><td>Insert</td><td>LC 701</td><td>BST walk to a null slot; hang the new leaf there.</td></tr>
+    <tr><td>Delete</td><td>LC 450</td><td>Walk to node; 0/1 child = splice, 2 children = successor swap.</td></tr>
+    <tr><td>Sorted array → BST</td><td>LC 108</td><td>Middle element = root; recurse on halves. Always balanced.</td></tr>
+    <tr><td>Inorder successor</td><td>LC 285 idea</td><td>Right subtree's leftmost; else last ancestor you turned left at.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Kth Smallest (LC 230) — in-order with an early exit</h3>
+<p>
+In-order visits BST values in ascending order, so the kth visit is the answer. The iterative stack version
+(Lesson 2's Core A) is the better interview answer because it <em>stops</em> — no traversing the rest of the tree,
+O(h + k) instead of O(n).
+</p>
+<pre><code>int kthSmallest(TreeNode root, int k) {
+    Deque&lt;TreeNode&gt; stack = new ArrayDeque&lt;&gt;();
+    TreeNode cur = root;
+    while (cur != null || !stack.isEmpty()) {
+        while (cur != null) { stack.push(cur); cur = cur.left; }
+        cur = stack.pop();                 <span class="cmt">// next-smallest value, in order</span>
+        if (--k == 0) return cur.val;      <span class="cmt">// kth visit → done, rest of tree untouched</span>
+        cur = cur.right;
+    }
+    return -1;                             <span class="cmt">// unreachable if k is valid</span>
+}</code></pre>
+
+<h3>Case: Insert into a BST (LC 701)</h3>
+<p>Walk as if searching for the value; the null you fall off at is exactly where the new leaf belongs. No rebalancing asked on LeetCode.</p>
+<pre><code>TreeNode insertIntoBST(TreeNode root, int val) {
+    if (root == null) return new TreeNode(val);   <span class="cmt">// fell off the tree → new leaf lives here</span>
+    if (val &lt; root.val) root.left  = insertIntoBST(root.left,  val);
+    else                root.right = insertIntoBST(root.right, val);
+    return root;                                  <span class="cmt">// re-hang the (possibly updated) child</span>
+}</code></pre>
+
+<h3>Case: Delete from a BST (LC 450) — the three-child-count split</h3>
+<p>
+Deleting is the hard one. Find the node with the BST walk, then split on how many children it has:
+<strong>zero</strong> → remove it (return null); <strong>one</strong> → splice the child into its place;
+<strong>two</strong> → you can't just remove it, so overwrite its value with its <strong>in-order successor</strong>
+(smallest node in the right subtree — the next value in sorted order), then delete that successor from the right
+subtree. The successor has no left child by definition, so the recursive delete bottoms out in an easy case.
+</p>
+<pre><code>TreeNode deleteNode(TreeNode root, int key) {
+    if (root == null) return null;
+    if (key &lt; root.val)      root.left  = deleteNode(root.left,  key);  <span class="cmt">// BST walk…</span>
+    else if (key &gt; root.val) root.right = deleteNode(root.right, key);
+    else {                                        <span class="cmt">// found the node to delete</span>
+        if (root.left == null)  return root.right; <span class="cmt">// 0 or 1 child: splice past me</span>
+        if (root.right == null) return root.left;
+        TreeNode succ = root.right;               <span class="cmt">// 2 children: find in-order successor —</span>
+        while (succ.left != null) succ = succ.left; <span class="cmt">// leftmost of right subtree</span>
+        root.val = succ.val;                      <span class="cmt">// adopt successor's value…</span>
+        root.right = deleteNode(root.right, succ.val); <span class="cmt">// …and delete it (easy case)</span>
+    }
+    return root;
+}</code></pre>
+<p><strong>Time</strong> O(h). <strong>Space</strong> O(h) recursion.</p>
+
+<h3>Case: Sorted Array → Balanced BST (LC 108)</h3>
+<p>
+Superpower #3: sorted order ⟺ in-order shape. Pick the <em>middle</em> element as root — half the values on each
+side — and recurse. Balance falls out automatically because both halves shrink at the same rate.
+</p>
+<pre><code>TreeNode sortedArrayToBST(int[] nums) {
+    return build(nums, 0, nums.length - 1);
+}
+TreeNode build(int[] a, int lo, int hi) {
+    if (lo &gt; hi) return null;              <span class="cmt">// empty range → empty subtree</span>
+    int mid = lo + (hi - lo) / 2;          <span class="cmt">// middle = root → halves stay equal-sized</span>
+    TreeNode n = new TreeNode(a[mid]);
+    n.left  = build(a, lo, mid - 1);
+    n.right = build(a, mid + 1, hi);
+    return n;
+}</code></pre>
+<p><strong>Time</strong> O(n). <strong>Space</strong> O(log n) recursion (the result tree is balanced by construction).</p>
+
+<h3>Case: inorder successor (the idea behind LC 285)</h3>
+<p>Two situations, both walk-based, no full traversal:</p>
+<pre><code><span class="cmt">// Successor of node x = the next value in sorted order.</span>
+<span class="cmt">// Case 1: x has a right subtree → successor is its LEFTMOST node.</span>
+<span class="cmt">// Case 2: no right subtree → walk from the root; the successor is the</span>
+<span class="cmt">//         last node where you turned LEFT (smallest ancestor above x).</span>
+TreeNode successor(TreeNode root, TreeNode x) {
+    TreeNode succ = null;
+    while (root != null) {
+        if (x.val &lt; root.val) { succ = root; root = root.left; }  <span class="cmt">// turning left: candidate</span>
+        else root = root.right;            <span class="cmt">// x is here or right — no new candidate</span>
+    }
+    return succ;                           <span class="cmt">// covers BOTH cases in one O(h) walk</span>
+}</code></pre>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>The local-check trap</strong> (LC 98): comparing only with direct children passes invalid trees. The bound must travel down from <em>every</em> ancestor.</li>
+  <li><strong>Duplicates fail validation</strong> — LC 98 requires strictly less/greater, so <code>&lt;=</code>/<code>&gt;=</code> against the bounds, not <code>&lt;</code>/<code>&gt;</code>.</li>
+  <li><strong>Bounds that overflow</strong>: node values can be <code>Integer.MIN_VALUE</code>/<code>MAX_VALUE</code>, so seed with <code>null</code> (or <code>long</code> bounds), never int min/max sentinels.</li>
+  <li><strong>Delete with two children</strong>: after copying the successor's value, delete the successor <em>from the right subtree</em> — deleting by key from the whole tree can hit the wrong duplicate.</li>
+  <li><strong>Insert/delete must re-hang children</strong>: the <code>root.left = f(root.left)</code> shape is what stitches the modified subtree back in. Calling <code>f</code> without assigning silently discards the change.</li>
+  <li><strong>All BST ops are O(h), not O(log n)</strong> — say "O(h), which is O(log n) if balanced" in interviews; a degenerate BST is a linked list.</li>
+  <li><strong>Kth smallest: decrement on pop</strong>, not on push — pops happen in sorted order, pushes don't.</li>
+  <li><strong>LC 108 empty array</strong> → <code>lo &gt; hi</code> base case returns null; also the leaf case (lo == hi) needs no special handling.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Tree: root 5, left child 3, and 3 has a right child 6. Why does "check each node against its own children" wrongly accept this?</div>
+  <button class="opt">Because 6 is a leaf, and leaves are exempt from the BST property</button>
+  <button class="opt">Every parent-child pair is locally consistent (3 &lt; 5, 3 &lt; 6), but 6 violates ancestor 5's upper bound — the property is global</button>
+  <button class="opt">It doesn't — the local check compares 6 against 5 when visiting the root</button>
+  <div class="fb" data-correct="6 &gt; parent 3 looks fine locally, yet 6 sits inside root 5's LEFT subtree where everything must be &lt; 5. Only a bound passed down from the ancestors — the (lo, hi) window — catches it." data-wrong="No node is exempt, and the local check at the root only sees children 3 and 8 — it never compares 6 with 5. That's the hole: constraints come from ALL ancestors, so pass a (lo, hi) window down."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Deleting a node with two children in LC 450 — what's the standard move?</div>
+  <button class="opt">Splice the left child into the node's place and re-attach the right subtree under it unchanged</button>
+  <button class="opt">Rotate the node down until it becomes a leaf, then remove it</button>
+  <button class="opt">Copy the in-order successor's value into the node, then recursively delete the successor from the right subtree</button>
+  <div class="fb" data-correct="The successor (leftmost of the right subtree) is the next sorted value, so the swap keeps in-order intact — and the successor has no left child, so its own deletion is the easy 0/1-child case." data-wrong="Blind splicing breaks ordering and rotations are AVL machinery, not needed here. Replace the value with the in-order successor (leftmost of right subtree), then delete that node — it has at most one child."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does picking the middle element as root in LC 108 guarantee a height-balanced BST?</div>
+  <button class="opt">Each recursion splits the remaining values in half, so subtree sizes differ by at most 1 at every node</button>
+  <button class="opt">Sorted input is already balanced, so any consistent choice of root works equally well</button>
+  <button class="opt">The middle element is always the median, and medians are guaranteed to have equal-height children</button>
+  <div class="fb" data-correct="Halving at every level means both subtrees of every node hold ⌊(n−1)/2⌋ or ⌈(n−1)/2⌉ values — heights can't drift apart, giving depth ⌈log n⌉ overall." data-wrong="Root choice matters enormously: picking a[0] every time yields a right-leaning chain of height n. It's the HALVING that forces balance — equal-sized halves at every recursion level."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/valid-binary-search-tree">NeetCode — Validate Binary Search Tree</a> (the bounds trick), then <a href="https://neetcode.io/problems/kth-smallest-integer-in-bst">NeetCode — Kth Smallest in a BST</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 700 (search, warm-up) → LC 701 (insert) → LC 98 (validate — both bounds AND in-order versions) → LC 230 (kth smallest, iterative) → LC 108 (sorted array → BST) → LC 450 (delete) → LC 173 (BST iterator — Lesson 2's stack, paused) → LC 235 (re-solve BST LCA from Lesson 4 cold).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the delete cases drawn out, another counterexample for the local-check trap, or a dry run of the successor
+  walk? Ask in the chat. When you can write Validate-with-bounds and Delete from memory and explain why in-order is
+  sorted, say <strong>"next"</strong> for the final lesson: constructing and serializing trees, plus the full track
+  cheat sheet.
+</div>
+
+<div class="nav">
+  <span><a href="0004-lca-and-path-problems.html">← LCA &amp; Path Problems</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0006-construction-serialization-and-cheat-sheet.html">Construction &amp; Cheat Sheet →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

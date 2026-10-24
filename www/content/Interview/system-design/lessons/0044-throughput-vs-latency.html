@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 44 - Throughput vs Latency | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 44 of 66 · Little's Law, Tail Latency, P99</div>
+  
+  <h1>Throughput vs Latency &amp; Tail Latency (P99)</h1>
+  <p class="subtitle">Why average latency is a lie and how batching trades individual speed for massive volume.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module K — System Design Trade-offs</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p><strong>Latency</strong> is the time it takes to process a <em>single</em> request (measured in milliseconds). <strong>Throughput</strong> is the total number of requests the system can process in a <em>given timeframe</em> (measured in Queries Per Second / QPS). Engineers often assume improving throughput automatically improves latency, but the opposite is frequently true: techniques like <strong>Batching</strong> dramatically increase total throughput while making individual request latency slightly higher.</p>
+
+  <h2>2 · Little's Law: The Mathematical Proof</h2>
+  <p>Formulated by MIT professor John Little, <strong>Little's Law</strong> governs every queuing system on Earth (from grocery store checkouts to Linux network sockets):</p>
+  
+  <div class="callout tip">
+    <span class="label">Little's Law Formula</span>
+    <p style="font-size: 1.3rem; font-weight: bold; text-align: center; margin: 0.5rem 0;">L = λ × W</p>
+    <ul>
+      <li><strong>$L$:</strong> Average number of concurrent requests inside the system.</li>
+      <li><strong>$\lambda$ (Lambda):</strong> Arrival rate (Throughput in requests per second).</li>
+      <li><strong>$W$:</strong> Average time each request spends in the system (Latency).</li>
+    </ul>
+  </div>
+  <p><em>Example:</em> If your service receives 1,000 requests/sec ($\lambda = 1000$) and each request takes 200ms ($W = 0.2	ext{s}$), your server must hold $1000 	imes 0.2 = \mathbf{200	ext{ concurrent active connections}}$ at all times! If latency spikes to 2s, concurrency instantly jumps to 2,000, exhausting thread pools!</p>
+
+  <h2>3 · Why "Average Latency" is a Dangerous Lie</h2>
+  <p>If a product dashboard says: <em>"Average API latency is 15ms"</em>, engineers celebrate. But if 99 users experience 10ms and 1 user experiences 5,000ms (5 seconds), the average is still low! That 1 user had a catastrophic experience. In an e-commerce checkout page that makes 50 microservice calls to render, the probability that a user experiences at least one slow request approaches 100%!</p>
+
+  <h3>Percentiles That Matter:</h3>
+  <ul>
+    <li><strong>P50 (Median):</strong> 50% of requests are faster than this number.</li>
+    <li><strong>P90 / P95:</strong> Reflects normal heavy-load performance.</li>
+    <li><strong>P99 / P99.9 (Tail Latency):</strong> The slowest 1% (or 0.1%) of requests. Caused by garbage collection (GC) pauses, network retransmissions, or lock contention. Top companies optimize strictly for <strong>P99 latency</strong>.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>What if you need lightning fast responses and don't need 100% exact math? Next: Accuracy vs Latency &amp; HyperLogLog.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0043-memory-vs-latency.html">← Previous: Memory vs Latency</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0045-accuracy-vs-latency.html">Next: Accuracy vs Latency →</a>
+  </div>
+</body>
+</html>

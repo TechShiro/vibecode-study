@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Lesson 02 — Serverless vs Serverful</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">System Design · HLD · Lesson 2 of 66 · serverless, serverful, FaaS, BaaS</div>
+<h1>Serverless vs Serverful Architecture</h1>
+<p class="subtitle">There are still servers in "serverless" — you just don't manage them. Understanding when to hand control to the cloud vs keeping your own fleet is a critical system design skill.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master System Design for interviews — HLD + LLD. This is Lesson 2 of 66.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<!-- ─── 1 · THE ONE IDEA ─── -->
+<h2>1 · The One Idea</h2>
+<p>
+In <strong>serverful</strong> architecture, you provision, manage, and pay for servers whether they're busy or idle.
+In <strong>serverless</strong>, the cloud provider dynamically allocates compute <em>per request</em> — you write code, they run it, and you pay only for what you use. The trade-off is <strong>control vs convenience</strong>.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Serverless abstracts infrastructure entirely — I write a function, deploy it, and the cloud handles scaling, patching, and availability. The trade-off is I lose control over the runtime environment, face cold-start latency, and risk vendor lock-in."
+</div>
+
+<!-- ─── 2 · SERVERFUL (TRADITIONAL) ─── -->
+<h2>2 · Serverful Architecture — The Traditional Way</h2>
+<p>
+This is what most engineers learn first. You have <strong>actual servers</strong> (physical or virtual) that you manage:
+</p>
+<ul>
+  <li><strong>Virtual Machines (VMs)</strong> — EC2 instances, GCE VMs, Azure VMs</li>
+  <li><strong>Containers</strong> — Docker containers on ECS, EKS, GKE</li>
+  <li><strong>Bare Metal</strong> — physical servers in your own data center</li>
+</ul>
+<p>
+You choose the OS, install software, configure networking, handle security patches, set up auto-scaling rules, and monitor health. The servers run 24/7 — even if nobody is sending requests at 3 AM.
+</p>
+
+<h3>How a request flows (serverful)</h3>
+<pre><code>Client → DNS → Load Balancer → Web Server (always running)
+                                    ↓
+                             Application Code
+                                    ↓
+                               Database</code></pre>
+<p>The web server is <strong>always on</strong>, waiting for requests. You pay whether it's handling 0 or 10,000 req/sec.</p>
+
+<h3>Characteristics</h3>
+<ul>
+  <li>Full control over OS, runtime, dependencies, networking</li>
+  <li>You handle scaling (manual or auto-scaling groups)</li>
+  <li>You handle patching, monitoring, failover</li>
+  <li>Pay for uptime, not usage — servers cost money 24/7</li>
+  <li>Can run any workload: long-running processes, WebSockets, stateful services</li>
+</ul>
+
+<!-- ─── 3 · SERVERLESS ─── -->
+<h2>3 · Serverless Architecture</h2>
+<p>
+Serverless is a cloud execution model where the provider runs your code <strong>on demand</strong>. You don't provision or manage servers. There are two flavours:
+</p>
+
+<h3>3.1 · FaaS — Function as a Service</h3>
+<p>
+You write a <strong>single function</strong>, upload it, and the cloud runs it when triggered. Each invocation is isolated.
+</p>
+<table>
+  <thead><tr><th>Provider</th><th>FaaS Product</th><th>Max Execution Time</th><th>Max Memory</th></tr></thead>
+  <tbody>
+    <tr><td>AWS</td><td>Lambda</td><td>15 minutes</td><td>10 GB</td></tr>
+    <tr><td>Google Cloud</td><td>Cloud Functions</td><td>9 minutes (1st gen) / 60 min (2nd gen)</td><td>32 GB</td></tr>
+    <tr><td>Azure</td><td>Azure Functions</td><td>10 min (Consumption) / unlimited (Premium)</td><td>14 GB</td></tr>
+    <tr><td>Cloudflare</td><td>Workers</td><td>30 seconds (free) / 15 min (paid)</td><td>128 MB</td></tr>
+  </tbody>
+</table>
+
+<pre><code><span class="cmt">// AWS Lambda handler — Java</span>
+public class ShortenerHandler implements RequestHandler&lt;APIGatewayProxyRequestEvent,
+                                                        APIGatewayProxyResponseEvent&gt; {
+    @Override
+    public APIGatewayProxyResponseEvent handleRequest(
+            APIGatewayProxyRequestEvent input, Context context) {
+
+        String longUrl = input.getBody();
+        String shortCode = generateShortCode(longUrl);  <span class="cmt">// your logic</span>
+        saveToDB(shortCode, longUrl);                    <span class="cmt">// DynamoDB call</span>
+
+        return new APIGatewayProxyResponseEvent()
+            .withStatusCode(200)
+            .withBody("{\"short\": \"https://sho.rt/" + shortCode + "\"}");
+    }
+}</code></pre>
+
+<h3>3.2 · BaaS — Backend as a Service</h3>
+<p>
+BaaS provides <strong>pre-built backend services</strong> you use via SDKs/APIs instead of building yourself:
+</p>
+<table>
+  <thead><tr><th>Service</th><th>What It Provides</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Firebase</strong></td><td>Auth, Firestore DB, Storage, Hosting, Cloud Messaging</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>Auth, PostgreSQL DB, Storage, Realtime subscriptions</td></tr>
+    <tr><td><strong>AWS Amplify</strong></td><td>Auth (Cognito), API (AppSync), Storage (S3)</td></tr>
+    <tr><td><strong>Auth0</strong></td><td>Authentication &amp; authorization</td></tr>
+    <tr><td><strong>Stripe</strong></td><td>Payments processing</td></tr>
+  </tbody>
+</table>
+<p>
+With BaaS, you don't write backend code for auth, database, or file storage — you use the provider's managed service.
+Combined with FaaS for custom logic, you can build entire applications without managing a single server.
+</p>
+
+<!-- ─── 4 · HOW SERVERLESS WORKS UNDER THE HOOD ─── -->
+<h2>4 · How Serverless Works Under the Hood</h2>
+<p>
+When you invoke a Lambda function, here's what happens behind the scenes:
+</p>
+<ol>
+  <li><strong>Request arrives</strong> at API Gateway / event source (S3, SQS, HTTP, etc.)</li>
+  <li>Lambda service checks: <em>is there a warm container for this function?</em></li>
+  <li><strong>If YES (warm start)</strong> → route request to existing container. Latency: ~1–5 ms overhead.</li>
+  <li><strong>If NO (cold start)</strong> → spin up a new container:
+    <ul>
+      <li>Download your code package</li>
+      <li>Initialize the runtime (JVM, Node.js, Python interpreter)</li>
+      <li>Run your initialization code (static blocks, global variables)</li>
+      <li>Then execute the handler</li>
+      <li>Cold start latency: <strong>100ms–5+ seconds</strong> depending on language &amp; package size</li>
+    </ul>
+  </li>
+  <li>Container stays <strong>warm</strong> for ~5–15 minutes after last invocation (provider-dependent)</li>
+  <li>If no requests come, container is <strong>destroyed</strong> — resources freed</li>
+</ol>
+
+<div class="callout trap">
+  <span class="label">The Cold Start Problem</span>
+  Cold starts are serverless's biggest pain point. Java/C# are worst (~1–5 sec) because JVM/.NET startup is heavy. Node.js/Python are best (~100–300ms). <strong>Mitigation strategies:</strong>
+  <ul>
+    <li><strong>Provisioned concurrency</strong> — keep N containers always warm (AWS Lambda feature, costs money)</li>
+    <li><strong>Keep-warm pings</strong> — CloudWatch scheduled event every 5 min to prevent container death</li>
+    <li><strong>Smaller packages</strong> — reduce deployment size = faster download = faster cold start</li>
+    <li><strong>Use lighter runtimes</strong> — Node.js/Python/Go instead of Java for latency-sensitive functions</li>
+    <li><strong>GraalVM native image</strong> — compile Java ahead-of-time to eliminate JVM startup</li>
+  </ul>
+</div>
+
+<!-- ─── 5 · ARCHITECTURE DIAGRAM ─── -->
+<h2>5 · Architecture Comparison</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 720 460" xmlns="http://www.w3.org/2000/svg">
+  <!-- Title: Serverful -->
+  <text class="lbl" x="180" y="20" font-size="15" font-weight="700">Serverful</text>
+  
+  <rect class="node" x="20" y="40" width="90" height="36" rx="6"/>
+  <text class="lbl" x="65" y="60" font-size="11">Client</text>
+  
+  <line class="edge hl" x1="110" y1="58" x2="140" y2="58" marker-end="url(#a2)"/>
+  
+  <rect class="node" x="140" y="40" width="90" height="36" rx="6"/>
+  <text class="lbl" x="185" y="60" font-size="10">Load Balancer</text>
+  
+  <line class="edge hl" x1="230" y1="58" x2="260" y2="42" marker-end="url(#a2)"/>
+  <line class="edge hl" x1="230" y1="58" x2="260" y2="58" marker-end="url(#a2)"/>
+  <line class="edge hl" x1="230" y1="58" x2="260" y2="74" marker-end="url(#a2)"/>
+  
+  <rect class="node done" x="260" y="28" width="70" height="28" rx="5"/>
+  <text class="lbl" x="295" y="44" font-size="9">Server 1</text>
+  <rect class="node done" x="260" y="58" width="70" height="28" rx="5"/>
+  <text class="lbl" x="295" y="74" font-size="9">Server 2</text>
+  <rect class="node done" x="260" y="88" width="70" height="28" rx="5"/>
+  <text class="lbl" x="295" y="104" font-size="9">Server 3</text>
+  
+  <line class="edge" x1="330" y1="72" x2="360" y2="72" marker-end="url(#a2)"/>
+  
+  <rect class="cell" x="360" y="56" width="70" height="32" rx="5" style="stroke: var(--good); stroke-dasharray: 4;"/>
+  <text class="lbl" x="395" y="75" font-size="10">DB</text>
+  
+  <text class="wt" x="180" y="140" font-size="11">Servers always running (24/7 cost)</text>
+  
+  <!-- Title: Serverless -->
+  <text class="lbl" x="180" y="185" font-size="15" font-weight="700">Serverless</text>
+  
+  <rect class="node" x="20" y="205" width="90" height="36" rx="6"/>
+  <text class="lbl" x="65" y="225" font-size="11">Client</text>
+  
+  <line class="edge hl" x1="110" y1="223" x2="140" y2="223" marker-end="url(#a2)"/>
+  
+  <rect class="node" x="140" y="205" width="90" height="36" rx="6"/>
+  <text class="lbl" x="185" y="225" font-size="10">API Gateway</text>
+  
+  <line class="edge hl" x1="230" y1="223" x2="260" y2="223" marker-end="url(#a2)"/>
+  
+  <rect class="node cur" x="260" y="205" width="90" height="36" rx="6"/>
+  <text class="lbl inv" x="305" y="218" font-size="10">λ Function</text>
+  <text class="lbl inv" x="305" y="232" font-size="8">(on-demand)</text>
+  
+  <line class="edge" x1="350" y1="223" x2="380" y2="223" marker-end="url(#a2)"/>
+  
+  <rect class="cell" x="380" y="207" width="70" height="32" rx="5" style="stroke: var(--good); stroke-dasharray: 4;"/>
+  <text class="lbl" x="415" y="226" font-size="10">DynamoDB</text>
+  
+  <text class="wt" x="180" y="270" font-size="11">Function created on request, destroyed after idle</text>
+  
+  <!-- Cold start illustration -->
+  <rect x="20" y="300" width="430" height="140" rx="8" fill="var(--code-bg)" stroke="var(--rule)"/>
+  <text class="lbl" x="235" y="322" font-size="12">Cold Start vs Warm Start Timeline</text>
+  
+  <!-- Cold start bar -->
+  <text class="wt" x="50" y="348" font-size="10" text-anchor="start">Cold Start:</text>
+  <rect x="130" y="338" width="80" height="18" rx="3" fill="var(--bad)" opacity="0.3"/>
+  <text class="lbl" x="170" y="350" font-size="8" fill="var(--bad)">Init ~500ms</text>
+  <rect x="210" y="338" width="40" height="18" rx="3" fill="var(--accent)" opacity="0.4"/>
+  <text class="lbl" x="230" y="350" font-size="8">Code</text>
+  <text class="wt" x="270" y="350" font-size="9" text-anchor="start">Total: ~550ms</text>
+  
+  <!-- Warm start bar -->
+  <text class="wt" x="50" y="378" font-size="10" text-anchor="start">Warm Start:</text>
+  <rect x="130" y="368" width="40" height="18" rx="3" fill="var(--accent)" opacity="0.4"/>
+  <text class="lbl" x="150" y="380" font-size="8">Code</text>
+  <text class="wt" x="185" y="380" font-size="9" text-anchor="start">Total: ~50ms</text>
+  
+  <!-- Legend -->
+  <rect x="130" y="405" width="14" height="14" rx="2" fill="var(--bad)" opacity="0.3"/>
+  <text class="wt" x="150" y="416" font-size="9" text-anchor="start">Container init</text>
+  <rect x="250" y="405" width="14" height="14" rx="2" fill="var(--accent)" opacity="0.4"/>
+  <text class="wt" x="270" y="416" font-size="9" text-anchor="start">Function execution</text>
+
+  <defs>
+    <marker id="a2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent)"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>Serverful keeps servers running 24/7; Serverless spins up functions on demand with cold/warm start trade-off</figcaption>
+</figure>
+
+<!-- ─── 6 · PRICING ─── -->
+<h2>6 · Pricing: Pay-Per-Use vs Always-On</h2>
+
+<h3>Serverless Pricing (AWS Lambda example)</h3>
+<ul>
+  <li><strong>$0.20</strong> per 1 million invocations</li>
+  <li><strong>$0.0000166667</strong> per GB-second of compute time</li>
+  <li><strong>Free tier:</strong> 1M invocations + 400,000 GB-seconds per month</li>
+</ul>
+
+<h3>Serverful Pricing (EC2 example)</h3>
+<ul>
+  <li><strong>t3.medium</strong> (2 vCPU, 4 GB): ~$30/month (always on)</li>
+  <li><strong>m5.large</strong> (2 vCPU, 8 GB): ~$70/month</li>
+  <li>Pays 24/7 whether serving 0 or 10K requests</li>
+</ul>
+
+<h3>When is serverless cheaper?</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Cheaper Option</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Sporadic traffic (few requests/day)</td><td><strong>Serverless</strong></td><td>Pay only when invoked; idle = $0</td></tr>
+    <tr><td>Bursty traffic (spikes then quiet)</td><td><strong>Serverless</strong></td><td>Scales to spike, scales to zero</td></tr>
+    <tr><td>Steady high traffic (1000+ req/sec 24/7)</td><td><strong>Serverful</strong></td><td>Per-invocation cost adds up; reserved instances are cheaper</td></tr>
+    <tr><td>MVP / Prototype</td><td><strong>Serverless</strong></td><td>No infra setup, free tier covers most usage</td></tr>
+    <tr><td>Long-running jobs (>15 min)</td><td><strong>Serverful</strong></td><td>Lambda has execution time limits</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">The crossover point</span>
+  At roughly <strong>1–2 million requests per day</strong> with consistent load, serverful (with reserved instances) often becomes cheaper than Lambda. Below that, serverless almost always wins on cost.
+</div>
+
+<!-- ─── 7 · SCALING ─── -->
+<h2>7 · Scaling Behaviour</h2>
+<p><strong>Serverless auto-scales to zero and to thousands instantly.</strong> You don't configure anything.</p>
+<ul>
+  <li>AWS Lambda: up to <strong>1,000 concurrent executions</strong> by default (can request increase to 10K+)</li>
+  <li>Each invocation runs in its own container — <strong>instant horizontal scaling</strong></li>
+  <li>Scale to zero: when no requests come, you pay nothing</li>
+</ul>
+<p><strong>Serverful requires you to configure scaling:</strong></p>
+<ul>
+  <li>Auto Scaling Groups (AWS), Managed Instance Groups (GCP)</li>
+  <li>Define min/max instances, scaling policies (CPU > 70% → add instance)</li>
+  <li>Scaling takes <strong>minutes</strong> (boot VM, pull image, health check)</li>
+  <li>You usually keep minimum instances running → baseline cost</li>
+</ul>
+
+<!-- ─── 8 · STATELESSNESS ─── -->
+<h2>8 · Statelessness Constraint</h2>
+<p>
+Serverless functions <strong>must be stateless</strong>. Each invocation may run on a different container. You cannot store data in memory or local filesystem and expect it to be there on the next call.
+</p>
+<p>Where to put state instead:</p>
+<ul>
+  <li><strong>Database</strong> — DynamoDB, RDS, Firestore</li>
+  <li><strong>Cache</strong> — ElastiCache (Redis/Memcached)</li>
+  <li><strong>Object Storage</strong> — S3, GCS</li>
+  <li><strong>Session Store</strong> — Redis, DynamoDB</li>
+</ul>
+
+<div class="callout trap">
+  <span class="label">Gotcha: /tmp is ephemeral</span>
+  Lambda gives you a <code>/tmp</code> directory (512 MB), but it's only available <em>within the same warm container</em>. If the container is recycled, <code>/tmp</code> is gone. Never rely on it for persistent data.
+</div>
+
+<!-- ─── 9 · EXECUTION LIMITS ─── -->
+<h2>9 · Execution Limits &amp; Constraints</h2>
+<table>
+  <thead><tr><th>Constraint</th><th>AWS Lambda</th><th>Serverful (EC2)</th></tr></thead>
+  <tbody>
+    <tr><td>Max execution time</td><td>15 minutes</td><td>Unlimited</td></tr>
+    <tr><td>Max memory</td><td>10 GB</td><td>Up to TB+ (depends on instance)</td></tr>
+    <tr><td>Max package size</td><td>250 MB (zipped), 10 GB (container image)</td><td>No limit</td></tr>
+    <tr><td>Persistent connections (WebSocket)</td><td>Not natively (use API Gateway WebSocket)</td><td>Full support</td></tr>
+    <tr><td>Local disk</td><td>512 MB (/tmp), ephemeral</td><td>Unlimited, persistent (EBS)</td></tr>
+    <tr><td>GPU access</td><td>No</td><td>Yes (P/G instances)</td></tr>
+    <tr><td>Custom OS / runtime</td><td>Limited (custom runtime via Lambda layers)</td><td>Full control</td></tr>
+  </tbody>
+</table>
+
+<!-- ─── 10 · VENDOR LOCK-IN ─── -->
+<h2>10 · Vendor Lock-In</h2>
+<p>
+Serverless ties you to a provider's ecosystem. Your Lambda function uses DynamoDB, S3, SQS, API Gateway — all AWS. Moving to GCP means rewriting everything.
+</p>
+<p><strong>Mitigation strategies:</strong></p>
+<ul>
+  <li><strong>Serverless Framework / SAM</strong> — abstraction layers that can target multiple providers</li>
+  <li><strong>Knative</strong> — run serverless workloads on Kubernetes (any cloud)</li>
+  <li><strong>OpenFaaS</strong> — open-source FaaS framework</li>
+  <li><strong>Keep business logic portable</strong> — put core logic in pure functions, provider-specific code in thin adapters</li>
+</ul>
+
+<!-- ─── 11 · WHEN TO USE WHICH ─── -->
+<h2>11 · When to Use Which — Decision Framework</h2>
+
+<table>
+  <thead><tr><th>Use Serverless When…</th><th>Use Serverful When…</th></tr></thead>
+  <tbody>
+    <tr><td>Event-driven workloads (S3 upload → process image)</td><td>Long-running processes (video transcoding > 15 min)</td></tr>
+    <tr><td>Sporadic / unpredictable traffic</td><td>Steady, high-volume traffic (cheaper with reserved instances)</td></tr>
+    <tr><td>MVPs and prototypes (speed to market)</td><td>WebSocket connections (chat, gaming, real-time)</td></tr>
+    <tr><td>Microservices with simple request/response</td><td>Stateful applications needing local disk/GPU</td></tr>
+    <tr><td>Scheduled tasks (cron jobs)</td><td>Complex multi-step workflows needing orchestration</td></tr>
+    <tr><td>Webhook handlers, API backends</td><td>When cold-start latency is unacceptable (&lt;10ms SLA)</td></tr>
+    <tr><td>Small team, don't want to manage infra</td><td>Large team with DevOps/SRE capacity</td></tr>
+  </tbody>
+</table>
+
+<!-- ─── 12 · COMPARISON TABLE ─── -->
+<h2>12 · Complete Comparison</h2>
+
+<table class="vs-table">
+  <thead><tr><th>Dimension</th><th>Serverless</th><th>Serverful</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Infra management</strong></td><td>None — provider handles</td><td>You manage (or use managed K8s)</td></tr>
+    <tr><td><strong>Scaling</strong></td><td>Automatic, instant, to zero</td><td>Manual / auto-scaling, takes minutes</td></tr>
+    <tr><td><strong>Pricing</strong></td><td>Pay per invocation + compute time</td><td>Pay per hour/month (always on)</td></tr>
+    <tr><td><strong>Cold start</strong></td><td>100ms–5s on first request</td><td>None — server always ready</td></tr>
+    <tr><td><strong>Max execution</strong></td><td>15 min (Lambda)</td><td>Unlimited</td></tr>
+    <tr><td><strong>State</strong></td><td>Stateless (external state required)</td><td>Can be stateful (local disk, in-memory)</td></tr>
+    <tr><td><strong>Control</strong></td><td>Limited (no OS access, constrained runtime)</td><td>Full (OS, network, hardware)</td></tr>
+    <tr><td><strong>Vendor lock-in</strong></td><td>High</td><td>Low (can move VMs between clouds)</td></tr>
+    <tr><td><strong>Deployment</strong></td><td>Upload code/zip → done</td><td>Build image, provision, deploy, configure LB</td></tr>
+    <tr><td><strong>Debugging</strong></td><td>Harder (distributed, logs in CloudWatch)</td><td>SSH into server, standard debugging</td></tr>
+    <tr><td><strong>Best for</strong></td><td>Event-driven, APIs, glue code, sporadic load</td><td>Steady load, long processes, real-time apps</td></tr>
+  </tbody>
+</table>
+
+<div class="tradeoff">
+  <div class="pro">
+    <ul>
+      <li>Zero infrastructure management</li>
+      <li>Automatic scaling (including to zero)</li>
+      <li>Pay only for actual usage</li>
+      <li>Faster time to market</li>
+      <li>Built-in high availability</li>
+    </ul>
+  </div>
+  <div class="con">
+    <ul>
+      <li>Cold start latency</li>
+      <li>Execution time limits</li>
+      <li>Vendor lock-in</li>
+      <li>Debugging is harder</li>
+      <li>Not suitable for stateful / long-running workloads</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── 13 · REAL-WORLD EXAMPLES ─── -->
+<h2>13 · Real-World Examples</h2>
+
+<div class="real-world">
+  <div class="rw-title">🏢 Netflix</div>
+  Uses AWS Lambda for <strong>media encoding pipeline</strong>. When a new movie is uploaded, Lambda functions are triggered to encode it into 1,200+ different formats/resolutions. Sporadic, massively parallel — perfect serverless use case.
+</div>
+
+<div class="real-world">
+  <div class="rw-title">🏢 Coca-Cola</div>
+  Migrated their vending machine payment processing to serverless. Requests are sporadic (someone buys a Coke), and they eliminated the cost of idle servers. Estimated <strong>65% cost reduction</strong>.
+</div>
+
+<div class="real-world">
+  <div class="rw-title">🏢 Slack</div>
+  Slack's core messaging is <strong>serverful</strong> — persistent WebSocket connections for real-time chat. But they use Lambda for <strong>auxiliary tasks</strong>: image resizing, link previews, search indexing.
+</div>
+
+<!-- ─── 14 · HYBRID ARCHITECTURES ─── -->
+<h2>14 · Hybrid Architectures</h2>
+<p>
+Most real production systems are <strong>hybrid</strong> — not purely serverless or serverful.
+</p>
+<ul>
+  <li><strong>Core API</strong> → serverful (ECS/K8s) for consistent latency and WebSocket support</li>
+  <li><strong>Image processing</strong> → serverless (Lambda triggered by S3 upload)</li>
+  <li><strong>Scheduled jobs</strong> → serverless (CloudWatch → Lambda)</li>
+  <li><strong>Webhook handlers</strong> → serverless (API Gateway → Lambda)</li>
+  <li><strong>ML inference</strong> → serverful (GPU instances)</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Interview pro tip</span>
+  In a system design interview, don't say "everything is serverless" or "everything is serverful." Show maturity by using each where it fits. Say: "For the core chat service I'd use a containerized server because we need WebSocket connections. But for image thumbnailing, I'd use a Lambda triggered by S3 uploads — it's event-driven and bursty."
+</div>
+
+<!-- ─── 15 · EDGE COMPUTING ─── -->
+<h2>15 · Edge Computing &amp; Serverless</h2>
+<p>
+A newer serverless variant runs functions <strong>at the edge</strong> — close to users worldwide:
+</p>
+<ul>
+  <li><strong>Cloudflare Workers</strong> — runs on 300+ edge locations, &lt;50ms cold start (uses V8 isolates, not containers)</li>
+  <li><strong>AWS Lambda@Edge</strong> — runs Lambda at CloudFront edge locations</li>
+  <li><strong>Vercel Edge Functions</strong> — used for Next.js middleware</li>
+  <li><strong>Deno Deploy</strong> — edge-first serverless platform</li>
+</ul>
+<p>Use case: A/B testing, auth checks, URL rewrites, personalization — logic that should run close to the user for minimal latency.</p>
+
+<!-- ─── 16 · INTERVIEW ANGLE ─── -->
+<h2>16 · Interview Angle</h2>
+<p>When should you bring up serverless in a system design interview?</p>
+<ul>
+  <li><strong>Event-driven pipelines</strong> — "When a user uploads a photo, a Lambda function generates thumbnails"</li>
+  <li><strong>Webhook/callback handlers</strong> — "Third-party webhooks trigger a Lambda to process the event"</li>
+  <li><strong>Cron/scheduled tasks</strong> — "A scheduled Lambda runs nightly analytics"</li>
+  <li><strong>Low/variable traffic APIs</strong> — "This admin API gets 10 requests/day, Lambda is perfect"</li>
+</ul>
+<p>When should you NOT suggest serverless?</p>
+<ul>
+  <li>Real-time chat / gaming (need persistent connections)</li>
+  <li>Core high-traffic API (steady 10K+ QPS → serverful is cheaper)</li>
+  <li>ML training (needs GPU, runs for hours)</li>
+  <li>Anything requiring strict &lt;10ms latency guarantee</li>
+</ul>
+
+<!-- ─── 17 · QUIZZES ─── -->
+<h2>17 · Check Yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Your service handles 50 requests per day, mostly from webhook callbacks. Which architecture is most cost-effective?</div>
+  <button class="opt">Serverful — run a t3.micro EC2 instance 24/7</button>
+  <button class="opt">Serverful — use a Kubernetes cluster for reliability</button>
+  <button class="opt">Serverless — AWS Lambda, pay only per invocation</button>
+  <div class="fb" data-correct="Correct! 50 requests/day is extremely sporadic. Lambda's free tier alone covers this. An EC2 instance running 24/7 would be pure waste." data-wrong="At 50 requests/day, you'd pay for a server sitting idle 99.99% of the time. Serverless is the clear winner here."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A cold start in AWS Lambda is caused by:</div>
+  <button class="opt">Slow internet connection between client and AWS</button>
+  <button class="opt">Spinning up a new container, downloading code, and initializing the runtime</button>
+  <button class="opt">The function timing out after 15 minutes</button>
+  <div class="fb" data-correct="Exactly! Cold start = new container creation + code download + runtime initialization. This is why Java Lambda functions have longer cold starts than Node.js." data-wrong="Cold start is specifically about container initialization when no warm container is available, not network speed or timeouts."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Which workload is LEAST suitable for serverless?</div>
+  <button class="opt">A real-time multiplayer game server needing persistent WebSocket connections</button>
+  <button class="opt">An image thumbnail generator triggered by S3 uploads</button>
+  <button class="opt">A nightly scheduled data cleanup job that runs for 5 minutes</button>
+  <div class="fb" data-correct="Right! Real-time game servers need persistent connections, low latency, and stateful processing — all things serverless is bad at." data-wrong="Think about which workload needs persistent connections and stateful processing — that's where serverless fails."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Vendor lock-in with serverless can be mitigated by:</div>
+  <button class="opt">Using more AWS services to reduce complexity</button>
+  <button class="opt">Running Lambda functions for longer durations</button>
+  <button class="opt">Keeping business logic in pure functions and using thin provider-specific adapters</button>
+  <div class="fb" data-correct="Correct! Separating portable business logic from provider-specific glue code makes migration feasible." data-wrong="Using MORE provider services increases lock-in. The goal is to isolate your core logic from provider-specific APIs."></div>
+</div>
+
+<!-- ─── 18 · DO THIS NEXT ─── -->
+<h2>18 · Do This Next</h2>
+<ul>
+  <li>Try deploying a "Hello World" Lambda function on AWS free tier — experience cold starts firsthand</li>
+  <li>Compare the architecture of a URL shortener built serverless (API Gateway + Lambda + DynamoDB) vs serverful (EC2 + Nginx + PostgreSQL)</li>
+  <li>Read the <a href="https://docs.aws.amazon.com/lambda/latest/dg/welcome.html" target="_blank">AWS Lambda documentation</a></li>
+</ul>
+
+<div class="callout">
+  <span class="label">Your teacher</span>
+  I'm your system design teacher. If anything is unclear, ask me to explain further.
+  When you're ready, say <strong>"next"</strong> to advance to Lesson 3 — Horizontal vs Vertical Scaling.
+</div>
+
+<div class="nav">
+  <a href="0001-functional-non-functional-requirements.html">← Lesson 1</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0003-horizontal-vs-vertical-scaling.html">Lesson 3 →</a>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

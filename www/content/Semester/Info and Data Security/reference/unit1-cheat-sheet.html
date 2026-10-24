@@ -1,0 +1,251 @@
+<title>IDS Unit I Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Cheat sheet is denser than a lesson — tighten everything for print. */
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Reference &middot; print this one</p>
+<h1>Unit I &mdash; Exam Sheet</h1>
+<p class="deck">Message integrity and authentication on a few printable pages: every table, formula and rule from the seven lessons. One calculation only &mdash; SHA-512 padding.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>SHA-512 algorithm + diagram</strong> &middot; <strong>HMAC formula and block diagram</strong> &middot; <strong>hash function properties (the three resistances)</strong> &middot; <strong>MAC vs MDC vs digital signature</strong> &middot; <strong>MD4 vs MD5</strong> &middot; <strong>SHA-512 padding numerical</strong> &middot; Random Oracle Model &middot; Whirlpool short note. Eight items, and the first two are worth the most.</p>
+</div>
+
+<hr class="rule">
+
+<h2>The map of the unit <span class="tag">frame every answer with this</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Goal</th><th>Mechanism</th><th>Key?</th><th>Gives</th></tr></thead>
+<tbody>
+<tr><td>Integrity</td><td><strong>MDC</strong> &mdash; plain hash (MD4, SHA-512, Whirlpool)</td><td>No</td><td>Unchanged</td></tr>
+<tr><td>Integrity + authentication</td><td><strong>MAC</strong> &mdash; HMAC, CMAC</td><td>Shared secret</td><td>Unchanged + from whom</td></tr>
+<tr><td>Integrity + auth + non-repudiation</td><td>Digital signature (Unit II)</td><td>Private key</td><td>+ provable to a third party</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Integrity procedure:</strong> sender computes h<sub>1</sub> = H(M), sends M insecurely and h<sub>1</sub> safely; receiver computes h<sub>2</sub> = H(M&prime;) and compares. <strong>An unprotected digest detects accidents, not attackers</strong> &mdash; the attacker recomputes it.</p>
+
+<h2>Hash function properties <span class="tag">memorise</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Given</th><th>Find</th><th>Also called</th><th>Effort</th></tr></thead>
+<tbody>
+<tr><td><strong>Preimage resistance</strong></td><td>digest h</td><td>any M with H(M) = h</td><td>one-way</td><td class="num">2<sup>n</sup></td></tr>
+<tr><td><strong>Second preimage resistance</strong></td><td>message M</td><td>M&prime; &ne; M, same digest</td><td>weak collision resistance</td><td class="num">2<sup>n</sup></td></tr>
+<tr><td><strong>Collision resistance</strong></td><td>nothing</td><td>any pair M, M&prime;</td><td>strong collision resistance</td><td class="num"><strong>2<sup>n/2</sup></strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+<li><strong>Collision resistance &rArr; second preimage resistance</strong>, not the reverse.</li>
+<li><strong>Requirements list:</strong> variable input, fixed output, efficiency, the three resistances, avalanche effect, deterministic.</li>
+<li><strong>Pigeonhole:</strong> collisions must exist &mdash; the claim is only that they cannot be <em>found</em>.</li>
+<li><strong>Simple hashes:</strong> bitwise XOR (order-blind), rotated XOR (order-aware, still forgeable). Checksums resist noise, not adversaries.</li>
+</ul>
+
+<h3>Merkle&ndash;Damg&aring;rd (iterated hash)</h3>
+
+<div class="formula">
+  <span class="name">The five steps</span>
+  pad &rarr; <strong>append length (MD-strengthening)</strong> &rarr; split into blocks &rarr;
+  <strong>H<sub>i</sub> = f(H<sub>i&minus;1</sub>, M<sub>i</sub>)</strong> from a fixed IV &rarr; output H<sub>t</sub><br>
+  <em>If f is collision resistant, the whole hash is collision resistant.</em>
+</div>
+
+<p><strong>Two ways to build f:</strong> dedicated from scratch (MD4, MD5, SHA) or from a block cipher (Rabin, Davies&ndash;Meyer, Matyas&ndash;Meyer&ndash;Oseas, <strong>Miyaguchi&ndash;Preneel &mdash; Whirlpool</strong>).</p>
+
+<h2>Random Oracle Model</h2>
+
+<ul>
+<li><strong>Bellare &amp; Rogaway, 1993.</strong> An ideal hash: a table of (message, digest) pairs.</li>
+<li><strong>Repeated message &rarr; same digest. New message &rarr; uniformly random n-bit digest, then recorded.</strong></li>
+<li>No structure to exploit &rarr; <strong>brute force is the only attack</strong>, so security can be counted in queries.</li>
+<li>Used to prove <strong>RSA-OAEP, RSA-PSS, DSS</strong>.</li>
+<li><strong>Limitation:</strong> no real hash is an oracle; schemes exist secure in the ROM but insecure with every real hash (Canetti&ndash;Goldreich&ndash;Halevi, 1998). <strong>Evidence, not guarantee.</strong></li>
+</ul>
+
+<div class="tw">
+<table>
+<thead><tr><th>Birthday problem</th><th>Attack modelled</th><th>Trials (N = 2<sup>n</sup>)</th></tr></thead>
+<tbody>
+<tr><td>Someone shares <em>your</em> birthday</td><td>Preimage attack</td><td class="num">N</td></tr>
+<tr><td>Someone shares a <em>specified</em> person&rsquo;s birthday</td><td>Second preimage attack</td><td class="num">N</td></tr>
+<tr><td><strong>Any two share a birthday</strong></td><td><strong>Collision / birthday attack</strong></td><td class="num"><strong>&radic;N = 2<sup>n/2</sup></strong></td></tr>
+<tr><td>A match between two groups</td><td>Meet-in-the-middle</td><td class="num">&radic;N each</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Design rule:</strong> an n-bit digest gives only <strong>n/2 bits</strong> of collision security. 128 &rarr; 64 (MD4/MD5, broken) &middot; 160 &rarr; 80 (SHA-1, deprecated) &middot; 512 &rarr; 256 (SHA-512, Whirlpool).</p>
+
+<h2>MAC, HMAC, CMAC <span class="tag">highest yield</span></h2>
+
+<div class="formula">
+  <span class="name">MAC</span>
+  <strong>MAC = C(K, M)</strong>; send <strong>M &#8214; MAC</strong>; receiver recomputes and compares.<br>
+  Gives <strong>integrity + source authentication</strong>. <strong>No confidentiality. No non-repudiation &mdash; the key is shared.</strong>
+</div>
+
+<p><strong>Three arrangements:</strong> M &#8214; C(K,M) &middot; E<sub>K2</sub>[M &#8214; C(K1,M)] &middot; E<sub>K2</sub>[M] &#8214; C(K1, E<sub>K2</sub>[M]).</p>
+
+<p><strong>Security requirements:</strong> knowing (M, MAC) must not yield a MAC for another message; MACs uniformly distributed (collision probability 2<sup>&minus;n</sup>); the MAC depends on all message bits; key space large.</p>
+
+<div class="formula">
+  <span class="name">HMAC &mdash; RFC 2104 / FIPS 198</span>
+  <strong>HMAC(K, M) = H[ (K<sup>+</sup> &oplus; opad) &#8214; H[ (K<sup>+</sup> &oplus; ipad) &#8214; M ] ]</strong><br>
+  <strong>ipad = 0x36</strong> repeated &middot; <strong>opad = 0x5C</strong> repeated &middot; K<sup>+</sup> = key zero-padded to block size b<br>
+  b = <strong>512</strong> for MD5/SHA-1/SHA-256, <strong>1024</strong> for SHA-512
+</div>
+
+<ul>
+<li><strong>Eight steps:</strong> pad K (hash it first if longer than b) &rarr; K<sup>+</sup>&oplus;ipad = S<sub>i</sub> &rarr; prepend to M &rarr; hash &rarr; pad the inner digest &rarr; K<sup>+</sup>&oplus;opad = S<sub>o</sub> &rarr; prepend &rarr; hash again.</li>
+<li><strong>Why two constants:</strong> they differ in half their bits, so one key becomes two independent pseudorandom keys.</li>
+<li><strong>Why nested:</strong> H(K &#8214; M) alone falls to the <strong>length-extension attack</strong>.</li>
+<li><strong>Cost:</strong> only two extra block computations, both precomputable.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">CMAC &mdash; NIST SP 800-38B</span>
+  AES/3DES in <strong>CBC mode</strong>, zero IV, tag = leftmost s bits of the last ciphertext block.<br>
+  <strong>L = E(K, 0<sup>b</sup>) &rarr; K<sub>1</sub>, K<sub>2</sub> = 2K<sub>1</sub></strong> (multiply by x in GF(2<sup>b</sup>): shift left, XOR 0x87 if a 1 shifts out)<br>
+  <strong>Complete final block &rarr; XOR K<sub>1</sub>. Padded final block (1 then 0s) &rarr; XOR K<sub>2</sub>.</strong><br>
+  <em>Fixes CBC-MAC/DAA, which is forgeable for variable-length messages.</em>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>HMAC</th><th>CMAC</th></tr></thead>
+<tbody>
+<tr><td>Built on</td><td>Hash function</td><td>Block cipher (AES/3DES), CBC</td></tr>
+<tr><td>Standard</td><td>RFC 2104, FIPS 198</td><td>NIST SP 800-38B</td></tr>
+<tr><td>Structure</td><td>Nested, ipad/opad</td><td>CBC chain, subkeys K<sub>1</sub>/K<sub>2</sub></td></tr>
+<tr><td>Tag length</td><td>Digest size</td><td>Cipher block size (128 for AES)</td></tr>
+<tr><td>Used in</td><td>IPsec, SSL/TLS, SET</td><td>WPA2 (802.11i), embedded devices</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>MDC</th><th>MAC</th><th>Digital signature</th></tr></thead>
+<tbody>
+<tr><td>Key</td><td>none</td><td>shared secret</td><td>sender&rsquo;s private key</td></tr>
+<tr><td>Integrity / Authentication / Non-repudiation</td><td>Y / N / N</td><td>Y / Y / <strong>N</strong></td><td>Y / Y / <strong>Y</strong></td></tr>
+<tr><td>Speed</td><td>fastest</td><td>fast</td><td>slowest</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The three algorithms side by side <span class="tag">one table, many questions</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>MD4</th><th>MD5</th><th>SHA-512</th><th>Whirlpool</th></tr></thead>
+<tbody>
+<tr><td>Digest</td><td class="num">128</td><td class="num">128</td><td class="num">512</td><td class="num">512 bits</td></tr>
+<tr><td>Block</td><td class="num">512</td><td class="num">512</td><td class="num">1024</td><td class="num">512 bits</td></tr>
+<tr><td>Word / state</td><td>32-bit &times;4</td><td>32-bit &times;4</td><td>64-bit &times;8</td><td>8&times;8 byte matrix</td></tr>
+<tr><td>Rounds / steps</td><td class="num">3 &times; 16 = 48</td><td class="num">4 &times; 16 = 64</td><td class="num">80</td><td class="num">10</td></tr>
+<tr><td>Length field</td><td class="num">64</td><td class="num">64</td><td class="num">128</td><td class="num">256 bits</td></tr>
+<tr><td><strong>Padding to</strong></td><td class="num">448 mod 512</td><td class="num">448 mod 512</td><td class="num"><strong>896 mod 1024</strong></td><td class="num">256 mod 512</td></tr>
+<tr><td>Endianness</td><td>little</td><td>little</td><td>big</td><td>big</td></tr>
+<tr><td>Compression fn</td><td>dedicated</td><td>dedicated</td><td>dedicated</td><td><strong>cipher W, Miyaguchi&ndash;Preneel</strong></td></tr>
+<tr><td>Designer / year</td><td>Rivest 1990</td><td>Rivest 1991</td><td>NIST 2001</td><td>Rijmen &amp; Barreto 2000</td></tr>
+<tr><td>Security</td><td><strong>broken</strong></td><td><strong>broken</strong></td><td>2<sup>256</sup></td><td>2<sup>256</sup></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>MD4 detail</h3>
+
+<ul>
+<li><strong>Five steps:</strong> pad to 448 mod 512 &rarr; append 64-bit length &rarr; init A,B,C,D = 67452301, EFCDAB89, 98BADCFE, 10325476 &rarr; 3 rounds &times; 16 steps &rarr; add to the incoming buffer, output A&#8214;B&#8214;C&#8214;D.</li>
+<li><strong>Round functions:</strong> F = (X&and;Y)&or;(&not;X&and;Z) <em>selection</em> &middot; G = (X&and;Y)&or;(X&and;Z)&or;(Y&and;Z) <em>majority</em> &middot; H = X&oplus;Y&oplus;Z <em>parity</em>.</li>
+<li><strong>Constants:</strong> 0, <strong>5A827999</strong> (2<sup>30</sup>&radic;2), <strong>6ED9EBA1</strong> (2<sup>30</sup>&radic;3) &mdash; nothing-up-my-sleeve numbers.</li>
+<li><strong>Step:</strong> a &larr; (a + F(b,c,d) + X[k] + K) &lt;&lt;&lt; s, addition mod 2<sup>32</sup>.</li>
+<li><strong>MD5 = MD4 + fourth round I(X,Y,Z)=Y&oplus;(X&or;&not;Z) + a unique T[i] per step from |sin i| + an extra addition of b.</strong></li>
+</ul>
+
+<h3>SHA-512 detail</h3>
+
+<ul>
+<li><strong>Five steps:</strong> pad to 896 mod 1024 &rarr; append 128-bit length &rarr; init eight 64-bit registers (fractional parts of &radic; of the first 8 primes) &rarr; 80 rounds per 1024-bit block &rarr; add to the incoming values, output the eight registers.</li>
+<li><strong>K<sub>0</sub>&hellip;K<sub>79</sub>:</strong> fractional parts of the <strong>cube roots of the first 80 primes</strong>.</li>
+<li><strong>Expansion:</strong> W<sub>t</sub> = &sigma;<sub>1</sub>(W<sub>t&minus;2</sub>) + W<sub>t&minus;7</sub> + &sigma;<sub>0</sub>(W<sub>t&minus;15</sub>) + W<sub>t&minus;16</sub>, with &sigma;<sub>0</sub> = ROTR<sup>1</sup>&oplus;ROTR<sup>8</sup>&oplus;SHR<sup>7</sup>, &sigma;<sub>1</sub> = ROTR<sup>19</sup>&oplus;ROTR<sup>61</sup>&oplus;SHR<sup>6</sup>.</li>
+<li><strong>Round:</strong> T<sub>1</sub> = h + Ch(e,f,g) + &Sigma;<sub>1</sub>(e) + W<sub>t</sub> + K<sub>t</sub>; T<sub>2</sub> = &Sigma;<sub>0</sub>(a) + Maj(a,b,c); e &larr; d + T<sub>1</sub>, a &larr; T<sub>1</sub> + T<sub>2</sub>, <strong>the rest shift</strong>.</li>
+<li>Ch = (e&and;f)&oplus;(&not;e&and;g) &middot; Maj = (a&and;b)&oplus;(a&and;c)&oplus;(b&and;c) &middot; &Sigma;<sub>0</sub> = ROTR<sup>28,34,39</sup> &middot; &Sigma;<sub>1</sub> = ROTR<sup>14,18,41</sup>.</li>
+<li><strong>SHA-384 = SHA-512 with a different IV, truncated to 384 bits.</strong></li>
+</ul>
+
+<h3>Whirlpool detail</h3>
+
+<ul>
+<li><strong>H<sub>i</sub> = E(H<sub>i&minus;1</sub>, M<sub>i</sub>) &oplus; M<sub>i</sub> &oplus; H<sub>i&minus;1</sub></strong> &mdash; Miyaguchi&ndash;Preneel; H<sub>0</sub> = 0.</li>
+<li><strong>Cipher W:</strong> AES with an 8&times;8 byte state, 512-bit block and key, 10 rounds of <strong>SubBytes (S-box, confusion) &rarr; ShiftColumns (column j down by j) &rarr; MixRows (8&times;8 MDS over GF(2<sup>8</sup>)) &rarr; AddRoundKey</strong>.</li>
+<li><strong>Key schedule:</strong> the same round function applied to the key, with round constants RC[r] from the S-box in place of round keys.</li>
+<li><strong>Weakness:</strong> slow in software (key schedule per block), lightly deployed, rebound attacks on reduced rounds.</li>
+</ul>
+
+<h2>The numerical <span class="tag">certain marks</span></h2>
+
+<div class="formula">
+  <span class="name">SHA-512 padding &mdash; four lines</span>
+  <strong>1.</strong> r = L mod 1024 &nbsp;&middot;&nbsp; <strong>2.</strong> P = 896 &minus; r &nbsp;(if &le; 0, add 1024)<br>
+  <strong>3.</strong> Total = L + P + 128 &nbsp;&middot;&nbsp; <strong>4.</strong> Blocks = Total &divide; 1024<br>
+  <em>MD5/SHA-1: 448 mod 512 with a 64-bit field. Whirlpool: 256 mod 512 with a 256-bit field.</em>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>L (bits)</th><th>r = L mod 1024</th><th>P</th><th>Total</th><th>Blocks</th></tr></thead>
+<tbody>
+<tr><td class="num">2590</td><td class="num">542</td><td class="num">354</td><td class="num">3072</td><td class="num">3</td></tr>
+<tr><td class="num">5000</td><td class="num">904</td><td class="num"><strong>1016</strong> (896&minus;904 &lt; 0, +1024)</td><td class="num">6144</td><td class="num">6</td></tr>
+<tr><td class="num">896</td><td class="num">896</td><td class="num"><strong>1024</strong> (never zero)</td><td class="num">2048</td><td class="num">2</td></tr>
+<tr><td class="num">2400 (300 bytes)</td><td class="num">352</td><td class="num">544</td><td class="num">3072</td><td class="num">3</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Traps:</strong> given in bytes &rarr; &times;8 first &middot; &ldquo;how many zeros&rdquo; &rarr; P &minus; 1 &middot; padding is <strong>never zero</strong> &middot; a remainder above 896 pushes into an extra block.</p>
+
+<h2>Answer openers worth memorising verbatim</h2>
+
+<ul>
+<li>&ldquo;Confidentiality hides the message; it does not preserve it. Integrity therefore needs its own mechanism.&rdquo;</li>
+<li>&ldquo;Message = document, digest = fingerprint.&rdquo;</li>
+<li>&ldquo;Collisions must exist by the pigeonhole principle; security means they cannot be found.&rdquo;</li>
+<li>&ldquo;A MAC gives integrity and authentication but not non-repudiation, because the key is shared.&rdquo;</li>
+<li>&ldquo;An n-bit digest gives only n/2 bits of collision security, which is why digest lengths grew.&rdquo;</li>
+<li>&ldquo;MD5 is MD4 with a fourth round, per-step constants and an extra addition.&rdquo;</li>
+<li>&ldquo;Whirlpool builds its compression function from a block cipher; SHA-512 builds one from scratch.&rdquo;</li>
+</ul>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="../lessons/unit-1/0001-message-integrity.html">Start Unit I</a>
+  <a href="../lessons/unit-1/0006-sha-512.html">SHA-512</a>
+</div>
+
+</div>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 04 – Firewalls, IDS/IPS & VPNs</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module B · Lesson 4 of 17 · Defensive Network Engineering</div>
+  <h1>Firewalls, IDS/IPS & Encrypted VPN Tunneling</h1>
+  <p class="subtitle">Stateful packet inspection, writing Snort/Suricata signature rules, and modern cryptographic VPN tunnels.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Network Security & Forensics</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>To defend private enterprise networks against external hostile traffic, organizations deploy three interlocking technologies: <strong>Firewalls</strong> (which enforce perimeter access rules based on IP/port/protocol state), <strong>Intrusion Detection/Prevention Systems (IDS/IPS)</strong> (which inspect packet payloads for known exploit signatures and anomalies), and <strong>Virtual Private Networks (VPNs)</strong> (which wrap untrusted public internet traffic inside encrypted, authenticated cryptographic tunnels).</p>
+
+  <h2>2 · Firewall Generations</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">Gen 1</div>
+      <h3>Stateless Packet Filters</h3>
+      <p>Inspects each packet in isolation against static rules (source/dest IP, port). Vulnerable to spoofed ACK flags; cannot determine if a packet is part of an established legitimate connection.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Gen 2</div>
+      <h3>Stateful Inspection (SPI)</h3>
+      <p>Tracks the state of active TCP connections (State Table: <code>NEW, ESTABLISHED, RELATED</code>). Incoming replies are automatically permitted only if they correspond to an existing outbound session (e.g. Linux <code>iptables</code> / <code>nftables</code>).</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Gen 3</div>
+      <h3>Next-Gen Firewalls (NGFW)</h3>
+      <p>Operates at <strong>Layer 7 (Application Layer)</strong>. Decrypts TLS traffic, identifies application protocols (e.g. distinguishing BitTorrent over port 80 from legitimate HTTP), and integrates antivirus and sandboxing.</p>
+    </div>
+  </div>
+
+  <h2>3 · IDS vs IPS & Writing Snort Rules</h2>
+  <ul>
+    <li><strong>Intrusion Detection System (IDS)</strong>: Passive monitoring (out-of-band via SPAN/TAP port). Sniffs traffic, raises alerts, but <strong>does not stop</strong> attacks.</li>
+    <li><strong>Intrusion Prevention System (IPS)</strong>: Active inline deployment. Packets physically pass through the IPS; can actively drop malicious packets and reset TCP connections in real time.</li>
+  </ul>
+
+  <div class="callout info">
+    <h4>Anatomy of a Snort / Suricata Rule</h4>
+    <pre><code>alert tcp any any -> 192.168.1.100 80 (
+    msg:"MALWARE-BACKDOOR Webshell Access Attempt";
+    content:"cmd.php"; nocase;
+    content:"cmd="; http_uri;
+    sid:1000005; rev:1;
+)</code></pre>
+    <ul>
+      <li><strong>Header</strong>: <code>alert tcp any any -> 192.168.1.100 80</code> (action, protocol, src IP/port, direction, dst IP/port).</li>
+      <li><strong>Options</strong>: <code>msg</code> (human readable description), <code>content</code> (string pattern to match), <code>sid</code> (unique Snort ID &ge; 1,000,000 for custom rules).</li>
+    </ul>
+  </div>
+
+  <h2>4 · VPN Tunneling: IPsec vs OpenVPN vs WireGuard</h2>
+  <table class="vs-table">
+    <thead>
+      <tr><th>Protocol</th><th>Layer</th><th>Cryptography</th><th>Codebase & Speed</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>IPsec</strong></td><td>Layer 3 (Network)</td><td>AES-CBC / AES-GCM, IKEv2 key exchange.</td><td>Complex configuration; great for corporate Site-to-Site router links.</td></tr>
+      <tr><td><strong>OpenVPN</strong></td><td>Layer 4 (Transport / TLS)</td><td>OpenSSL (AES, RSA, SHA-256) over TCP or UDP.</td><td>Mature, flexible, penetrates firewalls easily via port 443; high CPU overhead.</td></tr>
+      <tr><td><strong>WireGuard</strong></td><td>Layer 3 (In-Kernel)</td><td>Modern crypto: <strong>Curve25519, ChaCha20, Poly1305, BLAKE2s</strong>.</td><td><strong>~4,000 lines of code</strong> (vs 100,000+ for OpenVPN); ultra-fast, minimal attack surface, instant roaming.</td></tr>
+    </tbody>
+  </table>
+
+  <nav class="bottom-nav">
+    <a href="0003-network-protocols-sniffing-and-wireshark.html">← Lesson 03: Wireshark & Sniffing</a>
+    <a href="0005-symmetric-cryptography-and-hashing.html">Lesson 05: Symmetric Cryptography & Hashing →</a>
+  </nav>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<title>Particle Swarm Optimization (PSO)</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit V &middot; Lesson 22 of 23</p>
+<h1>Particle Swarm Optimization</h1>
+<p class="deck">Kennedy &amp; Eberhart's swarm intelligence model, velocity and position update equations, inertia weight dynamics, step-by-step worked numerical iteration, and a comprehensive PSO vs GA comparison.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>&ldquo;State the velocity and position update equations in PSO and explain each term&rdquo;</strong> is a mandatory 5-mark question. You must describe the three velocity components: <strong>inertia term</strong> (momentum), <strong>cognitive term</strong> (personal memory), and <strong>social term</strong> (swarm cooperation). The <strong>PSO vs GA comparison table</strong> is equally popular as a 5-to-7 mark question.</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Particle Swarm Optimization (PSO) Dynamics</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=JhgDMAm-imI" target="_blank">Particle Swarm Optimization (PSO) Algorithm Architecture</a>
+    <span class="v-meta">5 Minutes Engineering &middot; 7:45</span>
+    <div class="v-why">Crisp, animated explanation of bird flocking / fish schooling behavior, personal best ($pbest$), global swarm best ($gbest$), and particle motion.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Velocity &amp; Position Solved Numerical</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=kYHFQv8d6yA" target="_blank">PSO Algorithm with Solved Numerical Example &amp; Velocity Updates</a>
+    <span class="v-meta">Mahesh Huddar &middot; 15:10</span>
+    <div class="v-why">Step-by-step examination derivation applying the velocity update formula $v_i^{(t+1)} = w v_i^{(t)} + c_1 r_1 (pbest_i - x_i) + c_2 r_2 (gbest - x_i)$ with exact arithmetic.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: PSO VELOCITY VECTOR COMPOSITION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: Three Components of PSO Velocity Update</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:1rem;">
+    <div class="flow-box highlight" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--accent);">1. Inertia Component ($w \cdot v_i$)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Current momentum. Prevents radical direction reversals and encourages global exploration when $w$ is large.</span>
+    </div>
+    <div class="flow-box" style="min-width:auto; text-align:left; border-color:var(--ok);">
+      <strong style="color:var(--ok);">2. Cognitive Component ($c_1 r_1 [pbest_i - x_i]$)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Individual memory. Pulls the particle back towards the best personal location it has found so far.</span>
+    </div>
+    <div class="flow-box warn" style="min-width:auto; text-align:left;">
+      <strong style="color:var(--warn);">3. Social Component ($c_2 r_2 [gbest - x_i]$)</strong>
+      <span class="sub" style="margin-top:0.3rem;">Swarm intelligence. Pulls all particles towards the globally best position discovered by the entire flock.</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>What is Particle Swarm Optimization?</h2>
+<p>Introduced by social psychologist <strong>James Kennedy</strong> and electrical engineer <strong>Russell C. Eberhart in 1995</strong>, <strong>Particle Swarm Optimization (PSO)</strong> is a population-based stochastic optimization algorithm inspired by the social foraging behaviors of bird flocks and fish schools.</p>
+<p>Unlike Genetic Algorithms which rely on evolutionary genetic operators (selection, crossover, mutation) to replace individuals across generations, PSO maintains a <strong>stable swarm of particles</strong> that &ldquo;fly&rdquo; through a multi-dimensional search space, adjusting their trajectories based on both their own individual experience and the collective knowledge of the entire swarm.</p>
+
+<div class="tw"><table>
+<thead><tr><th>PSO Term</th><th>Biological / Physical Analogy</th><th>Meaning in Optimization</th></tr></thead>
+<tbody>
+<tr><td><strong>Swarm</strong></td><td>Flock of birds / school of fish</td><td>The entire population of candidate solutions</td></tr>
+<tr><td><strong>Particle (i)</strong></td><td>Single bird</td><td>One candidate solution moving in search space</td></tr>
+<tr><td><strong>Position (X<sub>i</sub>)</strong></td><td>Spatial coordinates</td><td>Current vector of decision variable values</td></tr>
+<tr><td><strong>Velocity (V<sub>i</sub>)</strong></td><td>Flight direction &amp; speed</td><td>Step size and direction of trajectory update</td></tr>
+<tr><td><strong>Personal Best (pbest<sub>i</sub>)</strong></td><td>Individual's best remembered food source</td><td>Best position achieved by particle <em>i</em> so far</td></tr>
+<tr><td><strong>Global Best (gbest)</strong></td><td>Flock's best known food source</td><td>Best position discovered across the entire swarm</td></tr>
+</tbody></table></div>
+
+<h2>The Governing Mathematical Equations</h2>
+<p>In a <em>D</em>-dimensional search space, the motion of each particle <em>i</em> at time step <em>t</em> is governed by two fundamental update rules:</p>
+
+<div class="formula"><span class="name">1. Velocity Update Equation</span>
+<strong>v<sub>id</sub><sup>(t+1)</sup> = w &middot; v<sub>id</sub><sup>(t)</sup> + c<sub>1</sub> &middot; r<sub>1</sub> &middot; [pbest<sub>id</sub> &minus; x<sub>id</sub><sup>(t)</sup>] + c<sub>2</sub> &middot; r<sub>2</sub> &middot; [gbest<sub>d</sub> &minus; x<sub>id</sub><sup>(t)</sup>]</strong>
+</div>
+
+<div class="formula"><span class="name">2. Position Update Equation</span>
+<strong>x<sub>id</sub><sup>(t+1)</sup> = x<sub>id</sub><sup>(t)</sup> + v<sub>id</sub><sup>(t+1)</sup></strong>
+</div>
+
+<h3>Deconstructing the Three Velocity Terms</h3>
+<ol>
+  <li><strong>Inertia Term &mdash; <code>w &middot; v<sub>id</sub><sup>(t)</sup></code>:</strong>
+    Represents the particle's previous momentum. The parameter <code>w</code> is the <strong>inertia weight</strong> (introduced by Shi &amp; Eberhart, 1998). It controls the trade-off between global exploration and local exploitation:
+    <ul>
+      <li><em>High <code>w</code> (&approx; 0.9):</em> Encourages broad global exploration across wide areas.</li>
+      <li><em>Low <code>w</code> (&approx; 0.4):</em> Encourages fine local exploitation around promising regions.</li>
+      <li><strong>Linearly Decreasing Inertia:</strong> Often adapted over iterations:
+        <br><code>w(t) = w<sub>max</sub> &minus; [(w<sub>max</sub> &minus; w<sub>min</sub>) / T<sub>max</sub>] &middot; t</code> (typically transitioning from 0.9 &rarr; 0.4).
+      </li>
+    </ul>
+  </li>
+  <li><strong>Cognitive (Personal) Term &mdash; <code>c<sub>1</sub> &middot; r<sub>1</sub> &middot; [pbest<sub>id</sub> &minus; x<sub>id</sub><sup>(t)</sup>]</code>:</strong>
+    Represents individual learning and nostalgia. It pulls the particle back toward its own best historical position (<code>pbest</code>).
+    <ul>
+      <li><code>c₁</code> is the <strong>cognitive acceleration coefficient</strong> (typically set to &approx; 2.0).</li>
+      <li><code>r₁ &sim; U(0, 1)</code> is a uniform random number that injects stochastic unpredictability.</li>
+    </ul>
+  </li>
+  <li><strong>Social (Swarm) Term &mdash; <code>c<sub>2</sub> &middot; r<sub>2</sub> &middot; [gbest<sub>d</sub> &minus; x<sub>id</sub><sup>(t)</sup>]</code>:</strong>
+    Represents social cooperation and flock intelligence. It pulls the particle toward the best global solution found anywhere in the swarm (<code>gbest</code>).
+    <ul>
+      <li><code>c₂</code> is the <strong>social acceleration coefficient</strong> (typically set to &approx; 2.0).</li>
+      <li><code>r₂ &sim; U(0, 1)</code> is an independent uniform random number.</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="box exam"><span class="lbl">Velocity clamping</span>
+<p>To prevent particles from accelerating uncontrollably and overshooting the boundary of the feasible search space (&ldquo;swarm explosion&rdquo;), velocities are clamped within strict limits: <code>&minus;V<sub>max</sub> &le; v<sub>id</sub><sup>(t+1)</sup> &le; V<sub>max</sub></code>.</p></div>
+
+<h2>Full Worked Numerical: One Iteration of PSO</h2>
+<div class="solve"><span class="lbl">Numerical problem</span>
+<p><strong>Objective:</strong> Minimize the 1-D quadratic function <code>f(x) = x&sup2;</code>.<br>
+<strong>Swarm parameters:</strong> Inertia weight <code>w = 0.7</code>, acceleration coefficients <code>c₁ = 1.5</code>, <code>c₂ = 1.5</code>.<br>
+<strong>Random numbers for iteration 1:</strong> <code>r₁ = 0.5</code>, <code>r₂ = 0.6</code>.<br>
+<strong>Initial swarm (3 particles):</strong></p>
+<ul>
+  <li>Particle 1: position <code>x₁ = 2.0</code>, velocity <code>v₁ = 0.5</code></li>
+  <li>Particle 2: position <code>x₂ = &minus;3.0</code>, velocity <code>v₂ = &minus;0.5</code></li>
+  <li>Particle 3: position <code>x₃ = 4.0</code>, velocity <code>v₃ = 1.0</code></li>
+</ul>
+</div>
+
+<h3>Step 1: Initial Fitness &amp; Best Records</h3>
+<p>Evaluate initial fitness <code>f(x) = x&sup2;</code> for all particles (lower is better):</p>
+<ul>
+  <li><code>f(x₁) = 2.0&sup2; = 4.0</code> &rarr; <code>pbest₁ = 2.0</code> (fitness 4.0)</li>
+  <li><code>f(x₂) = (&minus;3.0)&sup2; = 9.0</code> &rarr; <code>pbest₂ = &minus;3.0</code> (fitness 9.0)</li>
+  <li><code>f(x₃) = 4.0&sup2; = 16.0</code> &rarr; <code>pbest₃ = 4.0</code> (fitness 16.0)</li>
+</ul>
+<p>The global minimum among all is <code>pbest₁ = 2.0</code> with fitness 4.0 &rarr; <strong>gbest = 2.0</strong>.</p>
+
+<h3>Step 2: Velocity &amp; Position Updates</h3>
+<p>Common multipliers: <code>c₁ &middot; r₁ = 1.5 &times; 0.5 = 0.75</code>, and <code>c₂ &middot; r₂ = 1.5 &times; 0.6 = 0.90</code>.</p>
+
+<p><strong>Particle 1:</strong></p>
+<div class="formula">
+v₁<sup>(1)</sup> = 0.7(0.5) + 0.75(2.0 &minus; 2.0) + 0.90(2.0 &minus; 2.0) = 0.35 + 0 + 0 = <strong>0.35</strong><br>
+x₁<sup>(1)</sup> = 2.0 + 0.35 = <strong>2.35</strong><br>
+New fitness: f(2.35) = 2.35&sup2; = 5.5225 &gt; 4.0 &rarr; <em>pbest₁ remains 2.0</em>.
+</div>
+
+<p><strong>Particle 2:</strong></p>
+<div class="formula">
+v₂<sup>(1)</sup> = 0.7(&minus;0.5) + 0.75(&minus;3.0 &minus; (&minus;3.0)) + 0.90(2.0 &minus; (&minus;3.0))<br>
+v₂<sup>(1)</sup> = &minus;0.35 + 0 + 0.90(5.0) = &minus;0.35 + 4.50 = <strong>4.15</strong><br>
+x₂<sup>(1)</sup> = &minus;3.0 + 4.15 = <strong>1.15</strong><br>
+New fitness: f(1.15) = 1.15&sup2; = <strong>1.3225</strong> &lt; 9.0 &rarr; <strong>pbest₂ updates to 1.15!</strong>
+</div>
+
+<p><strong>Particle 3:</strong></p>
+<div class="formula">
+v₃<sup>(1)</sup> = 0.7(1.0) + 0.75(4.0 &minus; 4.0) + 0.90(2.0 &minus; 4.0)<br>
+v₃<sup>(1)</sup> = 0.70 + 0 + 0.90(&minus;2.0) = 0.70 &minus; 1.80 = <strong>&minus;1.10</strong><br>
+x₃<sup>(1)</sup> = 4.0 &minus; 1.10 = <strong>2.90</strong><br>
+New fitness: f(2.90) = 2.90&sup2; = <strong>8.41</strong> &lt; 16.0 &rarr; <strong>pbest₃ updates to 2.90!</strong>
+</div>
+
+<h3>Step 3: Update Global Best (gbest)</h3>
+<p>Compare new personal bests: <code>pbest₁ (4.0)</code>, <code>pbest₂ (1.3225)</code>, <code>pbest₃ (8.41)</code>.</p>
+<p>The lowest value is 1.3225 from Particle 2 &rarr; <strong>New gbest = 1.15</strong> (improved from 2.0). The swarm has rapidly migrated closer to the optimal coordinate <code>x = 0</code> in a single iteration!</p>
+
+<h2>Comparison: PSO vs Genetic Algorithm (GA)</h2>
+<div class="tw"><table>
+<thead><tr><th>Feature</th><th>Particle Swarm Optimization (PSO)</th><th>Genetic Algorithm (GA)</th></tr></thead>
+<tbody>
+<tr><td><strong>Natural Inspiration</strong></td><td>Swarm behavior (bird flocking, fish schooling)</td><td>Darwinian natural selection &amp; genetics</td></tr>
+<tr><td><strong>Population Dynamics</strong></td><td>Fixed population of particles that persist and adjust positions</td><td>Successive generations created via reproduction; parents discarded</td></tr>
+<tr><td><strong>Operators Used</strong></td><td>Arithmetic velocity and position updates (no crossover/mutation)</td><td>Selection, Crossover (recombination), and Mutation</td></tr>
+<tr><td><strong>Internal Memory</strong></td><td><strong>Yes</strong> &mdash; each particle remembers its own <code>pbest</code> and swarm <code>gbest</code></td><td><strong>No</strong> &mdash; population retains no individual memory across generations</td></tr>
+<tr><td><strong>Information Sharing</strong></td><td>One-way flow: <code>gbest</code> broadcasts the optimal location to all particles</td><td>Two-way sharing: parents mutually exchange chromosome segments</td></tr>
+<tr><td><strong>Variables Handled</strong></td><td>Naturally continuous (real numbers); discrete versions require binarization</td><td>Naturally discrete/binary strings; real-coded versions require specialized operators</td></tr>
+<tr><td><strong>Computational Complexity</strong></td><td>Low &mdash; fewer parameters to tune, very fast execution per step</td><td>Higher &mdash; requires string encoding/decoding, sorting, and genetic operator overhead</td></tr>
+</tbody></table></div>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. In the PSO velocity update equation, what does the cognitive component represent?</p>
+<div class="opts">
+<button class="opt">A bit-flip mutation rate</button>
+<button class="opt" data-ok="1">The individual particle's attraction back toward its own personal historical best position (pbest)</button>
+<button class="opt">The particle's previous momentum governed by inertia weight w</button>
+<button class="opt">The overall swarm's global attraction toward the best discovered food source (gbest)</button>
+</div><p class="why">The cognitive term c₁·r₁·(pbest - x) reflects individual memory and learning.</p></div>
+
+<div class="q"><p class="stem">2. Why is the inertia weight w often decreased linearly from 0.9 to 0.4 over the course of PSO iterations?</p>
+<div class="opts">
+<button class="opt">To ensure velocities become strictly negative</button>
+<button class="opt" data-ok="1">To favor broad global exploration in early iterations and fine local exploitation in later iterations</button>
+<button class="opt">To prevent the need for calculating gbest</button>
+<button class="opt">To convert continuous variables into binary integers</button>
+</div><p class="why">High inertia maintains large step sizes early on, while lower inertia helps the swarm settle and fine-tune into local minima.</p></div>
+
+<div class="q"><p class="stem">3. Which fundamental mechanism is present in PSO but completely absent in standard Genetic Algorithms?</p>
+<div class="opts">
+<button class="opt">Stochastic random numbers</button>
+<button class="opt" data-ok="1">Explicit individual memory of past personal best states (pbest) across time</button>
+<button class="opt">A fitness evaluation function</button>
+<button class="opt">A population of multiple candidate solutions</button>
+</div><p class="why">GA chromosomes do not retain memory of where they were in prior generations; PSO particles track their own historical best.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>Write the velocity and position update equations for PSO.</summary><p class="ans">v_{id}^{(t+1)} = w &middot; v_{id}^{(t)} + c₁ &middot; r₁ &middot; (pbest_{id} &minus; x_{id}^{(t)}) + c₂ &middot; r₂ &middot; (gbest_d &minus; x_{id}^{(t)}).<br>x_{id}^{(t+1)} = x_{id}^{(t)} + v_{id}^{(t+1)}.</p></details>
+<details class="card"><summary>What do parameters w, c₁, and c₂ signify in PSO?</summary><p class="ans">w = inertia weight (momentum/exploration-exploitation balance). c₁ = cognitive factor (pull toward pbest). c₂ = social factor (pull toward gbest). Typically c₁ &approx; c₂ &approx; 2.0.</p></details>
+<details class="card"><summary>Name three key differences between PSO and GA.</summary><p class="ans">1. PSO uses velocity/position math; GA uses crossover/mutation. 2. PSO particles retain personal memory (pbest); GA does not. 3. PSO operates naturally on real/continuous spaces; GA traditionally uses discrete/binary chromosomes.</p></details>
+</div>
+
+<div class="nav">
+<a href="0021-ga-worked-example-and-moga.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0023-aco-and-applications.html">Next: Ant Colony Optimization &amp; Applications &rarr;</a>
+<a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greedy Lesson 01 — Greedy Foundations</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Greedy Track · Lesson 1 of 3 · what greedy is, and when to trust it</div>
+<h1>Greedy Foundations</h1>
+<p class="subtitle">Take the best-looking option right now, never look back — a strategy that is usually wrong, occasionally provably perfect, and worth a fortune in OAs when you know which is which.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Indian big-tech OAs (Flipkart, PhonePe, Uber, Goldman) are greedy-heavy — short problems where the whole game is spotting the safe greedy choice fast.
+  This is Lesson 1 of the 3-lesson greedy track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A <strong>greedy algorithm</strong> builds a solution one step at a time, and at each step commits to the choice
+that looks best <em>right now</em> — no backtracking, no "what if". That makes it blazingly simple and fast
+(usually one sort plus one linear sweep), but also dangerous: a locally best choice can lock you out of the
+globally best answer. So greedy comes with a rule you must never break: <strong>a greedy choice is only valid if
+you can argue it's safe</strong>. The standard argument is the <strong>exchange argument</strong>: take any
+optimal solution that <em>disagrees</em> with your greedy choice, swap in the greedy choice, and show the result
+is <em>no worse</em>. If every disagreement can be exchanged away, greedy is optimal.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Minimum / maximum <em>number</em> of…", "can you…", "assign / schedule / distribute", one pass over
+  <strong>sorted</strong> data, and — crucially — a one-line reason why committing early can't hurt. If the
+  problem has interacting choices where an early pick changes the <em>value</em> of later options in complicated
+  ways, that's DP territory, not greedy. In an OA: if the constraint is n ≤ 10⁵ and the answer is a single
+  count or boolean, greedy (or greedy + sort) is the first thing to try — <em>after</em> a 10-second safety check.
+</div>
+
+<h2>2 · Core template — sort, then sweep</h2>
+<p>
+Most interview greedies share one shape: <strong>sort by the dimension that makes the greedy choice safe, then
+sweep once</strong>, committing at each element. Here it is on Assign Cookies (LC 455): give each child the
+<em>smallest</em> cookie that satisfies them, so big cookies stay available for greedy kids.
+</p>
+<pre><code><span class="cmt">// LC 455 Assign Cookies: g[i] = child i's greed, s[j] = cookie j's size.</span>
+<span class="cmt">// Greedy: sort both; satisfy the easiest child with the smallest workable cookie.</span>
+int findContentChildren(int[] g, int[] s) {
+    Arrays.sort(g);                      <span class="cmt">// 1. SORT by the safety dimension</span>
+    Arrays.sort(s);
+    int child = 0;
+    for (int cookie = 0; cookie &lt; s.length &amp;&amp; child &lt; g.length; cookie++)
+        if (s[cookie] &gt;= g[child])       <span class="cmt">// 2. SWEEP: commit when the local choice works</span>
+            child++;                     <span class="cmt">// this child is done — never revisit</span>
+    return child;
+}</code></pre>
+<p><strong>Time</strong> O(n log n + m log m) — the sorts dominate; the sweep is linear. <strong>Space</strong> O(1) beyond sorting.</p>
+
+<div class="callout tip">
+  <span class="label">The exchange argument, on this exact problem</span>
+  Suppose an optimal solution gives the easiest child a <em>bigger</em> cookie than the smallest one that fits.
+  Swap the two cookies: the easy child is still satisfied (their cookie only shrank to something that still fits),
+  and the other child got a cookie that's <em>at least as big</em> — so still satisfied. Same number of happy
+  children, but now it agrees with greedy. Repeat for every disagreement ⇒ greedy is optimal. That's the whole
+  proof pattern: <strong>swap, show no-worse, repeat</strong>. Practice saying it in two sentences — interviewers
+  at Uber and Goldman explicitly ask "why does greedy work here?"
+</div>
+
+<h2>3 · All the cases</h2>
+<p>Four canonical foundations, plus the one you must see fail. Each teaches a different flavor of "why is committing safe?"</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Two-list matching</td><td>LC 455</td><td>Sort both sides; smallest resource that satisfies the easiest demand.</td></tr>
+    <tr><td>Local feasibility check</td><td>LC 605</td><td>No sort needed — sweep and plant whenever both neighbors are empty.</td></tr>
+    <tr><td>Interval-by-last-occurrence</td><td>LC 763</td><td>Sweep with a running "farthest last index"; cut when you reach it.</td></tr>
+    <tr><td>Simulation with a greedy tie-break</td><td>LC 860</td><td>No sort — when making change, spend the biggest bills first.</td></tr>
+    <tr><td>Greedy FAILS → DP</td><td>Coin change {1,3,4}</td><td>Biggest-coin-first gives a wrong answer; you need LC 322-style DP.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Can Place Flowers (LC 605) — greedy without sorting</h3>
+<p>
+Sweep left to right; plant in every plot whose left and right neighbors are empty. Safe because planting as early
+(as left) as possible never blocks more future plots than skipping would — an early plant "uses up" the leftmost
+available space, leaving the maximum room to its right.
+</p>
+<pre><code>boolean canPlaceFlowers(int[] bed, int n) {
+    for (int i = 0; i &lt; bed.length &amp;&amp; n &gt; 0; i++) {
+        boolean leftOk  = (i == 0) || bed[i - 1] == 0;             <span class="cmt">// edge counts as empty</span>
+        boolean rightOk = (i == bed.length - 1) || bed[i + 1] == 0;
+        if (bed[i] == 0 &amp;&amp; leftOk &amp;&amp; rightOk) {
+            bed[i] = 1;                  <span class="cmt">// COMMIT: plant greedily, never reconsider</span>
+            n--;
+        }
+    }
+    return n &lt;= 0;                       <span class="cmt">// n == 0 also fine when loop ends early</span>
+}</code></pre>
+
+<h3>Case: Partition Labels (LC 763) — the running-frontier greedy</h3>
+<p>
+Split a string into the most parts so each letter appears in only one part. Precompute each letter's
+<strong>last occurrence</strong>. Sweep, extending the current partition's required end to the farthest last-index
+seen; the moment you reach that frontier, everything inside is self-contained — cut. This "extend a frontier,
+close when you catch it" shape returns in Jump Game II (Lesson 3).
+</p>
+<pre><code>List&lt;Integer&gt; partitionLabels(String s) {
+    int[] last = new int[26];
+    for (int i = 0; i &lt; s.length(); i++) last[s.charAt(i) - 'a'] = i;
+    List&lt;Integer&gt; sizes = new ArrayList&lt;&gt;();
+    int end = 0, start = 0;
+    for (int i = 0; i &lt; s.length(); i++) {
+        end = Math.max(end, last[s.charAt(i) - 'a']); <span class="cmt">// frontier: partition must reach here</span>
+        if (i == end) {                  <span class="cmt">// caught the frontier → safe to cut</span>
+            sizes.add(i - start + 1);
+            start = i + 1;
+        }
+    }
+    return sizes;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) — the 26-slot array is constant.</p>
+
+<h3>Case: Lemonade Change (LC 860) — greedy inside a simulation</h3>
+<p>
+Customers pay $5, $10, or $20 for a $5 drink; can you always make change? The greedy bit: for a $20, prefer giving
+<strong>$10 + $5</strong> over three $5s, because $5 bills are strictly more flexible (they're the only way to
+change a $10). Spend the least-flexible currency first.
+</p>
+<pre><code>boolean lemonadeChange(int[] bills) {
+    int fives = 0, tens = 0;
+    for (int b : bills) {
+        if (b == 5) fives++;
+        else if (b == 10) {              <span class="cmt">// needs exactly one $5</span>
+            if (fives == 0) return false;
+            fives--; tens++;
+        } else {                         <span class="cmt">// $20: prefer 10+5 — hoard the flexible $5s</span>
+            if (tens &gt; 0 &amp;&amp; fives &gt; 0) { tens--; fives--; }
+            else if (fives &gt;= 3) fives -= 3;
+            else return false;
+        }
+    }
+    return true;
+}</code></pre>
+
+<h3>Case: where greedy FAILS — coin change with coins {1, 3, 4}</h3>
+<p>
+Fewest coins to make <strong>6</strong>. Greedy ("always take the biggest coin that fits") grabs 4, then can't use
+4 or 3, so takes 1 + 1: <strong>three coins</strong>. Optimal is 3 + 3: <strong>two coins</strong>.
+</p>
+<div class="trace">
+<span class="step">target 6, coins {1, 3, 4}</span>
+<span class="step now">greedy: take <span class="ptr">4</span> → remaining 2 → take 1, take 1 → coins used = <span class="ptr">3</span></span>
+<span class="step now">optimal: take <span class="ptr">3</span> → remaining 3 → take 3 → coins used = <span class="ptr">2</span></span>
+<span class="step">greedy's early commit to 4 locked out the 3+3 split — no exchange argument can save it</span>
+</div>
+<p>
+Why does the exchange argument break? Swapping the 4 for a 3 leaves remainder 3 vs remainder 2 — the swap
+<em>changes the value of the subproblem</em>, so you can't argue "no worse". When an early choice reshapes what
+later choices are worth, you need DP: try <em>every</em> coin at each amount and take the min.
+</p>
+<pre><code><span class="cmt">// LC 322-style DP — correct for ANY coin system. dp[a] = fewest coins for amount a.</span>
+int coinChange(int[] coins, int amount) {
+    int[] dp = new int[amount + 1];
+    Arrays.fill(dp, amount + 1);         <span class="cmt">// "infinity" sentinel</span>
+    dp[0] = 0;
+    for (int a = 1; a &lt;= amount; a++)
+        for (int c : coins)
+            if (c &lt;= a)
+                dp[a] = Math.min(dp[a], dp[a - c] + 1); <span class="cmt">// consider EVERY coin — no early commit</span>
+    return dp[amount] &gt; amount ? -1 : dp[amount];
+}</code></pre>
+<p><strong>Time</strong> O(amount × coins), <strong>Space</strong> O(amount) — the price of not trusting greedy.</p>
+
+<div class="callout trap">
+  <span class="label">The "prove it or don't trust it" habit</span>
+  Greedy works for {1, 5, 10, 25} (US coins) and fails for {1, 3, 4} — the <em>same algorithm</em>, correctness
+  decided by the input structure. So never submit a greedy on vibes. Before coding, spend 10 seconds on either
+  (a) a two-sentence exchange argument, or (b) hunting for a small counterexample (3–5 elements is usually
+  enough). If you find neither, write the brute force / DP. A wrong greedy that passes samples and fails hidden
+  tests is the classic OA point-killer.
+</div>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Empty / single-element input.</strong> Greedy sweeps usually handle these for free, but check: LC 605 with a length-1 bed, LC 455 with no cookies.</li>
+  <li><strong>Boundary neighbors.</strong> In LC 605, index 0 has no left neighbor and the last index no right — treat "off the edge" as empty (<code>i == 0 || bed[i-1] == 0</code>).</li>
+  <li><strong>Sorted by the wrong key.</strong> The sort dimension is the proof. Sorting cookies descending in LC 455 wastes big cookies on easy kids — same code shape, wrong answer.</li>
+  <li><strong>Ties and equal values.</strong> Make sure your commit condition is <code>&gt;=</code> vs <code>&gt;</code> deliberately: a cookie of size exactly <code>g[child]</code> does satisfy.</li>
+  <li><strong>Mutating the input</strong> (LC 605 plants into <code>bed</code>). Fine in OAs; mention it in interviews and offer a no-mutation variant if asked.</li>
+  <li><strong>Greedy correctness is per-problem, not per-pattern.</strong> Re-verify the safety argument every time the constraints shift (e.g., coin systems, weighted versions).</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">What does the exchange argument actually prove?</div>
+  <button class="opt">That the greedy algorithm runs in O(n log n), since a sort is always required</button>
+  <button class="opt">That any optimal solution can be transformed, swap by swap, into the greedy one without getting worse</button>
+  <button class="opt">That greedy and DP always produce the same answer on the same input</button>
+  <div class="fb" data-correct="Exactly — take an optimal solution that disagrees with greedy at some step, exchange in the greedy choice, show the result is no worse, repeat until it matches greedy. Hence greedy is also optimal." data-wrong="The exchange argument is a correctness proof, not a complexity claim: every optimal solution can be morphed into greedy's answer via no-worse swaps."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Biggest-coin-first greedy on coins {1, 3, 4} for amount 6 returns 3 coins (4+1+1) instead of the optimal 2 (3+3). What's the root cause?</div>
+  <button class="opt">The coins weren't sorted before the sweep, so the greedy picked coins out of order</button>
+  <button class="opt">The amount 6 is even while 3 is odd, and parity mismatches always break greedy choices</button>
+  <button class="opt">Taking the 4 changes the remaining subproblem's value, so "locally biggest" isn't provably safe</button>
+  <div class="fb" data-correct="Right — the swap 4→3 leaves a different remainder (2 vs 3), so you can't argue the exchange is no-worse. When an early choice reshapes later options' worth, enumerate choices with DP." data-wrong="The coins were considered largest-first and parity is irrelevant. The failure is structural: committing to 4 alters the subproblem, so no exchange argument exists — DP must try every coin."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Partition Labels (LC 763), when is it safe to cut a partition at index i?</div>
+  <button class="opt">When i equals the farthest last-occurrence index of any character seen in the current partition</button>
+  <button class="opt">When the character at i has appeared exactly once so far in the string</button>
+  <button class="opt">When the current partition has grown to at least 26 characters, covering every letter</button>
+  <div class="fb" data-correct="Yes — the running frontier is the farthest last-index among characters seen; reaching it means no character inside still occurs later, so the chunk is self-contained." data-wrong="Neither character counts nor a size threshold matter. Track the max last-occurrence of seen characters; when i catches that frontier, everything inside is fully contained — cut."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/partition-labels">NeetCode — Partition Labels</a> for the frontier greedy, then <a href="https://www.youtube.com/results?search_query=abdul+bari+greedy+method">Abdul Bari — Greedy Method</a> if you want the classical framing.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 455 (two-list matching) → LC 860 (spend-inflexible-first) → LC 605 (feasibility sweep) → LC 763 (frontier cut) → LC 122 (Best Time to Buy and Sell Stock II — sum every positive delta; state the exchange argument out loud) → LC 322 with coins {1,3,4} to <em>feel</em> the greedy failure before writing the DP.</li>
+  <li>For each: before coding, write one sentence — "greedy is safe because ___" — or find a counterexample. That habit is the lesson.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to run the exchange argument on a specific problem, generate counterexamples to a greedy you're unsure
+  of, or dry-run Partition Labels on a string of your choice? Ask in the chat. When you can state what makes a
+  greedy choice <em>safe</em> and show why {1,3,4} breaks it, say <strong>"next"</strong> and we move to
+  Lesson 2: Scheduling &amp; Intervals — greedy's home turf.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-scheduling-and-intervals.html">Scheduling &amp; Intervals →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<title>SHA-512</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit I &middot; Lesson 6 of 7</p>
+<h1>SHA-512</h1>
+<p class="deck">The SHA family table, the five steps, the 1024-bit block and 80 rounds, the word-expansion schedule, the six logical functions &mdash; and the padding numerical, the one calculation this unit sets.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>The <strong>single most likely long question in Unit I</strong>: &ldquo;Explain the SHA-512 algorithm with a block diagram.&rdquo; Structure the answer as <strong>parameters table &rarr; five steps &rarr; round function &rarr; word expansion</strong>, and draw two diagrams: the <strong>overall Merkle&ndash;Damg&aring;rd chain</strong> and <strong>one round with the eight registers</strong>. The <strong>padding numerical</strong> is a near-certain 2&ndash;5 mark sub-question &mdash; it takes thirty seconds once the rule is memorised, so never leave it.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; SHA-512 Block Architecture &amp; Padding</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=VtHSyoJkDXw" target="_blank">SHA-512 Algorithm Explained | Secure Hash Algorithm</a>
+    <span class="v-meta">Sundeep Saradhi Kanthety &middot; 42:16</span>
+    <div class="v-why">The definitive exam lecture covering 1024-bit input blocks, 8 eight-byte chaining variables (A-H), word scheduling, message expansion, and 80 execution rounds.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; SHA-512 Round Functions ($Ch, Maj, \Sigma_0, \Sigma_1$)</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=UVzVjE5w3sc" target="_blank">SHA-512 Round Function Calculations &amp; Constants</a>
+    <span class="v-meta">T V Nagaraju Technical &middot; 26:57</span>
+    <div class="v-why">Detailed mathematical formulas for the bitwise functions $Ch(e,f,g)$, $Maj(a,b,c)$, circular rotations, and addition modulo $2^{64}$.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: SHA-512 SINGLE ROUND FUNCTION -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: SHA-512 Single Round Execution ($t = 0 \dots 79$)</span>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="min-width:24rem;">
+      <strong>Eight 64-bit State Registers: $(A, B, C, D, E, F, G, H)$</strong>
+      <span class="sub">Step $t$ inputs 64-bit scheduled word $W_t$ and additive round constant $K_t$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Dual Temporary Value Computation</span>
+    
+    <div class="flow-row" style="gap:1.5rem;">
+      <div class="flow-box" style="min-width:14rem;">
+        <strong>$T_1 = H + \Sigma_1(E) + Ch(E, F, G) + K_t + W_t$</strong>
+        <span class="sub">$Ch = (E \wedge F) \oplus (\neg E \wedge G)$ &nbsp;|&nbsp; Additions $\bmod\ 2^{64}$</span>
+      </div>
+      <div class="flow-box" style="min-width:14rem;">
+        <strong>$T_2 = \Sigma_0(A) + Maj(A, B, C)$</strong>
+        <span class="sub">$Maj = (A \wedge B) \oplus (A \wedge C) \oplus (B \wedge C)$</span>
+      </div>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Register Updates for Round $t+1$</span>
+    
+    <div class="flow-box ok" style="min-width:24rem;">
+      <strong>Updated Register State</strong>
+      <span class="sub">$A \leftarrow T_1 + T_2$ &nbsp;|&nbsp; $E \leftarrow D + T_1$ &nbsp;|&nbsp; All other registers shift: $B \leftarrow A$, $C \leftarrow B$, $D \leftarrow C$, $F \leftarrow E$, $G \leftarrow F$, $H \leftarrow G$</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>The SHA family</h2>
+
+<p>Developed by <strong>NIST with the NSA</strong>, standardised as <strong>FIPS 180</strong>. SHA-1 was the workhorse of the 1990s; the <strong>SHA-2 family</strong> (SHA-224, 256, 384, 512) replaced it after the birthday bound made 160 bits uncomfortable. This table is worth full marks by itself.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Parameter</th><th>SHA-1</th><th>SHA-256</th><th>SHA-384</th><th><strong>SHA-512</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Message digest</strong></td><td class="num">160</td><td class="num">256</td><td class="num">384</td><td class="num"><strong>512 bits</strong></td></tr>
+<tr><td><strong>Block size</strong></td><td class="num">512</td><td class="num">512</td><td class="num">1024</td><td class="num"><strong>1024 bits</strong></td></tr>
+<tr><td><strong>Word size</strong></td><td class="num">32</td><td class="num">32</td><td class="num">64</td><td class="num"><strong>64 bits</strong></td></tr>
+<tr><td><strong>Number of rounds</strong></td><td class="num">80</td><td class="num">64</td><td class="num">80</td><td class="num"><strong>80</strong></td></tr>
+<tr><td><strong>Message length field</strong></td><td class="num">64</td><td class="num">64</td><td class="num">128</td><td class="num"><strong>128 bits</strong></td></tr>
+<tr><td><strong>Max message length</strong></td><td class="num">2<sup>64</sup>&minus;1</td><td class="num">2<sup>64</sup>&minus;1</td><td class="num">2<sup>128</sup>&minus;1</td><td class="num"><strong>2<sup>128</sup>&minus;1 bits</strong></td></tr>
+<tr><td><strong>Collision resistance</strong></td><td class="num">2<sup>80</sup></td><td class="num">2<sup>128</sup></td><td class="num">2<sup>192</sup></td><td class="num"><strong>2<sup>256</sup></strong></td></tr>
+<tr><td><strong>Byte order</strong></td><td colspan="4"><strong>Big-endian</strong> throughout the SHA family &mdash; the opposite of MD4/MD5</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>SHA-384 is SHA-512 with a different IV, truncated to its leftmost 384 bits.</strong> One sentence, one mark, frequently asked.</p>
+
+<h2>The five steps</h2>
+
+<h3>Step 1 &mdash; Append padding bits</h3>
+
+<div class="formula">
+  <span class="name">The SHA-512 padding rule</span>
+  Pad so that the length is <strong>congruent to 896 modulo 1024</strong><br>
+  &mdash; that is, <strong>128 bits short of a whole 1024-bit block</strong>.<br>
+  Padding is a single <strong>1</strong> followed by <strong>0</strong>s, and is <strong>always present</strong>: between <strong>1 and 1024</strong> bits.
+</div>
+
+<h3>Step 2 &mdash; Append length</h3>
+
+<p>A <strong>128-bit unsigned big-endian</strong> field holding the length of the <em>original</em> message in bits. The result is an exact multiple of <strong>1024 bits</strong>.</p>
+
+<h3>Step 3 &mdash; Initialise the 512-bit buffer</h3>
+
+<p><strong>Eight 64-bit registers a, b, c, d, e, f, g, h</strong>, initialised from the <strong>fractional parts of the square roots of the first eight prime numbers</strong> (2, 3, 5, 7, 11, 13, 17, 19) &mdash; nothing-up-my-sleeve numbers again.</p>
+
+<div class="formula">
+  <span class="name">The IV (first two shown; you are not expected to memorise all eight)</span>
+  <strong>a = 6A09E667F3BCC908</strong> &nbsp;&nbsp; <strong>b = BB67AE8584CAA73B</strong> &nbsp;&nbsp; &hellip; &nbsp;&nbsp; <strong>h = 5BE0CD19137E2179</strong>
+</div>
+
+<h3>Step 4 &mdash; Process the message in 1024-bit blocks</h3>
+
+<p>Each block enters the <strong>compression function F</strong>, which runs <strong>80 rounds</strong>. Each round uses one 64-bit word W<sub>t</sub> from the expanded message schedule and one 64-bit constant K<sub>t</sub>.</p>
+
+<div class="box">
+  <span class="lbl">The 80 round constants</span>
+  <p><strong>K<sub>0</sub> &hellip; K<sub>79</sub> are the first 64 bits of the fractional parts of the cube roots of the first 80 prime numbers.</strong> Their purpose is to <strong>destroy any regularity</strong> in the message data, so that no pattern in the input survives into the digest.</p>
+</div>
+
+<h4>The message schedule &mdash; expanding 16 words into 80</h4>
+
+<p>The 1024-bit block gives only <strong>sixteen</strong> 64-bit words W<sub>0</sub>&hellip;W<sub>15</sub>, but 80 rounds need 80 words. The remaining 64 are generated:</p>
+
+<div class="formula">
+  <span class="name">Word expansion, for t = 16 to 79</span>
+  <strong>W<sub>t</sub> = &sigma;<sub>1</sub>(W<sub>t&minus;2</sub>) + W<sub>t&minus;7</sub> + &sigma;<sub>0</sub>(W<sub>t&minus;15</sub>) + W<sub>t&minus;16</sub></strong> &nbsp; (addition mod 2<sup>64</sup>)<br><br>
+  <strong>&sigma;<sub>0</sub>(x)</strong> = ROTR<sup>1</sup>(x) &oplus; ROTR<sup>8</sup>(x) &oplus; SHR<sup>7</sup>(x)<br>
+  <strong>&sigma;<sub>1</sub>(x)</strong> = ROTR<sup>19</sup>(x) &oplus; ROTR<sup>61</sup>(x) &oplus; SHR<sup>6</sup>(x)
+</div>
+
+<p>The point to state: <strong>every one of the 80 rounds depends on the entire block</strong>, which is what gives SHA-512 its avalanche.</p>
+
+<h4>The round function</h4>
+
+<div class="formula">
+  <span class="name">One of the 80 rounds</span>
+  <strong>T<sub>1</sub> = h + Ch(e, f, g) + &Sigma;<sub>1</sub>(e) + W<sub>t</sub> + K<sub>t</sub></strong><br>
+  <strong>T<sub>2</sub> = &Sigma;<sub>0</sub>(a) + Maj(a, b, c)</strong><br><br>
+  then <strong>h&larr;g, g&larr;f, f&larr;e, e&larr;d + T<sub>1</sub>, d&larr;c, c&larr;b, b&larr;a, a&larr;T<sub>1</sub> + T<sub>2</sub></strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Function</th><th>Definition</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><strong>Ch(e, f, g)</strong></td><td>(e &and; f) &oplus; (&not;e &and; g)</td><td><strong>Choose</strong> &mdash; the selection function, MD4&rsquo;s F under a new name</td></tr>
+<tr><td><strong>Maj(a, b, c)</strong></td><td>(a &and; b) &oplus; (a &and; c) &oplus; (b &and; c)</td><td><strong>Majority</strong> &mdash; MD4&rsquo;s G</td></tr>
+<tr><td><strong>&Sigma;<sub>0</sub>(a)</strong></td><td>ROTR<sup>28</sup> &oplus; ROTR<sup>34</sup> &oplus; ROTR<sup>39</sup></td><td>Rotations only &mdash; no shifts</td></tr>
+<tr><td><strong>&Sigma;<sub>1</sub>(e)</strong></td><td>ROTR<sup>14</sup> &oplus; ROTR<sup>18</sup> &oplus; ROTR<sup>41</sup></td><td>Rotations only</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Note the shape of the round: <strong>only two of the eight registers are genuinely recomputed (a and e); the other six merely shift along.</strong> That observation is often worth a mark and always helps in drawing the diagram.</p>
+
+<h3>Step 5 &mdash; Final addition and output</h3>
+
+<p>After the 80 rounds, the eight output words are <strong>added modulo 2<sup>64</sup> to the eight words that entered the block</strong> (the feed-forward). The result chains into the next block. After the last block, the <strong>concatenation of the eight registers is the 512-bit digest</strong>.</p>
+
+<h2>The padding numerical</h2>
+
+<div class="formula">
+  <span class="name">The method &mdash; four lines, always the same</span>
+  <strong>1.</strong> r = L mod 1024, where L is the message length in bits<br>
+  <strong>2.</strong> Padding P = <strong>896 &minus; r</strong> &nbsp;(if this is &le; 0, add 1024)<br>
+  <strong>3.</strong> Total length = L + P + 128<br>
+  <strong>4.</strong> Number of blocks = Total &divide; 1024
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example 1 &mdash; the standard case</span>
+  <p><strong>Q. A message of 2590 bits is hashed with SHA-512. Find the padding, the total length and the number of blocks.</strong></p>
+  <p>r = 2590 mod 1024. Since 2 &times; 1024 = 2048, &nbsp; r = 2590 &minus; 2048 = <strong>542</strong>.</p>
+  <p>P = 896 &minus; 542 = <strong>354 bits</strong> &mdash; that is a single 1 followed by <strong>353 zeros</strong>.</p>
+  <p>Total = 2590 + 354 + 128 = <strong>3072 bits</strong>.</p>
+  <p>Blocks = 3072 &divide; 1024 = <strong>3 blocks</strong>.</p>
+  <p><em>Sanity check:</em> 3072 is a whole multiple of 1024, and 2590 + 354 = 2944 &equiv; 896 (mod 1024). Both conditions hold.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example 2 &mdash; when the remainder overshoots 896</span>
+  <p><strong>Q. A message is 5000 bits long. Find the padding and the number of blocks.</strong></p>
+  <p>r = 5000 mod 1024. Since 4 &times; 1024 = 4096, &nbsp; r = 5000 &minus; 4096 = <strong>904</strong>.</p>
+  <p>896 &minus; 904 = &minus;8, which is negative, so <strong>add 1024</strong>: P = &minus;8 + 1024 = <strong>1016 bits</strong>.</p>
+  <p>Total = 5000 + 1016 + 128 = <strong>6144 bits</strong> = <strong>6 blocks</strong>.</p>
+  <p><em>Why:</em> only 120 bits remained in the current block, not enough for the 128-bit length field, so the padding runs into a further block. This is the case examiners set to catch students who apply the formula blindly.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example 3 &mdash; the edge case</span>
+  <p><strong>Q. A message is exactly 896 bits. How much padding is added?</strong></p>
+  <p>r = 896, so 896 &minus; 896 = 0. But <strong>padding can never be zero</strong>, so P = 0 + 1024 = <strong>1024 bits</strong> &mdash; one 1 followed by 1023 zeros.</p>
+  <p>Total = 896 + 1024 + 128 = <strong>2048 bits = 2 blocks</strong>.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example 4 &mdash; given in bytes</span>
+  <p><strong>Q. A file of 300 bytes is hashed with SHA-512. Find the number of blocks and the number of 64-bit words processed.</strong></p>
+  <p>L = 300 &times; 8 = <strong>2400 bits</strong>. &nbsp; r = 2400 &minus; 2048 = <strong>352</strong>.</p>
+  <p>P = 896 &minus; 352 = <strong>544 bits</strong>. &nbsp; Total = 2400 + 544 + 128 = <strong>3072 bits = 3 blocks</strong>.</p>
+  <p>Each block is 16 words of 64 bits, expanded to 80 in the schedule, so the compression function runs <strong>3 &times; 80 = 240 rounds</strong> in total.</p>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The three ways this numerical is disguised</span>
+  <p><strong>(i) &ldquo;in bytes&rdquo;</strong> &mdash; multiply by 8 first. <strong>(ii) &ldquo;how many zeros in the padding&rdquo;</strong> &mdash; the answer is P &minus; 1, because one bit is the leading 1. <strong>(iii) &ldquo;with MD5/SHA-1 instead&rdquo;</strong> &mdash; the same method with <strong>448 mod 512</strong> and a <strong>64-bit</strong> length field. Getting the constants the right way round is the whole exercise.</p>
+</div>
+
+<h2>SHA-512 versus MD5</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>MD5</th><th>SHA-512</th></tr></thead>
+<tbody>
+<tr><td><strong>Digest</strong></td><td class="num">128 bits</td><td class="num">512 bits</td></tr>
+<tr><td><strong>Block</strong></td><td class="num">512 bits</td><td class="num">1024 bits</td></tr>
+<tr><td><strong>Word / registers</strong></td><td>32-bit, four registers</td><td>64-bit, <strong>eight registers</strong></td></tr>
+<tr><td><strong>Steps</strong></td><td class="num">64 (4 rounds &times; 16)</td><td class="num">80</td></tr>
+<tr><td><strong>Length field</strong></td><td class="num">64 bits</td><td class="num">128 bits</td></tr>
+<tr><td><strong>Endianness</strong></td><td>Little-endian</td><td><strong>Big-endian</strong></td></tr>
+<tr><td><strong>Collision security</strong></td><td class="num">2<sup>64</sup> &mdash; <strong>broken</strong></td><td class="num">2<sup>256</sup> &mdash; <strong>secure</strong></td></tr>
+<tr><td><strong>Speed</strong></td><td>Faster</td><td>Slower, but fast on 64-bit CPUs</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Security</h3>
+
+<p>No collision or preimage attack is known against full SHA-512. Its 512-bit digest gives <strong>2<sup>256</sup> collision resistance</strong>, and its <strong>64-bit words make it faster than SHA-256 on 64-bit processors</strong> despite the larger state. It is also naturally resistant to the length-extension weakness in its truncated form SHA-384, since 128 bits of the final state are discarded.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. A 2590-bit message hashed with SHA-512 requires padding of:</p>
+  <div class="opts">
+    <button class="opt">1378 bits, giving a total of 4096 bits in four blocks</button>
+    <button class="opt" data-ok="1">354 bits, giving a total of 3072 bits in three blocks</button>
+    <button class="opt">226 bits, giving a total of 2944 bits in two blocks</button>
+    <button class="opt">482 bits, giving a total of 3200 bits in three blocks</button>
+  </div>
+  <p class="why">2590 mod 1024 = 542; 896 − 542 = 354; 2590 + 354 + 128 = 3072 = 3 × 1024.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A message whose length leaves a remainder of 904 modulo 1024 receives:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">1016 bits of padding, because 896 − 904 is negative and 1024 must be added</button>
+    <button class="opt">120 bits of padding, exactly filling the remainder of the block</button>
+    <button class="opt">8 bits of padding, to bring the remainder up to the next multiple</button>
+    <button class="opt">No padding, because 904 already exceeds the required 896 bits</button>
+  </div>
+  <p class="why">Only 120 bits are left in the block, too few for the 128-bit length field, so the padding spills into another block: −8 + 1024 = 1016.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. SHA-512 expands each block's sixteen words into eighty because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Each of the 80 rounds needs its own word, and expansion makes every round depend on the whole block</button>
+    <button class="opt">The block must be stretched to match the 512-bit size of the digest</button>
+    <button class="opt">Padding is inserted between the words, which increases their number</button>
+    <button class="opt">The eight registers each require ten distinct words during processing</button>
+  </div>
+  <p class="why">W_t = σ₁(W_{t−2}) + W_{t−7} + σ₀(W_{t−15}) + W_{t−16}. Every later word mixes several earlier ones, which is what spreads the avalanche.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The 80 round constants K_t of SHA-512 are taken from:</p>
+  <div class="opts">
+    <button class="opt">The absolute values of the sines of the integers 1 to 80</button>
+    <button class="opt" data-ok="1">The fractional parts of the cube roots of the first 80 prime numbers</button>
+    <button class="opt">A random table published with the standard in FIPS 180</button>
+    <button class="opt">The fractional parts of the square roots of the first 80 prime numbers</button>
+  </div>
+  <p class="why">Cube roots for the 80 round constants, square roots of the first eight primes for the IV. The sine values are MD5's per-step constants.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. In one round of SHA-512, the registers that are genuinely recomputed are:</p>
+  <div class="opts">
+    <button class="opt">All eight registers, each through its own logical function</button>
+    <button class="opt" data-ok="1">a and e — the other six simply shift one position along</button>
+    <button class="opt">a and h, which hold the running digest between rounds</button>
+    <button class="opt">e and f, which are the only ones fed by the message schedule</button>
+  </div>
+  <p class="why">a ← T₁ + T₂ and e ← d + T₁; the rest are a shift register. Seeing that makes the round diagram easy to reproduce.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. SHA-384 is best described as:</p>
+  <div class="opts">
+    <button class="opt">SHA-256 run twice, with the two digests concatenated</button>
+    <button class="opt">A separate design using 48-bit words and 96 rounds</button>
+    <button class="opt" data-ok="1">SHA-512 with a different IV, truncated to its leftmost 384 bits</button>
+    <button class="opt">SHA-512 with the round count reduced from 80 to 60</button>
+  </div>
+  <p class="why">Same block size, same word size, same 80 rounds — only the initial values and the truncation differ.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the parameters of SHA-512.</summary>
+    <p class="ans">512-bit digest, 1024-bit blocks, 64-bit words, eight registers, 80 rounds, a 128-bit length field, maximum message length 2¹²⁸ − 1 bits, big-endian byte order, and 2²⁵⁶ collision resistance.</p></details>
+  <details class="card"><summary>State the five steps of SHA-512.</summary>
+    <p class="ans">Append padding so the length is 896 mod 1024; append the 128-bit original length; initialise the eight 64-bit registers from the fractional parts of the square roots of the first eight primes; process each 1024-bit block through 80 rounds using the expanded message schedule and the 80 constants; add the block output to the incoming values and output the concatenated registers as the 512-bit digest.</p></details>
+  <details class="card"><summary>State the padding rule and the four-line method for the numerical.</summary>
+    <p class="ans">Pad with a single 1 followed by zeros until the length is congruent to 896 mod 1024; padding is always between 1 and 1024 bits. Method: r = L mod 1024; P = 896 − r, adding 1024 if that is zero or negative; total = L + P + 128; blocks = total ÷ 1024.</p></details>
+  <details class="card"><summary>Write the word-expansion formula and the two sigma functions.</summary>
+    <p class="ans">For t = 16 to 79, W_t = σ₁(W_{t−2}) + W_{t−7} + σ₀(W_{t−15}) + W_{t−16} modulo 2⁶⁴, where σ₀(x) = ROTR¹(x) ⊕ ROTR⁸(x) ⊕ SHR⁷(x) and σ₁(x) = ROTR¹⁹(x) ⊕ ROTR⁶¹(x) ⊕ SHR⁶(x).</p></details>
+  <details class="card"><summary>Write the SHA-512 round function.</summary>
+    <p class="ans">T₁ = h + Ch(e,f,g) + Σ₁(e) + W_t + K_t and T₂ = Σ₀(a) + Maj(a,b,c). Then the registers shift — h←g, g←f, f←e, e←d+T₁, d←c, c←b, b←a, a←T₁+T₂ — so only a and e are genuinely recomputed.</p></details>
+  <details class="card"><summary>Define Ch, Maj, Σ₀ and Σ₁.</summary>
+    <p class="ans">Ch(e,f,g) = (e∧f) ⊕ (¬e∧g), the choose or selection function. Maj(a,b,c) = (a∧b) ⊕ (a∧c) ⊕ (b∧c), the majority function. Σ₀(a) = ROTR²⁸ ⊕ ROTR³⁴ ⊕ ROTR³⁹ and Σ₁(e) = ROTR¹⁴ ⊕ ROTR¹⁸ ⊕ ROTR⁴¹, both rotations only.</p></details>
+  <details class="card"><summary>Where do the IV and the round constants come from?</summary>
+    <p class="ans">The eight initial register values are the first 64 bits of the fractional parts of the square roots of the first eight primes; the 80 round constants K_t are the same for the cube roots of the first 80 primes. Both are nothing-up-my-sleeve numbers, and the constants exist to destroy any regularity in the message data.</p></details>
+  <details class="card"><summary>Give six differences between MD5 and SHA-512.</summary>
+    <p class="ans">128- versus 512-bit digest; 512- versus 1024-bit blocks; 32-bit words in four registers versus 64-bit words in eight; 64 steps versus 80 rounds; a 64-bit versus a 128-bit length field; little-endian versus big-endian. MD5 is broken for collisions at 2⁶⁴; SHA-512 offers 2²⁵⁶.</p></details>
+</div>
+
+<p class="ask">Last in this unit: Whirlpool &mdash; the other 512-bit hash, built the other way round, from a block cipher.</p>
+
+<div class="nav">
+  <a href="0005-md4.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0007-whirlpool.html">Next: Whirlpool &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

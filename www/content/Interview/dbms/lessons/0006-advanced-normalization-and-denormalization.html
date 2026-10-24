@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 06 – 4NF, 5NF & Pragmatic Denormalization</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module B · Lesson 6 of 17 · High-Order Forms & Production Trade-offs</div>
+  <h1>4NF, 5NF & Pragmatic Denormalization</h1>
+  <p class="subtitle">When multi-valued dependencies require 4NF/5NF, and why real-world high-throughput systems intentionally denormalize.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Normalization</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>While 3NF and BCNF deal with functional dependencies, data can still suffer from redundancy due to independent multi-valued facts. This leads to <strong>Fourth Normal Form (4NF)</strong> and <strong>Fifth Normal Form (5NF / Project-Join)</strong>. However, in production engineering, blind mathematical purity can destroy database read throughput. Engineering involves balancing normalized integrity with <strong>deliberate denormalization</strong> for performance.</p>
+
+  <h2>2 · Multivalued Dependency (MVD) & 4NF</h2>
+  <p>A Multivalued Dependency (denoted <code>X &twoheadrightarrow; Y</code>) occurs when the presence of <code>X</code> dictates a set of values for <code>Y</code>, and this set of values is <strong>completely independent</strong> of all other attributes in the relation.</p>
+  <div class="callout danger">
+    <h4>The Classical 4NF Violation</h4>
+    <p>Suppose an instructor teaches multiple courses AND has multiple hobbies, all stored in one table <code>Instructor(name, course, hobby)</code>:</p>
+    <ul>
+      <li>Prof. Smith teaches <code>{Math, CS}</code></li>
+      <li>Prof. Smith enjoys hobbies <code>{Skiing, Guitar}</code></li>
+    </ul>
+    <p>Because courses and hobbies are independent, you must store all Cartesian combinations: 4 rows! If he adds 3 more hobbies and 2 more courses, the table explodes combinatorially.</p>
+    <p><strong>4NF Solution:</strong> A relation is in 4NF if for every non-trivial MVD <code>X &twoheadrightarrow; Y</code>, <code>X</code> is a Superkey. We decompose into <code>InstructorCourses(name, course)</code> and <code>InstructorHobbies(name, hobby)</code>.</p>
+  </div>
+
+  <h2>3 · Fifth Normal Form (5NF / Project-Join)</h2>
+  <p>A relation is in 5NF if it cannot be decomposed into three or more smaller relations without loss of data, except when the join dependencies are consequences of candidate keys. 5NF deals with cyclic 3-way constraints (e.g., a Consultant can advise a Client on a Project only if the Client participates in that Project and the Consultant specializes in that Project).</p>
+
+  <h2>4 · Pragmatic Denormalization in Production</h2>
+  <p>In high-load systems (millions of requests per second), joining 8 normalized tables on every HTTP request creates CPU bottlenecks and lock contention. Engineers intentionally denormalize:</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr><th>Denormalization Strategy</th><th>Use Case & Benefit</th><th>Trade-off & Cost</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Precomputed Counters</strong></td>
+        <td>Storing <code>like_count</code> or <code>comment_count</code> directly on the <code>Post</code> row instead of running <code>COUNT(*)</code>.</td>
+        <td>Must atomically increment/decrement using DB transactions or message queues.</td>
+      </tr>
+      <tr>
+        <td><strong>Duplicating Read-Heavy Foreign Attributes</strong></td>
+        <td>Storing <code>customer_name</code> directly in the <code>Orders</code> table alongside <code>customer_id</code>.</td>
+        <td>If a customer changes their name, requires an async background job to update historic rows.</td>
+      </tr>
+      <tr>
+        <td><strong>Materialized Views</strong></td>
+        <td>Pre-computing complex multi-table joins and aggregations into a physical disk table refreshed periodically.</td>
+        <td>Stale data latency until next scheduled refresh.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5 · OLTP vs OLAP Architectural Patterns</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">OLTP</div>
+      <h3>Online Transaction Processing</h3>
+      <p>Banking, eCommerce checkouts, messaging. Highly normalized (3NF/BCNF) to guarantee zero write redundancy, minimal lock holding times, and fast atomic row insertions.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">OLAP</div>
+      <h3>Online Analytical Processing</h3>
+      <p>Data Warehousing (Snowflake, BigQuery, ClickHouse). Heavily denormalized into <strong>Star Schemas</strong> (central Fact table with foreign keys to wide Dimension tables) or <strong>Snowflake Schemas</strong> for rapid columnar aggregation.</p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="0005-normalization-1nf-to-bcnf.html">← Lesson 05: Normalization: 1NF to BCNF</a>
+    <a href="0007-transactions-and-acid-properties.html">Lesson 07: Transactions & ACID Properties →</a>
+  </nav>
+</body>
+</html>

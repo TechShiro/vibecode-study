@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Design Lesson 04 — Threads &amp; Concurrency (HLD Perspective)</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">System Design · HLD · Lesson 4 of 66 · threads, concurrency, async, event loop</div>
+<h1>Threads &amp; Concurrency (HLD Perspective)</h1>
+<p class="subtitle">How does a server handle 10,000 users at the same time? Understanding threading models and I/O is the key to building high-throughput systems from scratch.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master System Design for interviews — HLD + LLD. This is Lesson 4 of 66.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<!-- ─── YOUTUBE RECOMMENDATIONS ─── -->
+<div class="yt-embed">
+  <div class="yt-title">📺 Recommended Lecture</div>
+  <a href="https://www.youtube.com/watch?v=CZw57SIwgiE" target="_blank">Hussein Nasser — Threads and Connections | The Backend Engineering Show</a>
+  <span class="yt-desc">A phenomenal deep dive into how backend servers map network connections to CPU threads. Highly recommended for understanding the real-world OS mechanics.</span>
+</div>
+
+<!-- ─── 1 · THE ONE IDEA ─── -->
+<h2>1 · The One Idea</h2>
+<p>
+To handle multiple requests simultaneously, servers must use concurrency. Historically, this meant assigning one OS thread to every incoming request (<strong>Thread-per-Request</strong>). However, because OS threads are heavy and spend most of their time blocked on I/O (like waiting for a database), modern high-throughput systems use an <strong>Event Loop</strong> or <strong>Lightweight Threads (Goroutines/Virtual Threads)</strong> with <strong>Non-blocking I/O</strong> to handle tens of thousands of connections on a single machine.
+</p>
+
+<!-- ─── 2 · PROCESS VS THREAD ─── -->
+<h2>2 · Process vs Thread</h2>
+<p>Before designing a concurrent system, you must know what executes your code.</p>
+<ul>
+  <li><strong>Process:</strong> An isolated executing program. Has its own memory space. Heavy to create. Crashing one process doesn't crash others. (e.g., A running Node.js instance).</li>
+  <li><strong>OS Thread:</strong> The smallest unit of execution managed by the OS, living <em>inside</em> a process. Threads in the same process <strong>share memory</strong>. Creating a thread is cheaper than a process, but still costs ~1MB of RAM and takes time.</li>
+  <li><strong>Lightweight/Virtual Thread:</strong> Managed by the programming language runtime (e.g., Go's goroutines, Java 21's virtual threads, Erlang processes), not the OS. They take kilobytes of RAM and you can spawn millions of them.</li>
+</ul>
+
+<div class="callout trap">
+  <span class="label">Context Switching Cost</span>
+  When a CPU core switches from running Thread A to Thread B, it must save Thread A's state and load Thread B's state. This is called a <strong>Context Switch</strong>. If you have 10,000 OS threads on a 4-core machine, the CPU spends more time context-switching than doing actual work!
+</div>
+
+<!-- ─── 3 · CONCURRENCY VS PARALLELISM ─── -->
+<h2>3 · Concurrency vs Parallelism</h2>
+<p>In system design, these mean different things:</p>
+<table class="vs-table">
+  <thead><tr><th>Concept</th><th>Definition</th><th>Analogy</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Concurrency</strong></td><td>Dealing with multiple things at once (structuring the program).</td><td>One barista making an espresso, frothing milk while it brews, then serving.</td></tr>
+    <tr><td><strong>Parallelism</strong></td><td>Doing multiple things at exactly the same time (requires multiple cores).</td><td>Two baristas, each making a separate drink at the exact same time.</td></tr>
+  </tbody>
+</table>
+<p>You can have massive concurrency on a single-core CPU (via context switching and event loops). Parallelism strictly requires multiple CPU cores or multiple machines.</p>
+
+<!-- ─── 4 · I/O & THE C10K PROBLEM ─── -->
+<h2>4 · The C10K Problem &amp; I/O</h2>
+<p>
+In 1999, the "C10K problem" asked: <em>How do we handle 10,000 concurrent connections on a single server?</em>
+</p>
+<p>If you use 1 OS thread per connection, 10,000 connections = 10,000 threads. That requires ~10GB of RAM just for thread stacks, and the CPU thrashes from context switching. <strong>The Thread-per-Request model fails at massive scale.</strong></p>
+
+<h3>Blocking vs Non-Blocking I/O</h3>
+<p>Why do we need so many threads in the first place? Because of <strong>Blocking I/O</strong>.</p>
+<ul>
+  <li><strong>Blocking I/O:</strong> When Thread A asks the database for data, Thread A goes to sleep (blocks) for 50ms. It does absolutely nothing while waiting. To handle another request, you <em>must</em> spawn Thread B.</li>
+  <li><strong>Non-Blocking I/O (Async):</strong> Thread A fires the database request and <em>immediately</em> moves on to handle another user's request. When the database replies, an interrupt triggers a callback, and Thread A resumes the original task.</li>
+</ul>
+
+<!-- ─── 5 · DIAGRAM: CONCURRENCY MODELS ─── -->
+<h2>5 · Core Concurrency Models</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Thread-per-request Model -->
+  <text class="lbl" x="180" y="20" font-size="14" font-weight="700">Thread-per-Request (e.g., Apache, Tomcat)</text>
+  
+  <rect class="node" x="20" y="50" width="80" height="30" rx="4"/>
+  <text class="lbl" x="60" y="65" font-size="10">Req 1</text>
+  <line class="edge hl" x1="100" y1="65" x2="140" y2="65" marker-end="url(#arrow)"/>
+  
+  <rect class="node" x="20" y="100" width="80" height="30" rx="4"/>
+  <text class="lbl" x="60" y="115" font-size="10">Req 2</text>
+  <line class="edge hl" x1="100" y1="115" x2="140" y2="115" marker-end="url(#arrow)"/>
+
+  <rect class="node" x="20" y="150" width="80" height="30" rx="4"/>
+  <text class="lbl" x="60" y="165" font-size="10">Req 3</text>
+  <line class="edge hl" x1="100" y1="165" x2="140" y2="165" marker-end="url(#arrow)"/>
+  
+  <!-- Threads -->
+  <rect class="cell cur" x="140" y="40" width="100" height="50" rx="5"/>
+  <text class="lbl inv" x="190" y="55" font-size="11">Thread 1</text>
+  <text class="lbl inv" x="190" y="75" font-size="9">(Blocked on DB)</text>
+
+  <rect class="cell cur" x="140" y="90" width="100" height="50" rx="5"/>
+  <text class="lbl inv" x="190" y="105" font-size="11">Thread 2</text>
+  <text class="lbl inv" x="190" y="125" font-size="9">(Processing)</text>
+
+  <rect class="cell cur" x="140" y="140" width="100" height="50" rx="5"/>
+  <text class="lbl inv" x="190" y="155" font-size="11">Thread 3</text>
+  <text class="lbl inv" x="190" y="175" font-size="9">(Blocked on Network)</text>
+  
+  <text class="wt" x="180" y="210" font-size="10">Needs 10,000 threads for 10,000 requests. High RAM usage.</text>
+
+  <!-- Event Loop Model -->
+  <text class="lbl" x="540" y="20" font-size="14" font-weight="700">Event Loop (e.g., Node.js, Nginx)</text>
+  
+  <!-- Requests hitting a queue -->
+  <rect class="node" x="400" y="50" width="60" height="25" rx="4"/>
+  <text class="lbl" x="430" y="62" font-size="9">Req 1</text>
+  
+  <rect class="node" x="400" y="85" width="60" height="25" rx="4"/>
+  <text class="lbl" x="430" y="97" font-size="9">Req 2</text>
+  
+  <rect class="node" x="400" y="120" width="60" height="25" rx="4"/>
+  <text class="lbl" x="430" y="132" font-size="9">Req 3</text>
+
+  <line class="edge hl" x1="460" y1="85" x2="490" y2="85" marker-end="url(#arrow)"/>
+
+  <!-- Event Queue -->
+  <rect class="cell" x="490" y="40" width="40" height="110" rx="4"/>
+  <text class="lbl" x="510" y="95" font-size="10" transform="rotate(-90 510 95)">Event Queue</text>
+  
+  <line class="edge hl" x1="530" y1="85" x2="560" y2="85" marker-end="url(#arrow)"/>
+
+  <!-- Single Thread Event Loop -->
+  <circle cx="610" cy="85" r="45" fill="var(--accent)" stroke="var(--accent)"/>
+  <path d="M 610,50 A 35,35 0 1,1 575,85" fill="none" stroke="var(--paper)" stroke-width="4" marker-end="url(#arrow-inv)"/>
+  <text class="lbl inv" x="610" y="85" font-size="11">Single Thread</text>
+  
+  <!-- Async I/O -->
+  <line class="edge hl" x1="610" y1="130" x2="610" y2="160" marker-end="url(#arrow)"/>
+  <rect class="node done" x="550" y="160" width="120" height="30" rx="4"/>
+  <text class="lbl" x="610" y="175" font-size="9">OS Async I/O (epoll)</text>
+
+  <text class="wt" x="540" y="210" font-size="10">1 thread handles 10,000 reqs via Non-Blocking I/O.</text>
+
+  <!-- Legend / Summary block -->
+  <rect x="150" y="250" width="420" height="120" rx="8" fill="var(--code-bg)" stroke="var(--rule)"/>
+  <text class="lbl" x="360" y="270" font-size="12">Sizing a Thread Pool</text>
+  
+  <text class="wt" x="170" y="300" font-size="10" text-anchor="start">For CPU-bound tasks (encryption, math):</text>
+  <text class="lbl" x="410" y="300" font-size="11" fill="var(--good)" text-anchor="start">Threads ≈ Number of CPU Cores</text>
+  
+  <text class="wt" x="170" y="330" font-size="10" text-anchor="start">For I/O-bound tasks (DB queries, API calls):</text>
+  <text class="lbl" x="410" y="330" font-size="11" fill="var(--warn)" text-anchor="start">Threads >> Number of CPU Cores</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/>
+    </marker>
+    <marker id="arrow-inv" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="var(--paper)"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>Thread-per-request wastes resources blocking. Event loops use async I/O to stay busy.</figcaption>
+</figure>
+
+<!-- ─── 6 · HOW POPULAR SYSTEMS DO IT ─── -->
+<h2>6 · How Popular Systems Handle Concurrency</h2>
+<p>When designing a system from zero, the tech stack you choose dictates your concurrency model.</p>
+
+<table class="vs-table">
+  <thead><tr><th>Technology</th><th>Concurrency Model</th><th>How it scales</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Java (Spring MVC), Apache</strong></td>
+      <td><strong>Thread-per-Request</strong></td>
+      <td>A large Thread Pool (e.g., 200 threads). Great for CPU work, poor for massive I/O scale (C10K).</td>
+    </tr>
+    <tr>
+      <td><strong>Node.js, Nginx, Redis</strong></td>
+      <td><strong>Event Loop (Single-threaded)</strong></td>
+      <td>Uses non-blocking I/O (epoll/kqueue). Extremely lightweight, easily handles C10K. Bad for CPU-heavy tasks (blocks the loop).</td>
+    </tr>
+    <tr>
+      <td><strong>Go (Golang)</strong></td>
+      <td><strong>Goroutines (M:N scheduling)</strong></td>
+      <td>Maps millions of lightweight "goroutines" onto a few OS threads. Gives the easy syntax of blocking code, with the performance of async I/O.</td>
+    </tr>
+    <tr>
+      <td><strong>Java 21+ (Spring Boot 3.2+)</strong></td>
+      <td><strong>Virtual Threads (Loom)</strong></td>
+      <td>Similar to Go. Java runtime automatically translates blocking I/O calls into non-blocking OS calls, unmounting the virtual thread.</td>
+    </tr>
+    <tr>
+      <td><strong>Erlang, Elixir, Akka</strong></td>
+      <td><strong>Actor Model</strong></td>
+      <td>Millions of isolated "actors" that don't share memory, communicating strictly by message passing. Inherently thread-safe.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview Hack: "Don't Block the Event Loop"</span>
+  If you choose Node.js/Python AsyncIO for your architecture, you MUST mention that CPU-intensive tasks (like image processing or parsing massive JSON) will block the single event loop, starving all other requests. You solve this by offloading CPU work to a separate worker queue (like RabbitMQ + Python Celery).
+</div>
+
+<!-- ─── 7 · POOLING (THREADS & CONNECTIONS) ─── -->
+<h2>7 · Thread Pools and Connection Pools</h2>
+<p>Creating and destroying threads (or TCP connections) is expensive. We use <strong>Pools</strong> to reuse them.</p>
+
+<h3>Thread Pools</h3>
+<p>Instead of <code>new Thread()</code> per request, a server maintains a pool of pre-warmed threads. A request arrives, borrows a thread, uses it, and returns it. If the pool is empty, requests queue up.</p>
+
+<h3>Connection Pools (Database)</h3>
+<p>Databases can only handle a limited number of concurrent TCP connections. If you have 10 horizontally scaled web servers, and each has 200 threads, that's 2,000 potential DB connections. The DB will crash.</p>
+<p><strong>Solution:</strong> Use a Database Connection Pool (like HikariCP in Java or PgBouncer for PostgreSQL). The app borrows a DB connection, runs the query, and returns it. We keep DB connections relatively low (e.g., 20-50 per server).</p>
+
+<div class="formula">
+  Ideal DB Connection Pool Size (PostgreSQL estimation):<br>
+  Connections = ((Number of CPU Cores * 2) + Effective Spindle Count)
+</div>
+
+<!-- ─── 8 · THREAD SAFETY IN HLD ─── -->
+<h2>8 · Thread Safety (System Design Perspective)</h2>
+<p>At an LLD level, thread safety means locks, mutexes, and synchronized blocks. At an HLD level, thread safety means <strong>Statelessness and Distributed Locking</strong>.</p>
+<ul>
+  <li><strong>Shared State is Evil:</strong> If Web Server A and Web Server B both read/write to the same global variable, you have a race condition.</li>
+  <li><strong>Stateless Architecture:</strong> Store state externally (Redis or DB). Treat your app servers as completely disposable execution engines.</li>
+  <li><strong>Distributed Locks:</strong> When two separate machines try to process the same order simultaneously, local thread locks don't work. You must use Redis (Redlock) or ZooKeeper to lock the resource across the entire cluster.</li>
+</ul>
+
+<!-- ─── 9 · TRADE-OFFS & INTERVIEW SCENARIOS ─── -->
+<h2>9 · Decision Framework: Which model to use?</h2>
+
+<div class="tradeoff">
+  <div class="pro">
+    <strong>Use Node.js / Event Loop / Async if:</strong>
+    <ul>
+      <li>Heavy I/O (API Gateway, Chat Server, proxying)</li>
+      <li>Thousands of concurrent connections (WebSockets)</li>
+      <li>Workloads are fast, simple database reads/writes</li>
+    </ul>
+  </div>
+  <div class="con">
+    <strong>Use Java/C++ Thread-per-request / Multi-threading if:</strong>
+    <ul>
+      <li>Heavy CPU computation (video encoding, cryptography, ML inference)</li>
+      <li>Complex business logic where async callbacks cause "callback hell"</li>
+      <li>(Though Virtual Threads / Goroutines give you the best of both worlds)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── 10 · QUIZZES ─── -->
+<h2>10 · Check Yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does the traditional "Thread-per-Request" model struggle with 10,000 concurrent WebSockets?</div>
+  <button class="opt">WebSockets require UDP, which threads can't handle.</button>
+  <button class="opt">10,000 OS threads consume massive RAM and cause heavy CPU context-switching overhead.</button>
+  <button class="opt">Databases cannot handle 10,000 connections.</button>
+  <div class="fb" data-correct="Correct! 10k OS threads easily eat up GBs of RAM just for their stacks, and the CPU spends all its time context switching instead of executing logic." data-wrong="While the DB answer is true, the primary reason the *server* model fails is OS-level memory and context-switching overhead."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In a Node.js (Event Loop) backend, what happens if you run a CPU-intensive loop (like hashing a password 100,000 times) synchronously?</div>
+  <button class="opt">Node.js automatically spawns a new thread for it.</button>
+  <button class="opt">The event loop slows down but continues processing other requests in parallel.</button>
+  <button class="opt">The event loop blocks. No other incoming HTTP requests can be processed until the hashing finishes.</button>
+  <div class="fb" data-correct="Exactly! This is the 'Don't block the event loop' rule. A single thread does all the work; if you block it with CPU math, the whole server freezes for everyone else." data-wrong="Node.js is single-threaded for request processing. It doesn't auto-spawn threads, and it cannot parallelize the event loop."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You are designing a backend that strictly acts as a proxy: it takes a request, makes 3 external API calls, waits for them, and returns a combined result. Which concurrency model is most efficient?</div>
+  <button class="opt">Event-driven / Async I/O (e.g., Node.js or Go)</button>
+  <button class="opt">Thread-per-request with a large Thread Pool (e.g., legacy Java Tomcat)</button>
+  <button class="opt">Multi-process architecture (e.g., PHP-FPM)</button>
+  <div class="fb" data-correct="Correct! This is a purely I/O-bound workload (waiting on external APIs). Async I/O handles this flawlessly without wasting RAM on blocked threads." data-wrong="Thread-per-request would result in threads just sitting there sleeping while waiting for the APIs to respond, wasting memory."></div>
+</div>
+
+<!-- ─── 11 · DO THIS NEXT ─── -->
+<h2>11 · Do This Next</h2>
+<ul>
+  <li><strong>Read up on Project Loom (Java Virtual Threads)</strong> or <strong>Golang Goroutines</strong>. They are the modern answer to system design concurrency, combining the easy syntax of thread-per-request with the performance of async event loops.</li>
+  <li>If asked to build a highly concurrent system from scratch, practice justifying <em>Go</em> or <em>Node.js</em> over traditional <em>Java</em> for I/O heavy tasks.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Your teacher</span>
+  I'm your system design teacher. If anything is unclear, ask me to explain further.
+  When you're ready, say <strong>"next"</strong> to advance to Lesson 5 — Pagination &amp; Cursors.
+</div>
+
+<div class="nav">
+  <a href="0003-horizontal-vs-vertical-scaling.html">← Lesson 3</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0005-pagination-and-cursors.html">Lesson 5 →</a>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

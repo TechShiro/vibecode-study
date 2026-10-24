@@ -1,0 +1,229 @@
+<title>IDS Unit II Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Cheat sheet is denser than a lesson — tighten everything for print. */
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Reference &middot; print this one</p>
+<h1>Unit II &mdash; Exam Sheet</h1>
+<p class="deck">ECC and digital signature schemes. <strong>This unit is mostly numericals</strong> &mdash; the formulas below are the whole of it, and the worked answers let you check your practice attempts without re-solving them.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>EC point addition and doubling</strong> &middot; <strong>ECDH</strong> &middot; <strong>EC ElGamal encrypt/decrypt</strong> &middot; <strong>RSA signature</strong> &middot; <strong>ElGamal signature</strong> &middot; <strong>DSA signature and verification</strong> &middot; <strong>ECDSA</strong> &middot; digital signature process diagram &middot; attacks and forgery levels &middot; variations and applications. <strong>Seven numericals &mdash; do them with a pen, not by reading.</strong></p>
+</div>
+
+<hr class="rule">
+
+<h2>1. Elliptic curve arithmetic <span class="tag">memorise</span></h2>
+
+<div class="formula">
+  <span class="name">Curve, addition and doubling on E<sub>p</sub>(a, b)</span>
+  <strong>y<sup>2</sup> = x<sup>3</sup> + ax + b (mod p)</strong>, non-singular iff <strong>4a<sup>3</sup> + 27b<sup>2</sup> &ne; 0</strong><br><br>
+  <strong>P &ne; Q:</strong> &nbsp; &lambda; = (y<sub>2</sub> &minus; y<sub>1</sub>)(x<sub>2</sub> &minus; x<sub>1</sub>)<sup>&minus;1</sup> mod p<br>
+  <strong>P = Q:</strong> &nbsp; &lambda; = (3x<sub>1</sub><sup>2</sup> + a)(2y<sub>1</sub>)<sup>&minus;1</sup> mod p<br><br>
+  <strong>x<sub>3</sub> = &lambda;<sup>2</sup> &minus; x<sub>1</sub> &minus; x<sub>2</sub></strong> &nbsp;&middot;&nbsp; <strong>y<sub>3</sub> = &lambda;(x<sub>1</sub> &minus; x<sub>3</sub>) &minus; y<sub>1</sub></strong> &nbsp;(both mod p)<br>
+  <strong>&minus;P = (x, p &minus; y)</strong> &nbsp;&middot;&nbsp; <strong>P + (&minus;P) = O</strong> &nbsp;&middot;&nbsp; <strong>P + O = P</strong>
+</div>
+
+<ul>
+<li><strong>No division mod p</strong> &mdash; multiply by the modular inverse. <strong>&minus;k mod p = p &minus; k.</strong></li>
+<li><strong>Finding points:</strong> list the QRs by squaring 1&hellip;(p&minus;1)/2; for each x test whether x<sup>3</sup>+ax+b is a QR; each hit gives two points (x, y) and (x, p&minus;y).</li>
+<li><strong>Hasse&rsquo;s bound</strong> for the point count: <strong>p + 1 &plusmn; 2&radic;p</strong>.</li>
+<li><strong>kP by double-and-add</strong>; reduce the scalar <strong>mod n</strong> (the order of the point) first.</li>
+<li><strong>ECDLP:</strong> given P and Q = kP, find k &mdash; about &radic;n work, no sub-exponential attack. Hence 256-bit ECC &asymp; 3072-bit RSA.</li>
+</ul>
+
+<div class="tw">
+<table>
+<thead><tr><th>Security</th><th class="num">80</th><th class="num">112</th><th class="num">128</th><th class="num">192</th><th class="num">256 bits</th></tr></thead>
+<tbody>
+<tr><td><strong>RSA</strong></td><td class="num">1024</td><td class="num">2048</td><td class="num">3072</td><td class="num">7680</td><td class="num">15360</td></tr>
+<tr><td><strong>ECC</strong></td><td class="num">160</td><td class="num">224</td><td class="num">256</td><td class="num">384</td><td class="num">512</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>2. ECC cryptosystems</h2>
+
+<div class="formula">
+  <span class="name">Keys, ECDH and EC ElGamal</span>
+  Private <strong>n<sub>A</sub></strong>, public <strong>P<sub>A</sub> = n<sub>A</sub>G</strong><br><br>
+  <strong>ECDH:</strong> &nbsp; K = n<sub>A</sub>P<sub>B</sub> = n<sub>B</sub>P<sub>A</sub> = <strong>n<sub>A</sub>n<sub>B</sub>G</strong>; session key = x-coordinate. <em>No authentication &rarr; MITM.</em><br><br>
+  <strong>EC ElGamal encrypt:</strong> &nbsp; <strong>C = { kG, &nbsp; P<sub>m</sub> + kP<sub>B</sub> }</strong><br>
+  <strong>decrypt:</strong> &nbsp; <strong>P<sub>m</sub> = C<sub>2</sub> &minus; n<sub>B</sub>C<sub>1</sub></strong> &nbsp;(since n<sub>B</sub>C<sub>1</sub> = kP<sub>B</sub>)
+</div>
+
+<p><strong>Message &rarr; point:</strong> Koblitz&rsquo;s method (x = mK + j until x<sup>3</sup>+ax+b is a QR), or use ECC for the key and AES for the data. Ciphertext is <strong>twice</strong> the message size.</p>
+
+<h2>3. Digital signature basics</h2>
+
+<div class="formula">
+  <span class="name">The process</span>
+  <strong>Sign:</strong> h = H(M) &rarr; S = E<sub>private</sub>(h) &rarr; send M &#8214; S<br>
+  <strong>Verify:</strong> h<sub>1</sub> = H(M&prime;), h<sub>2</sub> = D<sub>public</sub>(S), accept iff h<sub>1</sub> = h<sub>2</sub>
+</div>
+
+<ul>
+<li><strong>Gives:</strong> authentication, integrity, <strong>non-repudiation</strong>. <strong>Not confidentiality</strong> &mdash; encrypt separately.</li>
+<li><strong>Sign the digest, not the message:</strong> speed, fixed size, RSA block limit, and it kills the multiplicative property.</li>
+<li><strong>Direct</strong> (sender + receiver; sender can falsely claim key theft &rarr; use timestamps) vs <strong>arbitrated</strong> (trusted third party validates and dates every message).</li>
+<li><strong>RSA approach</strong> = one value, deterministic, recovers the digest, also encrypts. <strong>DSS approach</strong> = pair (r, s), randomised by k, no recovery, signature only.</li>
+<li><strong>MAC vs signature:</strong> symmetric vs asymmetric &middot; key-holder-only vs anyone verifies &middot; no vs yes non-repudiation &middot; fast vs slow.</li>
+</ul>
+
+<h2>4. Attacks on digital signatures</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack types (what the attacker gets)</th><th>Forgery levels (what counts as a break)</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Key-only</strong> &mdash; the public key alone</td><td><strong>1. Total break</strong> &mdash; recovers the private key</td></tr>
+<tr><td><strong>2. Known-message</strong> &mdash; pairs not of their choosing</td><td><strong>2. Universal forgery</strong> &mdash; can sign anything</td></tr>
+<tr><td><strong>3. Chosen-message</strong> (generic / directed)</td><td><strong>3. Selective forgery</strong> &mdash; signs a chosen message</td></tr>
+<tr><td><strong>4. Adaptive chosen-message</strong> &mdash; strongest</td><td><strong>4. Existential forgery</strong> &mdash; signs some message</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Secure = resists existential forgery under adaptive chosen-message attack.</strong></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack</th><th>Mechanism</th><th>Countermeasure</th></tr></thead>
+<tbody>
+<tr><td><strong>Existential forgery</strong></td><td>Pick S, set M = S<sup>e</sup> mod n</td><td rowspan="3"><strong>Hash before signing; RSA-PSS padding</strong></td></tr>
+<tr><td><strong>Multiplicative property</strong></td><td>sig(M<sub>1</sub>)&middot;sig(M<sub>2</sub>) = sig(M<sub>1</sub>M<sub>2</sub>)</td></tr>
+<tr><td><strong>Blinding</strong></td><td>Sign r<sup>e</sup>M, then multiply by r<sup>&minus;1</sup></td></tr>
+<tr><td><strong>Birthday</strong></td><td>Two documents, one digest &mdash; 2<sup>n/2</sup> work</td><td>256-bit+ collision-resistant hash</td></tr>
+<tr><td><strong>Replay</strong></td><td>Re-send a genuine signed message</td><td>Timestamps, nonces, sequence numbers</td></tr>
+<tr><td><strong>Key compromise / false repudiation</strong></td><td>Stolen key, or a signer claiming theft</td><td>Certificates, trusted timestamping, revocation</td></tr>
+<tr><td><strong>Nonce reuse</strong></td><td>Same k twice &rarr; private key</td><td>Random or deterministic (RFC 6979) k</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. The signature schemes <span class="tag">formulas</span></h2>
+
+<div class="formula">
+  <span class="name">RSA</span>
+  n = pq &middot; &phi;(n) = (p&minus;1)(q&minus;1) &middot; ed &equiv; 1 mod &phi;(n)<br>
+  <strong>Sign: S = [H(M)]<sup>d</sup> mod n</strong> &nbsp;&middot;&nbsp; <strong>Verify: S<sup>e</sup> mod n = H(M)</strong>
+</div>
+
+<div class="formula">
+  <span class="name">ElGamal &mdash; public (p, &alpha;, y = &alpha;<sup>x</sup>), private x</span>
+  gcd(k, p&minus;1) = 1 &nbsp;&middot;&nbsp; <strong>r = &alpha;<sup>k</sup> mod p</strong> &nbsp;&middot;&nbsp; <strong>s = k<sup>&minus;1</sup>(M &minus; xr) mod (p&minus;1)</strong><br>
+  <strong>Verify: &alpha;<sup>M</sup> &equiv; y<sup>r</sup>r<sup>s</sup> (mod p)</strong> &nbsp;&mdash;&nbsp; <em>r is mod p, s is mod p&minus;1</em>
+</div>
+
+<div class="formula">
+  <span class="name">Schnorr &mdash; q | p&minus;1, &alpha;<sup>q</sup> &equiv; 1, private s, <strong>public v = &alpha;<sup>&minus;s</sup></strong></span>
+  <strong>x = &alpha;<sup>r</sup> mod p</strong> &nbsp;&middot;&nbsp; <strong>e = H(M &#8214; x)</strong> &nbsp;&middot;&nbsp; <strong>y = (r + se) mod q</strong> &nbsp;&middot;&nbsp; signature <strong>(e, y)</strong><br>
+  <strong>Verify: x&prime; = &alpha;<sup>y</sup>v<sup>e</sup> mod p, check H(M &#8214; x&prime;) = e</strong>
+</div>
+
+<div class="formula">
+  <span class="name">DSA &mdash; p, q | p&minus;1, g = h<sup>(p&minus;1)/q</sup> mod p, private x, public y = g<sup>x</sup></span>
+  <strong>r = (g<sup>k</sup> mod p) mod q</strong> &nbsp;&middot;&nbsp; <strong>s = k<sup>&minus;1</sup>[H(M) + xr] mod q</strong><br>
+  <strong>w = s<sup>&minus;1</sup> mod q &middot; u<sub>1</sub> = H(M)w mod q &middot; u<sub>2</sub> = rw mod q</strong><br>
+  <strong>v = [(g<sup>u<sub>1</sub></sup>y<sup>u<sub>2</sub></sup>) mod p] mod q &nbsp;&rarr;&nbsp; accept iff v = r</strong>
+</div>
+
+<div class="formula">
+  <span class="name">ECDSA &mdash; curve, G of order n, private d, public Q = dG</span>
+  <strong>R = kG, r = x<sub>R</sub> mod n</strong> &nbsp;&middot;&nbsp; <strong>s = k<sup>&minus;1</sup>[H(M) + dr] mod n</strong><br>
+  <strong>w = s<sup>&minus;1</sup>, u<sub>1</sub> = H(M)w, u<sub>2</sub> = rw &nbsp;(all mod n)</strong><br>
+  <strong>X = u<sub>1</sub>G + u<sub>2</sub>Q &nbsp;&rarr;&nbsp; accept iff x<sub>X</sub> mod n = r</strong> &nbsp;(X should equal kG)
+</div>
+
+<h2>6. The seven worked numericals <span class="tag">check your answers</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Numerical</th><th>Setup</th><th>Answer</th></tr></thead>
+<tbody>
+<tr><td><strong>EC points</strong></td><td>E<sub>11</sub>(1,6): y<sup>2</sup> = x<sup>3</sup>+x+6</td><td>12 points + O = <strong>13</strong>: (2,4)(2,7)(3,5)(3,6)(5,2)(5,9)(7,2)(7,9)(8,3)(8,8)(10,2)(10,9)</td></tr>
+<tr><td><strong>Addition</strong></td><td>(2,7) + (3,6) on E<sub>11</sub>(1,6)</td><td>&lambda; = 10 &rarr; <strong>(7, 9)</strong></td></tr>
+<tr><td><strong>Doubling</strong></td><td>2 &times; (2,7)</td><td>&lambda; = 8 &rarr; <strong>(5, 2)</strong>; then 3P = (8,3), 4P = (10,2), <strong>7P = (7,2)</strong></td></tr>
+<tr><td><strong>ECDH</strong></td><td>E<sub>17</sub>(2,2), G = (5,1), n = 19, n<sub>A</sub> = 3, n<sub>B</sub> = 10</td><td>P<sub>A</sub> = (10,6), P<sub>B</sub> = (7,11), <strong>K = 11G = (13,10)</strong></td></tr>
+<tr><td><strong>EC ElGamal</strong></td><td>Same curve, P<sub>m</sub> = (9,16), k = 7</td><td>C = <strong>{(0,6), (5,16)}</strong>; decrypt via 10&middot;C<sub>1</sub> = (16,4) &rarr; <strong>(9,16)</strong></td></tr>
+<tr><td><strong>RSA signature</strong></td><td>p = 17, q = 11, e = 7, M = 88</td><td>n = 187, &phi; = 160, d = 23, <strong>S = 11</strong>; verify 11<sup>7</sup> = 88</td></tr>
+<tr><td><strong>RSA attacks</strong></td><td>Same keys</td><td>sig(3) = 181, sig(5) = 180, product = <strong>42 = sig(15)</strong>; blinding r = 2: M&prime; = 44, S&prime; = 22, r<sup>&minus;1</sup> = 94 &rarr; <strong>S = 11</strong>; existential S = 9 &rarr; M = <strong>70</strong></td></tr>
+<tr><td><strong>ElGamal signature</strong></td><td>p = 19, &alpha; = 2, x = 5, M = 7, k = 5</td><td>y = 13, r = 13, k<sup>&minus;1</sup> = 11, <strong>s = 10</strong>; verify 14 = 14</td></tr>
+<tr><td><strong>Nonce reuse</strong></td><td>M<sub>1</sub> = 7, M<sub>2</sub> = 8, s<sub>1</sub> = 10, s<sub>2</sub> = 3, r = 13</td><td>k = (M<sub>1</sub>&minus;M<sub>2</sub>)(s<sub>1</sub>&minus;s<sub>2</sub>)<sup>&minus;1</sup> = <strong>5</strong>; x = (M<sub>1</sub>&minus;ks<sub>1</sub>)r<sup>&minus;1</sup> = <strong>5</strong></td></tr>
+<tr><td><strong>Schnorr</strong></td><td>p = 23, q = 11, &alpha; = 4, s = 7, r = 3, e = 5</td><td>v = 3, x = 18, <strong>y = 5</strong>, signature (5,5); verify 4<sup>5</sup>&middot;3<sup>5</sup> = 12&middot;13 = <strong>18 = x</strong></td></tr>
+<tr><td><strong>DSA</strong></td><td>p = 23, q = 11, h = 2, x = 2, k = 3, H = 5</td><td>g = 4, y = 16, <strong>r = 7, s = 10</strong>; w = 10, u<sub>1</sub> = 6, u<sub>2</sub> = 4, <strong>v = 7 = r</strong></td></tr>
+<tr><td><strong>ECDSA</strong></td><td>E<sub>17</sub>(2,2), G = (5,1), n = 19, d = 7, k = 3, H = 5</td><td>Q = (0,6), R = (10,6), <strong>r = 10, s = 6</strong>; w = 16, u<sub>1</sub> = 4, u<sub>2</sub> = 8, X = (3,1)+(5,16) = <strong>(10,6) &rarr; v = 10 = r</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Multiples of G on E<sub>17</sub>(2,2), G = (5,1) &mdash; the lookup table for three numericals</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th class="num">k</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th><th class="num">9</th></tr></thead>
+<tbody><tr><td><strong>kG</strong></td><td>(5,1)</td><td>(6,3)</td><td>(10,6)</td><td>(3,1)</td><td>(9,16)</td><td>(16,13)</td><td>(0,6)</td><td>(13,7)</td><td>(7,6)</td></tr></tbody>
+</table>
+</div>
+<div class="tw">
+<table>
+<thead><tr><th class="num">k</th><th class="num">10</th><th class="num">11</th><th class="num">12</th><th class="num">13</th><th class="num">14</th><th class="num">15</th><th class="num">16</th><th class="num">17</th><th class="num">18</th><th class="num">19</th></tr></thead>
+<tbody><tr><td><strong>kG</strong></td><td>(7,11)</td><td>(13,10)</td><td>(0,11)</td><td>(16,4)</td><td>(9,1)</td><td>(3,16)</td><td>(10,11)</td><td>(6,14)</td><td>(5,16)</td><td><strong>O</strong></td></tr></tbody>
+</table>
+</div>
+
+<h2>7. Comparison tables</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Point</th><th>RSA</th><th>ElGamal</th><th>Schnorr</th><th>DSA</th><th>ECDSA</th></tr></thead>
+<tbody>
+<tr><td>Hard problem</td><td>Factoring</td><td>DLP mod p</td><td>DLP subgroup</td><td>DLP subgroup</td><td><strong>ECDLP</strong></td></tr>
+<tr><td>Signature</td><td>1 value</td><td>(r, s)</td><td>(e, y)</td><td>(r, s)</td><td>(r, s)</td></tr>
+<tr><td>Size @128-bit</td><td class="num">3072</td><td class="num">6144</td><td class="num">512</td><td class="num">512</td><td class="num"><strong>512 bits</strong></td></tr>
+<tr><td>Needs random k</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Recovers digest</td><td><strong>Yes</strong></td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+<tr><td>Also encrypts</td><td><strong>Yes</strong></td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Variations:</strong> blind (signer cannot see the content &mdash; e-cash, e-voting) &middot; proxy (delegated signing) &middot; group (anonymous, manager can open) &middot; ring (anonymous, <strong>nobody</strong> can open &mdash; Monero) &middot; undeniable (verification needs the signer) &middot; multi-signature (all sign) &middot; threshold (any t of n) &middot; aggregate (many compressed into one) &middot; one-time (Lamport, post-quantum).</p>
+
+<p><strong>Applications:</strong> TLS certificates and PKI &middot; code, driver and firmware signing / secure boot &middot; PGP and S/MIME email &middot; <strong>Indian e-governance under the IT Act 2000 &mdash; DSC for income-tax e-filing, GST, MCA, e-tendering, Aadhaar eSign</strong> &middot; signed PDFs and contracts &middot; Bitcoin and Ethereum transactions &middot; e-passports and smart cards &middot; IPsec IKE, SSH, DNSSEC.</p>
+
+<h2>8. Traps that cost marks</h2>
+
+<ul>
+<li><strong>EC:</strong> using the addition &lambda; when P = Q; forgetting the bracket order <strong>(x<sub>1</sub> &minus; x<sub>3</sub>)</strong> in y<sub>3</sub>; not checking the result is on the curve.</li>
+<li><strong>RSA:</strong> computing d as the inverse of e mod <strong>n</strong> instead of mod <strong>&phi;(n)</strong>.</li>
+<li><strong>ElGamal:</strong> computing s mod p instead of <strong>mod (p&minus;1)</strong>.</li>
+<li><strong>DSA:</strong> dropping the second reduction &mdash; both r and v are <strong>mod p then mod q</strong>; comparing v with s instead of r.</li>
+<li><strong>ECDSA:</strong> reducing the x-coordinate mod p instead of <strong>mod n</strong>.</li>
+<li><strong>All DSS-type schemes:</strong> if r = 0 or s = 0, <strong>discard k and start again</strong>.</li>
+<li><strong>Every numerical:</strong> finish with the verification step &mdash; it is your own proof, and it is usually worth marks by itself.</li>
+</ul>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="../lessons/unit-2/0008-elliptic-curve-cryptography.html">Start Unit II</a>
+</div>
+
+</div>

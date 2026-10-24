@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 10 – Authentication, Sessions & OAuth2</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module D · Lesson 10 of 17 · Identity & Access</div>
+  <h1>Authentication, Session Management & OAuth 2.0 Security</h1>
+  <p class="subtitle">Broken Object Level Authorization (IDOR), JSON Web Token flaws, and modern authorization delegation via OAuth 2.0 PKCE.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Web Security (OWASP Top 10)</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Even if an application has zero SQL injection or XSS vulnerabilities, flawed authentication and access control will allow attackers to seize administrative control. The #1 API vulnerability in the world is <strong>BOLA (Broken Object Level Authorization / IDOR)</strong>: assuming that because a user is logged in, they are authorized to view any record they request. Modern security relies on cryptographically signed tokens (JWTs), robust session revocation, Multi-Factor Authentication (MFA), and secure identity delegation (OAuth 2.0 / OIDC).</p>
+
+  <h2>2 · Insecure Direct Object References (IDOR / BOLA)</h2>
+  <div class="callout danger">
+    <h4>The Anatomy of an IDOR Attack</h4>
+    <p>Victim logs in as user <code>105</code> and accesses their medical profile: <code>GET /api/profile?user_id=105</code>. Attacker modifies the request parameter to <code>GET /api/profile?user_id=106</code>. If the backend fails to verify whether the authenticated session user matches the requested object's owner, sensitive records of all users are dumped!</p>
+    <p><strong>Defense:</strong> Never rely on client-supplied IDs. Derive the user context directly from the server-side authenticated session or JWT claim: <code>WHERE user_id = current_authenticated_user_id()</code>.</p>
+  </div>
+
+  <h2>3 · JSON Web Token (JWT) Security Pitfalls</h2>
+  <p>A JWT consists of three base64url-encoded parts: <code>Header.Payload.Signature</code>. Common implementation exploits:</p>
+  <ul>
+    <li><strong>The <code>"alg": "none"</code> Attack</strong>: Early vulnerable JWT libraries accepted tokens where the algorithm was set to <code>none</code>, treating unsigned tokens as valid without verifying signatures!</li>
+    <li><strong>Algorithm Confusion (RSA to HMAC)</strong>: If the server expects RSA public/private key verification, but the attacker changes <code>alg</code> to <code>HS256</code> (symmetric HMAC), the server might verify the signature using its <em>public RSA key as the secret HMAC key</em>, allowing anyone to forge signatures.</li>
+    <li><strong>Weak HMAC Secrets</strong>: Signing tokens with simple passwords (e.g. <code>secret</code>, <code>password123</code>). Can be cracked offline in seconds using Hashcat: <code>hashcat -m 16500 jwt.txt rockyou.txt</code>.</li>
+  </ul>
+
+  <h2>4 · OAuth 2.0 with PKCE (Proof Key for Code Exchange)</h2>
+  <p>OAuth 2.0 allows third-party applications to access resources on behalf of a user without seeing the user's password. The <strong>Authorization Code Grant with PKCE</strong> is the mandatory gold standard for mobile and Single Page Apps (SPAs):</p>
+
+  <div class="arch-flow">
+    <div class="box">Client creates Code Verifier + Code Challenge</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Auth Server redirects with Authorization Code</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Exchange Code + Verifier for Access Token</div>
+  </div>
+
+  <p><strong>Why PKCE matters:</strong> PKCE prevents malicious apps from intercepting the authorization code from the OS redirect URI: only the party possessing the secret <em>Code Verifier</em> can exchange the code for the JWT access token.</p>
+
+  <h2>5 · Modern Strong Authentication: FIDO2 & WebAuthn</h2>
+  <p>SMS OTP and email verification codes are vulnerable to SIM-swapping, SS7 attacks, and reverse proxy phishing (Evilginx). <strong>FIDO2 / WebAuthn</strong> uses hardware security keys (YubiKey, TouchID) that perform public-key challenge-response cryptography bound to the exact browser domain origin, making phishing mathematically impossible.</p>
+
+  <nav class="bottom-nav">
+    <a href="0009-cross-site-scripting-xss-csrf-and-cors.html">← Lesson 09: XSS, CSRF & CORS</a>
+    <a href="0011-web-penetration-testing-with-burp-suite.html">Lesson 11: Pen-Testing with Burp Suite →</a>
+  </nav>
+</body>
+</html>

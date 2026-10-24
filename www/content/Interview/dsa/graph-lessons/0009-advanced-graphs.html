@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 09 — Advanced Graphs</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 09 of 09 · the stretch topics</div>
+<h1>Advanced Graphs</h1>
+<p class="subtitle">The rarer-but-high-signal graph algorithms. Some you must own cold; most you only need to recognize and reach for the right name.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Graphs are ~25% of Google intern questions. These five are the long tail —
+  knowing even one or two by name puts you ahead of most candidates. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<div class="callout tip">
+  <span class="label">How to spend your time here (intern reality)</span>
+  For a Google intern OA/interview these are <em>rare</em> but high-signal. Be honest about depth:
+  <strong>own Bipartite check and Critical Connections (bridges)</strong> — these genuinely show up.
+  Treat <strong>SCC, Eulerian path, and Floyd-Warshall</strong> as <em>awareness-level</em>: know what
+  they solve, the name, and the rough complexity so you can recognize the trigger and not freeze.
+</div>
+
+<h2>1 · Bipartite check (2-coloring)</h2>
+<p>
+A graph is <strong>bipartite</strong> if you can split its nodes into two sets with <em>every edge going
+between</em> the sets — never within one. Equivalent test: try to 2-color it (color a node, force every
+neighbor the opposite color). The instant you must color a node the same as a neighbor, you've found a
+conflict. The deep fact: <strong>a graph is bipartite ⟺ it has no odd-length cycle.</strong>
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Split into two groups / two teams", "can we 2-color", "no two adjacent X share a Y",
+  "is this a valid bipartition". LC 785 (<em>Is Graph Bipartite?</em>) and LC 886
+  (<em>Possible Bipartition</em> — build edges from the "dislikes" list, then it's literally 785).
+</div>
+
+<pre><code><span class="cmt">// LC 785: color[] holds 0 / 1, -1 = uncolored. BFS 2-coloring.</span>
+boolean isBipartite(int[][] graph) {
+    int n = graph.length;
+    int[] color = new int[n];
+    Arrays.fill(color, -1);
+    for (int s = 0; s &lt; n; s++) {        <span class="cmt">// graph may be DISCONNECTED — start everywhere</span>
+        if (color[s] != -1) continue;
+        color[s] = 0;
+        Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+        q.offer(s);
+        while (!q.isEmpty()) {
+            int u = q.poll();
+            for (int v : graph[u]) {
+                if (color[v] == -1) {
+                    color[v] = color[u] ^ 1;  <span class="cmt">// flip 0&lt;-&gt;1</span>
+                    q.offer(v);
+                } else if (color[v] == color[u]) {
+                    return false;             <span class="cmt">// same color across an edge = odd cycle</span>
+                }
+            }
+        }
+    }
+    return true;
+}</code></pre>
+<p><strong>Time</strong> O(V + E) — each vertex/edge touched once. <strong>Space</strong> O(V) for the color array and queue. DFS works identically: recurse, coloring each neighbor the flipped color, return false on a clash.</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: an undirected 4-cycle, nodes 0..3, edges <code>{0,1},{1,2},{2,3},{3,0}</code>. Color the
+start node A, then BFS-flip each neighbor. Because it's an <em>even</em> cycle, no edge ever joins two
+same-colored nodes → <strong>bipartite = true</strong>:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 240 240" role="img" aria-label="An undirected 4-cycle 0-1-2-3 drawn as a diamond, 2-colored: nodes 0 and 2 are color A, nodes 1 and 3 are color B, every edge joins an A to a B">
+  <line class="edge" x1="120" y1="45"  x2="195" y2="120"/>
+  <line class="edge" x1="195" y1="120" x2="120" y2="195"/>
+  <line class="edge" x1="120" y1="195" x2="45"  y2="120"/>
+  <line class="edge" x1="45"  y1="120" x2="120" y2="45"/>
+  <circle class="node"      cx="120" cy="45"  r="20"/><text class="lbl"     x="120" y="45">0</text>
+  <circle class="node done" cx="195" cy="120" r="20"/><text class="lbl inv" x="195" y="120">1</text>
+  <circle class="node"      cx="120" cy="195" r="20"/><text class="lbl"     x="120" y="195">2</text>
+  <circle class="node done" cx="45"  cy="120" r="20"/><text class="lbl inv" x="45"  y="120">3</text>
+</svg>
+<figcaption>Two color classes — A = {0, 2}, B = {1, 3} — with every edge crossing between them. An even cycle always 2-colors cleanly.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">color[0]=<span class="ptr">A</span>, enqueue 0</span>
+<span class="step now">pop 0 → neighbors 1, 3 uncolored → color[1]=<span class="ptr">B</span>, color[3]=<span class="ptr">B</span>, enqueue both</span>
+<span class="step now">pop 1 → neighbor 2 uncolored → color[2]=<span class="ptr">A</span>, enqueue 2</span>
+<span class="step now">pop 3 → neighbor 2 already A (≠ 3's B) → ok</span>
+<span class="step now">pop 2 → neighbors 1, 3 already colored and consistent → queue empty</span>
+<span class="step">no same-colored edge ever found → return <span class="ptr">true</span> (bipartite)</span>
+</div>
+<p><strong>Note:</strong> an <em>odd</em> cycle (e.g. a triangle 0-1-2-0) would force two adjacent nodes to share a color → <strong>not bipartite</strong>.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 785 · Is Graph Bipartite?</strong> (Medium) — the template verbatim: adjacency array given, 2-color every component, clash = false.</li>
+  <li><strong>LC 886 · Possible Bipartition</strong> (Medium) — <em>already solved</em> — re-solve from a blank file: build the adjacency list from the "dislikes" pairs, then it is literally LC 785.</li>
+  <li><strong>LC 2493 · Divide Nodes Into the Maximum Number of Groups</strong> (Hard, stretch) — bipartite check per component first (impossible ⇒ -1), then BFS from every node to find each component's deepest layering. Great "2-coloring is only step 1" drill.</li>
+</ul>
+
+<h2>2 · Bridges &amp; Articulation Points (Tarjan low-link)</h2>
+<p>
+A <strong>bridge</strong> is an edge whose removal disconnects the graph (a single point of failure in a
+network). An <strong>articulation point</strong> is the vertex version. Tarjan finds all of them in one DFS
+using two timestamps per node: <code>disc[u]</code> (when DFS first reached <code>u</code>) and
+<code>low[u]</code> (the earliest <code>disc</code> reachable from <code>u</code>'s subtree, including via
+<em>one</em> back-edge). The key test: edge <code>(u, v)</code> is a bridge when
+<strong><code>low[v] &gt; disc[u]</code></strong> — <code>v</code>'s subtree has no back-edge that climbs above
+<code>u</code>, so cutting the edge strands it.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger — Google favorite</span>
+  <strong>LC 1192 Critical Connections in a Network</strong> is a frequently-reported Google question and
+  is <em>exactly</em> "find all bridges." Trigger words: "critical connection", "single point of failure",
+  "edge whose removal disconnects", "servers / network resilience". If you memorize one thing in this
+  lesson, make it this DFS.
+</div>
+
+<pre><code><span class="cmt">// LC 1192: return every bridge. Undirected graph, nodes 0..n-1.</span>
+int timer = 0;
+List&lt;List&lt;Integer&gt;&gt; criticalConnections(int n, List&lt;List&lt;Integer&gt;&gt; connections) {
+    List&lt;List&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; n; i++) adj.add(new ArrayList&lt;&gt;());
+    for (List&lt;Integer&gt; e : connections) {
+        adj.get(e.get(0)).add(e.get(1));
+        adj.get(e.get(1)).add(e.get(0));   <span class="cmt">// undirected → both ways</span>
+    }
+    int[] disc = new int[n], low = new int[n];
+    Arrays.fill(disc, -1);                 <span class="cmt">// -1 = unvisited</span>
+    List&lt;List&lt;Integer&gt;&gt; bridges = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; n; i++)
+        if (disc[i] == -1) dfs(i, -1, adj, disc, low, bridges); <span class="cmt">// disconnected-safe</span>
+    return bridges;
+}
+void dfs(int u, int parent, List&lt;List&lt;Integer&gt;&gt; adj,
+         int[] disc, int[] low, List&lt;List&lt;Integer&gt;&gt; bridges) {
+    disc[u] = low[u] = timer++;
+    for (int v : adj.get(u)) {
+        if (v == parent) continue;         <span class="cmt">// don't bounce straight back along the same edge</span>
+        if (disc[v] == -1) {               <span class="cmt">// tree edge → recurse</span>
+            dfs(v, u, adj, disc, low, bridges);
+            low[u] = Math.min(low[u], low[v]);
+            if (low[v] &gt; disc[u])          <span class="cmt">// no way back above u → bridge</span>
+                bridges.add(Arrays.asList(u, v));
+        } else {                           <span class="cmt">// back edge → tighten low with disc[v]</span>
+            low[u] = Math.min(low[u], disc[v]);
+        }
+    }
+}</code></pre>
+<p><strong>Time</strong> O(V + E) — one DFS, each edge inspected twice. <strong>Space</strong> O(V) for <code>disc</code>/<code>low</code> plus O(V) recursion.</p>
+
+<h3>Variant: articulation points — same DFS, two changes</h3>
+<p>
+An articulation point is the <em>vertex</em> single-point-of-failure. Same <code>disc</code>/<code>low</code>
+DFS, but (1) the test loosens to <strong><code>low[v] &gt;= disc[u]</code></strong> — equality now counts,
+because a back-edge reaching <em>u itself</em> still dies when u is deleted — and (2) the <strong>root is a
+special case</strong>: it has no ancestor to climb back to, so it's an articulation point iff it has
+<strong>≥ 2 DFS children</strong>.
+</p>
+<pre><code><span class="cmt">// Same skeleton as the bridge DFS — only the marking logic differs.</span>
+void dfsAP(int u, int parent, List&lt;List&lt;Integer&gt;&gt; adj,
+           int[] disc, int[] low, boolean[] isArt) {
+    disc[u] = low[u] = timer++;
+    int children = 0;                       <span class="cmt">// DFS-tree children, for the root rule</span>
+    for (int v : adj.get(u)) {
+        if (v == parent) continue;
+        if (disc[v] == -1) {
+            children++;
+            dfsAP(v, u, adj, disc, low, isArt);
+            low[u] = Math.min(low[u], low[v]);
+            if (parent != -1 &amp;&amp; low[v] &gt;= disc[u]) <span class="cmt">// &gt;= not &gt; : reaching u itself isn't enough</span>
+                isArt[u] = true;
+        } else {
+            low[u] = Math.min(low[u], disc[v]);
+        }
+    }
+    if (parent == -1 &amp;&amp; children &gt;= 2) isArt[u] = true; <span class="cmt">// root rule: ≥2 subtrees fall apart</span>
+}</code></pre>
+<div class="callout trap">
+  <span class="label">Bridge vs articulation — the one-character bug</span>
+  Bridges use <code>low[v] &gt; disc[u]</code>, articulation points use <code>low[v] &gt;= disc[u]</code>.
+  Mixing them up passes small tests and fails on graphs where a back-edge lands exactly on <code>u</code>.
+  And only the articulation version needs the root special case — a root edge can still be a bridge via the normal test.
+</div>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1192 · Critical Connections in a Network</strong> (Hard, ★Google favorite) — bridges verbatim; drill it from a blank file twice. Watch the recursion depth: 10⁵ nodes is fine in Java but don't add per-call allocations.</li>
+  <li><strong>LC 1568 · Minimum Number of Days to Disconnect Island</strong> (Hard) — the answer is always 0, 1, or 2: it's 1 exactly when the island has an articulation point (or a single cell). Turns the grid into an articulation-point recognition exercise.</li>
+  <li><strong>CP drill:</strong> CSES 2077 "Necessary Roads" (bridges) and CSES 2078 "Necessary Cities" (articulation points) — the pure versions at 10⁵ scale, where the iterative-or-deep-recursion issue gets real.</li>
+</ul>
+
+<h2>3 · Strongly Connected Components (Kosaraju)</h2>
+<p>
+In a <strong>directed</strong> graph, a <strong>strongly connected component (SCC)</strong> is a maximal set
+of nodes where every node can reach every other node (a "mutual reachability" cluster). Collapse each SCC to
+a point and the graph becomes a DAG — the standard pre-step for harder directed problems.
+<strong>Kosaraju</strong> finds all SCCs with two passes of DFS: (1) DFS the original graph, pushing nodes
+onto a stack in finish order; (2) DFS the <em>transpose</em> (all edges reversed) in reverse-finish order —
+each tree in that second pass is one SCC.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger (awareness-level)</span>
+  "Mutually reachable", "cycles in a directed graph grouped together", "condense the graph". Rare in
+  intern interviews — recognize the term and the 2-pass idea; you're unlikely to be asked to code it
+  from scratch under time pressure.
+</div>
+
+<pre><code><span class="cmt">// Kosaraju: count SCCs of a directed graph (nodes 0..n-1).</span>
+int countSCC(int n, List&lt;List&lt;Integer&gt;&gt; adj) {
+    boolean[] seen = new boolean[n];
+    Deque&lt;Integer&gt; stack = new ArrayDeque&lt;&gt;();
+    for (int i = 0; i &lt; n; i++)
+        if (!seen[i]) fill(i, adj, seen, stack);   <span class="cmt">// pass 1: push in finish order</span>
+
+    List&lt;List&lt;Integer&gt;&gt; rev = new ArrayList&lt;&gt;();    <span class="cmt">// build transpose graph</span>
+    for (int i = 0; i &lt; n; i++) rev.add(new ArrayList&lt;&gt;());
+    for (int u = 0; u &lt; n; u++)
+        for (int v : adj.get(u)) rev.get(v).add(u);
+
+    Arrays.fill(seen, false);
+    int scc = 0;
+    while (!stack.isEmpty()) {
+        int u = stack.pop();
+        if (!seen[u]) { scc++; mark(u, rev, seen); } <span class="cmt">// pass 2: each DFS tree = one SCC</span>
+    }
+    return scc;
+}
+void fill(int u, List&lt;List&lt;Integer&gt;&gt; adj, boolean[] seen, Deque&lt;Integer&gt; stack) {
+    seen[u] = true;
+    for (int v : adj.get(u)) if (!seen[v]) fill(v, adj, seen, stack);
+    stack.push(u);                                   <span class="cmt">// push AFTER children finish</span>
+}
+void mark(int u, List&lt;List&lt;Integer&gt;&gt; rev, boolean[] seen) {
+    seen[u] = true;
+    for (int v : rev.get(u)) if (!seen[v]) mark(v, rev, seen);
+}</code></pre>
+<p><strong>Time</strong> O(V + E) — two linear DFS passes plus an O(V + E) transpose build. <strong>Space</strong> O(V + E) for the reversed graph. Tarjan's SCC does it in a single pass with one stack and the same <code>disc</code>/<code>low</code> idea from §2 — handy to mention, but Kosaraju is easier to recall.</p>
+<p><strong>Practice</strong> (free-tier LeetCode has no <em>pure</em> SCC problem — the honest drill set is one LC problem SCC thinking cracks open, plus the CP classics):</p>
+<ul>
+  <li><strong>LC 2360 · Longest Cycle in a Graph</strong> (Hard) — every node has ≤ 1 outgoing edge (a functional graph), so each SCC of size ≥ 2 <em>is</em> a cycle; the answer is the largest one. Solve it with the SCC lens first, then notice the one-out-edge structure lets a timestamped walk do it in O(n).</li>
+  <li><strong>CSES 1682 · Flight Routes Check</strong> — "is the whole graph ONE strongly connected component?" Kosaraju shortcut: DFS from node 1 in the graph and in the transpose; if both reach everything, yes.</li>
+  <li><strong>CSES 1683 · Planets and Kingdoms</strong> — label every node with its SCC id: the <code>countSCC</code> template above with a <code>comp[]</code> array instead of a counter.</li>
+</ul>
+
+<h2>4 · Eulerian path (Hierholzer)</h2>
+<p>
+An <strong>Eulerian path</strong> uses <em>every edge exactly once</em> (contrast: a Hamiltonian path visits
+every <em>vertex</em> once — NP-hard). <strong>Hierholzer's algorithm</strong> builds it greedily: walk
+edges, deleting each as you use it; when you get stuck, you've completed a sub-cycle — splice it in. The neat
+trick is a post-order DFS that appends a node to the answer only once it's exhausted, then reverses.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger (awareness-level)</span>
+  "Use every ticket / edge exactly once", "reconstruct the itinerary", "trace the route covering all
+  roads". <strong>LC 332 Reconstruct Itinerary</strong> is the canonical one — and it wants the
+  <em>lexicographically smallest</em> route, so visit neighbors in sorted order.
+</div>
+
+<pre><code><span class="cmt">// LC 332: all tickets used once, lexically smallest itinerary, starting at "JFK".</span>
+Map&lt;String, PriorityQueue&lt;String&gt;&gt; adj = new HashMap&lt;&gt;();
+LinkedList&lt;String&gt; route = new LinkedList&lt;&gt;();
+List&lt;String&gt; findItinerary(List&lt;List&lt;String&gt;&gt; tickets) {
+    for (List&lt;String&gt; t : tickets)              <span class="cmt">// min-heap = lexical order for free</span>
+        adj.computeIfAbsent(t.get(0), k -&gt; new PriorityQueue&lt;&gt;()).add(t.get(1));
+    dfs("JFK");
+    return route;                               <span class="cmt">// already in correct order after addFirst</span>
+}
+void dfs(String u) {
+    PriorityQueue&lt;String&gt; pq = adj.get(u);
+    while (pq != null &amp;&amp; !pq.isEmpty())
+        dfs(pq.poll());                         <span class="cmt">// consume the edge, recurse</span>
+    route.addFirst(u);                          <span class="cmt">// prepend when u is exhausted (post-order)</span>
+}</code></pre>
+<p><strong>Time</strong> O(E log E) — every edge is consumed once, and the per-edge work is a heap poll/insert (the <code>log E</code> comes from sorting neighbors lexically). <strong>Space</strong> O(E) for the adjacency heaps and the route. Without the lexical requirement it's a clean O(V + E).</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 332 · Reconstruct Itinerary</strong> (Hard) — the template verbatim: PriorityQueue adjacency for lexical order, post-order <code>addFirst</code>.</li>
+  <li><strong>LC 2097 · Valid Arrangement of Pairs</strong> (Hard) — the same Hierholzer on pairs <code>[start, end]</code>: find the start node (out-degree − in-degree = 1, else any node), walk every pair once. No lexical requirement, so plain lists + an index pointer keep it O(V + E).</li>
+  <li><strong>LC 753 · Cracking the Safe</strong> (Hard, stretch) — the de Bruijn sequence: nodes are (n−1)-digit states, edges are digits; an Eulerian <em>circuit</em> through all edges is the shortest master string.</li>
+</ul>
+
+<h2>5 · All-pairs shortest path (Floyd-Warshall)</h2>
+<p>
+When you need the shortest distance between <em>every</em> pair of nodes on a small, possibly weighted graph,
+<strong>Floyd-Warshall</strong> is the three-line DP. Read it as: <em>"for each intermediate node <code>k</code>,
+can routing through <code>k</code> make any pair <code>(i, j)</code> cheaper?"</em> The loop order is the whole
+trick — <strong><code>k</code> must be the outermost loop.</strong>
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger (awareness-level)</span>
+  "Shortest path between all pairs", "smallest number of cities reachable within a threshold", and a
+  <em>small</em> V (≤ a few hundred). <strong>LC 1334 Find the City With the Smallest Number of Neighbors
+  at a Threshold Distance</strong> is the textbook case.
+</div>
+
+<pre><code><span class="cmt">// LC 1334: dist[i][j] = shortest i-&gt;j. Seed with INF, 0 on the diagonal, edge weights.</span>
+int[][] floydWarshall(int n, int[][] edges) {
+    int[][] dist = new int[n][n];
+    for (int[] row : dist) Arrays.fill(row, 1_000_000); <span class="cmt">// "infinity" that won't overflow on add</span>
+    for (int i = 0; i &lt; n; i++) dist[i][i] = 0;
+    for (int[] e : edges) {                  <span class="cmt">// undirected weighted edge {u, v, w}</span>
+        dist[e[0]][e[1]] = e[2];
+        dist[e[1]][e[0]] = e[2];
+    }
+    for (int k = 0; k &lt; n; k++)              <span class="cmt">// intermediate node — MUST be outermost</span>
+        for (int i = 0; i &lt; n; i++)
+            for (int j = 0; j &lt; n; j++)
+                if (dist[i][k] + dist[k][j] &lt; dist[i][j])
+                    dist[i][j] = dist[i][k] + dist[k][j];
+    return dist;
+}</code></pre>
+<p><strong>Time</strong> O(V³) — the triple loop. <strong>Space</strong> O(V²) for the matrix. That cubic cost caps it at roughly V ≤ 400–500; beyond that, run Dijkstra (Lesson 07) from each source instead. It also handles negative edges (no negative cycles).</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1334 · Find the City With the Smallest Number of Neighbors at a Threshold Distance</strong> (Medium) — <em>already solved</em> (Lesson 07 ladder) — re-solve from a blank file if the triple loop isn't automatic yet.</li>
+  <li><strong>LC 2976 · Minimum Cost to Convert String I</strong> (Medium) — the graph is just 26 letter-nodes with conversion-cost edges; Floyd-Warshall the 26×26 matrix, then sum <code>dist[src[i]][tgt[i]]</code> per position. The cleanest "small V hiding inside a string problem" drill.</li>
+  <li><strong>LC 2642 · Design Graph With Shortest Path Calculator</strong> (Hard) — n ≤ 100 with many queries and edge <em>insertions</em>: maintain the all-pairs matrix and relax it through each new edge in O(V²) instead of re-running everything.</li>
+</ul>
+
+<h2>6 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Disconnected graphs (all of these):</strong> bipartite check, bridges, and SCC must loop over <em>every</em> node and launch from each unvisited one — a single start misses whole components.</li>
+  <li><strong>Bipartite on a disconnected graph:</strong> color each component independently; one component being bipartite doesn't excuse the others.</li>
+  <li><strong>Bridges — the parent edge:</strong> skip the immediate parent, but beware <strong>parallel edges</strong> (two edges between the same pair) — those are <em>never</em> bridges, so skipping by parent <em>id</em> rather than parent <em>node</em> matters. <strong>Self-loops</strong> contribute nothing to <code>low</code> and are never bridges.</li>
+  <li><strong>Eulerian — lexical order:</strong> LC 332 wants the smallest route, so neighbors must come out sorted (a <code>PriorityQueue</code> or pre-sorted list). Also: prepend (<code>addFirst</code>) in post-order, or you'll get the route reversed.</li>
+  <li><strong>Eulerian existence:</strong> a path exists only if 0 or 2 vertices have odd degree (undirected); LC 332 guarantees one exists, but real problems may not.</li>
+  <li><strong>Floyd-Warshall feasibility:</strong> O(V³) is fine at V = 100 (10⁶ ops), painful at V = 1000 (10⁹). Check the constraint <em>before</em> committing to it — otherwise reach for Dijkstra-per-source.</li>
+  <li><strong>Floyd-Warshall overflow:</strong> use an "infinity" like 10⁶, not <code>Integer.MAX_VALUE</code>, so <code>dist[i][k] + dist[k][j]</code> doesn't overflow.</li>
+</ul>
+
+<h2>7 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A graph fails the 2-coloring test (a neighbor is forced to share a color). What does that prove?</div>
+  <button class="opt">The graph is disconnected</button>
+  <button class="opt">The graph has a self-loop</button>
+  <button class="opt">The graph contains an odd-length cycle, so it is not bipartite</button>
+  <div class="fb" data-correct="Bipartite ⟺ no odd cycle. A coloring conflict is exactly the signature of an odd cycle." data-wrong="A 2-coloring clash means an odd-length cycle exists — that's the precise condition under which a graph is not bipartite."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Tarjan's bridge DFS, edge <code>(u, v)</code> (a tree edge) is a bridge exactly when:</div>
+  <button class="opt"><code>disc[v] == disc[u]</code> — they were discovered at the same time</button>
+  <button class="opt"><code>low[v] &gt; disc[u]</code> — v's subtree has no back-edge climbing above u</button>
+  <button class="opt"><code>low[u] &lt; low[v]</code> — u reaches further back than v</button>
+  <div class="fb" data-correct="If nothing in v's subtree can reach u or earlier without this edge, removing it strands the subtree — that's a bridge." data-wrong="The bridge test is low[v] &gt; disc[u]: v's subtree cannot reach back above u, so the edge is the only link."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You need shortest paths between all pairs on a weighted graph with V = 300. The cleanest fit is:</div>
+  <button class="opt">Floyd-Warshall — O(V³) ≈ 2.7×10⁷ ops, well within limits</button>
+  <button class="opt">One BFS from node 0 — it covers every pair at once</button>
+  <button class="opt">Kosaraju's two-pass DFS to group the nodes first</button>
+  <div class="fb" data-correct="All-pairs + small weighted V is the Floyd-Warshall signature; 300³ is ~27M operations, trivial. BFS ignores weights and only covers one source." data-wrong="All-pairs on a small weighted graph = Floyd-Warshall (O(V³), fine at V=300). BFS can't handle weights and gives only single-source distances."></div>
+</div>
+
+<h2>8 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (read):</strong> <a href="https://cp-algorithms.com/graph/bridge-searching.html">CP-Algorithms — Finding Bridges</a> (the disc/low intuition, drawn out) and <a href="https://cp-algorithms.com/graph/all-pair-shortest-path-floyd-warshall.html">CP-Algorithms — Floyd-Warshall</a>. For SCC: <a href="https://cp-algorithms.com/graph/strongly-connected-components.html">CP-Algorithms — SCC (Kosaraju)</a>. Video backup: <a href="https://neetcode.io/practice">NeetCode — Advanced Graphs playlist</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 785 (Is Graph Bipartite) → LC 886 (Possible Bipartition — <em>solved</em>, blank re-solve) → <strong>LC 1192 (Critical Connections — Google favorite, drill this twice)</strong> → LC 1568 (articulation points in disguise) → LC 332 (Reconstruct Itinerary) → LC 2097 (Valid Arrangement of Pairs) → LC 2976 (Min Cost to Convert String). Code 785 and 1192 from a blank file until they're muscle memory; for the rest it's enough to recognize the pattern and adapt the template. Per-section practice blocks above have the full list including the CSES CP drills for bridges/articulation/SCC.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — and that's a wrap on graphs</span>
+  You've completed the graph series — nine lessons from building an adjacency list to bridges, SCCs, and
+  all-pairs shortest paths. For interns: don't over-invest here. Be airtight on Bipartite and Critical
+  Connections, and keep the rest at recognition depth. Want me to dry-run the disc/low DFS on a sample
+  graph, quiz you on which advanced algorithm a problem needs, or build a spaced-repetition plan across
+  all nine graph lessons? Ask in the chat. Otherwise, say <strong>"next"</strong> and we move on to your
+  next gap — Dynamic Programming.
+</div>
+
+<div class="nav">
+  <span><a href="0008-minimum-spanning-tree.html">← Minimum Spanning Tree</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span>Graph track complete 🎉 <a href="../dp-lessons/0001-dp-foundations.html">DP track →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

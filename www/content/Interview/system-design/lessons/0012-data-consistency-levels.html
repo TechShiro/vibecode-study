@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 12 - Data Consistency &amp; Its Levels | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 12 of 66 · Linearizability, Eventual Consistency, Quorums</div>
+  
+  <h1>Data Consistency &amp; Its Levels</h1>
+  <p class="subtitle">When you write data to a distributed system, how quickly does everyone else see the update?</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module C — Consistency &amp; Isolation</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In a single computer, when you write a variable to memory, any subsequent read immediately returns that new value. But in a <strong>distributed system</strong> with 5 database replicas across the world, writes take time to travel over network cables. <strong>Consistency models</strong> define the contract between your database and your application regarding what data a client is guaranteed to observe after a write.</p>
+
+  <h2>2 · The Spectrum of Consistency Models</h2>
+  <p>Consistency is not a binary yes/no; it exists on a spectrum from strict and slow to loose and blazing fast.</p>
+
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Consistency Level</th>
+        <th>What It Guarantees</th>
+        <th>Real-World Example</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Strong Consistency (Linearizability)</strong></td>
+        <td>Once a write completes, every single client across the entire globe will immediately read the newest value. It behaves as if there is only one global copy of the data.</td>
+        <td>Bank account balances, ATM withdrawals, stock trading engines.</td>
+      </tr>
+      <tr>
+        <td><strong>Sequential Consistency</strong></td>
+        <td>All operations appear to execute in some sequential order that all nodes agree on, and operations from the same process follow program order.</td>
+        <td>Shared memory architectures, distributed locks.</td>
+      </tr>
+      <tr>
+        <td><strong>Causal Consistency</strong></td>
+        <td>Operations that are causally related (e.g., a question followed by an answer) must be seen by all nodes in the same order. Concurrent unrelated writes can be seen in different orders.</td>
+        <td>Chat comments and discussion message boards (answers shouldn't appear before the question).</td>
+      </tr>
+      <tr>
+        <td><strong>Read-Your-Own-Writes</strong></td>
+        <td>A single user is guaranteed to always see updates made by themselves, even if other users still see older cached data for a few seconds.</td>
+        <td>Updating your profile picture on Instagram: you see your new photo immediately, while friends might see the change 5 seconds later.</td>
+      </tr>
+      <tr>
+        <td><strong>Monotonic Reads</strong></td>
+        <td>If a user reads a value at time $T$, they will never subsequently read an older value from a slower replica (time will never move backward for that reader).</td>
+        <td>Reading email threads: refreshed inbox will never show a vanished email.</td>
+      </tr>
+      <tr>
+        <td><strong>Eventual Consistency</strong></td>
+        <td>If no new writes are made, all replicas will eventually converge and hold the exact same data. However, temporary stale reads are completely normal.</td>
+        <td>YouTube view counts, Twitter follower counts, DNS propagation.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Quorum Reads and Writes: The Math of Consistency</h2>
+  <p>Leaderless distributed databases (like Apache Cassandra and AWS DynamoDB) let you mathematically configure your desired consistency using <strong>Quorums</strong>.</p>
+  
+  <p>Suppose you have $N$ total replicas for a piece of data:</p>
+  <ul>
+    <li><strong>$N$ (Replication Factor):</strong> How many copies of the record exist in the cluster.</li>
+    <li><strong>$W$ (Write Quorum):</strong> How many replicas must acknowledge a write before it is marked successful.</li>
+    <li><strong>$R$ (Read Quorum):</strong> How many replicas must respond to a read request before returning data to the client.</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">The Golden Quorum Rule</span>
+    <p>If <strong>$W + R > N$</strong>, your system guarantees <strong>Strong Consistency</strong>!</p>
+    <p><strong>Why?</strong> Because the set of nodes written to and the set of nodes read from must overlap by at least one node. That overlapping node will return the newest version timestamp, allowing the client to discard older values.</p>
+  </div>
+
+  <div class="arch-flow">
+    <div class="box">N = 3 Replicas (Node 1, Node 2, Node 3)</div>
+  </div>
+  <div class="arch-flow">
+    <div class="box">Write to W=2 (Node 1, Node 2)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Read from R=2 (Node 2, Node 3)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Node 2 has the latest write! (W + R = 4 > 3)</div>
+  </div>
+
+  <h2>4 · Tunable Consistency Trade-offs</h2>
+  <ul>
+    <li><strong>High Write Performance:</strong> Set $W = 1$, $R = N$. Writes are instant, but reads must poll all nodes.</li>
+    <li><strong>High Read Performance:</strong> Set $W = N$, $R = 1$. Reads are instant from any single node, but writes are slower because every replica must acknowledge.</li>
+    <li><strong>Balanced (Standard Quorum):</strong> Set $W = \lfloor N/2 floor + 1$ and $R = \lfloor N/2 floor + 1$. Tolerates node crashes while preserving strong consistency.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Consistency deals with data across multiple servers. Next, we dive into how a single database handles concurrent operations using Isolation Levels.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0011-database-sharding.html">← Previous: Database Sharding</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0013-isolation-levels.html">Next: Isolation Levels →</a>
+  </div>
+</body>
+</html>

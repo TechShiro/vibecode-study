@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 15 — Next.js: App Router &amp; Rendering Models</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 15 of 24 · App Router, layouts, server components</div>
+<h1>Next.js: App Router &amp; Rendering Models</h1>
+<p class="subtitle">Your React app grows a server — and suddenly SEO, fast first paint, secret keys, and routing all come for free. The catch: you must learn where the server ends and the client begins.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 15 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The wall your Vite SPA hits</h2>
+<p>
+Everything you built in Module B is a <strong>Single-Page Application</strong>: Vite serves one nearly empty
+HTML file, the browser downloads a JavaScript bundle, and React builds the whole page <em>in the browser</em>.
+That works — until four real-world problems show up:
+</p>
+
+<pre><code><span class="cmt">&lt;!-- what a crawler (or a slow phone) receives from a Vite SPA --&gt;</span>
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;body&gt;
+    &lt;div id="root"&gt;&lt;/div&gt;   <span class="cmt">&lt;!-- empty. All content arrives later, via JS --&gt;</span>
+    &lt;script src="/assets/index-abc123.js"&gt;&lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<ul>
+  <li><strong>SEO.</strong> Search crawlers and link previews (WhatsApp, LinkedIn) see that empty <code>div</code>. Your product pages may never rank; shared links show no title or image.</li>
+  <li><strong>First paint.</strong> The user stares at a blank screen until the bundle downloads, parses, and runs — brutal on slow networks.</li>
+  <li><strong>No server code.</strong> Where do you put your database password or Stripe secret key? Not in the bundle — everything you ship to the browser is public. A SPA forces you to build and host a <em>separate</em> backend just to hide secrets.</li>
+  <li><strong>Hand-rolled routing.</strong> React Router works, but you configured every route, every code-split, every 404 by hand. Conventions beat configuration at scale.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Plain React is like the Servlet API: powerful primitives, zero opinions — you wire everything yourself.
+  <strong>Next.js is React's Spring Boot</strong>: a framework layered on the library that adds routing conventions,
+  a server, build tooling, and production defaults, so you write features instead of plumbing.
+</div>
+
+<h2>2 · What Next.js actually is</h2>
+<p>
+Next.js is a <strong>full-stack React framework</strong>. It runs your React components in <em>two places</em>:
+on a Node.js server (to produce real HTML before the browser sees anything) and in the browser
+(to make the page interactive). On top of that it bundles in:
+</p>
+<ul>
+  <li><strong>File-based routing</strong> — folders and files <em>are</em> your routes.</li>
+  <li><strong>Server-side rendering</strong> — real HTML on first load → SEO and fast first paint solved.</li>
+  <li><strong>Server code in the same repo</strong> — data fetching, secrets, even API endpoints live beside your components.</li>
+  <li><strong>Built-in optimization</strong> — images, fonts, code-splitting, caching, all by default.</li>
+</ul>
+<p>
+Since Next 13, the recommended way to build is the <strong>App Router</strong> (the <code>app/</code> directory).
+The older <strong>Pages Router</strong> (<code>pages/</code>) still exists in many codebases — Lesson 16 gives you
+the interview-level mapping. Everything in this lesson is App Router, Next 14/15 era.
+</p>
+
+<h2>3 · create-next-app and project anatomy</h2>
+<pre><code>npx create-next-app@latest my-app
+<span class="cmt"># prompts: TypeScript? ESLint? Tailwind? App Router? — say yes to App Router</span>
+cd my-app
+npm run dev          <span class="cmt"># http://localhost:3000</span></code></pre>
+
+<pre><code>my-app/
+├── app/                 <span class="cmt"># THE App Router — routes live here</span>
+│   ├── layout.js        <span class="cmt"># root layout (required): &lt;html&gt; and &lt;body&gt;</span>
+│   ├── page.js          <span class="cmt"># the "/" route</span>
+│   └── globals.css
+├── public/              <span class="cmt"># static files served as-is (/logo.png)</span>
+├── next.config.mjs      <span class="cmt"># framework config</span>
+└── package.json         <span class="cmt"># scripts: dev, build, start, lint</span></code></pre>
+
+<p>
+<code>npm run dev</code> starts the dev server with hot reload. <code>npm run build</code> compiles for
+production; <code>npm run start</code> serves that build. Remember the split — it matters in Lesson 16
+when we talk about what gets pre-rendered at build time.
+</p>
+
+<h2>4 · File conventions: page, layout, loading, error</h2>
+<p>
+In the App Router, <strong>folders define URL segments</strong>, and <strong>special file names give each
+segment behaviour</strong>. A folder becomes a real page only when it contains a <code>page.js</code>.
+</p>
+
+<table>
+  <thead><tr><th>File</th><th>Role</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>page.js</code></td><td>The UI for this route — makes the segment publicly reachable</td><td>Exactly one per route</td></tr>
+    <tr><td><code>layout.js</code></td><td>Shared shell wrapping this segment and all children</td><td>Persists across navigation — does <em>not</em> re-render or lose state</td></tr>
+    <tr><td><code>loading.js</code></td><td>Instant fallback shown while the page's data loads</td><td>It's an automatic Suspense boundary (Lesson 14 déjà vu)</td></tr>
+    <tr><td><code>error.js</code></td><td>Error boundary for this segment</td><td>Must be a Client Component; receives <code>error</code> and <code>reset</code></td></tr>
+    <tr><td><code>not-found.js</code></td><td>UI for 404s in this segment</td><td>Triggered by <code>notFound()</code> or unmatched URLs</td></tr>
+    <tr><td><code>template.js</code></td><td>Like layout, but <strong>remounts</strong> on every navigation</td><td>Rare — use for enter animations or per-page reset</td></tr>
+    <tr><td><code>route.js</code></td><td>API endpoint instead of a page</td><td>Lesson 16</td></tr>
+  </tbody>
+</table>
+
+<pre><code><span class="cmt">// app/layout.js — the ROOT layout. Required. Owns &lt;html&gt; and &lt;body&gt;.</span>
+export default function RootLayout({ children }) {
+  return (
+    &lt;html lang="en"&gt;
+      &lt;body&gt;
+        &lt;nav&gt;My Site&lt;/nav&gt;
+        {children}          <span class="cmt">{/* the current page renders here */}</span>
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}
+
+<span class="cmt">// app/page.js — the "/" route</span>
+export default function Home() {
+  return &lt;h1&gt;Hello from the server&lt;/h1&gt;;
+}</code></pre>
+
+<p>
+Layouts <strong>nest</strong>. <code>app/dashboard/layout.js</code> wraps everything under <code>/dashboard</code>,
+<em>inside</em> the root layout. Crucially, when you navigate from <code>/dashboard/sales</code> to
+<code>/dashboard/users</code>, the dashboard layout <strong>does not remount</strong> — a sidebar's scroll
+position, an open dropdown, any <code>useState</code> inside the layout: all preserved. Only the changing
+<code>page</code> swaps. (A <code>template.js</code> in the same spot <em>would</em> remount — that's the
+whole difference.)
+</p>
+
+<pre><code><span class="cmt">// app/dashboard/error.js — catches render/data errors below it</span>
+'use client';                              <span class="cmt">// error boundaries need client-side JS</span>
+
+export default function Error({ error, reset }) {
+  return (
+    &lt;div&gt;
+      &lt;h2&gt;Something broke: {error.message}&lt;/h2&gt;
+      &lt;button onClick={() =&gt; reset()}&gt;Try again&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+<h2>5 · Routing: dynamic segments, catch-alls, groups, navigation</h2>
+
+<pre><code>app/
+├── blog/
+│   ├── page.js              <span class="cmt">// /blog</span>
+│   └── [id]/
+│       └── page.js          <span class="cmt">// /blog/42  → params.id === "42"</span>
+├── docs/
+│   └── [...slug]/
+│       └── page.js          <span class="cmt">// /docs/a/b/c → params.slug === ["a","b","c"]</span>
+├── (marketing)/             <span class="cmt">// route GROUP — organizes files, invisible in URL</span>
+│   ├── about/page.js        <span class="cmt">// /about  (NOT /marketing/about)</span>
+│   └── pricing/page.js      <span class="cmt">// /pricing — can share a (marketing)/layout.js</span></code></pre>
+
+<pre><code><span class="cmt">// app/blog/[id]/page.js — dynamic segment value arrives via params</span>
+export default async function BlogPost({ params }) {
+  const { id } = await params;   <span class="cmt">// Next 15: params is a Promise (Next 14: plain object)</span>
+  return &lt;h1&gt;Post #{id}&lt;/h1&gt;;
+}</code></pre>
+
+<p>Navigation has two faces — declarative links and imperative hooks:</p>
+
+<pre><code>import Link from 'next/link';
+
+&lt;Link href="/blog/42"&gt;Read post 42&lt;/Link&gt;
+<span class="cmt">// renders a real &lt;a&gt;, but intercepts the click: client-side transition,</span>
+<span class="cmt">// no full page reload. Next also PREFETCHES linked routes in the viewport.</span>
+
+<span class="cmt">// imperative navigation — client components only</span>
+'use client';
+import { useRouter, usePathname } from 'next/navigation';
+
+function LogoutButton() {
+  const router = useRouter();
+  const pathname = usePathname();          <span class="cmt">// current URL path, e.g. "/dashboard"</span>
+  return &lt;button onClick={() =&gt; router.push('/login')}&gt;Logout&lt;/button&gt;;
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha</span>
+  Import from <code>next/navigation</code>, not <code>next/router</code> — the latter is the old Pages Router
+  API and throws in the App Router. And <code>useRouter</code>/<code>usePathname</code> are hooks, so they only
+  work in Client Components — which brings us to the heart of this lesson.
+</div>
+
+<h2>6 · Server Components vs Client Components — the core idea</h2>
+<p>
+This is <em>the</em> App Router concept, and the #1 Next.js interview topic. In the App Router,
+<strong>every component is a Server Component by default</strong>. It runs on the server (at build time or
+per request), produces HTML plus a compact description of the UI, and — here's the kicker —
+<strong>its code is never shipped to the browser</strong>. Zero bundle cost.
+</p>
+<p>
+A <strong>Client Component</strong> is one you opt into with the <code>'use client'</code> directive at the top
+of the file. It is server-rendered to HTML <em>once</em> for fast first paint, then its JS is shipped and it
+<strong>hydrates</strong> — React attaches event listeners and state so it becomes interactive.
+"Client" doesn't mean "renders only in the browser"; it means "also ships JS to the browser".
+</p>
+
+<pre><code><span class="cmt">// SERVER component (default — no directive). Can be async! Can touch secrets!</span>
+import { db } from '@/lib/db';
+
+export default async function ProductList() {
+  const products = await db.query('SELECT * FROM products');  <span class="cmt">// direct DB access</span>
+  return (
+    &lt;ul&gt;
+      {products.map(p =&gt; &lt;li key={p.id}&gt;{p.name} — ₹{p.price}&lt;/li&gt;)}
+    &lt;/ul&gt;
+  );
+}
+
+<span class="cmt">// CLIENT component — needs state and click handlers</span>
+'use client';
+import { useState } from 'react';
+
+export default function AddToCart({ productId }) {
+  const [count, setCount] = useState(0);
+  return &lt;button onClick={() =&gt; setCount(count + 1)}&gt;In cart: {count}&lt;/button&gt;;
+}</code></pre>
+
+<table>
+  <thead><tr><th>Capability</th><th>Server Component</th><th>Client Component</th></tr></thead>
+  <tbody>
+    <tr><td>Fetch data with <code>async/await</code> in the body</td><td>Yes — components can be <code>async</code></td><td>No (use effects/libraries)</td></tr>
+    <tr><td>Read secrets, env vars, filesystem, database</td><td>Yes — code never reaches the browser</td><td>Never — everything shipped is public</td></tr>
+    <tr><td><code>useState</code> / <code>useEffect</code> / any hook</td><td>No</td><td>Yes</td></tr>
+    <tr><td>Event handlers (<code>onClick</code>, <code>onChange</code>)</td><td>No</td><td>Yes</td></tr>
+    <tr><td>Browser APIs (<code>window</code>, <code>localStorage</code>)</td><td>No</td><td>Yes (after hydration)</td></tr>
+    <tr><td>JS shipped to the browser</td><td>None</td><td>Its bundle + everything it imports</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "In the App Router, components are server-first: they render on the server and ship no JS. You add
+  <code>'use client'</code> only where you need interactivity — state, effects, events, browser APIs. Server
+  components can be async and safely touch databases and secrets; client components hydrate in the browser
+  and carry bundle cost. The skill is pushing <code>'use client'</code> as far down the tree as possible."
+</div>
+
+<h2>7 · Where the boundary goes — composition &amp; serialization</h2>
+<p>
+<code>'use client'</code> marks a <strong>boundary</strong>, not just one file. Everything a client component
+<em>imports</em> becomes part of the client bundle too. So the strategy is: keep pages and layouts as server
+components, and carve out small <strong>interactive leaves</strong> — a search box, a like button, a theme toggle —
+as client components.
+</p>
+<p>
+One composition trick every interviewer loves: a client component <strong>can render server components — as long
+as they're passed in as <code>children</code> (or any prop), not imported</strong>. The server renders them first
+and hands the finished result through the "slot":
+</p>
+
+<pre><code><span class="cmt">// ClientTabs.js — client shell with a server-rendered slot</span>
+'use client';
+import { useState } from 'react';
+
+export default function ClientTabs({ children }) {
+  const [open, setOpen] = useState(true);
+  return (
+    &lt;div&gt;
+      &lt;button onClick={() =&gt; setOpen(!open)}&gt;Toggle&lt;/button&gt;
+      {open &amp;&amp; children}   <span class="cmt">{/* server-rendered content passes through untouched */}</span>
+    &lt;/div&gt;
+  );
+}
+
+<span class="cmt">// app/page.js — SERVER component composes them</span>
+import ClientTabs from './ClientTabs';
+import ProductList from './ProductList';   <span class="cmt">// server component with DB access</span>
+
+export default function Page() {
+  return (
+    &lt;ClientTabs&gt;
+      &lt;ProductList /&gt;      <span class="cmt">{/* rendered on the server, slotted into the client shell */}</span>
+    &lt;/ClientTabs&gt;
+  );
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">Gotcha — props must cross a wire</span>
+  Props passed from a server component to a client component travel over the network as part of the RSC payload,
+  so they must be <strong>serializable</strong>: plain objects, arrays, strings, numbers, booleans are fine;
+  <strong>functions, class instances, DB handles are not</strong>. Passing <code>onClick={someFn}</code> from a
+  server component to a client component is a build error. (The one blessed exception: Server Actions —
+  Lesson 16.)
+</div>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Think of the server/client boundary like a remote call in a Java system: whatever crosses it must be
+  serializable, exactly like objects crossing RMI or a REST boundary must map to JSON. A <code>Connection</code>
+  object can't go over the wire in Java; a DB handle can't go into a client component's props in Next.
+</div>
+
+<h2>8 · Choosing: server or client?</h2>
+<table>
+  <thead><tr><th>You need to…</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td>Fetch data, render lists/articles, read env secrets, query the DB</td><td>Server Component</td></tr>
+    <tr><td>Keep large dependencies (markdown parser, date lib) out of the bundle</td><td>Server Component</td></tr>
+    <tr><td>Handle clicks, forms with live validation, any <code>useState</code>/<code>useEffect</code></td><td>Client Component</td></tr>
+    <tr><td>Use <code>localStorage</code>, geolocation, media APIs, <code>useRouter</code></td><td>Client Component</td></tr>
+    <tr><td>Static page shell containing one interactive widget</td><td>Server page + small client leaf</td></tr>
+    <tr><td>Interactive wrapper around heavy server-rendered content</td><td>Client shell + server <code>children</code> slot</td></tr>
+  </tbody>
+</table>
+
+<h2>9 · Metadata API — SEO, finally solved</h2>
+<p>
+Remember problem #1 from section 1? Because Next renders on the server, it can put real
+<code>&lt;title&gt;</code> and <code>&lt;meta&gt;</code> tags in the HTML <em>before</em> any crawler arrives.
+Two flavours:
+</p>
+
+<pre><code><span class="cmt">// STATIC metadata — export a plain object from a page or layout</span>
+export const metadata = {
+  title: 'Qhess — Quantum Chess',
+  description: 'Chess, but every piece is in superposition.',
+};
+
+<span class="cmt">// DYNAMIC metadata — computed per request from params</span>
+export async function generateMetadata({ params }) {
+  const { id } = await params;
+  const post = await getPost(id);
+  return {
+    title: post.title,                       <span class="cmt">// /blog/42 gets ITS OWN title</span>
+    description: post.summary,
+    openGraph: { images: [post.coverUrl] },  <span class="cmt">// the WhatsApp/LinkedIn preview card</span>
+  };
+}</code></pre>
+
+<p>
+Titles from nested layouts and pages merge (a layout can define
+<code>title: { template: '%s | Qhess' }</code> and each page fills the <code>%s</code>). This is why SEO matters
+for placements too: "how do you make a React app SEO-friendly?" is a stock interview question, and
+"server-side rendering + the Metadata API" is the modern answer.
+</p>
+
+<h2>10 · next/image and next/font, briefly</h2>
+<pre><code>import Image from 'next/image';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
+
+&lt;Image src="/hero.png" alt="Board" width={800} height={400} /&gt;</code></pre>
+<ul>
+  <li><strong><code>next/image</code></strong> replaces <code>&lt;img&gt;</code>: it resizes and serves modern formats (WebP/AVIF) on demand, lazy-loads offscreen images, and <em>requires</em> width/height so the layout never jumps while loading (no layout shift).</li>
+  <li><strong><code>next/font</code></strong> downloads the font at <em>build time</em> and self-hosts it — no request to Google at runtime, no flash of unstyled text, better privacy.</li>
+</ul>
+<p>Name-drop both when asked "what does Next optimize for you?" — images, fonts, code-splitting per route, and prefetching of <code>&lt;Link&gt;</code>s.</p>
+
+<h2>11 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "Why use Next.js over plain React?"</strong><br>
+  Plain React (Vite SPA) ships an empty HTML page and renders in the browser: bad SEO, slow first paint, no
+  place for server code or secrets, hand-rolled routing. Next adds server rendering, file-based routing,
+  server-side data access, and built-in optimization — a full-stack framework on top of the React library.</li>
+  <li><strong>Q. "Server Components vs Client Components?"</strong><br>
+  Server components are the default: they render on the server, can be async and touch databases/secrets, and
+  ship zero JS. Client components opt in with <code>'use client'</code> for state, effects, events, and browser
+  APIs; they're server-rendered once, then hydrate. Push <code>'use client'</code> to the leaves.</li>
+  <li><strong>Q. "What does <code>'use client'</code> actually mark?"</strong><br>
+  A module-level boundary. That file <em>and everything it imports</em> joins the client bundle. Props crossing
+  into it must be serializable — no functions or class instances (Server Actions excepted).</li>
+  <li><strong>Q. "Can a client component contain a server component?"</strong><br>
+  Not by importing it — that would drag it into the client bundle. But yes via composition: a server component
+  passes an already-rendered server component into the client component as <code>children</code>.</li>
+  <li><strong>Q. "layout vs template?"</strong><br>
+  Both wrap child routes. A layout persists across navigation (state, scroll survive); a template remounts on
+  every navigation. Default to layouts; templates are for per-page resets/animations.</li>
+  <li><strong>Q. "How is SEO handled in Next?"</strong><br>
+  Server rendering delivers full HTML to crawlers, and the Metadata API (<code>metadata</code> object or
+  <code>generateMetadata</code>) sets per-route titles, descriptions, and Open Graph tags.</li>
+</ul>
+
+<h2>12 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In the App Router, a component file has no directive at the top. What is it?</div>
+  <button class="opt">A client component — components always run in the browser, that's what React is</button>
+  <button class="opt">It depends on whether it uses JSX or not</button>
+  <button class="opt">A server component — server is the default; you opt into client with <code>'use client'</code></button>
+  <div class="fb" data-correct="Server-first is the App Router's core design: no directive means server component — rendered on the server, zero JS shipped. You write 'use client' only where interactivity lives." data-wrong="The App Router inverts the old default: everything is a SERVER component unless the file starts with 'use client'. That's the single most important fact in this lesson."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You navigate from <code>/dashboard/sales</code> to <code>/dashboard/users</code>. What happens to state inside <code>app/dashboard/layout.js</code>?</div>
+  <button class="opt">It resets — every navigation unmounts and remounts the whole tree</button>
+  <button class="opt">It survives — layouts persist across navigation; only the page below them swaps</button>
+  <button class="opt">It survives only if the layout is a server component</button>
+  <div class="fb" data-correct="Layouts do not remount when navigating between their children — sidebar state, scroll, open menus all survive. If you WANT a remount on every navigation, that's what template.js is for." data-wrong="Persistence is the defining feature of layout.js: it stays mounted while pages under it change. template.js is the variant that remounts each time."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A server component passes <code>onDelete={() =&gt; db.remove(id)}</code> as a prop to a client component. Result?</div>
+  <button class="opt">Error — functions aren't serializable, so they can't cross the server→client boundary</button>
+  <button class="opt">Works fine — React serializes the closure and rebuilds it in the browser</button>
+  <button class="opt">Works, but the function silently runs on the client without DB access</button>
+  <div class="fb" data-correct="Props crossing into a client component travel over the network, so they must be serializable data. A plain function can't be — Next raises an error. The blessed exception is a Server Action ('use server'), which you'll meet next lesson." data-wrong="There's no magic teleport for closures: the boundary is a network wire, and only serializable data (plus Server Actions) may cross it. This exact scenario is a favourite interview trap."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Which file structure serves the URL <code>/pricing</code>?</div>
+  <button class="opt"><code>app/marketing/pricing/page.js</code> with a route group config in next.config</button>
+  <button class="opt"><code>app/(marketing)/pricing/page.js</code> — parentheses make a route group that's invisible in the URL</button>
+  <button class="opt"><code>app/[marketing]/pricing/page.js</code> — square brackets hide the segment</button>
+  <div class="fb" data-correct="A folder named in (parentheses) is a route group: it lets you organize files and share a layout without adding a URL segment. Square brackets do the opposite — they create a DYNAMIC segment that matches anything." data-wrong="(parentheses) = organizational, invisible in URL. [brackets] = dynamic segment captured into params. A plain folder = a literal URL segment. Three different bracket styles, three meanings."></div>
+</div>
+
+<h2>13 · Do this next</h2>
+<ul>
+  <li>Run <code>npx create-next-app@latest next-playground</code>. Build <code>/blog</code> and <code>/blog/[id]</code>, where the list page links to posts from a hard-coded array and the detail page reads <code>params</code>. Add a <code>blog/layout.js</code> with an <code>&lt;input&gt;</code> in it — type something, navigate between posts, and watch the text survive (layout persistence, live).</li>
+  <li>Add a <code>&lt;LikeButton /&gt;</code> client component (<code>useState</code> counter) to the server-rendered post page. Then try moving <code>'use client'</code> up to the page file and check your browser dev-tools Network tab — compare how much JS ships each way.</li>
+  <li>Give each post dynamic metadata with <code>generateMetadata</code>, then View Source (not Inspect — raw source) on a post page and confirm the <code>&lt;title&gt;</code> is in the HTML itself. That's the SEO story, visible.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure why <code>'use client'</code> spreads through imports, or how a client shell can hold server children,
+  or when a page becomes static vs dynamic? Ask right here in chat. When you can explain the server/client
+  boundary and layout persistence in your own words, say <strong>"next"</strong> to move to
+  Lesson 16: Next.js — Data, Server Actions &amp; APIs.
+</div>
+
+<div class="nav">
+  <span><a href="0014-react-performance-internals.html">← Performance &amp; Internals</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0016-nextjs-data-server-actions.html">Data &amp; Server Actions →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

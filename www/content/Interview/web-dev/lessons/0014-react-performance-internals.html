@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 14 — React Performance &amp; Internals</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 14 of 24 · virtual DOM, memo, Suspense, concurrency</div>
+<h1>React Performance &amp; Internals</h1>
+<p class="subtitle">Pop the hood: what actually happens between setState and pixels — and the handful of tools that make slow React apps fast.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 14 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · What happens on setState — render phase, commit phase</h2>
+<p>
+You call <code>setCount(1)</code>. Between that call and pixels changing, React runs two distinct phases:
+</p>
+<ul>
+  <li><strong>Render phase:</strong> React calls your component function (and affected children). The output is a
+  tree of those cheap element-description objects from lesson 11 — the <strong>virtual DOM</strong>. React then
+  <em>diffs</em> this new tree against the previous one (reconciliation). No real DOM is touched. This phase must be
+  pure — which is exactly why side effects are banned from render.</li>
+  <li><strong>Commit phase:</strong> React applies the computed minimal set of changes to the real DOM ("change this
+  text node, add that attribute, remove that li"), then runs effects (<code>useLayoutEffect</code> before paint,
+  <code>useEffect</code> after).</li>
+</ul>
+<p>
+Why bother with the middle-man tree? Because real DOM operations are the expensive part — each mutation can trigger
+style/layout work in the browser. Diffing plain JS objects is cheap. React spends cheap CPU comparing descriptions
+so it can spend expensive DOM operations only on what truly changed. The virtual DOM isn't "faster than the DOM" —
+it's a strategy for doing <em>less</em> DOM.
+</p>
+
+<h2>2 · Reconciliation — the diffing rules</h2>
+<p>A perfect tree-diff is O(n³); React gets O(n) with two blunt heuristics you must know:</p>
+<ul>
+  <li><strong>Rule 1 — different type ⇒ tear down.</strong> If a position's element type changes
+  (<code>&lt;div&gt;</code> → <code>&lt;span&gt;</code>, or <code>&lt;Sidebar /&gt;</code> → <code>&lt;Chat /&gt;</code>),
+  React doesn't look inside. It unmounts the whole old subtree — destroying its DOM <em>and all its state</em> — and
+  mounts the new one fresh.</li>
+  <li><strong>Rule 2 — same type ⇒ update in place.</strong> Same tag/component at the same position: React keeps
+  the DOM node and the component's state, patches changed attributes/props, and recurses into children.</li>
+  <li><strong>Lists — match by key.</strong> Among siblings, keys tell React which old child is which new child, so
+  a reorder becomes "move these nodes" instead of "rewrite every one".</li>
+</ul>
+
+<p>The reorder bug from lesson 11, now explainable end-to-end. Each row has its own state (an input):</p>
+
+<pre><code>function Row({ name }) {
+  const [note, setNote] = useState('');            <span class="cmt">// per-row state</span>
+  return &lt;li&gt;{name}: &lt;input value={note} onChange={e =&gt; setNote(e.target.value)} /&gt;&lt;/li&gt;;
+}
+
+<span class="cmt">// key={i}: keys are 0,1,2. Type "boss" into Alice's input, then sort the array.</span>
+{people.map((p, i) =&gt; &lt;Row key={i} name={p.name} /&gt;)}
+<span class="cmt">// After sorting, position 0 STILL has key 0 → React says "same component,</span>
+<span class="cmt">// new name prop" → state `note`="boss" stays at position 0… under the wrong person.</span>
+
+<span class="cmt">// key={p.id}: React matches rows by identity, MOVES the DOM nodes,</span>
+<span class="cmt">// and "boss" travels with Alice wherever she sorts to. ✔</span></code></pre>
+
+<div class="callout">
+  <span class="label">Fiber, honestly</span>
+  Since React 16, each element in the work-in-progress tree is a <strong>fiber</strong> — a plain JS object holding
+  the component, its state, and links to parent/child/sibling. The point of the rewrite: rendering became a linked
+  list of small work units instead of one deep recursion, so React can <em>pause</em> rendering, let urgent things
+  (typing) run, and resume or discard the work — the foundation for the concurrent features in section 9. Commit is
+  still synchronous. In an interview, one paragraph at this level is exactly enough.
+</div>
+
+<h2>3 · What actually triggers a re-render</h2>
+<p>Interview favourite, widely misunderstood. A component re-renders when:</p>
+<ul>
+  <li><strong>Its own state changes</strong> (setter stores a value that fails <code>Object.is</code> vs the old one — same value = render skipped).</li>
+  <li><strong>Its parent re-renders.</strong> By default React re-renders <em>all children of a rendering component</em>, whether their props changed or not.</li>
+  <li>A context it consumes changes value, or a subscribed external store slice changes (lesson 13).</li>
+</ul>
+<p>
+Note what's missing: <em>"its props changed" is not a trigger</em>. Props can't change on their own — they're
+arguments computed by the parent's render. Prop changes and child re-renders are both <em>consequences</em> of the
+parent rendering. The default is: parent renders ⇒ children render, props or no props.
+</p>
+<p>
+And usually — that's fine. A re-render is a cheap function call producing cheap objects; the expensive DOM part
+only happens for actual diffs. Re-renders are a problem only when they're <em>expensive</em> (heavy computation,
+huge lists) and <em>frequent</em>. Which brings us to the golden rule:
+</p>
+
+<div class="callout tip">
+  <span class="label">Measure first</span>
+  Open React DevTools → <strong>Profiler</strong> tab → record → interact → stop. Flame graph shows what rendered,
+  how long it took, and <em>why</em> ("why did this render?" in settings). Optimize the slow thing it shows you —
+  not the thing you guessed. Premature <code>memo</code>-everywhere adds comparison overhead and complexity for
+  zero user-visible gain.
+</div>
+
+<h2>4 · React.memo — skipping unchanged children</h2>
+<p>
+<code>React.memo(Component)</code> wraps a component so that when its parent re-renders, React first shallow-compares
+old and new props; if every prop is <code>Object.is</code>-equal, the re-render is skipped and the previous output
+reused.
+</p>
+
+<pre><code>const ProductRow = React.memo(function ProductRow({ product, onBuy }) {
+  <span class="cmt">// expensive row: renders charts, formats prices…</span>
+  return &lt;li onClick={() =&gt; onBuy(product.id)}&gt;{product.name}&lt;/li&gt;;
+});
+
+<span class="cmt">// Optional escape hatch: custom comparator (return true = "equal, skip render")</span>
+const Chart = React.memo(ChartImpl,
+  (prev, next) =&gt; prev.points.length === next.points.length);</code></pre>
+
+<p><strong>Why memo silently breaks</strong> — the referential-equality trap from lesson 12, now with teeth:</p>
+
+<pre><code>function ProductList({ products }) {
+  const [query, setQuery] = useState('');
+  return (
+    &lt;&gt;
+      &lt;input value={query} onChange={e =&gt; setQuery(e.target.value)} /&gt;
+      {products.map(p =&gt; (
+        &lt;ProductRow
+          key={p.id}
+          product={p}
+          onBuy={(id) =&gt; buy(id)}         <span class="cmt">// ✘ NEW function object every keystroke</span>
+          style={{ margin: 4 }}           <span class="cmt">// ✘ NEW object every keystroke</span>
+        /&gt;                                <span class="cmt">// shallow compare fails → memo useless</span>
+      ))}
+    &lt;/&gt;
+  );
+}
+
+<span class="cmt">// ✔ Pair memo with stable references:</span>
+const onBuy = useCallback((id) =&gt; buy(id), []);
+const rowStyle = useMemo(() =&gt; ({ margin: 4 }), []);</code></pre>
+
+<p>
+That's the real relationship: <strong>memo is the optimization; useCallback/useMemo exist largely to keep memo
+(and deps arrays) from being defeated by fresh references.</strong> Memoize the child, then stabilize the props you
+pass it — doing only one half is wasted effort.
+</p>
+
+<table>
+  <thead><tr><th></th><th><code>React.memo</code></th><th><code>useMemo</code></th><th><code>useCallback</code></th></tr></thead>
+  <tbody>
+    <tr><td>Wraps</td><td>A whole component</td><td>A computed value</td><td>A function</td></tr>
+    <tr><td>Skips</td><td>Re-rendering when props are shallow-equal</td><td>Recomputing when deps unchanged</td><td>Recreating when deps unchanged</td></tr>
+    <tr><td>Used at</td><td>Definition site (export)</td><td>Inside a component body</td><td>Inside a component body</td></tr>
+    <tr><td>Typical pairing</td><td>Expensive/list children</td><td>Derived data, context values, object props</td><td>Handler props for memo'd children, effect deps</td></tr>
+  </tbody>
+</table>
+
+<h2>5 · Huge lists — windowing</h2>
+<p>
+10,000 rows means 10,000 DOM nodes — slow no matter how memoized. <strong>Windowing</strong> (virtualization)
+renders only the ~20 rows in the viewport plus a small buffer, absolutely positioned inside a tall scroll container,
+recycling rows as you scroll. Libraries: <code>react-window</code>, <code>@tanstack/react-virtual</code>. Know the
+concept and a library name — implementing it by hand isn't expected at this level:
+</p>
+
+<pre><code>import { FixedSizeList } from 'react-window';
+
+&lt;FixedSizeList height={400} itemCount={items.length} itemSize={32} width="100%"&gt;
+  {({ index, style }) =&gt; (
+    &lt;div style={style}&gt;{items[index].name}&lt;/div&gt;   <span class="cmt">// only ~15 of these exist at once</span>
+  )}
+&lt;/FixedSizeList&gt;</code></pre>
+
+<h2>6 · Code splitting — React.lazy + Suspense</h2>
+<p>
+By default your whole app ships as one bundle: the admin dashboard's chart library downloads before the login page
+can render. <strong>Code splitting</strong> cuts the bundle along dynamic <code>import()</code> lines (lesson 8) —
+the chunk downloads only when first rendered. <code>React.lazy</code> makes a component out of a dynamic import;
+<code>Suspense</code> declares what to show while any lazy child below it is still loading:
+</p>
+
+<pre><code>import { lazy, Suspense } from 'react';
+
+const AdminPanel = lazy(() =&gt; import('./AdminPanel.jsx'));  <span class="cmt">// separate chunk</span>
+
+function App() {
+  return (
+    &lt;Suspense fallback={&lt;Spinner /&gt;}&gt;    {<span class="cmt">/* shown until the chunk arrives */</span>}
+      {isAdmin &amp;&amp; &lt;AdminPanel /&gt;}
+    &lt;/Suspense&gt;
+  );
+}</code></pre>
+
+<p>
+The highest-value cut is <strong>route-level</strong> — each page a chunk, so users download only the page they
+visit:
+</p>
+
+<pre><code>const Home     = lazy(() =&gt; import('./pages/Home.jsx'));
+const Products = lazy(() =&gt; import('./pages/Products.jsx'));
+
+const router = createBrowserRouter([{
+  path: '/', element: &lt;Layout /&gt;,        <span class="cmt">// Layout renders &lt;Suspense&gt;&lt;Outlet/&gt;&lt;/Suspense&gt;</span>
+  children: [
+    { index: true,      element: &lt;Home /&gt; },
+    { path: 'products', element: &lt;Products /&gt; },
+  ],
+}]);</code></pre>
+
+<h2>7 · Error boundaries &amp; portals</h2>
+<p>
+An uncaught error during rendering unmounts your <em>entire</em> app — white screen. An <strong>error boundary</strong>
+is a component that catches render-phase errors in its subtree and shows a fallback instead. Quirk you must know:
+there is <strong>no hook for this</strong> — it requires a class component with <code>componentDidCatch</code> /
+<code>getDerivedStateFromError</code>, one of the two remaining legitimate uses of classes:
+</p>
+
+<pre><code>class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+  static getDerivedStateFromError(err) { return { hasError: true }; }  <span class="cmt">// switch to fallback</span>
+  componentDidCatch(err, info) { logToServer(err, info); }             <span class="cmt">// report it</span>
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
+<span class="cmt">// In practice everyone uses the library instead:</span>
+import { ErrorBoundary } from 'react-error-boundary';
+&lt;ErrorBoundary fallback={&lt;p&gt;Something broke.&lt;/p&gt;}&gt;
+  &lt;Profile /&gt;
+&lt;/ErrorBoundary&gt;</code></pre>
+
+<p>
+<strong>What they don't catch:</strong> errors in event handlers (use try/catch — the app isn't rendering then),
+async code and rejected promises, server-side rendering, and errors thrown in the boundary itself. Place boundaries
+at meaningful seams (per route, per widget) so one crashed widget doesn't kill the page.
+</p>
+<p>
+<strong>Portals</strong> solve a different escape problem: a modal defined deep in the tree gets clipped by an
+ancestor's <code>overflow: hidden</code> or stacking context. <code>createPortal(jsx, domNode)</code> renders the
+DOM elsewhere (e.g. <code>document.body</code>) while keeping the component in its normal React position — context
+still reaches it, and events still bubble through the <em>React</em> tree, not the DOM tree:
+</p>
+
+<pre><code>import { createPortal } from 'react-dom';
+
+function Modal({ children, onClose }) {
+  return createPortal(
+    &lt;div className="backdrop" onClick={onClose}&gt;
+      &lt;div className="modal" onClick={e =&gt; e.stopPropagation()}&gt;{children}&lt;/div&gt;
+    &lt;/div&gt;,
+    document.body                       <span class="cmt">// DOM parent: body. React parent: unchanged.</span>
+  );
+}</code></pre>
+
+<p>
+<strong>StrictMode recap</strong> (lesson 12): a dev-only wrapper that double-invokes renders and effect
+setup/cleanup to expose impure renders and leaky effects, and warns on deprecated APIs. Zero effect in production
+builds. Leave it on.
+</p>
+
+<h2>8 · Concurrent React — useTransition &amp; useDeferredValue</h2>
+<p>
+The Fiber payoff. Problem: one keystroke updates both a text input (must feel instant) and a filtered 10,000-row
+list (slow to render). Bundled together, the list render blocks the input — typing lags. Concurrent React lets you
+mark the heavy update as <strong>non-urgent</strong>: React renders it in the background, keeps showing the old
+list, and <em>abandons</em> that work if a newer keystroke arrives.
+</p>
+
+<pre><code>import { useState, useTransition, useDeferredValue } from 'react';
+
+<span class="cmt">// Option A — useTransition: YOU mark the slow state update</span>
+function FilterableList({ items }) {
+  const [query, setQuery]   = useState('');   <span class="cmt">// urgent — drives the input</span>
+  const [filter, setFilter] = useState('');   <span class="cmt">// non-urgent — drives the big list</span>
+  const [isPending, startTransition] = useTransition();
+
+  function handleChange(e) {
+    setQuery(e.target.value);                       <span class="cmt">// applied immediately</span>
+    startTransition(() =&gt; setFilter(e.target.value)); <span class="cmt">// interruptible, low priority</span>
+  }
+
+  const visible = items.filter(i =&gt; i.name.includes(filter));
+  return (
+    &lt;&gt;
+      &lt;input value={query} onChange={handleChange} /&gt;
+      {isPending &amp;&amp; &lt;span&gt;Updating…&lt;/span&gt;}
+      &lt;ul&gt;{visible.map(i =&gt; &lt;li key={i.id}&gt;{i.name}&lt;/li&gt;)}&lt;/ul&gt;
+    &lt;/&gt;
+  );
+}
+
+<span class="cmt">// Option B — useDeferredValue: mark the VALUE as allowed to lag</span>
+function FilterableList2({ items }) {
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);   <span class="cmt">// trails behind during fast typing</span>
+  const visible = useMemo(
+    () =&gt; items.filter(i =&gt; i.name.includes(deferredQuery)),
+    [items, deferredQuery]
+  );
+  return &lt;&gt;&lt;input value={query} onChange={e =&gt; setQuery(e.target.value)} /&gt;
+           &lt;ul&gt;{visible.map(i =&gt; &lt;li key={i.id}&gt;{i.name}&lt;/li&gt;)}&lt;/ul&gt;&lt;/&gt;;
+}</code></pre>
+
+<p>
+Use <code>useTransition</code> when you own the state update; <code>useDeferredValue</code> when you only receive a
+value (e.g. a prop). Neither is debouncing — no fixed delay; the work starts immediately but yields to urgent
+updates and can be discarded mid-render.
+</p>
+
+<h2>9 · Class components — legacy trivia for reading old code</h2>
+<p>
+Before hooks (React 16.8, 2019), stateful components were ES6 classes extending <code>React.Component</code> —
+state in <code>this.state</code>, updates via <code>this.setState()</code> (which <em>merges</em>, unlike useState's
+replace), side effects in <em>lifecycle methods</em>, and the classic bug of forgetting to <code>.bind(this)</code>
+on handlers (lesson 3's <code>this</code> rules biting for real). You'll meet them in older codebases and interview
+questions, not in new code:
+</p>
+
+<pre><code>class Counter extends React.Component {
+  state = { count: 0 };
+  componentDidMount()  { document.title = 'mounted'; }   <span class="cmt">// lifecycle method</span>
+  handleClick = () =&gt; this.setState({ count: this.state.count + 1 });
+  render() {                                             <span class="cmt">// the only required method</span>
+    return &lt;button onClick={this.handleClick}&gt;{this.state.count}&lt;/button&gt;;
+  }
+}</code></pre>
+
+<table>
+  <thead><tr><th>Class lifecycle</th><th>Runs when</th><th>Hooks equivalent</th></tr></thead>
+  <tbody>
+    <tr><td><code>constructor</code></td><td>Before first render</td><td><code>useState(initial)</code> / lazy initializer</td></tr>
+    <tr><td><code>componentDidMount</code></td><td>After first render commits</td><td><code>useEffect(fn, [])</code></td></tr>
+    <tr><td><code>componentDidUpdate</code></td><td>After re-renders commit</td><td><code>useEffect(fn, [deps])</code></td></tr>
+    <tr><td><code>componentWillUnmount</code></td><td>Before removal</td><td>The cleanup function returned from <code>useEffect</code></td></tr>
+    <tr><td><code>shouldComponentUpdate</code></td><td>Before re-render (return false to skip)</td><td><code>React.memo</code> (comparator)</td></tr>
+    <tr><td><code>componentDidCatch</code></td><td>Child threw during render</td><td><strong>No hook</strong> — error boundaries stay classes</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Hooks replaced classes because they let you group code by <em>concern</em> instead of splitting one concern
+  across three lifecycle methods, they made stateful logic reusable via custom hooks (no HOC/render-prop wrappers),
+  and they eliminated the <code>this</code>-binding bugs. Classes remain only for error boundaries and legacy code."
+</div>
+
+<h2>10 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"Explain the virtual DOM. Is it faster than the real DOM?"</strong><br>
+  A tree of plain JS objects describing the UI. It isn't intrinsically faster — touching it does nothing. Its value:
+  React diffs the cheap description trees to compute a minimal set of real-DOM mutations, avoiding expensive
+  unnecessary DOM work and manual sync bugs.</li>
+  <li><strong>"What is reconciliation?"</strong><br>
+  React's O(n) diff between the previous and next element trees: different element type ⇒ unmount the subtree
+  (state destroyed) and remount; same type ⇒ keep the DOM node and state, patch changed props, recurse; among
+  siblings, keys match items by identity so reorders become moves.</li>
+  <li><strong>"When does a component re-render? Do prop changes trigger it?"</strong><br>
+  Own state change (Object.is-different), parent re-render (children re-render by default), consumed context value
+  change, or a subscribed store slice change. Props changing is a consequence of the parent rendering, not an
+  independent trigger; React.memo is what adds a props check.</li>
+  <li><strong>"React.memo vs useMemo?"</strong><br>
+  React.memo wraps a component and skips its re-render when props are shallow-equal; useMemo caches a value inside a
+  component across renders. They pair: memo on the child, useMemo/useCallback in the parent so object and function
+  props keep stable references and the shallow compare can succeed.</li>
+  <li><strong>"What do error boundaries not catch?"</strong><br>
+  Event-handler errors, async/promise rejections, SSR errors, and their own errors. They catch render-phase errors
+  of descendants; they must be class components (componentDidCatch / getDerivedStateFromError) — no hook exists.</li>
+  <li><strong>"useTransition vs debouncing?"</strong><br>
+  Debounce delays the work by a fixed timer; a transition starts rendering immediately but at low priority —
+  interruptible and abandonable when urgent updates (typing) arrive, with no artificial delay when the app is idle.</li>
+  <li><strong>"Controlled vs uncontrolled?" (recap)</strong><br>
+  Controlled: React state owns the input's value (value + onChange); uncontrolled: the DOM owns it, read via ref.
+  Controlled enables live validation/dependent UI at the cost of a render per keystroke.</li>
+</ul>
+
+<h2>11 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A parent re-renders, and a child receives the exact same props as before. By default, the child…</div>
+  <button class="opt">Skips rendering — React compares props automatically</button>
+  <button class="opt">Re-renders anyway — children render when their parent renders, unless wrapped in React.memo</button>
+  <button class="opt">Re-renders only if it has its own state</button>
+  <div class="fb" data-correct="Default behaviour: parent renders ⇒ all children render, props unexamined. React.memo is precisely the opt-in that adds a shallow props comparison to skip the render." data-wrong="React does NOT compare props by default — a rendering parent re-renders every child regardless. Only React.memo (or the class-era shouldComponentUpdate) adds that comparison."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You wrap ProductRow in <code>React.memo</code>, but the Profiler shows every row still re-rendering on each keystroke. The likeliest cause?</div>
+  <button class="opt">The parent passes a fresh inline function or object prop each render, so the shallow compare always fails</button>
+  <button class="opt">React.memo only works on class components</button>
+  <button class="opt">memo is disabled while StrictMode is on</button>
+  <div class="fb" data-correct="onBuy={() => …} or style={{…}} creates a new reference every parent render; Object.is says the prop changed, so memo's compare fails. Stabilize with useCallback/useMemo in the parent — memo and the memo hooks work as a pair." data-wrong="memo works on function components and in StrictMode. The classic culprit is referential inequality: inline functions/objects are new references each render, so the shallow comparison never passes. Stabilize those props with useCallback/useMemo."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">During reconciliation React finds <code>&lt;div&gt;</code> where last render had <code>&lt;section&gt;</code> at the same position. What happens to that subtree?</div>
+  <button class="opt">React patches the tag name and keeps children and state intact</button>
+  <button class="opt">Only the changed attributes are updated; children are diffed as usual</button>
+  <button class="opt">The whole old subtree is unmounted — DOM and component state destroyed — and rebuilt fresh</button>
+  <div class="fb" data-correct="Rule 1 of the diff: a different element type means React doesn't even look inside — full teardown and remount, losing all descendant state. That's why accidentally swapping wrapper elements (or defining components inside components) resets state." data-wrong="The DOM can't morph a section into a div, and React's heuristic doesn't try: different type at a position = unmount the entire subtree (state included) and mount anew. Same type is when in-place patching happens."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A button's onClick handler throws. Will the surrounding ErrorBoundary show its fallback?</div>
+  <button class="opt">Yes — boundaries catch any error in their subtree</button>
+  <button class="opt">No — boundaries only catch errors thrown during rendering; handler errors need try/catch</button>
+  <button class="opt">Only if the handler is async</button>
+  <div class="fb" data-correct="Error boundaries catch render-phase (and lifecycle) errors of descendants. Event handlers run outside rendering — React isn't building UI at that moment — so use try/catch there. Also uncaught: async rejections and SSR errors." data-wrong="Boundaries are a render-phase net: they exist to replace UI that failed to render. An event handler runs after render, so its exceptions bypass boundaries entirely — wrap handler logic in try/catch instead."></div>
+</div>
+
+<h2>12 · Do this next</h2>
+<ul>
+  <li>Generate 20,000 fake items and build the filter-a-big-list demo three ways: plain state (feel the input lag),
+  then <code>useDeferredValue</code>, then <code>useTransition</code> with the <code>isPending</code> indicator.
+  Profile all three in React DevTools and note what "why did this render?" says.</li>
+  <li>Build the key bug for real: the Row-with-input list from section 2 using <code>key={i}</code>, type into row 1,
+  sort — screenshot the wrong-state moment. Fix with <code>key={p.id}</code>. You now own the single best concrete
+  story for the "why keys" interview question.</li>
+  <li>Take your routed todo app from lesson 13 and productionize it: <code>React.lazy</code> each route behind a
+  <code>Suspense</code> in the layout, wrap each route in <code>react-error-boundary</code> (add a "Crash me" button
+  that throws during render to test), and move the delete-confirmation into a portal-based <code>&lt;Modal&gt;</code>.
+  Run <code>npm run build</code> and confirm the separate chunks in <code>dist/</code>.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  If the render/commit split, the diffing rules, or memo-vs-useMemo still blur together, ask in the chat — these are
+  the highest-frequency React interview questions and worth over-learning. When your profiled, code-split, boundary-
+  wrapped app builds clean, say <strong>"next"</strong> — that closes Module B, and Module C begins with
+  Lesson 15: Next.js — App Router &amp; Rendering Models.
+</div>
+
+<div class="nav">
+  <span><a href="0013-react-state-forms-routing.html">← State, Forms &amp; Routing</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0015-nextjs-app-router-rendering.html">Next.js: App Router →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

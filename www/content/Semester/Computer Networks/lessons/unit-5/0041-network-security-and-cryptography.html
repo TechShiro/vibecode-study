@@ -1,0 +1,355 @@
+<title>Network Security and Cryptography</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 41 of 42</p>
+<h1>Network Security Fundamentals and Cryptography</h1>
+<p class="deck">The security goals, the attacks against each, symmetric versus asymmetric cryptography, and RSA worked end to end with real numbers. The one numerical in the security half of this syllabus.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three questions. (1) <strong>"Explain the goals of security and the attacks that threaten them"</strong> &mdash; organise the attacks <em>under</em> the goals rather than as a flat list; that structure is worth marks by itself. (2) <strong>"Compare symmetric and asymmetric cryptography"</strong> &mdash; a table. (3) <strong>An RSA numerical</strong> &mdash; the only calculation in this half, and entirely mechanical once you can do modular exponentiation.</p>
+</div>
+
+<h2>The three security goals</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Goal</th><th>Means</th><th>Threatened by</th></tr></thead>
+<tbody>
+<tr><td><strong>Confidentiality</strong></td><td>Information is accessible <strong>only to authorised parties</strong> &mdash; hidden from everyone else, both in storage and in transit.</td><td><strong>Snooping</strong>, <strong>traffic analysis</strong></td></tr>
+<tr><td><strong>Integrity</strong></td><td>Information can be <strong>changed only by authorised parties</strong>, and only in authorised ways.</td><td><strong>Modification</strong>, <strong>masquerading</strong>, <strong>replaying</strong>, <strong>repudiation</strong></td></tr>
+<tr><td><strong>Availability</strong></td><td>Information is <strong>available to authorised parties when needed</strong>. Information nobody can reach is useless.</td><td><strong>Denial of service</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>These three are usually called the <strong>CIA triad</strong>. Every attack below maps onto exactly one of them, which is why organising the answer this way is stronger than listing attacks at random.</p>
+
+<h2>The attacks</h2>
+
+<h3>Passive attacks &mdash; threaten confidentiality</h3>
+
+<p>The attacker's goal is <strong>to obtain information, not to alter it</strong>. Nothing on the system changes, so <strong>passive attacks are very hard to detect</strong> &mdash; the emphasis must be on <strong>prevention</strong> (encryption) rather than detection. Stating that asymmetry is worth a mark.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack</th><th>What happens</th></tr></thead>
+<tbody>
+<tr><td><strong>Snooping</strong></td><td><strong>Unauthorised access to or interception of data.</strong> Reading a message in transit. Prevented by <strong>encryption</strong>, which makes the intercepted data unintelligible.</td></tr>
+<tr><td><strong>Traffic analysis</strong></td><td>Even when the content is encrypted, the attacker learns from the <strong>pattern</strong> &mdash; who is talking to whom, how often, how much, and when. Prevented by <strong>traffic padding</strong> and by hiding the endpoints.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Active attacks &mdash; threaten integrity and availability</h3>
+
+<p>The attacker <strong>alters data or affects the system</strong>. Active attacks <strong>can be detected</strong> but are hard to prevent absolutely, so the emphasis is the reverse of passive attacks: <strong>detect and recover</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack</th><th>What happens</th><th>Goal threatened</th></tr></thead>
+<tbody>
+<tr><td><strong>Modification</strong></td><td>The attacker <strong>intercepts and changes</strong> the message before forwarding it.</td><td>Integrity</td></tr>
+<tr><td><strong>Masquerading (spoofing)</strong></td><td>The attacker <strong>impersonates somebody else</strong> to gain access they do not have.</td><td>Integrity</td></tr>
+<tr><td><strong>Replaying</strong></td><td>The attacker <strong>captures a valid message and re-sends it later</strong> &mdash; for example replaying a bank transfer. Note that the message is genuine, which is why replay defeats simple authentication and needs <strong>timestamps or nonces</strong>.</td><td>Integrity</td></tr>
+<tr><td><strong>Repudiation</strong></td><td>One of the two <em>legitimate</em> parties <strong>denies having sent or received</strong> a message. Unusual in that the attacker is a participant, not an outsider. Countered by <strong>digital signatures</strong>.</td><td>Integrity</td></tr>
+<tr><td><strong>Denial of service</strong></td><td>The attacker <strong>slows or stops the service</strong> for legitimate users &mdash; by flooding requests, or by deleting responses so that the sender retries and worsens the load. <strong>SYN flooding</strong> from Lesson 31 is the classic example.</td><td><strong>Availability</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Security services and mechanisms</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Security services (ITU-T X.800)</th><th>Security mechanisms</th></tr></thead>
+<tbody>
+<tr><td>Data confidentiality &middot; Data integrity &middot; Authentication &middot; Non-repudiation &middot; Access control</td><td><strong>Encipherment</strong> &middot; Data integrity &middot; <strong>Digital signature</strong> &middot; Authentication exchange &middot; Traffic padding &middot; Routing control &middot; Notarisation &middot; Access control</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The relationship worth one sentence: <strong>services are what we want; mechanisms are how we get it</strong> &mdash; and <strong>encipherment (cryptography) is the mechanism that underpins nearly all of them</strong>.</p>
+
+<h2>Cryptography basics</h2>
+
+<div class="formula">
+  <span class="name">The vocabulary</span>
+  <strong>Plaintext</strong> &mdash; the original readable message<br>
+  <strong>Ciphertext</strong> &mdash; the transformed, unreadable message<br>
+  <strong>Cipher</strong> &mdash; the encryption/decryption algorithm<br>
+  <strong>Key</strong> &mdash; the value the cipher operates with<br>
+  <strong>Encryption</strong>: C = E<sub>k</sub>(P) &nbsp;&middot;&nbsp; <strong>Decryption</strong>: P = D<sub>k</sub>(C)
+</div>
+
+<p><strong>Kerckhoffs's principle</strong>, worth stating: <strong>the security must rest entirely on the secrecy of the key, never on the secrecy of the algorithm.</strong> Algorithms are published and analysed publicly; only keys are secret. An algorithm that must stay hidden to be safe has never been reviewed and is not trustworthy.</p>
+
+<h2>Symmetric key cryptography</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td><strong>Keys</strong></td><td><strong>One shared secret key</strong> for both encryption and decryption</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Fast</strong> &mdash; suitable for bulk data</td></tr>
+<tr><td><strong>Main problem</strong></td><td><strong>Key distribution</strong> &mdash; how do the two parties agree a secret key over an insecure channel in the first place?</td></tr>
+<tr><td><strong>Number of keys</strong></td><td>For <strong>n</strong> people to communicate pairwise: <strong>n(n &minus; 1)/2 keys</strong> &mdash; the same formula as mesh topology links, and it scales just as badly.</td></tr>
+<tr><td><strong>Algorithms</strong></td><td><strong>DES</strong> (56-bit key, 64-bit blocks, 16 rounds, Feistel structure &mdash; now insecure, the key is too short), <strong>3DES</strong>, <strong>AES</strong> (128/192/256-bit keys, 128-bit blocks &mdash; the current standard), RC4, Blowfish</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Two structural divisions</strong> worth naming: <strong>substitution vs transposition</strong> (replacing symbols vs reordering them), and <strong>stream cipher vs block cipher</strong> (encrypting one symbol at a time vs a fixed-size block at a time).</p>
+
+<h2>Asymmetric (public key) cryptography</h2>
+
+<div class="formula">
+  <span class="name">The two keys and their two uses</span>
+  Each party has a <strong>public key</strong> (published) and a <strong>private key</strong> (kept secret).<br><br>
+  <strong>For confidentiality:</strong> encrypt with the <strong>receiver's PUBLIC</strong> key; only the receiver's private key can decrypt.<br>
+  <strong>For authentication (digital signature):</strong> encrypt with the <strong>sender's PRIVATE</strong> key; anyone can verify with the sender's public key, and only the sender could have produced it.
+</div>
+
+<div class="box win">
+  <span class="lbl">The rule that decides every public-key question</span>
+  <p><strong>Encrypt with the key of the person you want to be the ONLY one able to read it.</strong> Sending a secret to Bob? Use Bob's public key &mdash; only Bob holds the matching private key. Proving <em>you</em> wrote something? Use your own private key &mdash; only you hold it, so a successful check with your public key proves authorship. Getting these the wrong way round is the single commonest error in this topic.</p>
+</div>
+
+<h3>The comparison table</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Symmetric</th><th>Asymmetric</th></tr></thead>
+<tbody>
+<tr><td><strong>Keys</strong></td><td><strong>One shared</strong> key</td><td><strong>A key pair</strong> &mdash; public and private</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Fast</strong></td><td><strong>Slow</strong> &mdash; roughly a thousand times slower</td></tr>
+<tr><td><strong>Key distribution</strong></td><td><strong>Difficult</strong> &mdash; the shared secret must travel securely</td><td><strong>Easy</strong> &mdash; the public key can be published openly</td></tr>
+<tr><td><strong>Keys for n users</strong></td><td>n(n &minus; 1)/2</td><td><strong>2n</strong> (a pair each)</td></tr>
+<tr><td><strong>Suited to</strong></td><td><strong>Bulk data</strong></td><td><strong>Key exchange, digital signatures, small data</strong></td></tr>
+<tr><td><strong>Provides non-repudiation</strong></td><td><strong>No</strong> &mdash; either party could have produced the ciphertext</td><td><strong>Yes</strong>, through digital signatures</td></tr>
+<tr><td><strong>Algorithms</strong></td><td>DES, 3DES, AES, RC4</td><td><strong>RSA</strong>, Diffie-Hellman, ECC, DSA</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The hybrid answer &mdash; add this and the answer is complete</span>
+  <p>Real systems use <strong>both</strong>. Asymmetric cryptography is used <strong>once, to exchange a symmetric session key</strong>; the bulk data is then encrypted symmetrically because that is fast. <strong>You get public key's easy distribution and symmetric key's speed.</strong> This is exactly what SSL/TLS does &mdash; see the next lesson.</p>
+</div>
+
+<h2>RSA</h2>
+
+<div class="formula">
+  <span class="name">The RSA procedure</span>
+  1. Choose two large primes <strong>p</strong> and <strong>q</strong>.<br>
+  2. Compute <strong>n = p &times; q</strong>.<br>
+  3. Compute <strong>&phi;(n) = (p &minus; 1)(q &minus; 1)</strong>.<br>
+  4. Choose <strong>e</strong> with 1 &lt; e &lt; &phi;(n) and <strong>gcd(e, &phi;(n)) = 1</strong>.<br>
+  5. Compute <strong>d</strong> such that <strong>e &times; d &equiv; 1 (mod &phi;(n))</strong>.<br>
+  6. <strong>Public key = (e, n)</strong> &nbsp;&middot;&nbsp; <strong>Private key = (d, n)</strong><br><br>
+  <strong>Encrypt:</strong> C = P<sup>e</sup> mod n &nbsp;&nbsp;&middot;&nbsp;&nbsp; <strong>Decrypt:</strong> P = C<sup>d</sup> mod n
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; RSA end to end</span>
+  <p><strong>Q.</strong> Take p = 7 and q = 11, with e = 13. Find the public and private keys, then encrypt the plaintext P = 5 and decrypt the result to verify.</p>
+
+  <p><strong>Step 1 &mdash; n:</strong> n = 7 &times; 11 = <strong>77</strong></p>
+  <p><strong>Step 2 &mdash; &phi;(n):</strong> &phi;(77) = (7 &minus; 1)(11 &minus; 1) = 6 &times; 10 = <strong>60</strong></p>
+  <p><strong>Step 3 &mdash; check e:</strong> gcd(13, 60) = 1 &#10003; so e = 13 is valid.</p>
+
+  <p><strong>Step 4 &mdash; find d</strong> such that 13d &equiv; 1 (mod 60).<br>
+  Try multiples: 13 &times; 37 = 481, and 481 = 8 &times; 60 + 1 = 480 + 1. &#10003;<br>
+  So <strong>d = 37</strong>.</p>
+
+  <p><strong>Keys:</strong> public = <strong>(13, 77)</strong>, private = <strong>(37, 77)</strong></p>
+
+  <p><strong>Step 5 &mdash; encrypt P = 5:</strong> C = 5<sup>13</sup> mod 77</p>
+  <p>Use <strong>square and multiply</strong> rather than computing 5<sup>13</sup> directly:<br>
+  5<sup>2</sup> = 25<br>
+  5<sup>4</sup> = 25<sup>2</sup> = 625; 625 &minus; (8 &times; 77 = 616) = <strong>9</strong><br>
+  5<sup>8</sup> = 9<sup>2</sup> = 81; 81 &minus; 77 = <strong>4</strong><br>
+  13 = 8 + 4 + 1, so 5<sup>13</sup> = 5<sup>8</sup> &times; 5<sup>4</sup> &times; 5<sup>1</sup> = 4 &times; 9 &times; 5 = 180<br>
+  180 &minus; (2 &times; 77 = 154) = <strong>26</strong></p>
+  <p><strong>Ciphertext C = 26</strong></p>
+
+  <p><strong>Step 6 &mdash; decrypt:</strong> P = 26<sup>37</sup> mod 77</p>
+  <p>26<sup>2</sup> = 676; 676 &minus; 616 = <strong>60</strong><br>
+  26<sup>4</sup> = 60<sup>2</sup> = 3600; 3600 &minus; (46 &times; 77 = 3542) = <strong>58</strong><br>
+  26<sup>8</sup> = 58<sup>2</sup> = 3364; 3364 &minus; (43 &times; 77 = 3311) = <strong>53</strong><br>
+  26<sup>16</sup> = 53<sup>2</sup> = 2809; 2809 &minus; (36 &times; 77 = 2772) = <strong>37</strong><br>
+  26<sup>32</sup> = 37<sup>2</sup> = 1369; 1369 &minus; (17 &times; 77 = 1309) = <strong>60</strong><br><br>
+  37 = 32 + 4 + 1, so 26<sup>37</sup> = 26<sup>32</sup> &times; 26<sup>4</sup> &times; 26<sup>1</sup> = 60 &times; 58 &times; 26<br>
+  60 &times; 58 = 3480; 3480 &minus; (45 &times; 77 = 3465) = <strong>15</strong><br>
+  15 &times; 26 = 390; 390 &minus; (5 &times; 77 = 385) = <strong>5</strong> &#10003;</p>
+
+  <p><strong>The original plaintext P = 5 is recovered.</strong></p>
+
+  <p><em>Three things that decide the marks here:</em></p>
+  <ul>
+    <li><strong>Reduce mod n at every step.</strong> Never compute 5<sup>13</sup> or 26<sup>37</sup> in full &mdash; the numbers become unmanageable and the arithmetic goes wrong.</li>
+    <li><strong>Write the exponent as a sum of powers of two</strong> (13 = 8+4+1, 37 = 32+4+1) and multiply the corresponding squares. This is square-and-multiply, and it is the method examiners expect.</li>
+    <li><strong>Always decrypt to check.</strong> If you do not get the original plaintext back, something is wrong &mdash; and the verification itself usually earns a mark.</li>
+  </ul>
+
+  <p><em>Why RSA is secure:</em> the public key gives away <strong>n</strong> and <strong>e</strong>. To find <strong>d</strong> an attacker needs <strong>&phi;(n)</strong>, which needs <strong>p</strong> and <strong>q</strong> &mdash; that is, they must <strong>factor n</strong>. For a 2048-bit n that is computationally infeasible. <strong>RSA's security rests on the difficulty of factoring large numbers.</strong></p>
+</div>
+
+<h2>Hash functions and digital signatures</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Property of a cryptographic hash</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Fixed-length output</strong></td><td>Any input length produces a fixed-size digest &mdash; SHA-1 gives 160 bits, SHA-256 gives 256 bits, MD5 gives 128 bits.</td></tr>
+<tr><td><strong>One-way</strong></td><td>Computing the digest from the message is easy; recovering the message from the digest is infeasible.</td></tr>
+<tr><td><strong>Collision resistant</strong></td><td>It is infeasible to find two different messages with the same digest.</td></tr>
+<tr><td><strong>Avalanche effect</strong></td><td>Changing one bit of the input changes about <strong>half</strong> the output bits.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Digital signature &mdash; how it actually works</span>
+  <strong>Signing:</strong> hash the message &rarr; encrypt the <em>digest</em> with the <strong>sender's private key</strong> &rarr; send message + signature.<br>
+  <strong>Verifying:</strong> hash the received message &rarr; decrypt the signature with the <strong>sender's public key</strong> &rarr; <strong>compare the two digests</strong>. If they match, the message is authentic and unaltered.
+</div>
+
+<p><strong>Why sign the digest and not the whole message?</strong> Because asymmetric encryption is slow, and the digest is a small fixed size however large the message. Signing a 100 MB file means encrypting 256 bits, not 100 MB. This is a standard 2-mark sub-question.</p>
+
+<p>A digital signature provides <strong>three</strong> services, and naming all three is the full answer: <strong>authentication</strong> (only the holder of the private key could have produced it), <strong>integrity</strong> (any change breaks the digest match), and <strong>non-repudiation</strong> (the sender cannot later deny it). It does <strong>not</strong> provide <strong>confidentiality</strong> &mdash; the message itself is still in the clear unless separately encrypted.</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Network Security Triad & Cryptographic Pipeline</div>
+  <div class="flow-row">
+    <div class="flow-box highlight"><strong>Confidentiality</strong><span class="sub">Encryption prevents eavesdropping (AES, DES)</span></div>
+    <div class="flow-box ok"><strong>Integrity</strong><span class="sub">Hashes/MACs prevent undetected message alteration (SHA-256)</span></div>
+    <div class="flow-box warn"><strong>Availability</strong><span class="sub">Redundancy & firewalls prevent DoS/DDoS service disruption</span></div>
+  </div>
+  <div class="flow-col" style="margin-top:0.6rem;">
+    <div class="flow-box" style="max-width:34rem;"><strong>Asymmetric Key Cryptography (Public Key)</strong><span class="sub">Sender encrypts with Receiver's Public Key &bull; Only Receiver's Private Key can decrypt (RSA) &bull; Sign with Private Key for Non-Repudiation</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Security Fundamentals</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Security Goals: Confidentiality, Integrity, Availability (CIA Triad)</div>
+    <div class="v-desc">Quick, high-yield overview of CIA goals, attack taxonomy (passive eavesdropping vs active modification/spoofing), and symmetric vs asymmetric ciphers.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=CrLRFn5O_F8" target="_blank" rel="noopener">Watch on YouTube &rarr; (5 Minutes Engineering)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Traffic analysis threatens which security goal, and why is it hard to stop?</p>
+  <div class="opts">
+    <button class="opt">Integrity &mdash; the attacker alters messages while observing them</button>
+    <button class="opt">Availability &mdash; the analysis consumes the server's resources</button>
+    <button class="opt">Non-repudiation &mdash; the sender can deny having communicated</button>
+    <button class="opt" data-ok="1">Confidentiality &mdash; the pattern of communication leaks information even when content is encrypted</button>
+  </div>
+  <p class="why">Encryption hides content but not who talks to whom, how often and how much. Countering it needs traffic padding and endpoint hiding, not stronger encryption.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. To send a confidential message to Bob, Alice encrypts it with:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Bob's public key</button>
+    <button class="opt">Alice's private key</button>
+    <button class="opt">Bob's private key</button>
+    <button class="opt">Alice's public key</button>
+  </div>
+  <p class="why">Encrypt with the key of the person who should be the only one able to read it — only Bob holds the matching private key. Using Alice's private key would be a signature, proving authorship rather than providing secrecy.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. With p = 5, q = 11 and e = 3, the value of φ(n) is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">40</button>
+    <button class="opt">55</button>
+    <button class="opt">16</button>
+    <button class="opt">24</button>
+  </div>
+  <p class="why">φ(n) = (p−1)(q−1) = 4 × 10 = 40. The value 55 is n itself, which is a different quantity — confusing the two is the standard slip and it breaks the rest of the calculation.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. RSA is secure because an attacker who knows n and e would have to:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Factor n into p and q in order to compute φ(n) and hence d</button>
+    <button class="opt">Guess the plaintext and check it against the ciphertext</button>
+    <button class="opt">Compute a hash collision for the encrypted message</button>
+    <button class="opt">Intercept the private key while it is being distributed</button>
+  </div>
+  <p class="why">Finding d requires φ(n), which requires p and q, which requires factoring n. For a 2048-bit n that is infeasible. Note also that the private key is never distributed at all, which is what makes public-key distribution easy.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Digital signatures sign the message digest rather than the message because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Asymmetric encryption is slow, and the digest is small and fixed-size</button>
+    <button class="opt">Hash functions can be reversed to recover the original message</button>
+    <button class="opt">The digest is encrypted, so the message stays confidential</button>
+    <button class="opt">The message may be too large to fit into a single packet</button>
+  </div>
+  <p class="why">Signing a 100 MB file means encrypting a 256-bit digest, not 100 MB. Note too that signing gives authentication, integrity and non-repudiation, but <em>not</em> confidentiality — the message travels in the clear unless separately encrypted.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Replay attacks succeed against simple authentication because:</p>
+  <div class="opts">
+    <button class="opt">The receiver cannot verify the sender's public key</button>
+    <button class="opt">The attacker modifies the message before resending it</button>
+    <button class="opt" data-ok="1">The captured message is genuine, so it passes every validity check</button>
+    <button class="opt">The message is decrypted and re-encrypted with a new key</button>
+  </div>
+  <p class="why">Nothing about the message is wrong — it was valid when first sent. That is why replay needs timestamps or nonces to defeat it, rather than stronger signatures or encryption.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the three security goals and the attacks against each.</summary>
+    <p class="ans">Confidentiality — threatened by snooping and traffic analysis. Integrity — threatened by modification, masquerading, replaying and repudiation. Availability — threatened by denial of service. Together, the CIA triad.</p></details>
+  <details class="card"><summary>Distinguish passive from active attacks, including how each is countered.</summary>
+    <p class="ans">Passive attacks obtain information without altering anything, so they are very hard to detect and the emphasis is on prevention through encryption. Active attacks alter data or affect the system; they can be detected but are hard to prevent absolutely, so the emphasis is detection and recovery.</p></details>
+  <details class="card"><summary>Define snooping, modification, masquerading, replaying, repudiation and denial of service.</summary>
+    <p class="ans">Snooping — unauthorised interception of data. Modification — intercepting and altering a message. Masquerading — impersonating another party. Replaying — capturing a valid message and re-sending it later. Repudiation — a legitimate party denying they sent or received a message. Denial of service — slowing or stopping the service for legitimate users.</p></details>
+  <details class="card"><summary>State Kerckhoffs's principle.</summary>
+    <p class="ans">Security must rest entirely on the secrecy of the key, never on the secrecy of the algorithm. Algorithms are published and publicly analysed; only keys are secret.</p></details>
+  <details class="card"><summary>Give six differences between symmetric and asymmetric cryptography.</summary>
+    <p class="ans">One shared key vs a public/private pair; fast vs about a thousand times slower; difficult vs easy key distribution; n(n−1)/2 vs 2n keys for n users; suited to bulk data vs key exchange and signatures; no non-repudiation vs non-repudiation through digital signatures. Algorithms: DES, 3DES, AES vs RSA, Diffie-Hellman, ECC.</p></details>
+  <details class="card"><summary>How do real systems combine the two?</summary>
+    <p class="ans">Asymmetric cryptography is used once to exchange a symmetric session key; the bulk data is then encrypted symmetrically for speed. This gives public key's easy distribution with symmetric key's performance — exactly what SSL/TLS does.</p></details>
+  <details class="card"><summary>State the RSA procedure and both formulas.</summary>
+    <p class="ans">Choose primes p and q; n = pq; φ(n) = (p−1)(q−1); choose e with gcd(e, φ(n)) = 1; find d with e·d ≡ 1 mod φ(n). Public key (e, n), private key (d, n). Encrypt C = Pᵉ mod n; decrypt P = C^d mod n. Security rests on the difficulty of factoring n.</p></details>
+  <details class="card"><summary>Describe how a digital signature is created and verified, and what it provides.</summary>
+    <p class="ans">Signing: hash the message, encrypt the digest with the sender's private key, send message plus signature. Verifying: hash the received message, decrypt the signature with the sender's public key, compare the digests. It provides authentication, integrity and non-repudiation — but not confidentiality.</p></details>
+  <details class="card"><summary>Name four properties of a cryptographic hash function.</summary>
+    <p class="ans">Fixed-length output regardless of input size; one-way, so the message cannot be recovered from the digest; collision resistant, so two messages with the same digest cannot feasibly be found; and the avalanche effect, where one changed input bit alters about half the output bits.</p></details>
+</div>
+
+<p class="ask">Last lesson: SSL/TLS, IPsec, firewalls and intrusion detection &mdash; the applied security half, and where the hybrid cryptography idea from this lesson is actually deployed.</p>
+
+<div class="nav">
+  <a href="0040-electronic-mail.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0042-ssl-ipsec-firewalls-and-ids.html">Next: SSL, IPsec, Firewalls and IDS &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

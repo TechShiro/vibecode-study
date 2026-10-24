@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 30 - Single Point of Failure | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 30 of 66 · Redundancy, Failover, High Availability</div>
+  
+  <h1>Single Point of Failure (SPOF)</h1>
+  <p class="subtitle">How to identify, eliminate, and architect around vulnerable bottlenecks that can take your entire system offline.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module H — Microservices Architecture</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>A <strong>Single Point of Failure (SPOF)</strong> is any single component in your entire technology stack (a server, database, load balancer, DNS provider, power supply, or third-party API) whose failure will cause the entire application to stop functioning. The foundational rule of High Availability (HA) engineering is: <strong>"Everything fails, all the time"</strong>. A resilient system eliminates SPOFs by introducing <strong>redundancy</strong> and automated <strong>failover</strong> at every single layer.</p>
+
+  <h2>2 · Eliminating SPOFs Layer by Layer</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Layer</th>
+        <th>The SPOF Vulnerability</th>
+        <th>The Architectural Redundancy Solution</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>DNS Layer</strong></td>
+        <td>Single DNS provider goes down (e.g., Dyn DNS DDoS attack).</td>
+        <td>Dual DNS setup (e.g., Route53 + Cloudflare) with automated health routing.</td>
+      </tr>
+      <tr>
+        <td><strong>Load Balancer</strong></td>
+        <td>A single Nginx or ALB instance crashes.</td>
+        <td>Active-Passive pair with Floating Virtual IP (VRRP / Keepalived) or multi-AZ managed load balancers.</td>
+      </tr>
+      <tr>
+        <td><strong>Compute / Web</strong></td>
+        <td>A server running your web backend freezes.</td>
+        <td>Auto-scaling server pool across at least 3 distinct Availability Zones (AZs) behind an LB.</td>
+      </tr>
+      <tr>
+        <td><strong>Database</strong></td>
+        <td>Primary database hard disk corrupts.</td>
+        <td>Master-Replica configuration with synchronous replication and automated election/failover (e.g., AWS RDS Multi-AZ).</td>
+      </tr>
+      <tr>
+        <td><strong>Data Center</strong></td>
+        <td>Hurricane or power grid blackout takes down an entire AWS region (e.g. us-east-1).</td>
+        <td>Multi-region deployment with geo-DNS failover.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · Active-Active vs Active-Passive Failover</h2>
+  <ul>
+    <li><strong>Active-Passive:</strong> Primary instance handles 100% of traffic. Standby replica sits idle, mirroring data. If Primary fails, Heartbeat detects it, and Standby promotes itself to Primary within 30–60 seconds.</li>
+    <li><strong>Active-Active:</strong> Both instances actively handle live traffic concurrently. If one dies, the remaining instance absorbs the full traffic load immediately with zero downtime.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>When one microservice fails, how do you prevent the failure from spreading like wildfire? Next: Cascading Failures &amp; Resilience.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0029-monolith-vs-microservices.html">← Previous: Monolith vs Microservices</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0031-cascading-failures.html">Next: Cascading Failures &amp; Resilience →</a>
+  </div>
+</body>
+</html>

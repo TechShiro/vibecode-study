@@ -1,0 +1,205 @@
+<title>Bottom-Up Parsing — Shift-Reduce</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit III &middot; Lesson 14 of 17</p>
+<h1>Bottom-Up Parsing &mdash; Shift-Reduce</h1>
+<p class="deck">Bottom-up parsing principles, handles and handle pruning, the four parser actions, shift-reduce conflicts, and a complete stack trace on arithmetic expressions.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Define handle and handle pruning with an example&rdquo;</strong> is a guaranteed 5-marker. <strong>&ldquo;Explain the four actions of a shift-reduce parser and its conflicts&rdquo;</strong> (Shift/Reduce and Reduce/Reduce) is another guaranteed question. <strong>&ldquo;Trace the parsing of a string using shift-reduce parsing&rdquo;</strong> requires a 4-column table: Stack, Input Buffer, Action Taken, and Handle Identified.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Shift-Reduce Parser Mechanics</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">Shift-Reduce Parser in Compiler Design with Solved Example</a>
+    <span class="v-meta">Gate Smashers &middot; 13:30</span>
+    <div class="v-why">Step-by-step demonstration of the four parser actions (Shift, Reduce, Accept, Error) and tracing stack states until acceptance.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Handles, Viable Prefixes &amp; Conflicts</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Bottom-Up Parsing: Handles and Shift/Reduce Conflicts</a>
+    <span class="v-meta">Neso Academy &middot; 15:45</span>
+    <div class="v-why">Rigorous explanation of handle pruning, reverse rightmost derivations, and resolving Shift/Reduce vs Reduce/Reduce conflicts.</div>
+  </div>
+</div>
+
+<h2>1. Bottom-Up Parsing Principles</h2>
+
+<p>A <strong>bottom-up parser</strong> constructs a parse tree for an input string beginning at the <strong>leaves (input terminals)</strong> and working systematically upward toward the <strong>root (start symbol $S$)</strong>.</p>
+<p>This process corresponds to constructing a <strong>Rightmost Derivation in REVERSE</strong> &mdash; formally referred to as a <strong>canonical parse</strong>.</p>
+
+<div class="formula">
+  <span class="name">Reverse Rightmost Derivation</span>
+  w = &gamma;<sub>n</sub> &rArr;<sub>rm</sub> &gamma;<sub>n-1</sub> &rArr;<sub>rm</sub> &hellip; &rArr;<sub>rm</sub> &gamma;<sub>1</sub> &rArr;<sub>rm</sub> S<br><br>
+  <em>At each step, the parser identifies a substring matching the right-hand side of a production and reduces it to the corresponding left-hand non-terminal.</em>
+</div>
+
+<h2>2. Handles and Handle Pruning</h2>
+
+<div class="formula">
+  <span class="name">Formal Definition of a Handle</span>
+  A <strong>handle</strong> of a right-sentential form $\gamma$ ($= \alpha \beta w$, where $w \in T^*$) is a production rule <strong>$A \to \beta$</strong> and a position in $\gamma$ where the substring $\beta$ may be replaced by non-terminal $A$ to yield the previous right-sentential form in a rightmost derivation:<br><br>
+  <div style="text-align:center; font-weight:700;">S &rArr;<sub>rm</sub>* &alpha; A w &rArr;<sub>rm</sub> &alpha; &beta; w</div><br>
+  Then $\beta$ at the specified position is a handle of $\alpha \beta w$ for production $A \to \beta$.
+</div>
+
+<div class="box win">
+  <span class="lbl">Handle Pruning</span>
+  <p><strong>Handle pruning</strong> is the universal bottom-up parsing algorithm: start with the terminal string $w$, locate the handle $\beta_1$ in $w$, replace it with non-terminal $A_1$, find the next handle $\beta_2$, and repeat until the string is reduced to the start symbol $S$.</p>
+</div>
+
+<h2>3. The Four Actions of a Shift-Reduce Parser</h2>
+
+<!-- FLOWCHART: SHIFT-REDUCE ARCHITECTURE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">System Architecture: Shift-Reduce Parsing Engine</span>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:1.2rem; flex-wrap:wrap; margin:1rem 0;">
+    <div class="flow-box highlight">
+      <strong>Stack</strong><br>
+      <code>$ ... handle</code>
+      <span class="sub">Stores grammar symbols / states</span>
+    </div>
+
+    <span class="flow-arrow-right">&harr;</span>
+
+    <div class="flow-box ok" style="border:2px solid var(--ok);">
+      <strong style="color:var(--ok);">Action Dispatcher</strong>
+      <span class="sub">Evaluates Stack Top &amp; Lookahead</span>
+      <div style="font-size:.76rem; margin-top:.4rem; line-height:1.4;">
+        1. <strong>Shift</strong> next token<br>
+        2. <strong>Reduce</strong> handle<br>
+        3. <strong>Accept</strong> ($ S &amp; $)<br>
+        4. <strong>Error</strong>
+      </div>
+    </div>
+
+    <span class="flow-arrow-right">&harr;</span>
+
+    <div class="flow-box">
+      <strong>Input Buffer</strong><br>
+      <code>a ... $</code>
+      <span class="sub">Current unconsumed tokens</span>
+    </div>
+  </div>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Action</th><th>Mechanism</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Shift</strong></td><td>Pushes the next input token from the input buffer onto the top of the stack. Advances the lookahead pointer.</td></tr>
+<tr><td><strong>2. Reduce</strong></td><td>When a handle is identified on top of the stack, pops the right-hand side symbols $|\beta|$ and pushes the left-hand non-terminal $A$.</td></tr>
+<tr><td><strong>3. Accept</strong></td><td>Announces successful completion when the stack contains only the start symbol <code>$ S</code> and the input buffer is empty <code>$</code>.</td></tr>
+<tr><td><strong>4. Error</strong></td><td>Discovers a syntax violation and calls the error recovery handler when no legal shift or reduce operation is possible.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>4. Shift-Reduce Parser Conflicts</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Conflict Category</th><th>Condition</th><th>Standard Example</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Shift/Reduce Conflict</strong></td>
+  <td>The parser cannot determine whether to <strong>shift</strong> the next input token or <strong>reduce</strong> the current symbols on top of the stack.</td>
+  <td><strong>Dangling-Else:</strong> When stack holds <code>if E then S</code> and input sees <code>else</code>, shifting binds <code>else</code> to inner <code>if</code>; reducing completes the outer <code>if</code>.</td>
+</tr>
+<tr>
+  <td><strong>Reduce/Reduce Conflict</strong></td>
+  <td>The parser determines that a handle must be reduced, but cannot decide <strong>which of two distinct grammar productions</strong> to apply ($A \to \alpha$ vs $B \to \alpha$).</td>
+  <td>Occurs when two different non-terminals derive identical terminal strings under identical contexts.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. Complete Worked Simulation: <code>id + id * id $</code></h2>
+
+<div class="solve">
+  <span class="lbl">Exam Numerical &middot; Shift-Reduce Parsing Trace</span>
+  <p><strong>Grammar:</strong> <code>(1) E &rarr; E + E &nbsp;&nbsp; (2) E &rarr; E * E &nbsp;&nbsp; (3) E &rarr; id</code></p>
+  
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Step</th><th>Stack Contents</th><th>Input Buffer</th><th>Handle Identified</th><th>Action Taken</th></tr></thead>
+  <tbody>
+  <tr><td class="num">1</td><td><code>$</code></td><td><code>id + id * id $</code></td><td>&mdash;</td><td><strong>Shift</strong> (push <code>id</code>)</td></tr>
+  <tr><td class="num">2</td><td><code>$ id</code></td><td><code>+ id * id $</code></td><td><code>id</code></td><td><strong>Reduce</strong> by <code>E &rarr; id</code></td></tr>
+  <tr><td class="num">3</td><td><code>$ E</code></td><td><code>+ id * id $</code></td><td>&mdash;</td><td><strong>Shift</strong> (push <code>+</code>)</td></tr>
+  <tr><td class="num">4</td><td><code>$ E +</code></td><td><code>id * id $</code></td><td>&mdash;</td><td><strong>Shift</strong> (push <code>id</code>)</td></tr>
+  <tr><td class="num">5</td><td><code>$ E + id</code></td><td><code>* id $</code></td><td><code>id</code></td><td><strong>Reduce</strong> by <code>E &rarr; id</code></td></tr>
+  <tr><td class="num">6</td><td><code>$ E + E</code></td><td><code>* id $</code></td><td>&mdash;</td><td><strong>Shift</strong> (push <code>*</code>) &mdash; <em>Precedence: * binds tighter than +</em></td></tr>
+  <tr><td class="num">7</td><td><code>$ E + E *</code></td><td><code>id $</code></td><td>&mdash;</td><td><strong>Shift</strong> (push <code>id</code>)</td></tr>
+  <tr><td class="num">8</td><td><code>$ E + E * id</code></td><td><code>$</code></td><td><code>id</code></td><td><strong>Reduce</strong> by <code>E &rarr; id</code></td></tr>
+  <tr><td class="num">9</td><td><code>$ E + E * E</code></td><td><code>$</code></td><td><code>E * E</code></td><td><strong>Reduce</strong> by <code>E &rarr; E * E</code></td></tr>
+  <tr><td class="num">10</td><td><code>$ E + E</code></td><td><code>$</code></td><td><code>E + E</code></td><td><strong>Reduce</strong> by <code>E &rarr; E + E</code></td></tr>
+  <tr><td class="num">11</td><td><code>$ E</code></td><td><code>$</code></td><td>&mdash;</td><td><strong style="color:var(--ok);">ACCEPT &mdash; Parse Complete</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="quiz">
+<h3>Check Yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Bottom-up parsing corresponds to constructing a:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Rightmost derivation in reverse</button>
+    <button class="opt">Leftmost derivation in reverse</button>
+    <button class="opt">Leftmost derivation directly</button>
+    <button class="opt">Regular expression</button>
+  </div>
+  <p class="why">Bottom-up parsing starts with terminals and systematically reduces handles, effectively tracing a rightmost derivation backwards from sentence to start symbol.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A Shift/Reduce conflict means the parser:</p>
+  <div class="opts">
+    <button class="opt">Encountered an illegal terminal token</button>
+    <button class="opt">Cannot decide between two different reduction productions</button>
+    <button class="opt">Has run out of stack space</button>
+    <button class="opt" data-ok="1">Cannot decide whether to push the next input token or reduce the current handle on the stack</button>
+  </div>
+  <p class="why">The parser has both a valid shift transition and a valid reduce action available for the same lookahead symbol.</p>
+</div>
+
+</div>
+
+<h2>Recall Without Looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define handle and handle pruning.</summary>
+    <p class="ans">A handle is a substring matching the right-hand side of a production whose reduction represents one step along the reverse rightmost derivation. Handle pruning is the iterative process of identifying and reducing handles from leaves to root.</p></details>
+  <details class="card"><summary>Name and define the four actions of a shift-reduce parser.</summary>
+    <p class="ans">1. Shift (push next token to stack). 2. Reduce (replace stack handle with production LHS variable). 3. Accept (parsing succeeds when stack has $S and input is $). 4. Error (trigger syntax error recovery).</p></details>
+  <details class="card"><summary>Distinguish Shift/Reduce conflicts from Reduce/Reduce conflicts.</summary>
+    <p class="ans">Shift/Reduce: parser cannot choose between shifting the next token or reducing the current stack handle. Reduce/Reduce: parser knows to reduce, but two distinct productions have matching right-hand sides and valid reductions on the same lookahead.</p></details>
+</div>
+
+<p class="ask">Next: SLR(1) Parsing &mdash; LR(0) items, closure, GOTO, and constructing the SLR table.</p>
+
+<div class="nav">
+  <a href="0013-predictive-parsing.html">&larr; Predictive Parsing</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0015-slr-parsing.html">Next: SLR Parsing &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

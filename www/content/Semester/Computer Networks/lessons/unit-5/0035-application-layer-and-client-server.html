@@ -1,0 +1,252 @@
+<title>Application Layer and Client-Server</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 35 of 42</p>
+<h1>The Application Layer and Client-Server Model</h1>
+<p class="deck">The paradigms applications are built on, the socket interface, and the map of which protocol sits on which transport and port. Short, but it organises the seven lessons that follow.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Rarely a question on its own &mdash; more often the opening paragraph of a longer application-layer answer, and the source of one-mark questions about ports and paradigms. The two things genuinely worth memorising: <strong>the client-server vs P2P table</strong> (which also appeared in Unit&nbsp;I, so it is free marks twice), and <strong>the protocol/transport/port table</strong> at the end of this lesson.</p>
+</div>
+
+<h2>Where the application layer sits</h2>
+
+<p>The application layer is the <strong>top layer</strong>, and it is where the user &mdash; human or software &mdash; actually meets the network. Two properties distinguish it from every layer below:</p>
+
+<ul>
+<li><strong>It runs on hosts only, never in the network.</strong> Routers implement layers 1&ndash;3 and have no application layer at all. This is why new applications can be deployed without changing a single router &mdash; the reason the Internet has been able to evolve so fast.</li>
+<li><strong>It is the only layer that provides services directly to the user</strong>, rather than to the layer above it.</li>
+</ul>
+
+<p>In the TCP/IP model, the application layer <strong>absorbs OSI's session and presentation layers</strong>. Their functions still exist &mdash; dialog control, encryption, compression, format translation &mdash; but they are the application protocol's own responsibility rather than a separate layer's.</p>
+
+<h2>The two paradigms</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Client&ndash;Server</th><th>Peer-to-Peer (P2P)</th></tr></thead>
+<tbody>
+<tr><td><strong>Roles</strong></td><td>Fixed &mdash; the server provides, the client requests</td><td>Every peer is <strong>both client and server</strong></td></tr>
+<tr><td><strong>Server availability</strong></td><td>The server runs <strong>continuously</strong>, waiting for requests</td><td>No always-on server needed</td></tr>
+<tr><td><strong>Who starts the conversation</strong></td><td><strong>Always the client</strong> &mdash; the server never initiates</td><td>Either peer</td></tr>
+<tr><td><strong>Addressing</strong></td><td>The server needs a <strong>permanent, well-known address</strong></td><td>Peers may have changing addresses</td></tr>
+<tr><td><strong>Scalability</strong></td><td>The server becomes a <strong>bottleneck</strong> as clients grow</td><td><strong>Self-scaling</strong> &mdash; each new peer brings its own capacity</td></tr>
+<tr><td><strong>Reliability</strong></td><td>The server is a <strong>single point of failure</strong></td><td>No single point of failure</td></tr>
+<tr><td><strong>Security / management</strong></td><td>Strong &mdash; centrally controlled</td><td>Weak &mdash; each peer manages itself; harder to police</td></tr>
+<tr><td><strong>Cost</strong></td><td>High &mdash; dedicated server infrastructure</td><td>Low</td></tr>
+<tr><td><strong>Examples</strong></td><td><strong>HTTP, FTP, SMTP, DNS, TELNET</strong> &mdash; almost everything in this unit</td><td>BitTorrent, blockchain networks, Skype's original design</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The one-line contrast</span>
+  <p><strong>In client-server, capacity is fixed and the server is the bottleneck. In P2P, capacity grows with demand, because every new user is also a new supplier.</strong> That single sentence explains why file distribution moved to P2P while everything transactional stayed client-server.</p>
+</div>
+
+<h3>Hybrid systems</h3>
+
+<p>Most real systems are neither pure form. A <strong>hybrid</strong> uses a central server for <strong>coordination</strong> &mdash; finding peers, authenticating, indexing &mdash; and direct peer-to-peer transfer for the <strong>data</strong>. BitTorrent's tracker works this way. One line on hybrids is a good addition to any paradigm answer.</p>
+
+<h2>The socket interface</h2>
+
+<p>A <em class="term">socket</em> is the <strong>interface between an application process and the transport layer</strong> &mdash; the door through which a process pushes data into, and pulls it out of, the network. It is a software abstraction, not hardware.</p>
+
+<div class="formula">
+  <span class="name">Socket address, again</span>
+  <strong>Socket address = IP address + port number</strong><br>
+  A connection is identified by the <strong>pair</strong> of socket addresses, one at each end.
+</div>
+
+<p>Because a connection is identified by the <em>pair</em>, a web server can hold thousands of simultaneous connections on the same port 80 &mdash; each is distinguished by the client's address and ephemeral port. This is worth stating whenever a question asks how one server serves many clients at once.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Socket type</th><th>Transport</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td><strong>Stream socket</strong></td><td>TCP</td><td>Connection-oriented, reliable, byte stream</td></tr>
+<tr><td><strong>Datagram socket</strong></td><td>UDP</td><td>Connectionless, unreliable, message oriented</td></tr>
+<tr><td><strong>Raw socket</strong></td><td>Directly on IP</td><td>Bypasses the transport layer; used by tools such as <code>ping</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The order of the calls</h3>
+
+<div class="formula">
+  <span class="name">A TCP client-server exchange</span>
+  <strong>Server:</strong> socket() &rarr; bind() &rarr; listen() &rarr; accept() &rarr; read()/write() &rarr; close()<br>
+  <strong>Client:</strong> socket() &rarr; connect() &rarr; write()/read() &rarr; close()
+</div>
+
+<p>Two observations that get asked: <strong>only the server calls <code>bind</code>, <code>listen</code> and <code>accept</code></strong> (it must claim a known port and wait), and <strong>only the client calls <code>connect</code></strong> (it initiates). The asymmetry of the calls mirrors the asymmetry of the roles.</p>
+
+<h2>The protocol map for Unit V</h2>
+
+<p>This table is the skeleton of the whole application-layer half. Learn it now and the remaining lessons hang off it.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Protocol</th><th>Full name</th><th>Port</th><th>Transport</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><strong>DNS</strong></td><td>Domain Name System</td><td class="num">53</td><td><strong>UDP</strong> (TCP for zone transfers)</td><td>36</td></tr>
+<tr><td><strong>DHCP</strong></td><td>Dynamic Host Configuration Protocol</td><td class="num">67 server, 68 client</td><td><strong>UDP</strong></td><td>37</td></tr>
+<tr><td><strong>FTP</strong></td><td>File Transfer Protocol</td><td class="num"><strong>21 control, 20 data</strong></td><td>TCP</td><td>38</td></tr>
+<tr><td><strong>TELNET</strong></td><td>Terminal Network</td><td class="num">23</td><td>TCP</td><td>38</td></tr>
+<tr><td><strong>SSH</strong></td><td>Secure Shell</td><td class="num">22</td><td>TCP</td><td>38</td></tr>
+<tr><td><strong>HTTP</strong></td><td>HyperText Transfer Protocol</td><td class="num">80</td><td>TCP</td><td>39</td></tr>
+<tr><td><strong>HTTPS</strong></td><td>HTTP over TLS</td><td class="num">443</td><td>TCP</td><td>39, 42</td></tr>
+<tr><td><strong>SMTP</strong></td><td>Simple Mail Transfer Protocol</td><td class="num">25</td><td>TCP</td><td>40</td></tr>
+<tr><td><strong>POP3</strong></td><td>Post Office Protocol v3</td><td class="num">110</td><td>TCP</td><td>40</td></tr>
+<tr><td><strong>IMAP4</strong></td><td>Internet Mail Access Protocol v4</td><td class="num">143</td><td>TCP</td><td>40</td></tr>
+<tr><td><strong>SNMP</strong></td><td>Simple Network Management Protocol</td><td class="num">161</td><td>UDP</td><td>&mdash;</td></tr>
+<tr><td><strong>TFTP</strong></td><td>Trivial File Transfer Protocol</td><td class="num">69</td><td>UDP</td><td>38</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The pattern behind the table &mdash; state it rather than just listing</span>
+  <p><strong>Everything that moves substantial data or must not lose any of it uses TCP</strong> &mdash; HTTP, FTP, SMTP, TELNET. <strong>Everything that is a short request-and-reply, or must work before a connection is possible, uses UDP</strong> &mdash; DNS, DHCP, SNMP, TFTP. If you are asked which transport a protocol uses and cannot recall it, that rule will usually get you there.</p>
+</div>
+
+<h2>What an application-layer protocol has to define</h2>
+
+<p>A short list that makes a good opening paragraph for any "explain protocol X" answer:</p>
+
+<ul>
+<li><strong>The types of message</strong> exchanged &mdash; requests, responses, commands.</li>
+<li><strong>The syntax</strong> of each type &mdash; what fields it has and how they are delimited.</li>
+<li><strong>The semantics</strong> of each field &mdash; what the values mean.</li>
+<li><strong>The rules</strong> for when a process sends a message and how it responds.</li>
+</ul>
+
+<p>These are the same three elements &mdash; syntax, semantics, timing &mdash; from the definition of a protocol in Lesson 1, applied at this layer.</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">BSD Socket API Client-Server Communication Flowchart</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Server Process (Passive)</strong><span class="sub">socket() &rarr; bind(Port) &rarr; listen()</span></div>
+      <div class="flow-arrow-down">&darr; blocks on</div>
+      <div class="flow-box"><strong>accept()</strong><span class="sub">Returns new connected socket for client</span></div>
+      <div class="flow-arrow-down">&darr;</div>
+      <div class="flow-box ok"><strong>read() / write()</strong><span class="sub">Processes application request & replies</span></div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Client Process (Active)</strong><span class="sub">socket()</span></div>
+      <div class="flow-arrow-down">&darr; initiates</div>
+      <div class="flow-box"><strong>connect(Server_IP, Port)</strong><span class="sub">Triggers TCP 3-way handshake</span></div>
+      <div class="flow-arrow-down">&darr;</div>
+      <div class="flow-box ok"><strong>write() / read()</strong><span class="sub">Sends payload & receives server response</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Socket Programming</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-86: Socket Programming in Computer Networks</div>
+    <div class="v-desc">Essential system calls walkthrough: socket creation, port binding, backlog listening, client-server handshake, and data streaming buffers.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=XTVTlEhGS6w" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Routers do not implement the application layer. The consequence is that:</p>
+  <div class="opts">
+    <button class="opt">Every new protocol needs a firmware update in the core</button>
+    <button class="opt">Routers cannot forward application-layer traffic at all</button>
+    <button class="opt" data-ok="1">New applications can be deployed without changing any router</button>
+    <button class="opt">Application data must be encrypted before it is routed</button>
+  </div>
+  <p class="why">Routers implement layers 1–3 only, so the application layer runs on hosts alone. That is precisely why the Internet has been able to absorb the web, streaming and everything since without touching the core.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In the client-server paradigm, a conversation is always started by:</p>
+  <div class="opts">
+    <button class="opt">Whichever side has data ready to transmit first</button>
+    <button class="opt" data-ok="1">The client &mdash; the server only waits and responds</button>
+    <button class="opt">The transport layer, once a connection is available</button>
+    <button class="opt">The server &mdash; it polls clients for pending requests</button>
+  </div>
+  <p class="why">The server runs continuously and passively, holding a well-known port. It never initiates. That asymmetry is exactly why only the server calls bind, listen and accept, and only the client calls connect.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A web server can hold thousands of connections on port 80 because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Each connection is identified by the pair of socket addresses, not by one port</button>
+    <button class="opt">The server opens a new port number for each connected client</button>
+    <button class="opt">Port 80 is reserved and can be shared without restriction</button>
+    <button class="opt">TCP multiplexes all clients into a single shared connection</button>
+  </div>
+  <p class="why">The identifying tuple is server IP and port plus client IP and port. Since every client contributes a different ephemeral port, all those connections stay distinct while sharing the server's single port 80.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which protocol runs over UDP rather than TCP?</p>
+  <div class="opts">
+    <button class="opt">TELNET, on port 23</button>
+    <button class="opt">FTP, on ports 20 and 21</button>
+    <button class="opt" data-ok="1">DHCP, on ports 67 and 68</button>
+    <button class="opt">SMTP, on port 25</button>
+  </div>
+  <p class="why">DHCP must work before the client has an IP address, so no connection could be established and it must broadcast — neither of which TCP can do. The general rule: short request-reply or pre-connection protocols use UDP, bulk or lossless ones use TCP.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The main scalability advantage of P2P over client-server is that:</p>
+  <div class="opts">
+    <button class="opt">Peers do not need to run any server-side software</button>
+    <button class="opt">Central security policy is easier to enforce on peers</button>
+    <button class="opt" data-ok="1">Each new peer adds capacity as well as demand</button>
+    <button class="opt">Peers require no addressing scheme of any kind</button>
+  </div>
+  <p class="why">In client-server, capacity is fixed and every new client only adds load. In P2P every new user is also a new supplier, so the system is self-scaling. Central security is the client-server advantage, not the P2P one.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give two properties that distinguish the application layer from lower layers.</summary>
+    <p class="ans">It runs on hosts only and never in the network — routers implement layers 1–3 and have no application layer, which is why new applications need no change to any router. And it is the only layer providing services directly to the user rather than to the layer above.</p></details>
+  <details class="card"><summary>Give six differences between client-server and P2P.</summary>
+    <p class="ans">Fixed roles vs every peer both; server runs continuously vs no always-on server; the client always initiates vs either peer; server needs a permanent well-known address vs changing addresses; server is a bottleneck and single point of failure vs self-scaling with none; strong central security vs weak per-peer security.</p></details>
+  <details class="card"><summary>What is a hybrid system?</summary>
+    <p class="ans">One that uses a central server for coordination — finding peers, authenticating, indexing — and direct peer-to-peer transfer for the data itself. BitTorrent's tracker is the standard example.</p></details>
+  <details class="card"><summary>Define a socket and name the three types.</summary>
+    <p class="ans">A software interface between an application process and the transport layer. Stream socket (TCP, connection-oriented, reliable byte stream); datagram socket (UDP, connectionless, message oriented); raw socket (directly on IP, bypassing transport, used by tools such as ping).</p></details>
+  <details class="card"><summary>Give the socket call sequence for a TCP client and server.</summary>
+    <p class="ans">Server: socket, bind, listen, accept, read/write, close. Client: socket, connect, write/read, close. Only the server binds, listens and accepts; only the client connects.</p></details>
+  <details class="card"><summary>Give the port and transport for DNS, DHCP, FTP, HTTP, SMTP, POP3 and IMAP4.</summary>
+    <p class="ans">DNS 53/UDP; DHCP 67 and 68/UDP; FTP 21 control and 20 data/TCP; HTTP 80/TCP; SMTP 25/TCP; POP3 110/TCP; IMAP4 143/TCP. Also SSH 22, TELNET 23, TFTP 69/UDP, SNMP 161/UDP, HTTPS 443.</p></details>
+  <details class="card"><summary>What must an application-layer protocol define?</summary>
+    <p class="ans">The types of message exchanged, the syntax of each type, the semantics of each field, and the rules for when messages are sent and how they are responded to — syntax, semantics and timing applied at this layer.</p></details>
+</div>
+
+<p class="ask">Next: DNS, which every other application in this unit depends on before it can do anything at all.</p>
+
+<div class="nav">
+  <a href="../unit-4/0034-tcp-timers-options-and-sctp.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0036-dns.html">Next: DNS &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

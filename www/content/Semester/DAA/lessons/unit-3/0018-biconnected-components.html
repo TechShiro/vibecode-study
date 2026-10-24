@@ -1,0 +1,229 @@
+<title>Biconnected Components and Articulation Points</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit III &middot; Lesson 18 of 19</p>
+<h1>Biconnected Components and Articulation Points</h1>
+<p class="deck">Articulation points (cut vertices), bridges, biconnected components, and Tarjan&rsquo;s DFS algorithm using low values &mdash; with a step-by-step worked trace.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Find the articulation points and biconnected components&rdquo;</strong> means: run DFS, compute low[] values, apply the two rules. Show the DFS tree with d[] and low[] at every node. This is a 5&ndash;10 marker.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Articulation Points & Bridges Low-Link Condition</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>DFS Discovery Time d[u] & Lowest Reachable Ancestor low[u]</strong>
+      <span class="sub">low[u] = min(d[u], min{d[w] : (u,w) back-edge}, min{low[v] : (u,v) tree-edge})</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-row">
+      <div class="flow-box warn"><strong>Articulation Point u:</strong><span class="sub">(1) Root of DFS tree with &ge; 2 tree children<br>(2) Non-root u has child v with <strong>low[v] &ge; d[u]</strong></span></div>
+      <div class="flow-box ok"><strong>Bridge Edge (u, v):</strong><span class="sub">Tree-edge (u, v) is a bridge iff <strong>low[v] &gt; d[u]</strong></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Articulation Points & Bridges</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Articulation Points and Bridges in Graphs Solved Example</div>
+    <div class="v-desc">Crystal clear evaluation of low[u] values and checking the articulation condition low[v] >= d[u] without confusion.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=jFZsDDB0-vo" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Definitions</h2>
+
+<div class="formula">
+  <span class="name">Articulation point (cut vertex)</span>
+  A vertex whose removal <strong>disconnects</strong> the graph (increases the number of connected components).
+</div>
+
+<div class="formula">
+  <span class="name">Bridge (cut edge)</span>
+  An edge whose removal <strong>disconnects</strong> the graph.
+</div>
+
+<div class="formula">
+  <span class="name">Biconnected component</span>
+  A maximal <strong>biconnected subgraph</strong> &mdash; a subgraph that has no articulation point. Equivalently, between every pair of vertices there exist <strong>two vertex-disjoint paths</strong>.
+</div>
+
+<h2>Tarjan&rsquo;s algorithm</h2>
+
+<p>Uses DFS with two arrays:</p>
+<ul>
+<li><strong>d[v]</strong> = discovery time of v.</li>
+<li><strong>low[v]</strong> = the minimum discovery time reachable from the subtree rooted at v via one back edge.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">Computing low[v]</span>
+  low[v] = min(<br>
+  &nbsp;&nbsp; d[v],<br>
+  &nbsp;&nbsp; low[w] for every child w of v in DFS tree,<br>
+  &nbsp;&nbsp; d[w] for every back edge (v, w)<br>
+  )
+</div>
+
+<div class="formula">
+  <span class="name">Articulation point rules</span>
+  <strong>Root:</strong> the root of the DFS tree is an articulation point if it has <strong>&ge;2 children</strong>.<br>
+  <strong>Non-root:</strong> vertex u is an articulation point if it has a child v with <strong>low[v] &ge; d[u]</strong> &mdash; meaning v&rsquo;s subtree cannot reach above u via a back edge.
+</div>
+
+<div class="formula">
+  <span class="name">Bridge rule</span>
+  Edge (u, v) where v is a child of u is a <strong>bridge</strong> if <strong>low[v] &gt; d[u]</strong>.
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; finding articulation points</span>
+  <p>Undirected graph with edges: {(A,B), (A,C), (B,C), (B,D), (D,E), (D,F), (E,F)}. DFS from A.</p>
+
+  <div class="tw">
+  <table>
+  <thead><tr><th>Vertex</th><th>d[v]</th><th>low[v]</th><th>Parent</th><th>Children</th></tr></thead>
+  <tbody>
+  <tr><td>A</td><td>1</td><td>1</td><td>&mdash;</td><td>B</td></tr>
+  <tr><td>B</td><td>2</td><td>1</td><td>A</td><td>C, D</td></tr>
+  <tr><td>C</td><td>3</td><td>1</td><td>B</td><td>&mdash;</td></tr>
+  <tr><td>D</td><td>4</td><td>4</td><td>B</td><td>E</td></tr>
+  <tr><td>E</td><td>5</td><td>4</td><td>D</td><td>F</td></tr>
+  <tr><td>F</td><td>6</td><td>4</td><td>E</td><td>&mdash;</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <p><strong>Computing low values:</strong></p>
+  <ul>
+  <li>F: no children, back edge (F,D) &rArr; low[F] = min(6, d[D]=4) = 4</li>
+  <li>E: child F (low=4), back edge none new &rArr; low[E] = min(5, 4) = 4</li>
+  <li>D: child E (low=4) &rArr; low[D] = min(4, 4) = 4</li>
+  <li>C: no children, back edge (C,A) &rArr; low[C] = min(3, d[A]=1) = 1</li>
+  <li>B: children C (low=1) and D (low=4) &rArr; low[B] = min(2, 1, 4) = 1</li>
+  <li>A: child B (low=1) &rArr; low[A] = min(1, 1) = 1</li>
+  </ul>
+
+  <p><strong>Articulation point check:</strong></p>
+  <ul>
+  <li>A (root): only 1 child (B) &rArr; <strong>NOT</strong> an articulation point</li>
+  <li>B (non-root): child C has low[C]=1 &lt; d[B]=2 &rArr; no. Child D has low[D]=4 &ge; d[B]=2 &rArr; <strong>YES, B is an articulation point</strong></li>
+  <li>D (non-root): child E has low[E]=4 &ge; d[D]=4 &rArr; <strong>YES, D is an articulation point</strong></li>
+  <li>C, E, F: no children or low < d &rArr; not articulation points</li>
+  </ul>
+
+  <p><strong>Bridge check:</strong></p>
+  <ul>
+  <li>Edge (B,D): low[D]=4 &gt; d[B]=2 &rArr; <strong>BRIDGE</strong></li>
+  <li>All other tree edges: low &le; d of parent &rArr; not bridges</li>
+  </ul>
+
+  <p><strong>Biconnected components:</strong> {A,B,C} and {D,E,F}, connected through articulation point B via bridge (B,D).</p>
+</div>
+
+<div class="box">
+  <span class="lbl">Time complexity</span>
+  <p>Tarjan&rsquo;s algorithm runs in <strong>&Theta;(V + E)</strong> &mdash; a single DFS pass.</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. An articulation point is a vertex whose removal:</p>
+  <div class="opts">
+    <button class="opt">Increases edge count</button>
+    <button class="opt">Reduces the diameter</button>
+    <button class="opt" data-ok="1">Disconnects the graph</button>
+    <button class="opt">Creates a cycle</button>
+  </div>
+  <p class="why">Removing an articulation point splits the graph into two or more components.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The root of a DFS tree is an articulation point if:</p>
+  <div class="opts">
+    <button class="opt">It is the vertex with the smallest label</button>
+    <button class="opt" data-ok="1">It has two or more children in the DFS tree</button>
+    <button class="opt">It has the highest discovery time</button>
+    <button class="opt">It has a back edge to itself</button>
+  </div>
+  <p class="why">If the root has &ge;2 DFS children, removing it separates those subtrees.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. For a non-root vertex u with child v, u is an articulation point if:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">low[v] &ge; d[u] &mdash; v&rsquo;s subtree cannot reach above u</button>
+    <button class="opt">d[v] &gt; d[u] (always true for children)</button>
+    <button class="opt">low[v] &lt; d[u]</button>
+    <button class="opt">v has no children</button>
+  </div>
+  <p class="why">low[v] &ge; d[u] means the subtree at v has no back edge reaching a proper ancestor of u, so removing u disconnects v's subtree.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Edge (u,v) is a bridge if:</p>
+  <div class="opts">
+    <button class="opt">low[v] = d[v]</button>
+    <button class="opt">d[u] = d[v]</button>
+    <button class="opt">low[v] &ge; d[u]</button>
+    <button class="opt" data-ok="1">low[v] &gt; d[u] &mdash; strictly greater</button>
+  </div>
+  <p class="why">Strictly greater (&gt;) for bridges; greater or equal (&ge;) for articulation points. The difference matters!</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The time complexity of Tarjan&rsquo;s algorithm is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">&Theta;(V + E)</button>
+    <button class="opt">O(V &middot; E)</button>
+    <button class="opt">O(V log V)</button>
+    <button class="opt">O(V&sup2;)</button>
+  </div>
+  <p class="why">Single DFS pass. Each vertex and edge processed once.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A biconnected component is a maximal subgraph that:</p>
+  <div class="opts">
+    <button class="opt">Is a complete graph</button>
+    <button class="opt">Has no bridges</button>
+    <button class="opt">Contains exactly two vertices</button>
+    <button class="opt" data-ok="1">Has no articulation point &mdash; remains connected after removing any single vertex</button>
+  </div>
+  <p class="why">Biconnected = no cut vertex. Every pair of vertices has two vertex-disjoint paths.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define articulation point, bridge, biconnected component.</summary>
+    <p class="ans">Articulation point: vertex whose removal disconnects graph. Bridge: edge whose removal disconnects. Biconnected component: maximal subgraph with no articulation point.</p></details>
+  <details class="card"><summary>State the low[v] formula and the two articulation point rules.</summary>
+    <p class="ans">low[v] = min(d[v], low of children, d of back-edge targets). Root: &ge;2 DFS children. Non-root u: has child v with low[v] &ge; d[u].</p></details>
+  <details class="card"><summary>Bridge rule vs articulation point rule.</summary>
+    <p class="ans">Bridge: low[v] > d[u] (strictly greater). Articulation: low[v] &ge; d[u] (greater or equal). The &ge; vs > distinction matters!</p></details>
+</div>
+
+<div class="nav">
+  <a href="0017-connected-components-and-topological-sort.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0019-single-source-shortest-path.html">Next: Shortest Path &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

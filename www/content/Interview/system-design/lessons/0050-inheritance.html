@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 50 - Inheritance &amp; Composition | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · LLD · Lesson 50 of 66 · Diamond Problem, Fragile Base Class</div>
+  
+  <h1>Inheritance vs Composition: The Golden Rule</h1>
+  <p class="subtitle">Why senior software engineers favor object composition over inheritance hierarchies.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module L — OOP Foundations</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p><strong>Inheritance</strong> creates an <em>"IS-A"</em> relationship (a <code>Dog</code> is an <code>Animal</code>), allowing a subclass to inherit fields and methods from a superclass. However, inheritance creates the tightest possible coupling in object-oriented programming: changes to the parent class silently break child classes across the codebase (The <strong>Fragile Base Class Problem</strong>). The Gang of Four design rule states: <strong>"Favor object composition over class inheritance"</strong> — build systems using <em>"HAS-A"</em> relationships instead.</p>
+
+  <h2>2 · The Diamond Problem &amp; Why Java Forbids Multiple Inheritance</h2>
+  <p>In C++, a class <code>D</code> can inherit from both <code>B</code> and <code>C</code>, which both inherit from <code>A</code>. If <code>A</code> defines <code>print()</code>, and both <code>B</code> and <code>C</code> override it, which method should <code>D.print()</code> call? This ambiguity is the <strong>Diamond of Death</strong>. Java completely eliminated multiple class inheritance to prevent this ambiguity, allowing classes to implement multiple <em>Interfaces</em> instead.</p>
+
+  <h2>3 · The Fragile Base Class Problem</h2>
+  <p>Suppose you extend Java's <code>HashSet</code> to count total elements added over time by overriding <code>add()</code> and <code>addAll()</code>:</p>
+  <pre><code>public class InstrumentedHashSet&lt;E&gt; extends HashSet&lt;E&gt; {
+    private int addCount = 0;
+
+    @Override
+    public boolean add(E e) {
+        addCount++;
+        return super.add(e);
+    }
+
+    @Override
+    public boolean addAll(Collection&lt;? extends E&gt; c) {
+        addCount += c.size();
+        return super.addAll(c);
+    }
+}</code></pre>
+  <p>If you call <code>addAll(List.of(1, 2, 3))</code>, what is <code>addCount</code>? <strong>It is 6, not 3!</strong> Because inside JDK's <code>HashSet.addAll()</code>, the implementation loops and calls <code>this.add()</code> for each element, double-counting every item! Inheritance broke because you relied on internal parent implementation details.</p>
+
+  <h2>4 · The Solution: Composition (Wrapping)</h2>
+  <pre><code>public class InstrumentedSet&lt;E&gt; {
+    <span class="cmt">// HAS-A relationship (Composition)</span>
+    private final Set&lt;E&gt; set;
+    private int addCount = 0;
+
+    public InstrumentedSet(Set&lt;E&gt; set) { this.set = set; }
+
+    public boolean add(E e) {
+        addCount++;
+        return set.add(e); <span class="cmt">// Forwarding</span>
+    }
+
+    public boolean addAll(Collection&lt;? extends E&gt; c) {
+        addCount += c.size();
+        return set.addAll(c);
+    }
+}</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do you define pure behavioral contracts without implementation? Next: Abstraction &amp; Interfaces.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0049-encapsulation.html">← Previous: Encapsulation</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0051-abstraction.html">Next: Abstraction &amp; Interfaces →</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,398 @@
+<title>Process Concept and Scheduling</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit I &middot; Lesson 5 of 14</p>
+<h1>Process Concept, Scheduling and Operations</h1>
+<p class="deck">Process vs program, the five-state diagram, the Process Control Block, scheduling queues and the three schedulers, context switching, process creation and termination, and the <code>fork()</code> numericals.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>The process state diagram is the single most drawn diagram in this subject</strong> &mdash; five states, five labelled transitions, and every transition named. Draw it for any question that mentions processes at all. <strong>&ldquo;What is a PCB? What does it contain?&rdquo;</strong> is a guaranteed 5-marker; learn the <strong>eight fields</strong>. <strong>&ldquo;Differentiate long-term, short-term and medium-term scheduler&rdquo;</strong> is a guaranteed comparison table. And <strong><code>fork()</code> output counting</strong> is an objective-question staple &mdash; 2<sup>n</sup> is the whole trick.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">7-State Process Lifecycle & Scheduler Hierarchy</div>
+  <div class="flow-row">
+    <div class="flow-box"><strong>New</strong><span class="sub">Created; waiting in secondary storage</span></div>
+    <div class="flow-arrow-right">&rarr; Long-Term (Job) &rarr;</div>
+    <div class="flow-box highlight"><strong>Ready</strong><span class="sub">In RAM; waiting for CPU allocation</span></div>
+    <div class="flow-arrow-right">&rarr; Short-Term (CPU) &rarr;</div>
+    <div class="flow-box ok"><strong>Running</strong><span class="sub">Instructions executing on CPU core</span></div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box warn"><strong>Waiting / Blocked</strong><span class="sub">Awaiting I/O completion or signal</span></div>
+    <div class="flow-box"><strong>Suspended Ready / Suspended Blocked</strong><span class="sub">Swapped out to disk by Medium-Term Scheduler (Swapper)</span></div>
+    <div class="flow-box"><strong>Terminated</strong><span class="sub">PCB deallocated</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Process Concept & States</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-1.5: Process States & Schedulers (Long, Short, Medium Term)</div>
+    <div class="v-desc">The quintessential masterclass covering PCB structure, state transition triggers, degree of multiprogramming, and scheduler roles.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=2dJdHMpCLIg" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Process vs program</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>process is a program in execution</strong> &mdash; an <em>active</em> entity, with a program counter specifying the next instruction, a set of associated resources, and its own memory image.<br><br>
+  A <strong>program is a passive entity</strong> &mdash; a file of instructions stored on disk, an <em>executable file</em>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Program</th><th>Process</th></tr></thead>
+<tbody>
+<tr><td><strong>Nature</strong></td><td>Passive</td><td>Active</td></tr>
+<tr><td><strong>Lives in</strong></td><td>Secondary storage (disk)</td><td>Main memory</td></tr>
+<tr><td><strong>Lifetime</strong></td><td>Permanent, until deleted</td><td>Temporary &mdash; exists only while running</td></tr>
+<tr><td><strong>Resources</strong></td><td>Holds none</td><td>Holds CPU, memory, files, I/O devices</td></tr>
+<tr><td><strong>Relationship</strong></td><td>One program can spawn <strong>many</strong> processes</td><td>Each process runs one program at a time</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The memory layout of a process &mdash; four sections</h3>
+
+<div class="formula">
+  <span class="name">Process in memory (high address at top)</span>
+  <strong>STACK</strong> &mdash; temporary data: function parameters, return addresses, local variables. <em>Grows downward.</em><br>
+  &darr; &nbsp;&nbsp; (free space) &nbsp;&nbsp; &uarr;<br>
+  <strong>HEAP</strong> &mdash; memory dynamically allocated at run time (<code>malloc</code>, <code>new</code>). <em>Grows upward.</em><br>
+  <strong>DATA</strong> &mdash; global and static variables<br>
+  <strong>TEXT</strong> &mdash; the program code itself, and the program counter
+</div>
+
+<p>Stack and heap grow toward each other; the OS must make sure they never overlap. Note that <strong>text and data sizes are fixed</strong> at load time, while stack and heap shrink and grow dynamically.</p>
+
+<h2>Process states &mdash; draw this every time</h2>
+
+<div class="formula">
+  <span class="name">The five-state model</span>
+  <strong>NEW</strong> &mdash;<em>admitted</em>&rarr; <strong>READY</strong> &mdash;<em>scheduler dispatch</em>&rarr; <strong>RUNNING</strong> &mdash;<em>exit</em>&rarr; <strong>TERMINATED</strong><br><br>
+  From RUNNING: &mdash;<em>interrupt</em>&rarr; back to <strong>READY</strong><br>
+  From RUNNING: &mdash;<em>I/O or event wait</em>&rarr; <strong>WAITING</strong><br>
+  From WAITING: &mdash;<em>I/O or event completion</em>&rarr; back to <strong>READY</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>State</th><th>Meaning</th><th>Where the process is</th></tr></thead>
+<tbody>
+<tr><td><strong>New</strong></td><td>The process is being created</td><td>Job queue, on disk</td></tr>
+<tr><td><strong>Ready</strong></td><td>Waiting to be assigned to a processor &mdash; it has everything it needs <em>except</em> the CPU</td><td>Ready queue, in main memory</td></tr>
+<tr><td><strong>Running</strong></td><td>Instructions are being executed</td><td>Holding the CPU</td></tr>
+<tr><td><strong>Waiting</strong> (blocked)</td><td>Waiting for some event to occur &mdash; I/O completion, a signal, a resource</td><td>A device queue</td></tr>
+<tr><td><strong>Terminated</strong></td><td>The process has finished execution</td><td>Being removed; its PCB is freed</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Three traps in this diagram</span>
+  <p><strong>1. There is no arrow from WAITING to RUNNING.</strong> A process that finishes its I/O goes back to <strong>READY</strong>, not straight to the CPU &mdash; it must be dispatched again. Drawing that arrow wrongly costs the mark.</p>
+  <p><strong>2. There is no arrow from READY to WAITING.</strong> Only a <em>running</em> process can request I/O.</p>
+  <p><strong>3. Only one process is RUNNING per CPU</strong> at any instant, but many can be READY and many WAITING.</p>
+</div>
+
+<p><strong>Two extra states</strong> appear when swapping is involved: <strong>suspended-ready</strong> and <strong>suspended-blocked</strong> &mdash; processes swapped out of main memory to the backing store by the medium-term scheduler. Add them only if the question mentions swapping or a seven-state model.</p>
+
+<h2>The Process Control Block</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  The <strong>Process Control Block (PCB)</strong>, also called the <em>task control block</em>, is the data structure in the operating system that <strong>represents a process</strong>. It holds all the information the OS needs about that process. It is created when the process is created and destroyed when the process terminates.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Field</th><th>Contents</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><strong>Process state</strong></td><td>New, ready, running, waiting or terminated</td></tr>
+<tr><td class="num">2</td><td><strong>Process number / PID</strong></td><td>The unique identifier of the process</td></tr>
+<tr><td class="num">3</td><td><strong>Program counter</strong></td><td>The address of the next instruction to execute</td></tr>
+<tr><td class="num">4</td><td><strong>CPU registers</strong></td><td>Accumulators, index registers, stack pointers, general-purpose registers, condition codes &mdash; saved on interrupt so execution can resume exactly</td></tr>
+<tr><td class="num">5</td><td><strong>CPU scheduling information</strong></td><td>Priority, pointers to scheduling queues, other scheduling parameters</td></tr>
+<tr><td class="num">6</td><td><strong>Memory management information</strong></td><td>Base and limit registers, page tables or segment tables</td></tr>
+<tr><td class="num">7</td><td><strong>Accounting information</strong></td><td>CPU time used, real time elapsed, time limits, account numbers, job or process numbers</td></tr>
+<tr><td class="num">8</td><td><strong>I/O status information</strong></td><td>List of I/O devices allocated, list of open files</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The PCB is the process, as far as the OS is concerned.</strong> Everything the OS knows about a process is in there, which is why saving and restoring it <em>is</em> the context switch.</p>
+
+<h2>Process scheduling</h2>
+
+<h3>The scheduling queues</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Queue</th><th>Holds</th><th>Lives in</th></tr></thead>
+<tbody>
+<tr><td><strong>Job queue</strong></td><td><strong>All</strong> processes in the system</td><td>Secondary storage</td></tr>
+<tr><td><strong>Ready queue</strong></td><td>Processes residing in main memory, ready and waiting to execute</td><td>Main memory &mdash; a linked list of PCBs</td></tr>
+<tr><td><strong>Device queue</strong></td><td>Processes waiting for a particular I/O device</td><td>One queue per device</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The <strong>queueing diagram</strong> shows a process leaving the ready queue for the CPU, and then either (a) issuing an I/O request and joining a device queue, (b) creating a child and waiting for it, or (c) being removed forcibly by an interrupt &mdash; in all three cases eventually returning to the ready queue.</p>
+
+<h3>The three schedulers &mdash; the guaranteed comparison</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Long-term</strong> (job scheduler)</th><th><strong>Short-term</strong> (CPU scheduler)</th><th><strong>Medium-term</strong> (swapper)</th></tr></thead>
+<tbody>
+<tr><td><strong>Selects</strong></td><td>Which jobs on disk are <strong>brought into the ready queue</strong></td><td>Which ready process gets <strong>the CPU next</strong></td><td>Which process to <strong>swap out</strong> of memory, and later back in</td></tr>
+<tr><td><strong>Transition</strong></td><td>New &rarr; Ready</td><td>Ready &rarr; Running</td><td>Ready/Waiting &rarr; Suspended, and back</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Slowest</strong> &mdash; invoked seconds or minutes apart</td><td><strong>Fastest</strong> &mdash; invoked every few milliseconds</td><td>In between</td></tr>
+<tr><td><strong>Controls</strong></td><td>The <strong>degree of multiprogramming</strong></td><td>Nothing structural &mdash; just which process runs</td><td><strong>Reduces</strong> the degree of multiprogramming</td></tr>
+<tr><td><strong>Must be</strong></td><td>Careful &mdash; it can afford to be slow, and should mix I/O-bound and CPU-bound jobs</td><td><strong>Very fast</strong> &mdash; its own execution is pure overhead</td><td>Occasional</td></tr>
+<tr><td><strong>Present in</strong></td><td>Batch systems; <strong>absent or minimal in time-sharing systems</strong> (UNIX, Windows)</td><td>Every system</td><td>Systems with swapping / virtual memory</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The point about the job mix</span>
+  <p>An <strong>I/O-bound process</strong> spends more time doing I/O than computation, in many short CPU bursts. A <strong>CPU-bound process</strong> spends more time computing, in a few very long bursts. The long-term scheduler must select a <strong>good mix</strong> of both. All-I/O-bound leaves the CPU idle; all-CPU-bound leaves the device queues empty. That sentence is a standard 3-mark answer.</p>
+</div>
+
+<h3>Context switch</h3>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  A <strong>context switch</strong> is the mechanism of <strong>saving the state of the currently running process into its PCB and loading the saved state of the next process from its PCB</strong>, so that the CPU can be switched from one process to another.
+</div>
+
+<ul>
+<li><strong>Context-switch time is pure overhead</strong> &mdash; the system does no useful work while switching. Typical cost: a few microseconds.</li>
+<li>The cost depends on hardware support: some machines have multiple register sets, so a switch is only a change of pointer.</li>
+<li><strong>A context switch is not a mode switch.</strong> A mode switch changes privilege within one process; a context switch changes which process holds the CPU. Every context switch involves mode switches, but not every mode switch is a context switch.</li>
+</ul>
+
+<h2>Operations on processes</h2>
+
+<h3>Process creation</h3>
+
+<p>A process may create several new processes with a <strong>create-process</strong> system call. The creator is the <strong>parent</strong>, the new process the <strong>child</strong>; children may create further children, forming a <strong>process tree</strong>. Each process has a unique <strong>process identifier (PID)</strong>. In UNIX the root of the tree is <code>init</code> or <code>systemd</code>, with PID 1.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Design question</th><th>Options</th></tr></thead>
+<tbody>
+<tr><td><strong>Resource sharing</strong></td><td>Parent and child share <em>all</em> resources; or the child shares a <em>subset</em>; or they share <em>nothing</em></td></tr>
+<tr><td><strong>Execution</strong></td><td>Parent and child execute <em>concurrently</em>; or the parent <strong>waits</strong> until the child terminates</td></tr>
+<tr><td><strong>Address space</strong></td><td>The child is a <strong>duplicate</strong> of the parent (<code>fork()</code>); or the child has a <strong>new program loaded</strong> into it (<code>exec()</code>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The UNIX idiom &mdash; know the return values</span>
+  <code>pid = fork();</code><br><br>
+  In the <strong>child</strong>, <code>fork()</code> returns <strong>0</strong>.<br>
+  In the <strong>parent</strong>, <code>fork()</code> returns the <strong>PID of the child</strong> (a positive number).<br>
+  On failure it returns <strong>&minus;1</strong>, and no child is created.<br><br>
+  <code>exec()</code> <strong>replaces</strong> the process's memory image with a new program &mdash; it does not return on success.<br>
+  <code>wait()</code> makes the parent block until a child terminates.<br>
+  <code>exit()</code> terminates the calling process and returns a status to the parent.
+</div>
+
+<h3>Process termination</h3>
+
+<p>A process terminates when it finishes and calls <code>exit()</code>. The parent may also terminate a child with <code>abort()</code>, for three reasons: the child <strong>exceeded its allocated resources</strong>; the <strong>task assigned to it is no longer required</strong>; or <strong>the parent itself is exiting</strong> and the OS does not permit orphaned children.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Zombie process</strong></td><td>A process that has <strong>terminated but whose parent has not yet called <code>wait()</code></strong>. Its PCB entry is kept so the exit status can be collected. Every terminated process is briefly a zombie</td></tr>
+<tr><td><strong>Orphan process</strong></td><td>A process whose <strong>parent terminated first</strong>. In UNIX it is re-parented to <code>init</code>, which reaps it</td></tr>
+<tr><td><strong>Cascading termination</strong></td><td>Killing a process automatically kills all its descendants. Initiated by the OS, in systems that do not permit orphans</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Numerical 1 &mdash; counting processes from <code>fork()</code></h2>
+
+<div class="formula">
+  <span class="name">The rule</span>
+  <strong>n successive, unconditional <code>fork()</code> calls produce 2<sup>n</sup> total processes</strong> &mdash; that is <strong>2<sup>n</sup> &minus; 1 child processes</strong>, plus the original parent.<br>
+  A <code>printf</code> placed after all the forks therefore executes <strong>2<sup>n</sup></strong> times.
+</div>
+
+<div class="solve">
+  <span class="lbl">Q1. How many processes are created, and how many times is &ldquo;Hello&rdquo; printed?</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.85rem; background:var(--formula-bg); padding:.6rem .8rem; border-radius:4px">main() {<br>&nbsp; fork();<br>&nbsp; fork();<br>&nbsp; fork();<br>&nbsp; printf("Hello");<br>}</p>
+  <p><strong>Trace it as a doubling.</strong> Start with 1 process.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>After</th><th class="num">Processes alive</th></tr></thead>
+  <tbody>
+  <tr><td>start</td><td class="num">1</td></tr>
+  <tr><td>1st <code>fork()</code></td><td class="num">2</td></tr>
+  <tr><td>2nd <code>fork()</code></td><td class="num">4</td></tr>
+  <tr><td>3rd <code>fork()</code></td><td class="num">8</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Total processes = 2<sup>3</sup> = 8. Child processes created = 8 &minus; 1 = 7. &ldquo;Hello&rdquo; is printed 8 times.</strong></p>
+  <p><em>Why:</em> every existing process executes every remaining <code>fork()</code>, so the population doubles at each one.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q2. A conditional fork &mdash; how many processes, and what is printed?</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.85rem; background:var(--formula-bg); padding:.6rem .8rem; border-radius:4px">main() {<br>&nbsp; if (fork() == 0) {<br>&nbsp;&nbsp;&nbsp; fork();<br>&nbsp;&nbsp;&nbsp; printf("A");<br>&nbsp; } else {<br>&nbsp;&nbsp;&nbsp; printf("B");<br>&nbsp; }<br>}</p>
+  <p><strong>Step 1.</strong> The original process P executes <code>fork()</code>. Two processes now exist: <strong>P</strong> and child <strong>C1</strong>.</p>
+  <p><strong>Step 2.</strong> In <strong>P</strong>, <code>fork()</code> returned C1's PID, which is <strong>non-zero</strong>, so the condition is false &rarr; P takes the <code>else</code> branch and prints <strong>B</strong>.</p>
+  <p><strong>Step 3.</strong> In <strong>C1</strong>, <code>fork()</code> returned <strong>0</strong>, so the condition is true &rarr; C1 executes the inner <code>fork()</code>, creating <strong>C2</strong>. Both C1 and C2 then print <strong>A</strong>.</p>
+  <p><strong>Answer: 3 processes in total (P, C1, C2); 2 child processes created. Output: one B and two A&rsquo;s &mdash; 3 characters, in an order that is not determined.</strong></p>
+  <p><em>Sanity check:</em> the ordering of the output is non-deterministic because the processes are scheduled independently &mdash; say so, it is worth a mark.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q3. Forks inside a loop</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.85rem; background:var(--formula-bg); padding:.6rem .8rem; border-radius:4px">for (i = 0; i &lt; 4; i++)<br>&nbsp;&nbsp; fork();<br>printf("X");</p>
+  <p>The loop body executes <code>fork()</code> four times, and <strong>every process created also continues the loop from its own value of <code>i</code></strong>, so it behaves exactly like four successive forks.</p>
+  <p><strong>Total processes = 2<sup>4</sup> = 16. Children created = 15. &ldquo;X&rdquo; printed 16 times.</strong></p>
+  <p><em>Watch for the trap version:</em> if the code were <code>if (fork() == 0) fork();</code> inside the loop, the doubling no longer applies and you must draw the tree.</p>
+</div>
+
+<h2>Numerical 2 &mdash; context-switch overhead</h2>
+
+<div class="solve">
+  <span class="lbl">Q. A system performs a context switch every 10 ms. Each context switch takes 0.1 ms. What percentage of CPU time is lost to switching? What if the switch interval is reduced to 1 ms?</span>
+  <p><strong>Case A &mdash; 10 ms interval.</strong> Each cycle is 10 ms of useful work plus 0.1 ms of switching, so the cycle length is 10.1 ms.</p>
+  <p>Overhead = 0.1 / 10.1 = 0.00990 = <strong>0.99 %</strong> &nbsp; &rarr; &nbsp; about 99 % of the CPU does useful work.</p>
+  <p><strong>Case B &mdash; 1 ms interval.</strong> Cycle = 1 + 0.1 = 1.1 ms.</p>
+  <p>Overhead = 0.1 / 1.1 = 0.0909 = <strong>9.09 %</strong> &nbsp; &rarr; &nbsp; only about 91 % is useful work.</p>
+  <p><em>Reading:</em> a ten-times shorter quantum gives ten-times better responsiveness but multiplies the overhead by about nine. <strong>This is exactly the trade-off behind choosing the time quantum in round robin</strong>, which Lesson 9 works in full.</p>
+  <p><em>Sanity check:</em> overhead must rise as the interval falls, and must approach 0 as the interval grows large. With a 100 ms interval it would be 0.1/100.1 = 0.0999 %, which fits the pattern.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. A process that completes its I/O moves to which state?</p>
+  <div class="opts">
+    <button class="opt">New</button>
+    <button class="opt" data-ok="1">Ready</button>
+    <button class="opt">Terminated</button>
+    <button class="opt">Running</button>
+  </div>
+  <p class="why">There is no arrow from waiting to running. The process must rejoin the ready queue and be dispatched again by the short-term scheduler.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which scheduler controls the degree of multiprogramming?</p>
+  <div class="opts">
+    <button class="opt">The dispatcher</button>
+    <button class="opt">The medium-term scheduler</button>
+    <button class="opt" data-ok="1">The long-term scheduler</button>
+    <button class="opt">The short-term scheduler</button>
+  </div>
+  <p class="why">The long-term scheduler decides how many processes enter the ready queue. The medium-term scheduler can only <em>reduce</em> it, by swapping processes out.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In the child process, fork() returns:</p>
+  <div class="opts">
+    <button class="opt">−1</button>
+    <button class="opt">The parent's PID</button>
+    <button class="opt">The child's own PID</button>
+    <button class="opt" data-ok="1">0</button>
+  </div>
+  <p class="why">Child gets 0; parent gets the child's PID; failure gives −1. Every conditional-fork numerical turns on this one fact.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Three successive unconditional fork() calls create how many child processes?</p>
+  <div class="opts">
+    <button class="opt">6</button>
+    <button class="opt">8</button>
+    <button class="opt">3</button>
+    <button class="opt" data-ok="1">7</button>
+  </div>
+  <p class="why">2³ = 8 processes exist in total, one of which is the original — so 7 children. Read the question carefully: &ldquo;processes&rdquo; means 8, &ldquo;child processes&rdquo; means 7.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A terminated process whose parent has not yet called wait() is called:</p>
+  <div class="opts">
+    <button class="opt">An orphan</button>
+    <button class="opt">A daemon</button>
+    <button class="opt" data-ok="1">A zombie</button>
+    <button class="opt">A suspended process</button>
+  </div>
+  <p class="why">Zombie = dead child, parent hasn't reaped it. Orphan = live child, parent already dead — re-parented to init.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Which is NOT stored in the PCB?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The source code of the program</button>
+    <button class="opt">CPU registers and the program counter</button>
+    <button class="opt">Memory management information such as page tables</button>
+    <button class="opt">Accounting information such as CPU time used</button>
+  </div>
+  <p class="why">The PCB holds metadata about the process, not the program text — the code lives in the process's own text section in memory.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A good long-term scheduler selects:</p>
+  <div class="opts">
+    <button class="opt">Processes at random, since it makes no difference</button>
+    <button class="opt" data-ok="1">A mix of I/O-bound and CPU-bound processes</button>
+    <button class="opt">Only CPU-bound processes, to keep the CPU busy</button>
+    <button class="opt">Only I/O-bound processes, to keep devices busy</button>
+  </div>
+  <p class="why">All-CPU-bound leaves the device queues empty; all-I/O-bound leaves the ready queue empty and the CPU idle. A mix keeps both busy.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Distinguish a program from a process on five points.</summary>
+    <p class="ans">A program is passive, lives on disk, is permanent, holds no resources, and one program can spawn many processes. A process is active, lives in main memory, is temporary, holds CPU, memory, files and devices, and runs one program at a time.</p></details>
+  <details class="card"><summary>Name the four sections of a process in memory.</summary>
+    <p class="ans">Text (the code and program counter), data (globals and statics), heap (dynamically allocated at run time, growing upward) and stack (parameters, return addresses and locals, growing downward). Text and data are fixed in size; heap and stack grow toward each other.</p></details>
+  <details class="card"><summary>Draw the five-state process diagram with all transitions named.</summary>
+    <p class="ans">New —admitted→ Ready —scheduler dispatch→ Running —exit→ Terminated. Running —interrupt→ Ready. Running —I/O or event wait→ Waiting. Waiting —I/O or event completion→ Ready. There is no arrow from waiting to running, and none from ready to waiting.</p></details>
+  <details class="card"><summary>List the eight fields of the PCB.</summary>
+    <p class="ans">Process state; process number (PID); program counter; CPU registers; CPU scheduling information such as priority; memory management information such as base and limit registers or page tables; accounting information such as CPU time used; and I/O status information such as open files and allocated devices.</p></details>
+  <details class="card"><summary>Compare the three schedulers.</summary>
+    <p class="ans">Long-term (job scheduler): new to ready, slowest, controls the degree of multiprogramming, mostly absent in time-sharing systems. Short-term (CPU scheduler): ready to running, fastest — every few milliseconds — and must itself be very fast because it is overhead. Medium-term (swapper): swaps processes out to backing store and back, reducing the degree of multiprogramming.</p></details>
+  <details class="card"><summary>Define a context switch, and distinguish it from a mode switch.</summary>
+    <p class="ans">A context switch saves the state of the running process into its PCB and loads the state of the next process from its PCB. It is pure overhead. A mode switch changes privilege level within one process; a context switch changes which process holds the CPU.</p></details>
+  <details class="card"><summary>Give the return values of fork() and the process-counting rule.</summary>
+    <p class="ans">fork() returns 0 in the child, the child's PID in the parent, and −1 on failure. n successive unconditional forks give 2&#8319; total processes, that is 2&#8319; − 1 children, and a printf after them all runs 2&#8319; times.</p></details>
+  <details class="card"><summary>Define zombie, orphan and cascading termination.</summary>
+    <p class="ans">A zombie has terminated but its parent has not yet called wait(), so its PCB entry is kept for the exit status. An orphan is still running but its parent has terminated; UNIX re-parents it to init. Cascading termination kills all descendants of a terminated process, in systems that do not allow orphans.</p></details>
+</div>
+
+<p class="ask">Next: how processes that are deliberately isolated from each other still manage to cooperate &mdash; shared memory, message passing, and the bounded-buffer problem.</p>
+
+<div class="nav">
+  <a href="0004-system-calls.html">&larr; System Calls</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0006-interprocess-communication.html">Next: Interprocess Communication &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

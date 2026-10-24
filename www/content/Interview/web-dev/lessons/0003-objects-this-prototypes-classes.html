@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 03 — Objects, this, Prototypes &amp; Classes</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 3 of 24 · objects, this, prototypes, classes</div>
+<h1>Objects, this, Prototypes &amp; Classes</h1>
+<p class="subtitle">JS does OOP without needing classes at all — objects link to other objects, and <code>this</code> is decided at call time, not compile time. Learn the real machinery, and ES6 <code>class</code> becomes pleasant sugar instead of mysterious magic.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 3 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Object literals — objects without classes</h2>
+<p>
+The Java reflex: to get an object, first write a class, then <code>new</code> it. JS deletes step one. An <strong>object literal</strong>
+conjures an object directly — a bag of key–value pairs (called <strong>properties</strong>), no blueprint required:
+</p>
+<pre><code>const student = {
+  name: "Krish",              <span class="cmt">// property: key "name", value "Krish"</span>
+  cgpa: 6.78,
+  "current college": "NSUT",  <span class="cmt">// keys with spaces need quotes</span>
+  subjects: ["OOPS", "DBMS"], <span class="cmt">// values can be anything — arrays, objects…</span>
+  greet: function () {        <span class="cmt">// …including functions: that makes a METHOD</span>
+    return "Hi, I'm " + this.name;
+  },
+  describe() {                <span class="cmt">// METHOD SHORTHAND (ES6) — same thing, less typing</span>
+    return `${this.name}, CGPA ${this.cgpa}`;
+  }
+};</code></pre>
+<p>Reading and writing properties — two syntaxes with one crucial difference:</p>
+<pre><code>student.name              <span class="cmt">// DOT — key written literally in code. Use by default.</span>
+student["current college"] <span class="cmt">// BRACKET — required for keys with spaces/odd characters…</span>
+
+const key = "cgpa";
+student[key]              <span class="cmt">// …and for DYNAMIC keys: bracket evaluates the expression → 6.78</span>
+student.key               <span class="cmt">// undefined! dot looks for a key literally called "key"</span>
+
+student.year = 3;         <span class="cmt">// assigning to a missing key CREATES it — no class to forbid it</span>
+delete student.year;      <span class="cmt">// and delete removes it. Objects are open bags, not fixed shapes.</span>
+student.hostel            <span class="cmt">// undefined — missing properties don't throw, they yield undefined</span></code></pre>
+<p>Two more ES6 conveniences you'll see in every codebase:</p>
+<pre><code>const name = "Krish", cgpa = 6.78;
+const s1 = { name, cgpa };            <span class="cmt">// PROPERTY SHORTHAND: { name: name, cgpa: cgpa }</span>
+
+const field = "sem" + 6;
+const s2 = { [field]: "ongoing" };    <span class="cmt">// COMPUTED PROPERTY: key built from an expression</span>
+s2.sem6                               <span class="cmt">// "ongoing"</span></code></pre>
+<div class="callout">
+  <span class="label">Java parallel</span>
+  The closest Java feel is a <code>HashMap&lt;String, Object&gt;</code> that can also hold methods — plus dot-syntax access.
+  Property keys are strings (or Symbols, Lesson 5); even <code>obj[1]</code> becomes <code>obj["1"]</code>. Remember from Lesson 1:
+  variables hold <em>references</em> to objects, so <code>===</code> on two objects compares identity, never content —
+  <code>{a:1} === {a:1}</code> is <code>false</code>, exactly like Java's <code>==</code> on two distinct instances.
+</div>
+
+<h2>2 · Getters, setters, and the Object.* toolkit</h2>
+<p><strong>Getters/setters</strong> let a property run code when read or written — Java's <code>getX()</code>/<code>setX()</code> discipline, but invisible at the call site:</p>
+<pre><code>const account = {
+  balance: 1000,
+  get summary() {                       <span class="cmt">// computed on every READ</span>
+    return `Balance: ₹${this.balance}`;
+  },
+  set deposit(amt) {                    <span class="cmt">// runs on WRITE — can validate</span>
+    if (amt &gt; 0) this.balance += amt;
+  }
+};
+account.summary;        <span class="cmt">// "Balance: ₹1000" — no parentheses; looks like a field</span>
+account.deposit = 500;  <span class="cmt">// assignment triggers the setter</span>
+account.balance;        <span class="cmt">// 1500</span></code></pre>
+<p>And the static <code>Object.*</code> helpers you'll use constantly:</p>
+<pre><code>const user = { name: "Krish", year: 3 };
+
+Object.keys(user)     <span class="cmt">// ["name", "year"]           — like Java's map.keySet()</span>
+Object.values(user)   <span class="cmt">// ["Krish", 3]               — map.values()</span>
+Object.entries(user)  <span class="cmt">// [["name","Krish"],["year",3]] — map.entrySet(); great with for..of:</span>
+for (const [k, v] of Object.entries(user)) console.log(k, v);
+
+Object.assign({}, user, { year: 4 })  <span class="cmt">// merge right-to-left into a new object</span>
+                                      <span class="cmt">// → { name: "Krish", year: 4 } (spread {...} does this better — Lesson 4)</span>
+
+Object.freeze(user);  <span class="cmt">// NOW the object itself is immutable (const only froze the binding)</span>
+user.year = 4;        <span class="cmt">// silently ignored (throws in strict mode)</span>
+Object.isFrozen(user) <span class="cmt">// true. Note: freeze is SHALLOW — nested objects stay mutable.</span></code></pre>
+<p>Three ways to ask "does this property exist?" — they differ, and section 5 explains why:</p>
+<pre><code>"name" in user                    <span class="cmt">// true — checks own AND inherited properties</span>
+user.hasOwnProperty("name")       <span class="cmt">// true — checks OWN properties only</span>
+user.name !== undefined           <span class="cmt">// true — but lies if the value is literally undefined</span>
+
+user?.address?.city               <span class="cmt">// OPTIONAL CHAINING teaser: undefined instead of a</span>
+                                  <span class="cmt">// TypeError when a link is missing. Full story in Lesson 5.</span></code></pre>
+
+<h2>3 · <code>this</code> — decided at call time, not write time</h2>
+<p>
+Here is the single biggest mental-model difference from Java in this whole module. In Java, <code>this</code> inside a method
+always means "the instance the method belongs to" — settled forever by the class definition. In JS, functions are
+free-floating values (Lesson 2), so a function doesn't <em>belong</em> to anyone.
+<strong><code>this</code> is determined by HOW the function is called</strong>, freshly, on every call. Four rules, checked in order of priority:
+</p>
+<table>
+  <thead><tr><th>Rule (highest priority first)</th><th>Call looks like</th><th><code>this</code> is…</th></tr></thead>
+  <tbody>
+    <tr><td>1 · <strong>new</strong> binding</td><td><code>new Fn()</code></td><td>The freshly created object (§6)</td></tr>
+    <tr><td>2 · <strong>Explicit</strong> binding</td><td><code>fn.call(x)</code> / <code>fn.apply(x)</code> / <code>fn.bind(x)</code></td><td>Exactly <code>x</code> — you chose it (§4)</td></tr>
+    <tr><td>3 · <strong>Implicit</strong> binding</td><td><code>obj.fn()</code></td><td>The object before the dot: <code>obj</code></td></tr>
+    <tr><td>4 · <strong>Default</strong> binding</td><td><code>fn()</code> — bare call</td><td><code>undefined</code> in strict mode / modules; the global object in old sloppy mode</td></tr>
+  </tbody>
+</table>
+<pre><code>function whoAmI() { return this?.name ?? "nobody"; }
+
+const alice = { name: "Alice", whoAmI };   <span class="cmt">// same function, attached to an object</span>
+const bob   = { name: "Bob",   whoAmI };
+
+whoAmI();          <span class="cmt">// "nobody"  — rule 4: bare call, no receiver</span>
+alice.whoAmI();    <span class="cmt">// "Alice"   — rule 3: alice is before the dot</span>
+bob.whoAmI();      <span class="cmt">// "Bob"     — rule 3: same function, different this!</span>
+whoAmI.call(alice);<span class="cmt">// "Alice"   — rule 2: this forced explicitly</span></code></pre>
+<p><strong>The lost-<code>this</code> bug</strong> — the classic that every JS interviewer owns a copy of. Detach a method from its object and rule 3 evaporates:</p>
+<pre><code>const timer = {
+  seconds: 0,
+  tick() { this.seconds++; console.log(this.seconds); }
+};
+
+timer.tick();              <span class="cmt">// 1 — fine: called through the dot</span>
+
+const t = timer.tick;      <span class="cmt">// extracting the method = taking the bare function value</span>
+t();                       <span class="cmt">// TypeError: this is undefined — the dot is gone, rule 4 applies</span>
+
+setTimeout(timer.tick, 1000);  <span class="cmt">// SAME BUG — setTimeout receives the bare function</span>
+                               <span class="cmt">// and later calls it with no receiver</span></code></pre>
+<p>Three standard fixes — know all three:</p>
+<pre><code>setTimeout(() =&gt; timer.tick(), 1000);       <span class="cmt">// 1) wrap: the dot-call survives inside</span>
+setTimeout(timer.tick.bind(timer), 1000);   <span class="cmt">// 2) bind: permanently glue this (§4)</span>
+<span class="cmt">// 3) define tick as an arrow in a class field — next paragraph explains why that works</span></code></pre>
+<p>
+<strong>Arrow functions — the fifth "rule" that isn't a rule.</strong> Arrows have <em>no</em> <code>this</code> of their own.
+Any <code>this</code> inside an arrow is resolved like an ordinary variable — walked up the lexical scope chain (Lesson 2 §5)
+to the enclosing function. Written where <code>this</code> is your object, the arrow keeps it forever:
+</p>
+<pre><code>const stopwatch = {
+  seconds: 0,
+  start() {                                  <span class="cmt">// regular method: this = stopwatch (rule 3)</span>
+    setInterval(() =&gt; {
+      this.seconds++;                        <span class="cmt">// arrow has no this → uses start()'s this ✓</span>
+    }, 1000);
+  }
+};
+
+<span class="cmt">// The flip side — NEVER use an arrow AS a method:</span>
+const broken = {
+  name: "X",
+  greet: () =&gt; `Hi ${this.name}`   <span class="cmt">// this is NOT broken — it's the outer scope's this!</span>
+};
+broken.greet();                    <span class="cmt">// "Hi undefined" — rule 3 can't rescue an arrow</span></code></pre>
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "<code>this</code> is bound at call time by four rules — new, explicit (call/apply/bind), implicit (the object before the
+  dot), default (undefined in strict mode) — in that priority order. Arrow functions opt out entirely and inherit
+  <code>this</code> lexically from where they're written. So: arrows for callbacks, regular functions for methods."
+</div>
+
+<h2>4 · call, apply, bind</h2>
+<p>Every function carries these three methods (functions are objects — they can have methods!). All three set <code>this</code> explicitly:</p>
+<pre><code>function introduce(greeting, punct) {
+  return `${greeting}, I'm ${this.name}${punct}`;
+}
+const krish = { name: "Krish" };
+
+introduce.call(krish, "Hello", "!");     <span class="cmt">// CALL:  invoke now, args one by one → "Hello, I'm Krish!"</span>
+introduce.apply(krish, ["Hello", "!"]);  <span class="cmt">// APPLY: invoke now, args as an Array → same result</span>
+
+const boundIntro = introduce.bind(krish);<span class="cmt">// BIND:  invoke NOTHING — returns a NEW function</span>
+boundIntro("Yo", "?");                   <span class="cmt">// with this glued to krish forever → "Yo, I'm Krish?"</span>
+
+const yoIntro = introduce.bind(krish, "Yo");  <span class="cmt">// bind can also pre-fill arguments</span>
+yoIntro("!");                            <span class="cmt">// "Yo, I'm Krish!" — this is PARTIAL APPLICATION</span></code></pre>
+<p>
+Mnemonic: <strong>C</strong>all = <strong>C</strong>ommas, <strong>A</strong>pply = <strong>A</strong>rray, <strong>B</strong>ind = <strong>B</strong>ring back later.
+A bound function's <code>this</code> cannot be re-overridden by call/apply or the dot — only <code>new</code> outranks it.
+In practice you'll mostly use <code>bind</code> (fixing the lost-<code>this</code> bug), and spread syntax (Lesson 4) has largely
+replaced <code>apply</code>.
+</p>
+
+<h2>5 · Prototypes — JS inheritance without classes</h2>
+<p>
+Java inheritance copies a mental model of <em>classes extending classes</em>, checked at compile time. JS's native model is
+different and simpler: <strong>every object has a hidden link to another object — its prototype</strong>. When you read
+<code>obj.something</code> and <code>obj</code> doesn't have it, the engine follows the link and looks there. Not found? Follow
+<em>that</em> object's link. This continues until the chain ends at <code>null</code>. That walk is the
+<strong>prototype chain</strong> — inheritance by delegation ("I don't know this, ask my prototype"), resolved at runtime.
+</p>
+<pre><code>const animal = {
+  eats: true,
+  describe() { return `eats: ${this.eats}, barks: ${this.barks ?? false}`; }
+};
+
+const dog = Object.create(animal);  <span class="cmt">// new empty object whose prototype IS animal</span>
+dog.barks = true;                   <span class="cmt">// own property, lives on dog itself</span>
+
+dog.barks       <span class="cmt">// true  — found on dog directly (own property)</span>
+dog.eats        <span class="cmt">// true  — not on dog → walk the chain → found on animal</span>
+dog.describe()  <span class="cmt">// "eats: true, barks: true" — method found on animal, BUT</span>
+                <span class="cmt">// this = dog (rule 3: dog is before the dot). Inherited methods</span>
+                <span class="cmt">// always operate on the calling object. That's the whole trick.</span>
+
+Object.getPrototypeOf(dog) === animal        <span class="cmt">// true — the official way to see the link</span>
+dog.__proto__ === animal                     <span class="cmt">// true — the legacy accessor (avoid writing it)</span>
+
+"eats" in dog                <span class="cmt">// true  — 'in' walks the chain (§2's difference, explained)</span>
+dog.hasOwnProperty("eats")   <span class="cmt">// false — hasOwnProperty checks only dog's own bag</span>
+
+dog.eats = false;   <span class="cmt">// WRITING never touches the prototype — this creates an OWN 'eats'</span>
+animal.eats         <span class="cmt">// true — unchanged; dog's own property now SHADOWS it (like overriding)</span></code></pre>
+<p>
+Where do chains end? Object literals link to <code>Object.prototype</code> — the source of <code>hasOwnProperty</code>,
+<code>toString</code>, and friends that every object mysteriously "has." Its own prototype is <code>null</code>: end of the line.
+Arrays link to <code>Array.prototype</code> (home of <code>map</code>/<code>filter</code>) which links to <code>Object.prototype</code>.
+One shared object holding the methods — that's why ten thousand arrays don't carry ten thousand copies of <code>map</code>.
+</p>
+<div class="callout">
+  <span class="label">Java parallel</span>
+  The chain-walk is Java's virtual method dispatch made visible: Java looks up an overridden method through the class
+  hierarchy at runtime; JS walks the prototype chain at runtime. <code>Object.prototype</code> plays the role of
+  <code>java.lang.Object</code> — the ancestor everyone eventually reaches. Difference: JS links <em>objects to objects</em>
+  and you can re-point or extend them while the program runs; Java's hierarchy is frozen at compile time.
+</div>
+
+<h2>6 · Constructor functions and what <code>new</code> really does</h2>
+<p>
+Before 2015, JS faked "classes" with plain functions used in a special way — and this is still what runs underneath
+modern <code>class</code> syntax, so you must know it. A <strong>constructor function</strong> is any function you invoke with
+<code>new</code> (capitalized by convention):
+</p>
+<pre><code>function Account(holder, balance) {
+  this.holder = holder;       <span class="cmt">// per-object data goes on 'this'</span>
+  this.balance = balance;
+}
+<span class="cmt">// shared methods go on Account.prototype — ONE copy for all instances:</span>
+Account.prototype.deposit = function (amt) {
+  if (amt &gt; 0) this.balance += amt;
+};
+
+const a1 = new Account("Krish", 1000);
+a1.deposit(500);
+a1.balance                       <span class="cmt">// 1500</span>
+a1.hasOwnProperty("holder")      <span class="cmt">// true  — own data</span>
+a1.hasOwnProperty("deposit")     <span class="cmt">// false — found via the chain, on Account.prototype</span></code></pre>
+<p><strong>What <code>new Account("Krish", 1000)</code> does, step by step</strong> — a top-tier interview answer:</p>
+<ul>
+  <li><strong>1.</strong> Creates a fresh empty object.</li>
+  <li><strong>2.</strong> Sets that object's hidden prototype link to <code>Account.prototype</code>.</li>
+  <li><strong>3.</strong> Calls <code>Account</code> with <code>this</code> bound to the new object (binding rule #1).</li>
+  <li><strong>4.</strong> Returns the new object automatically (unless the function explicitly returns some other object — a quirk, rarely used).</li>
+</ul>
+<p>
+Now the naming confusion that fails candidates, untangled. <strong><code>prototype</code> vs <code>__proto__</code> are two
+different things:</strong>
+</p>
+<table>
+  <thead><tr><th></th><th><code>Fn.prototype</code></th><th><code>obj.__proto__</code></th></tr></thead>
+  <tbody>
+    <tr><td>Exists on</td><td>Functions only</td><td>Every object (legacy accessor)</td></tr>
+    <tr><td>What it is</td><td>The object that instances made by <code>new Fn()</code> <em>will link to</em> — a template for future children</td><td>The actual hidden link of <em>this</em> object — who it delegates to right now</td></tr>
+    <tr><td>Proper API</td><td>—</td><td><code>Object.getPrototypeOf(obj)</code></td></tr>
+    <tr><td>Relationship</td><td colspan="2"><code>new Fn()</code> makes: <code>instance.__proto__ === Fn.prototype</code></td></tr>
+  </tbody>
+</table>
+<p>And <code>instanceof</code> is simply a chain search: <code>a1 instanceof Account</code> asks "does <code>Account.prototype</code> appear anywhere in <code>a1</code>'s prototype chain?" — so it stays true for subclasses, exactly like Java's <code>instanceof</code>.</p>
+
+<h2>7 · ES6 classes — the sugar, and the truth</h2>
+<p>ES6 gave JS a <code>class</code> syntax that finally looks like home. Everything from §6, rewritten:</p>
+<pre><code>class Account {
+  #pin;                              <span class="cmt">// PRIVATE field (the # is part of the name!)</span>
+  static bankName = "NSUT Bank";     <span class="cmt">// STATIC: one copy on the class itself</span>
+
+  constructor(holder, balance, pin) {
+    this.holder = holder;
+    this.balance = balance;
+    this.#pin = pin;
+  }
+
+  deposit(amt) {                     <span class="cmt">// method → goes on Account.prototype (shared)</span>
+    if (amt &gt; 0) this.balance += amt;
+    return this;
+  }
+  checkPin(guess) { return guess === this.#pin; }
+
+  get summary() { return `${this.holder}: ₹${this.balance}`; }  <span class="cmt">// getter, as in §2</span>
+
+  static compare(x, y) {             <span class="cmt">// static method: Account.compare(a, b)</span>
+    return x.balance - y.balance;
+  }
+}
+
+class SavingsAccount extends Account {          <span class="cmt">// inheritance</span>
+  constructor(holder, balance, pin, rate) {
+    super(holder, balance, pin);                <span class="cmt">// MUST call super() before using this</span>
+    this.rate = rate;
+  }
+  addInterest() { this.balance *= 1 + this.rate; }
+  deposit(amt) {                                <span class="cmt">// override</span>
+    super.deposit(amt);                         <span class="cmt">// super.method() calls the parent version</span>
+    console.log("saved!");
+    return this;
+  }
+}
+
+const s = new SavingsAccount("Krish", 1000, 1234, 0.05);
+s.deposit(500).addInterest();       <span class="cmt">// method chaining via 'return this'</span>
+s.summary                            <span class="cmt">// "Krish: ₹1575"</span>
+s.#pin                               <span class="cmt">// SyntaxError — truly private, enforced by the language</span>
+s instanceof SavingsAccount          <span class="cmt">// true</span>
+s instanceof Account                 <span class="cmt">// true — chain search walks up, like Java</span></code></pre>
+<p>
+<strong>The truth interviewers want you to say out loud:</strong> <code>class</code> is (almost entirely) syntactic sugar over §6.
+<code>typeof Account</code> is <code>"function"</code>. Methods land on <code>Account.prototype</code>. <code>extends</code> wires
+<code>SavingsAccount.prototype</code>'s link to <code>Account.prototype</code> — method lookup is still the same chain walk.
+No new inheritance model was added in ES6; only new clothes. (The sugar isn't zero-calorie: classes must be called with
+<code>new</code>, their bodies run in strict mode, and <code>#private</code> fields are genuinely new — but the machinery is prototypes.)
+</p>
+<table>
+  <thead><tr><th>Java</th><th>JS class equivalent</th><th>Difference worth saying</th></tr></thead>
+  <tbody>
+    <tr><td><code>class A extends B</code></td><td><code>class A extends B</code></td><td>JS links prototype objects at runtime; no compile-time check</td></tr>
+    <tr><td><code>super(...)</code> / <code>super.m()</code></td><td><code>super(...)</code> / <code>super.m()</code></td><td>Same rule: <code>super()</code> before touching <code>this</code> in a subclass constructor</td></tr>
+    <tr><td><code>private double pin</code></td><td><code>#pin</code></td><td>JS privacy is per-name (<code>#</code> is part of the identifier); pre-#, "privacy" was the <code>_convention</code> or closures (Lesson 2)</td></tr>
+    <tr><td><code>static</code> members</td><td><code>static</code> members</td><td>Same idea: on the class, not instances</td></tr>
+    <tr><td>Method overloading</td><td><strong>Doesn't exist</strong></td><td>One method per name; use defaults/rest params (Lesson 2)</td></tr>
+    <tr><td>Interfaces / abstract</td><td><strong>Don't exist in JS</strong></td><td>TypeScript adds them back (Lesson 20)</td></tr>
+    <tr><td>Multiple constructors</td><td><strong>One <code>constructor</code> only</strong></td><td>Use default params or static factory methods</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">Gotcha</span>
+  Class methods are NOT auto-bound — the lost-<code>this</code> bug from §3 applies fully:
+  <code>const d = s.deposit; d(500)</code> throws. Fixes: <code>this.deposit = this.deposit.bind(this)</code> in the
+  constructor, or declare it as an arrow class field — <code>deposit = (amt) =&gt; { this.balance += amt; }</code> — which
+  captures <code>this</code> lexically per instance. You'll meet this exact pattern again in React class components' history.
+</div>
+
+<h2>8 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "How does <code>this</code> work in JavaScript?"</strong><br>
+  Bound per call, by priority: <code>new</code> → the fresh object; explicit <code>call</code>/<code>apply</code>/<code>bind</code> → the object you pass;
+  implicit → the object before the dot; default → <code>undefined</code> in strict mode (global object in sloppy mode).
+  Arrows have no own <code>this</code> — they inherit it lexically. Contrast with Java, where <code>this</code> is fixed to the instance.</li>
+  <li><strong>Q. "Difference between call, apply, and bind?"</strong><br>
+  All set <code>this</code> explicitly. <code>call(thisArg, a, b)</code> invokes immediately with comma args; <code>apply(thisArg, [a, b])</code>
+  invokes immediately with an array; <code>bind(thisArg)</code> invokes nothing — it returns a permanently-bound new function, optionally with pre-filled arguments.</li>
+  <li><strong>Q. "What is the prototype chain?"</strong><br>
+  Every object holds a hidden link to a prototype object. Failed property lookups walk link by link until found or the chain ends at <code>null</code>.
+  Shared methods live once on a prototype (e.g. <code>map</code> on <code>Array.prototype</code>); inherited methods still run with <code>this</code> = the calling object. Writes never climb the chain — they create shadowing own properties.</li>
+  <li><strong>Q. "<code>__proto__</code> vs <code>prototype</code>?"</strong><br>
+  <code>obj.__proto__</code> (properly <code>Object.getPrototypeOf(obj)</code>) is the object's actual link. <code>Fn.prototype</code> exists only on
+  functions and is the object future <code>new Fn()</code> instances will link to. They meet in: <code>new Fn().__proto__ === Fn.prototype</code>.</li>
+  <li><strong>Q. "What does the <code>new</code> keyword do?"</strong><br>
+  Four steps: create an empty object; link it to the constructor's <code>.prototype</code>; run the constructor with <code>this</code> = that object;
+  return the object (unless the constructor returns a different object explicitly).</li>
+  <li><strong>Q. "Are ES6 classes real classes?"</strong><br>
+  They're primarily syntax sugar over constructor functions and prototypes — methods go on the prototype, <code>extends</code> wires a prototype chain,
+  <code>instanceof</code> is a chain search. Genuinely new: mandatory <code>new</code>, always-strict bodies, and <code>#private</code> fields with language-enforced privacy.</li>
+  <li><strong>Q. "Why does passing <code>obj.method</code> as a callback lose <code>this</code>, and how do you fix it?"</strong><br>
+  Extracting the method passes the bare function; when called without a receiver, implicit binding is gone and <code>this</code> is undefined.
+  Fix with a wrapper arrow (<code>() =&gt; obj.method()</code>), with <code>obj.method.bind(obj)</code>, or by defining the method as an arrow class field.</li>
+</ul>
+
+<h2>9 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Given <code>const t = { n: "T", who() { return this.n; } };</code> and <code>const f = t.who;</code> — what does <code>f()</code> return in a module (strict mode)?</div>
+  <button class="opt">"T" — the function remembers the object it was defined in</button>
+  <button class="opt">A TypeError (or undefined from <code>this.n</code>) — bare calls get no receiver, so implicit binding is lost</button>
+  <button class="opt">"T" — but only because strict mode preserves the original binding</button>
+  <div class="fb" data-correct="this is decided by HOW a function is called, not where it was written. f() is a bare call — rule 4 — so this is undefined in strict mode and this.n throws. Fixes: t.who(), f.call(t), or const f = t.who.bind(t)." data-wrong="Regular functions have no memory of their 'home object' — that's a Java instinct. Only the call site matters: f() has nothing before the dot, so this is undefined (strict mode) and reading this.n fails. bind, call, or calling via t.who() restore it."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">After <code>const dog = Object.create(animal)</code> (where <code>animal.eats === true</code>), what does <code>dog.eats = false</code> change?</div>
+  <button class="opt">animal.eats becomes false — the write follows the prototype chain to the owner</button>
+  <button class="opt">Nothing — inherited properties are read-only, so the assignment throws</button>
+  <button class="opt">dog gets its own <code>eats: false</code> that shadows animal's, which stays true</button>
+  <div class="fb" data-correct="Reads walk the chain; writes don't. Assignment creates an own property on dog that shadows the inherited one — like overriding. animal.eats is untouched, and any OTHER object delegating to animal still sees true." data-wrong="Only property READS walk the prototype chain. A write always lands on the object itself, creating an own 'eats' on dog that shadows animal's. Nothing throws, and animal.eats remains true."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Which statement about <code>bind</code> is correct?</div>
+  <button class="opt">It returns a new function with <code>this</code> permanently fixed, without calling the original</button>
+  <button class="opt">It calls the function immediately with <code>this</code> set, passing arguments as an array</button>
+  <button class="opt">It mutates the original function so all future calls use the new <code>this</code></button>
+  <div class="fb" data-correct="bind = Bring back later: no invocation, just a new function with this (and optionally leading arguments) locked in. The original function is untouched. Immediate invocation with an array is apply; with commas, call." data-wrong="Immediate invocation with an array describes apply (call uses commas). And bind never mutates the original — it returns a NEW function with this glued down, which even a later obj.boundFn() dot-call cannot override."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In <code>class Cat extends Animal</code>, where does the engine find <code>cat.speak()</code> if only <code>Animal</code> defines it?</div>
+  <button class="opt">A copy of speak was placed on cat when <code>new Cat()</code> ran, so it's an own property</button>
+  <button class="opt">Nowhere on cat — lookup walks cat → Cat.prototype → Animal.prototype and finds the one shared method there</button>
+  <button class="opt">On the Animal constructor function itself, via a static reference</button>
+  <div class="fb" data-correct="ES6 classes are prototype sugar: methods live once on the prototype objects, and extends chains Cat.prototype to Animal.prototype. Lookup walks that chain at call time — and this still binds to cat, so the shared method acts on the right instance." data-wrong="No copying happens — that's the efficiency of prototypes: one speak, shared by every instance via the chain cat → Cat.prototype → Animal.prototype. Statics live on the constructor, but speak isn't static. cat.hasOwnProperty('speak') is false."></div>
+</div>
+
+<h2>10 · Do this next</h2>
+<ul>
+  <li>Build the same <code>BankAccount</code> three ways: (a) a closure factory (Lesson 2 style), (b) a constructor function with methods on <code>.prototype</code>, (c) an ES6 class with a <code>#balance</code> private field. For each, verify: can outside code corrupt the balance directly? Which versions share one copy of the methods? (Check with <code>Object.getPrototypeOf</code> and <code>hasOwnProperty</code>.)</li>
+  <li>Reproduce the lost-<code>this</code> bug: give your class a <code>printBalance()</code> method and run <code>setTimeout(acc.printBalance, 100)</code>. Watch it fail, then fix it all three ways (wrapper arrow, <code>bind</code>, arrow class field).</li>
+  <li>Chain safari: for <code>const arr = [1,2]</code>, walk the prototype chain in Node using <code>Object.getPrototypeOf</code> repeatedly, printing each stop until you hit <code>null</code>. Confirm <code>arr.__proto__ === Array.prototype</code> and that <code>map</code> lives there, not on <code>arr</code>.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  <code>this</code> and prototypes are the two ideas most likely to fight your Java instincts — if the four rules feel
+  slippery, or <code>prototype</code> vs <code>__proto__</code> still blurs, ask me here and we'll drill it with more examples.
+  When you can recite the four <code>this</code> rules, narrate what <code>new</code> does step by step, and explain why
+  <code>class</code> is sugar, say <strong>"next"</strong> for Lesson 4: Arrays, Destructuring &amp; Iteration.
+</div>
+
+<div class="nav">
+  <span><a href="0002-functions-scope-closures.html">← Functions, Scope &amp; Closures</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0004-arrays-destructuring-iteration.html">Arrays &amp; Iteration →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

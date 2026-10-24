@@ -1,0 +1,233 @@
+<title>Random Oracle Model</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Information and Data Security &middot; Unit I &middot; Lesson 3 of 7</p>
+<h1>The Random Oracle Model</h1>
+<p class="deck">The ideal hash function that real hash functions are measured against &mdash; how the oracle behaves, the birthday problems that follow from it, the three attacks on hash functions, and why 512-bit digests exist.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>A <strong>short-note or 5-mark question</strong>, almost always phrased <strong>&ldquo;Explain the Random Oracle Model&rdquo;</strong> or <strong>&ldquo;What is an ideal hash function?&rdquo;</strong> The full marks come from three things: the <strong>oracle&rsquo;s three rules</strong>, the <strong>&ldquo;it is a theoretical model, no real function achieves it&rdquo;</strong> caveat, and the <strong>birthday attack bound 2<sup>n/2</sup></strong> that comes out of it. It is also the topic students skip, which makes it cheap marks.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Random Oracle Model (ROM)</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=0rAC1bO9oUk" target="_blank">Random Oracle Model in Cryptography | Ideal Hash Function Model</a>
+    <span class="v-meta">T V Nagaraju Technical &middot; 9:46</span>
+    <div class="v-why">Clear theoretical explanation of the theoretical "black box" oracle that returns uniform random bits for new queries and consistent cached bits for repeated queries.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Birthday Attack &amp; Birthday Paradox</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=eoOZPI4YArg" target="_blank">Birthday Paradox &amp; Birthday Attack in Cryptography</a>
+    <span class="v-meta">Helping Tutorials &middot; 15:58</span>
+    <div class="v-why">Derives why only 23 people give a 50% chance of a shared birthday, proving that an $n$-bit hash has only $2^{n/2}$ collision resistance security.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: BIRTHDAY PARADOX BOUND -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Birthday Paradox Bound in Hash Collisions</span>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="min-width:22rem;">
+      <strong>Pre-image Search vs Collision Search</strong>
+      <span class="sub">Pre-image: Targeting a *specific* hash requires $2^n$ queries.<br>Collision: Matching *any two* outputs requires only $\sqrt{2^n} = 2^{n/2}$ queries!</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Security Consequence</span>
+    <div class="flow-box ok" style="min-width:22rem;">
+      <strong>Why 128-bit Hashes (MD5) are Broken</strong>
+      <span class="sub">MD5: $2^{128/2} = 2^{64}$ steps (trivial on modern GPUs).<br>SHA-256: $2^{256/2} = 2^{128}$ steps (safe against collision attacks).</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>What the model is</h2>
+
+<p>Introduced by <strong>Bellare and Rogaway in 1993</strong>, the Random Oracle Model (ROM) is an <strong>ideal mathematical model of a hash function</strong>. It does not describe any real algorithm. It describes the behaviour a perfect hash function <em>would</em> have, so that the security of a scheme can be proved against that ideal and real hash functions can be judged by how close they come.</p>
+
+<div class="formula">
+  <span class="name">The oracle, described exactly</span>
+  A <strong>random oracle</strong> is an imaginary black box holding a table of pairs (message, digest).<br>
+  Given a message, it looks in the table:<br>
+  <strong>&bull; if the message is there</strong>, it returns the digest already recorded;<br>
+  <strong>&bull; if it is not</strong>, it generates a <strong>truly random</strong> n-bit digest, records the new pair, and returns it.
+</div>
+
+<h3>The three rules to state in the answer</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Rule</th><th>Statement</th><th>Consequence</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Deterministic / consistent</strong></td><td>The same message always receives the same digest &mdash; the oracle never contradicts an earlier answer</td><td>Verification is possible at all</td></tr>
+<tr><td><strong>2. Uniformly random</strong></td><td>A new message receives a digest chosen uniformly at random from all 2<sup>n</sup> possible values</td><td>The digest reveals <strong>nothing</strong> about the message; every output is equally likely</td></tr>
+<tr><td><strong>3. No structure to exploit</strong></td><td>The only way to learn H(M) is to <strong>query the oracle</strong> &mdash; the digest cannot be computed, guessed or shortcut</td><td>Every attack degenerates into brute-force search, so security is measured purely by the number of queries</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">Why the model exists at all</span>
+  <p>If the only attack is guessing, the strength of the hash can be <strong>calculated</strong> rather than guessed at. A scheme is then proved secure &ldquo;in the random oracle model&rdquo;, and in practice the oracle is replaced by a real hash such as SHA-512. <strong>RSA-OAEP, RSA-PSS, DSS and many key-exchange protocols are proved this way.</strong></p>
+</div>
+
+<h3>The limitation &mdash; state it, it is worth a mark</h3>
+
+<p><strong>No real hash function is a random oracle.</strong> A real function is a fixed, published algorithm with internal structure; the oracle is an infinite random table. Canetti, Goldreich and Halevi showed in 1998 that schemes exist which are provably secure in the ROM yet insecure with <em>every</em> real hash function. So a ROM proof is <strong>strong evidence, not a guarantee</strong>. That caveat is the standard closing sentence of this answer.</p>
+
+<h2>The pigeonhole principle, restated here</h2>
+
+<p>The oracle assigns random n-bit digests to infinitely many messages, so <strong>collisions are certain to exist</strong> &mdash; there are 2<sup>n</sup> pigeonholes and unlimited pigeons. The model does not prevent collisions; it makes the search for one a pure counting problem. That counting problem is the birthday problem.</p>
+
+<h2>The birthday problems</h2>
+
+<p>Forouzan sets out four related questions. Each corresponds to one attack on a hash function, and the mapping is the reason this section sits in the syllabus next to the oracle.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Birthday problem</th><th>Hash attack it models</th><th>Trials needed (N = 2<sup>n</sup> possible digests)</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td>How many people before <strong>one</strong> of them shares <em>your</em> birthday?</td><td><strong>Preimage attack</strong></td><td class="num">&asymp; N</td></tr>
+<tr><td class="num">2</td><td>How many people before one shares the birthday of a <strong>specified</strong> person?</td><td><strong>Second preimage attack</strong></td><td class="num">&asymp; N</td></tr>
+<tr><td class="num">3</td><td>How many people before <strong>any two</strong> share a birthday?</td><td><strong>Collision attack (birthday attack)</strong></td><td class="num">&asymp; <strong>&radic;N = 2<sup>n/2</sup></strong></td></tr>
+<tr><td class="num">4</td><td>Two groups &mdash; how many in each before someone in one shares with someone in the other?</td><td><strong>Meet-in-the-middle / multiple-message attack</strong></td><td class="num">&asymp; &radic;N in each group</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The birthday paradox, in the one sentence examiners want</span>
+  <p><strong>Finding a match to a <em>particular</em> value is far harder than finding <em>some</em> match among many values</strong> &mdash; in a room of only 23 people there is already a better-than-even chance that two share a birthday, though the chance any one of them shares <em>yours</em> is tiny. Applied to hashing: a collision costs the <strong>square root</strong> of the effort of a preimage, so an n-bit digest gives only <strong>n/2 bits of collision security</strong>.</p>
+</div>
+
+<h2>The three attacks on hash functions</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attack</th><th>Property it breaks</th><th>What the attacker achieves</th><th>Effort</th></tr></thead>
+<tbody>
+<tr><td><strong>Preimage attack</strong></td><td>Preimage resistance</td><td>Recovers <em>a</em> message for a known digest &mdash; e.g. finds a password from a stolen hash</td><td class="num">2<sup>n</sup></td></tr>
+<tr><td><strong>Second preimage attack</strong></td><td>Second preimage resistance</td><td>Substitutes a forged message for a genuine one whose digest is already published</td><td class="num">2<sup>n</sup></td></tr>
+<tr><td><strong>Collision attack (birthday attack)</strong></td><td>Collision resistance</td><td>Prepares <strong>two</strong> messages with the same digest &mdash; a harmless one to be signed, a fraudulent one to be substituted afterwards</td><td class="num"><strong>2<sup>n/2</sup></strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The classic collision-attack story</h3>
+
+<p>Worth two lines in an answer, because it shows why collision resistance is the property that actually matters. <strong>Eve prepares two contracts</strong> &mdash; one favourable to Bob, one fraudulent &mdash; and, by varying spaces, synonyms and invisible formatting, tunes them until <strong>both have the same digest</strong>. She gets Bob to sign the harmless one. The signature, being over the digest, is equally valid on the fraudulent one, which she then produces in court. Note that Bob&rsquo;s key was never broken; only the hash was.</p>
+
+<h2>How the digest length is chosen</h2>
+
+<div class="formula">
+  <span class="name">The design rule that follows from the birthday bound</span>
+  Security against collisions = <strong>n/2 bits</strong> for an n-bit digest.<br>
+  To resist an attacker able to perform 2<sup>80</sup> operations, <strong>n must be at least 160</strong>.<br>
+  Hence: MD4 and MD5 at 128 bits give only <strong>64-bit</strong> collision security &mdash; broken.<br>
+  SHA-1 at 160 bits gives 80 bits &mdash; deprecated. <strong>SHA-512 and Whirlpool at 512 bits give 256.</strong>
+</div>
+
+<p>This single line explains the whole history of Lessons 5, 6 and 7: <strong>digest lengths grew because the birthday bound halves them.</strong> If a question asks why MD5 is no longer used, this is the answer &mdash; not that the algorithm is slow or badly designed, but that 2<sup>64</sup> became reachable.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In the Random Oracle Model, when the oracle receives a message it has seen before it:</p>
+  <div class="opts">
+    <button class="opt">Refuses the query, to prevent an attacker from probing the table</button>
+    <button class="opt" data-ok="1">Returns exactly the same digest it returned the first time</button>
+    <button class="opt">Returns the digest of the message concatenated with a counter</button>
+    <button class="opt">Returns a fresh random digest, so that the output stays unpredictable</button>
+  </div>
+  <p class="why">Consistency is rule one. Without it the digest could never be verified, and the oracle would not model a hash function at all.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The main limitation of the Random Oracle Model is that:</p>
+  <div class="opts">
+    <button class="opt">Its random outputs make verification at the receiver impossible</button>
+    <button class="opt">It requires the digest to be at least as long as the message itself</button>
+    <button class="opt" data-ok="1">No real hash function behaves as an oracle, so a proof in the model is evidence rather than a guarantee</button>
+    <button class="opt">It applies only to keyed hash functions such as HMAC and CMAC</button>
+  </div>
+  <p class="why">Canetti, Goldreich and Halevi showed schemes secure in the ROM but insecure under every real hash function. Real functions have structure; the oracle has none.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. For an n-bit digest, a collision attack succeeds after roughly:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">2^(n/2) trials, because the attacker may choose both messages freely</button>
+    <button class="opt">2ⁿ trials, the same as a preimage attack on the same digest</button>
+    <button class="opt">n² trials, since each of the n bits must be matched in turn</button>
+    <button class="opt">2^(2n) trials, because two messages must be searched at once</button>
+  </div>
+  <p class="why">The birthday paradox square-roots the search. A 128-bit digest therefore offers only 64 bits of collision security.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Birthday problem 2 — matching the birthday of one specified person — models which attack?</p>
+  <div class="opts">
+    <button class="opt">The collision attack, where the attacker prepares two documents</button>
+    <button class="opt">The preimage attack, where only the digest value is known</button>
+    <button class="opt">The meet-in-the-middle attack across two sets of messages</button>
+    <button class="opt" data-ok="1">The second preimage attack, where the target message is fixed in advance</button>
+  </div>
+  <p class="why">A specified person corresponds to a given message whose digest must be matched — effort 2ⁿ, not 2^(n/2).</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. MD5 is considered broken chiefly because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Its 128-bit digest gives only 64 bits of collision security, which is now reachable</button>
+    <button class="opt">Its compression function cannot process messages longer than 2⁶⁴ bits</button>
+    <button class="opt">It omits the message-length field, leaving it open to extension attacks</button>
+    <button class="opt">It is far slower than SHA-512 on modern 64-bit processors</button>
+  </div>
+  <p class="why">The birthday bound halves the digest length. Collisions in MD5 can now be produced in seconds on ordinary hardware.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define the Random Oracle Model.</summary>
+    <p class="ans">An ideal model of a hash function, introduced by Bellare and Rogaway in 1993. The oracle holds a table of message–digest pairs: a repeated message gets the digest already recorded, and a new message gets a freshly chosen uniformly random n-bit digest which is then recorded. It models the behaviour a perfect hash function would have.</p></details>
+  <details class="card"><summary>State the three rules the oracle obeys.</summary>
+    <p class="ans">It is consistent and deterministic — the same message always gets the same digest. Its output for a new message is uniformly random over all 2ⁿ values, revealing nothing about the message. It has no exploitable structure, so the only way to learn a digest is to query it, which makes brute force the only attack.</p></details>
+  <details class="card"><summary>Why is the model used, and what is its limitation?</summary>
+    <p class="ans">It lets the security of a scheme be calculated in terms of the number of oracle queries, which is how RSA-OAEP, RSA-PSS and DSS are proved secure. Its limitation is that no real hash function is a random oracle — real functions have fixed public structure — and schemes exist that are secure in the model yet insecure with any real hash, so a ROM proof is strong evidence, not a guarantee.</p></details>
+  <details class="card"><summary>State the four birthday problems and the attack each models.</summary>
+    <p class="ans">Someone sharing your birthday — preimage attack, effort N. Someone sharing a specified person&rsquo;s birthday — second preimage attack, effort N. Any two people sharing a birthday — collision or birthday attack, effort √N. A match between two groups — meet-in-the-middle attack, about √N in each group. Here N = 2ⁿ for an n-bit digest.</p></details>
+  <details class="card"><summary>Explain the birthday attack on a digital signature.</summary>
+    <p class="ans">The attacker prepares two versions of a document, one harmless and one fraudulent, and varies wording or spacing until both hash to the same digest — costing only 2^(n/2) work. The victim signs the harmless version; since the signature is over the digest, it verifies equally on the fraudulent version, which the attacker then presents. The key is never broken, only the hash.</p></details>
+  <details class="card"><summary>How does the birthday bound decide digest length?</summary>
+    <p class="ans">An n-bit digest gives only n/2 bits of collision security, so n must be at least twice the work factor required. 128-bit MD4 and MD5 give 64 bits and are broken; 160-bit SHA-1 gives 80 and is deprecated; 512-bit SHA-512 and Whirlpool give 256 bits and are considered secure.</p></details>
+</div>
+
+<p class="ask">Next: message authentication &mdash; adding a secret key to the digest so that it survives the insecure channel, and the two standard constructions, HMAC and CMAC.</p>
+
+<div class="nav">
+  <a href="0002-hash-functions-and-properties.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0004-message-authentication-mac-hmac-cmac.html">Next: Message Authentication, MAC, HMAC, CMAC &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,276 @@
+<title>CPU Scheduling Concepts</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit II &middot; Lesson 8 of 14</p>
+<h1>CPU Scheduling &mdash; Concepts and Criteria</h1>
+<p class="deck">The CPU&ndash;I/O burst cycle, what the short-term scheduler and the dispatcher each do, preemptive versus non-preemptive scheduling, and the five criteria with the exact formulas every numerical depends on.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>Read this before Lesson 9 &mdash; every numerical in the paper depends on the four formulas below.</strong> The single most common mistake in this whole subject is confusing waiting time with turnaround time, or forgetting to subtract the arrival time. Learn the four definitions as equations, not as sentences. The <strong>preemptive vs non-preemptive</strong> table and the <strong>four situations in which scheduling decisions occur</strong> are both short-answer questions in their own right.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">CPU Scheduling Metrics & Preemption Criteria</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Turnaround Time (TAT) = Completion Time - Arrival Time</strong>
+      <span class="sub">Waiting Time (WT) = Turnaround Time - Burst Time &bull; Response Time (RT) = First CPU Time - Arrival Time</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box warn"><strong>Non-Preemptive Scheduling</strong><span class="sub">Once CPU allocated, process holds it until termination or voluntary I/O block (FCFS, Non-preemptive SJF)</span></div>
+    <div class="flow-box ok"><strong>Preemptive Scheduling</strong><span class="sub">OS can forcibly interrupt running process on clock interrupt or arrival of higher-priority job (Round Robin, SRTF)</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 14 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Scheduling Concepts</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-2.1: Process Scheduling Algorithms (Preemption vs Non-Preemption)</div>
+    <div class="v-desc">Mastering CPU burst cycles, scheduling criteria formulas, and why preemptive schedulers require timer hardware interrupts.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=zFnrUVqtiOY" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Why scheduling exists at all</h2>
+
+<p>In a single-processor system only <strong>one process can run at a time</strong>. Multiprogramming exists to keep the CPU busy: several processes are kept in memory, and when one has to wait, the OS takes the CPU away and gives it to another. <strong>CPU scheduling is the basis of multiprogrammed operating systems.</strong> That is the opening line of any answer here.</p>
+
+<h3>The CPU&ndash;I/O burst cycle</h3>
+
+<p>Process execution consists of a <strong>cycle of CPU execution and I/O wait</strong>. A process begins with a <strong>CPU burst</strong>, followed by an <strong>I/O burst</strong>, then another CPU burst, and so on. It <strong>begins and ends with a CPU burst</strong> &mdash; the final one ends with a system request to terminate.</p>
+
+<p>The observed distribution of burst lengths matters, and is worth a sentence: it is <strong>exponential or hyper-exponential</strong>, with a <strong>very large number of short CPU bursts and a small number of long ones</strong>. An <strong>I/O-bound</strong> program has many short bursts; a <strong>CPU-bound</strong> program has a few long ones. This shape is the whole justification for shortest-job-first scheduling.</p>
+
+<h2>The short-term scheduler and the dispatcher</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Short-term scheduler</strong></th><th><strong>Dispatcher</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Job</strong></td><td><strong>Decides</strong> which process in the ready queue gets the CPU</td><td><strong>Gives</strong> the CPU to the process the scheduler chose</td></tr>
+<tr><td><strong>Nature</strong></td><td>A policy &mdash; an algorithm</td><td>A mechanism &mdash; a module</td></tr>
+<tr><td><strong>Steps</strong></td><td>Apply FCFS, SJF, priority, RR &hellip;</td><td>(1) <strong>Switch context</strong>; (2) <strong>switch to user mode</strong>; (3) <strong>jump to the proper location</strong> in the user program to restart it</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">Dispatch latency</span>
+  <strong>Dispatch latency</strong> is the time the dispatcher takes to <strong>stop one process and start another running</strong>. It should be as small as possible, because it is <strong>pure overhead</strong> &mdash; the dispatcher is invoked at every single context switch.
+</div>
+
+<h2>When scheduling decisions occur &mdash; the four situations</h2>
+
+<p>CPU scheduling decisions may take place when a process:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Transition</th><th>Caused by</th><th>Preemptive?</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td><strong>Running &rarr; Waiting</strong></td><td>An I/O request, or <code>wait()</code> for a child</td><td>No &mdash; the process gives up the CPU voluntarily</td></tr>
+<tr><td class="num">2</td><td><strong>Running &rarr; Ready</strong></td><td>An interrupt, typically the timer expiring</td><td><strong>Yes</strong></td></tr>
+<tr><td class="num">3</td><td><strong>Waiting &rarr; Ready</strong></td><td>I/O completion</td><td><strong>Yes</strong> &mdash; the newly ready process may deserve the CPU more</td></tr>
+<tr><td class="num">4</td><td><strong>Terminates</strong></td><td>The process exits</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The definition that follows from that table</span>
+  <p>When scheduling takes place <strong>only under 1 and 4</strong>, the scheme is <strong>non-preemptive (or cooperative)</strong> &mdash; once a process has the CPU it keeps it until it releases it by terminating or by switching to waiting. Otherwise the scheme is <strong>preemptive</strong>.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Non-preemptive</strong></th><th><strong>Preemptive</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>CPU taken away?</strong></td><td>No &mdash; only released voluntarily</td><td>Yes &mdash; the OS can take it at any moment</td></tr>
+<tr><td><strong>Needs a timer?</strong></td><td>No</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Overhead</strong></td><td>Low &mdash; few context switches</td><td>Higher &mdash; many context switches</td></tr>
+<tr><td><strong>Response time</strong></td><td>Poor and unpredictable</td><td><strong>Good and bounded</strong></td></tr>
+<tr><td><strong>Starvation</strong></td><td>Possible for short jobs behind a long one</td><td>Possible for low-priority jobs</td></tr>
+<tr><td><strong>Data consistency</strong></td><td>Safe &mdash; no shared data can be caught half-updated</td><td><strong>Risky</strong> &mdash; needs synchronisation (Lessons 11&ndash;14)</td></tr>
+<tr><td><strong>Suits</strong></td><td>Batch systems</td><td>Time-sharing and real-time systems</td></tr>
+<tr><td><strong>Algorithms</strong></td><td>FCFS, SJF, non-preemptive priority</td><td>SRTF, preemptive priority, Round Robin</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Two costs of preemption worth naming: <strong>race conditions on shared data</strong>, if a process is preempted while updating it; and the problem of a process being preempted <strong>while inside a kernel system call</strong>, which is why some kernels wait for the system call to complete before switching.</p>
+
+<h2>Scheduling criteria &mdash; and the formulas</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Criterion</th><th>Definition</th><th>Goal</th></tr></thead>
+<tbody>
+<tr><td><strong>1. CPU utilisation</strong></td><td>The percentage of time the CPU is busy. Real systems run 40 % (lightly loaded) to 90 % (heavily loaded)</td><td><strong>Maximise</strong></td></tr>
+<tr><td><strong>2. Throughput</strong></td><td>The number of processes <strong>completed per unit time</strong></td><td><strong>Maximise</strong></td></tr>
+<tr><td><strong>3. Turnaround time</strong></td><td>The <strong>total time from submission to completion</strong> &mdash; waiting to get into memory, waiting in the ready queue, executing, and doing I/O</td><td><strong>Minimise</strong></td></tr>
+<tr><td><strong>4. Waiting time</strong></td><td>The <strong>total time spent waiting in the ready queue</strong>. Scheduling affects <em>only</em> this &mdash; it cannot change how long a burst takes or how long I/O takes</td><td><strong>Minimise</strong></td></tr>
+<tr><td><strong>5. Response time</strong></td><td>The time from submission until the <strong>first response is produced</strong> &mdash; not until the output is complete</td><td><strong>Minimise</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The four formulas &mdash; learn these exactly</span>
+  <strong>Turnaround Time (TAT) = Completion Time &minus; Arrival Time</strong><br>
+  <strong>Waiting Time (WT) = Turnaround Time &minus; Burst Time</strong><br>
+  <strong>Response Time (RT) = First time on CPU &minus; Arrival Time</strong><br>
+  <strong>Average = (sum over all processes) &divide; (number of processes)</strong><br><br>
+  Equivalently: <strong>WT = CT &minus; AT &minus; BT</strong>. Both forms are accepted; the two-step form is safer under pressure.
+</div>
+
+<div class="box exam">
+  <span class="lbl">Four traps that cost marks</span>
+  <p><strong>1. Forgetting the arrival time.</strong> If arrival times are all 0 then TAT = CT, and many students then carry that habit into a question where arrivals differ. <strong>Always write TAT = CT &minus; AT even when AT = 0.</strong></p>
+  <p><strong>2. Confusing waiting time with response time.</strong> Waiting time is the <em>total</em> time in the ready queue, possibly accumulated over several visits. Response time counts only until the process <em>first</em> gets the CPU. In non-preemptive scheduling with no idle gaps they coincide; in Round Robin they differ sharply.</p>
+  <p><strong>3. Ignoring CPU idle time.</strong> If no process has arrived yet, the CPU is idle and the Gantt chart must show the gap. Starting the next process too early throws every subsequent number off.</p>
+  <p><strong>4. Not stating the tie-breaking rule.</strong> When two processes have the same burst or priority, say which you chose and why &mdash; normally the one that <strong>arrived first</strong>, or the lower process number. Examiners accept either, but only if you state it.</p>
+</div>
+
+<h3>The answer format that earns full marks</h3>
+
+<p>Whatever the algorithm, present it in this order every time:</p>
+
+<ol>
+<li><strong>Name the algorithm and say whether it is preemptive.</strong></li>
+<li><strong>Draw the Gantt chart</strong>, with time markers under every boundary.</li>
+<li><strong>Draw the table</strong>: Process | AT | BT | CT | TAT | WT.</li>
+<li><strong>Show the averages as a division</strong> &mdash; write &ldquo;61 / 4 = 15.25&rdquo;, not just &ldquo;15.25&rdquo;. Partial marks live in that line.</li>
+<li><strong>Add one sentence of comment</strong> &mdash; convoy effect, starvation risk, why this algorithm beat the other. It costs ten seconds and reliably lifts the grade.</li>
+</ol>
+
+<h2>Numerical &mdash; reading the criteria off a chart</h2>
+
+<div class="solve">
+  <span class="lbl">Q. Three processes arrive at times 0, 2 and 4 with bursts 5, 3 and 2. Under FCFS, compute all five criteria.</span>
+  <p><strong>Gantt chart</strong> &mdash; FCFS runs them in arrival order, and the CPU is never idle here since each arrives before the previous one finishes:</p>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">| P1 | P2 | P3 |<br>0 &nbsp;&nbsp;&nbsp;&nbsp; 5 &nbsp;&nbsp;&nbsp; 8 &nbsp;&nbsp; 10</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Process</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT = CT&minus;AT</th><th class="num">WT = TAT&minus;BT</th><th class="num">RT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">5</td><td class="num">5</td><td class="num">5</td><td class="num">0</td><td class="num">0</td></tr>
+  <tr><td>P2</td><td class="num">2</td><td class="num">3</td><td class="num">8</td><td class="num">6</td><td class="num">3</td><td class="num">3</td></tr>
+  <tr><td>P3</td><td class="num">4</td><td class="num">2</td><td class="num">10</td><td class="num">6</td><td class="num">4</td><td class="num">4</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = (5 + 6 + 6) / 3 = 17 / 3 = 5.67</strong></p>
+  <p><strong>Average WT = (0 + 3 + 4) / 3 = 7 / 3 = 2.33</strong></p>
+  <p><strong>Average RT = (0 + 3 + 4) / 3 = 2.33</strong> &mdash; equal to WT, because this is non-preemptive with no idle time, so each process runs to completion the first time it gets the CPU.</p>
+  <p><strong>Throughput</strong> = 3 processes / 10 time units = <strong>0.3 processes per unit time</strong></p>
+  <p><strong>CPU utilisation</strong> = busy time / total time = 10 / 10 = <strong>100 %</strong> &mdash; the CPU never idled because a process was always available.</p>
+  <p><em>Sanity check:</em> the sum of the bursts is 5 + 3 + 2 = 10, and the last completion time is 10 with an arrival at 0, so the CPU was busy throughout. If your final CT exceeds the sum of the bursts, there must be an idle gap in the chart &mdash; go back and find it.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. Scheduling that occurs only when a process switches from running to waiting, or terminates, is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Non-preemptive (cooperative)</button>
+    <button class="opt">Real-time</button>
+    <button class="opt">Preemptive</button>
+    <button class="opt">Round robin</button>
+  </div>
+  <p class="why">Those are situations 1 and 4. Situations 2 (running → ready, on a timer interrupt) and 3 (waiting → ready, on I/O completion) are what make a scheme preemptive.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The dispatcher's three steps are:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Switch context, switch to user mode, jump to the proper location in the user program</button>
+    <button class="opt">Save registers, run the algorithm, print the Gantt chart</button>
+    <button class="opt">Choose the process, compute its priority, update the PCB</button>
+    <button class="opt">Block the process, queue it, wake it</button>
+  </div>
+  <p class="why">Choosing is the scheduler's job — policy. The dispatcher is the mechanism that hands over the CPU, and the time it takes is the dispatch latency.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Turnaround time equals:</p>
+  <div class="opts">
+    <button class="opt">Waiting time + arrival time</button>
+    <button class="opt">Burst time − waiting time</button>
+    <button class="opt">Completion time − burst time</button>
+    <button class="opt" data-ok="1">Completion time − arrival time</button>
+  </div>
+  <p class="why">And waiting time = turnaround time − burst time. Getting these two the right way round is worth more marks in this paper than any single concept.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. CPU scheduling can affect which of these directly?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Only the waiting time — the time spent in the ready queue</button>
+    <button class="opt">The arrival times of processes</button>
+    <button class="opt">The duration of I/O operations</button>
+    <button class="opt">The burst time of each process</button>
+  </div>
+  <p class="why">The algorithm cannot make a process compute faster or make a disk respond sooner. All it controls is how long a ready process waits its turn — which is why waiting time is the criterion usually optimised.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Response time differs from waiting time in that it measures:</p>
+  <div class="opts">
+    <button class="opt">The total time in the ready queue across all visits</button>
+    <button class="opt">The time from arrival to completion</button>
+    <button class="opt" data-ok="1">Only the time until the process first gets the CPU</button>
+    <button class="opt">The dispatcher's overhead</button>
+  </div>
+  <p class="why">In round robin, a process may have a small response time but a large waiting time, because it returns to the queue many times. In non-preemptive scheduling with no idle gaps the two coincide.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The distribution of CPU burst lengths in real systems is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Exponential — very many short bursts and few long ones</button>
+    <button class="opt">Uniform — all lengths equally likely</button>
+    <button class="opt">Constant</button>
+    <button class="opt">Normal, centred on the average burst</button>
+  </div>
+  <p class="why">That shape is why shortest-job-first works so well: most processes are I/O-bound with many short bursts, so serving the short ones first clears the queue quickly.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Describe the CPU&ndash;I/O burst cycle and the shape of its distribution.</summary>
+    <p class="ans">Process execution alternates CPU bursts with I/O bursts, beginning and ending with a CPU burst. The distribution of burst lengths is exponential or hyper-exponential — a very large number of short bursts and a small number of long ones. I/O-bound programs have many short bursts, CPU-bound programs a few long ones.</p></details>
+  <details class="card"><summary>Distinguish the short-term scheduler from the dispatcher.</summary>
+    <p class="ans">The scheduler is policy: it decides which ready process gets the CPU. The dispatcher is mechanism: it switches context, switches to user mode and jumps to the right location to restart the program. The time it takes is dispatch latency, and it is pure overhead.</p></details>
+  <details class="card"><summary>Name the four situations in which scheduling decisions occur, and say which make a scheme preemptive.</summary>
+    <p class="ans">Running to waiting (I/O request or wait for a child), running to ready (interrupt), waiting to ready (I/O completion), and termination. If scheduling occurs only in the first and fourth, the scheme is non-preemptive; otherwise it is preemptive.</p></details>
+  <details class="card"><summary>Compare preemptive and non-preemptive scheduling on five points.</summary>
+    <p class="ans">Non-preemptive: no timer needed, low overhead, poor response time, safe for shared data, suits batch systems, uses FCFS, SJF and non-preemptive priority. Preemptive: needs a timer, higher context-switch overhead, good bounded response time, risks race conditions so needs synchronisation, suits time-sharing and real-time, uses SRTF, preemptive priority and round robin.</p></details>
+  <details class="card"><summary>Name the five scheduling criteria and say which are maximised.</summary>
+    <p class="ans">CPU utilisation and throughput are maximised. Turnaround time, waiting time and response time are minimised. Real systems run at 40 to 90 % CPU utilisation.</p></details>
+  <details class="card"><summary>Give the three formulas.</summary>
+    <p class="ans">TAT = CT − AT. WT = TAT − BT, equivalently CT − AT − BT. RT = first time on the CPU − AT. Averages are the sums divided by the number of processes.</p></details>
+  <details class="card"><summary>Name the four traps in scheduling numericals.</summary>
+    <p class="ans">Forgetting to subtract the arrival time; confusing waiting time with response time; ignoring CPU idle time when no process has arrived; and failing to state the tie-breaking rule when two processes have equal burst or priority.</p></details>
+</div>
+
+<p class="ask">Next: the algorithms themselves, every one worked end to end with Gantt charts &mdash; the lesson to practise with a pen.</p>
+
+<div class="nav">
+  <a href="../unit-1/0007-threads-and-multithreading.html">&larr; Unit I</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0009-scheduling-algorithms-numericals.html">Next: Scheduling Algorithms &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

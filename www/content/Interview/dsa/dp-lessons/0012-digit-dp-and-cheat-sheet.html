@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 12 — Digit DP &amp; the Cheat Sheet</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 12 of 12 · count to 10¹⁸ without counting</div>
+<h1>Digit DP &amp; the DP Cheat Sheet</h1>
+<p class="subtitle">"How many integers ≤ N have property P?" — when N is 10¹⁸, you don't iterate numbers, you build their <em>digits</em>. Then: the one-page revision card for all twelve DP families.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 12 of 12 — the DP track finale. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Every number ≤ N can be built digit by digit, left to right. At each position you're in one of two worlds:
+<strong>tight</strong> — every digit so far equals N's prefix, so this digit may go only up to N's digit —
+or <strong>free</strong> — you already dipped below N somewhere, so anything 0–9 is legal.
+Count recursively over <code>(pos, propertyState, tight)</code>. The free world is where memoization pays:
+once you're free, the count depends only on <code>(pos, state)</code>, and there are just
+<code>len × states</code> of those.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "How many integers in [0, N] (or [L, R]) such that …" with N up to 10⁹–10¹⁸ — far too big to loop.
+  Properties like "digits from a given set", "no two consecutive ones", "contains / counts a digit",
+  "digit sum divisible by k". Range queries reduce via <code>f(R) − f(L−1)</code>.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<ul>
+  <li><strong>State:</strong> <code>dfs(pos, state, tight)</code> = how many ways to complete digits
+      <code>pos..len−1</code>, where <code>state</code> carries whatever the property needs
+      (last digit, count so far, remainder mod k…) and <code>tight</code> says "still glued to N's prefix".
+      Add a <code>started</code> flag when leading zeros would pollute the property.</li>
+  <li><strong>Recurrence:</strong> try each digit <code>d</code> from 0 to <code>limit</code>
+      (<code>limit = N's digit if tight, else 9</code>); recurse with the updated property state and
+      <code>tight' = tight &amp;&amp; d == limit</code> — you stay glued only by matching N exactly.</li>
+  <li><strong>Base case:</strong> <code>pos == len</code> → return 1 if <code>state</code> satisfies the property, else 0.</li>
+  <li><strong>Order:</strong> top-down memo — but <strong>cache only <code>tight == false</code></strong> states.
+      Each tight state occurs at most once per position (there's only one glued prefix), so caching it is pointless;
+      free states repeat massively.</li>
+  <li><strong>Answer:</strong> <code>dfs(0, START, true)</code>. For [L, R]: <code>f(R) − f(L−1)</code>.</li>
+</ul>
+
+<h2>3 · Core template</h2>
+<pre><code>char[] s;
+Integer[][] memo;                          <span class="cmt">// memo[pos][state] — for tight == false only</span>
+
+long countUpTo(long N) {                   <span class="cmt">// numbers in [0, N] whose digits satisfy the property</span>
+    s = Long.toString(N).toCharArray();
+    memo = new Integer[s.length][STATES];
+    return dfs(0, START, true);
+}
+int dfs(int pos, int state, boolean tight) {
+    if (pos == s.length) return accept(state) ? 1 : 0;   <span class="cmt">// a full number is built — does it qualify?</span>
+    if (!tight &amp;&amp; memo[pos][state] != null) return memo[pos][state];
+    int limit = tight ? s[pos] - '0' : 9;  <span class="cmt">// glued to N? can't exceed N's digit here</span>
+    int total = 0;
+    for (int d = 0; d &lt;= limit; d++)
+        total += dfs(pos + 1, next(state, d), tight &amp;&amp; d == limit);  <span class="cmt">// stay tight only on the max digit</span>
+    if (!tight) memo[pos][state] = total;
+    return total;
+}</code></pre>
+<p><strong>Time</strong> O(len · STATES · 10) — for N = 10¹⁸ that's 19 positions × a handful of states × 10 digits:
+microseconds. <strong>Space</strong> O(len · STATES). <code>next(state, d)</code> and <code>accept(state)</code>
+are the only parts that change between problems — the shell above never does.</p>
+
+<div class="callout trap">
+  <span class="label">The classic digit-DP bug</span>
+  The memo is only valid when <code>tight == false</code>. A tight state's answer depends on N's
+  remaining digits — cache it without <code>tight</code> in the key and a later free visit reads a
+  poisoned value (or vice versa). Either guard both the read <em>and</em> the write with
+  <code>!tight</code> (as above), or make the memo 3-D with tight as a dimension. The one-flag guard
+  is the standard idiom — tight states don't repeat anyway.
+</div>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Numbers At Most N Given Digit Set</td><td>902</td><td>Digits restricted to a set; shorter lengths are all-free → count them in bulk (kⁱ each)</td></tr>
+    <tr><td>Non-negative Integers w/o Consecutive Ones</td><td>600</td><td>Base 2; state = previous bit; glue breaks the moment N itself has "11"</td></tr>
+    <tr><td>Number of Digit One</td><td>233</td><td>State = count of 1s placed so far; base case returns <code>ones</code>, not 0/1 — we <em>sum</em> counts</td></tr>
+    <tr><td>Count of Integers in [L, R] (CP staple)</td><td>—</td><td>Nothing! <code>f(R) − f(L−1)</code> turns any prefix counter into a range counter</td></tr>
+  </tbody>
+</table>
+
+<h3>Numbers At Most N Given Digit Set (902)</h3>
+<pre><code>int atMostNGivenDigitSet(String[] digits, int n) {
+    char[] s = String.valueOf(n).toCharArray();
+    int k = digits.length, len = s.length;
+    int[] pow = new int[len + 1];          <span class="cmt">// pow[i] = k^i = free completions of i positions</span>
+    pow[0] = 1;
+    for (int i = 1; i &lt;= len; i++) pow[i] = pow[i - 1] * k;
+
+    int count = 0;
+    for (int i = 1; i &lt; len; i++) count += pow[i];   <span class="cmt">// every SHORTER length is fully free (no leading-zero issue: set has no '0')</span>
+    for (int pos = 0; pos &lt; len; pos++) {            <span class="cmt">// walk N's digits while tight</span>
+        boolean canStayTight = false;
+        for (String d : digits) {
+            if (d.charAt(0) &lt; s[pos]) count += pow[len - pos - 1];  <span class="cmt">// drop below N here → suffix free</span>
+            if (d.charAt(0) == s[pos]) canStayTight = true;
+        }
+        if (!canStayTight) return count;             <span class="cmt">// glue broken — no digit matches N's</span>
+    }
+    return count + 1;                                <span class="cmt">// survived every position → N itself qualifies</span>
+}</code></pre>
+<p>This is the digit-DP recursion <em>unrolled</em>: the tight spine is a single path, and every "drop below"
+branch contributes a closed-form <code>k^remaining</code>. When the free-world count has a formula, you don't
+even need the memo.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 902 · Numbers At Most N Given Digit Set</strong> (Hard) — the code above; re-derive the <code>k^remaining</code> blocks before peeking.</li>
+  <li><strong>LC 788 · Rotated Digits</strong> (Medium) — N ≤ 10⁴ so brute force works, but solve it as digit DP anyway: state = "has a 2/5/6/9 appeared yet", reject 3/4/7. Perfect first rep.</li>
+</ul>
+
+<h3>Non-negative Integers without Consecutive Ones (600) — digit DP in base 2</h3>
+<pre><code>int findIntegers(int n) {
+    int[] f = new int[32];                 <span class="cmt">// f[i] = count of i-bit FREE suffixes with no "11" (Fibonacci!)</span>
+    f[0] = 1; f[1] = 2;
+    for (int i = 2; i &lt; 32; i++) f[i] = f[i - 1] + f[i - 2];
+    int count = 0, prev = 0;
+    for (int i = 30; i &gt;= 0; i--) {        <span class="cmt">// walk n's bits, high → low, staying tight</span>
+        if ((n &amp; (1 &lt;&lt; i)) != 0) {
+            count += f[i];                 <span class="cmt">// place 0 where n has 1 → i lower bits go free</span>
+            if (prev == 1) return count;   <span class="cmt">// n's own prefix has "11" → tight path dies here</span>
+            prev = 1;
+        } else prev = 0;
+    }
+    return count + 1;                      <span class="cmt">// n itself has no consecutive ones — count it</span>
+}</code></pre>
+<p>Same shell, base 2: <code>limit</code> comes from n's bits, and the property state is just the previous
+bit. The free-suffix counts turn out to be Fibonacci numbers — precompute them and the tight walk is O(32).</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 600 · Non-negative Integers without Consecutive Ones</strong> (Hard) — the code above; watch the "glue dies when n itself contains 11" line.</li>
+  <li><strong>LC 2376 · Count Special Integers</strong> (Hard) — all digits distinct: the property state grows from "previous bit" to a 10-bit <em>mask</em> of used digits, plus a <code>started</code> flag for leading zeros. Same shell, richer state.</li>
+</ul>
+
+<h3>Number of Digit One (233) — sum a quantity instead of counting</h3>
+<pre><code><span class="cmt">// dfs returns the TOTAL number of 1-digits across all completions — note the base case.</span>
+int dfs(int pos, int ones, boolean tight) {
+    if (pos == s.length) return ones;      <span class="cmt">// each finished number contributes its own 1-count</span>
+    if (!tight &amp;&amp; memo[pos][ones] != null) return memo[pos][ones];
+    int limit = tight ? s[pos] - '0' : 9, total = 0;
+    for (int d = 0; d &lt;= limit; d++)
+        total += dfs(pos + 1, ones + (d == 1 ? 1 : 0), tight &amp;&amp; d == limit);
+    if (!tight) memo[pos][ones] = total;
+    return total;
+}</code></pre>
+<p>The delta from the core template: the base case returns <code>ones</code> instead of 0/1, because each
+finished number contributes its <em>count</em> of 1-digits, not just its existence. The state space is
+still tiny — <code>ones</code> can only reach <code>len</code>, so the memo is <code>len × len</code>.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 233 · Number of Digit One</strong> (Hard, Google-reported) — the code above; the sum-a-quantity base case is the whole trick.</li>
+  <li><strong>LC 1012 · Numbers With Repeated Digits</strong> (Hard) — complement counting: answer = N − (numbers with all-distinct digits); count the complement with a used-digit mask, like 2376 inside-out.</li>
+</ul>
+
+<h3>The [L, R] trick</h3>
+<p>Nothing in the state changes — you wrap the prefix counter twice. The only real content is the
+<code>L = 0</code> edge (there is no −1 to count up to) and remembering that both calls rebuild
+<code>s</code> and the memo:</p>
+<pre><code>long countInRange(long L, long R) {
+    return f(R) - (L == 0 ? 0 : f(L - 1));  <span class="cmt">// remove [0, L−1] so L itself stays counted</span>
+}
+<span class="cmt">// f(N) = the countUpTo(N) from the core template — fresh s[] and memo per call!</span></code></pre>
+<p>Subtracting <code>f(L)</code> instead of <code>f(L − 1)</code> deletes L when it qualifies — the #1
+wrong-answer on range digit-DP problems. And "shift the range to start at 0" never works: digit
+properties like "contains a 7" aren't shift-invariant.</p>
+
+<p><strong>Practice — free-tier LeetCode / CSES</strong></p>
+<ul>
+  <li><strong>LC 2719 · Count of Integers</strong> (Hard) — digit-sum in [min_sum, max_sum] over a range given as decimal <em>strings</em>: the f(R) − f(L−1) trick plus a mod, with L−1 done as string decrement.</li>
+  <li><strong>CSES · Counting Numbers</strong> — "no two adjacent digits equal" on [a, b] up to 10¹⁸; the cleanest pure drill of this exact wrapper.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>Count numbers ≤ <strong>234</strong> using only digits <strong>{1, 2, 3}</strong> (LC 902 shape, k = 3).
+Walk N's digits keeping the tight spine; every dip below N releases a block of free completions:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 460 240" role="img" aria-label="Digit DP decision diagram for N equals 234 with digit set 1,2,3: the tight spine 2 then 3 runs down the middle; branches that drop below N contribute free blocks of 9, 3+3, and 3 numbers; shorter lengths contribute 3+9.">
+  <rect class="cell done" x="188" y="10" width="28" height="28"/><text class="lbl" x="202" y="24">2</text>
+  <rect class="cell done" x="220" y="10" width="28" height="28"/><text class="lbl" x="234" y="24">3</text>
+  <rect class="cell done" x="252" y="10" width="28" height="28"/><text class="lbl" x="266" y="24">4</text>
+  <text class="wt" x="120" y="28">N's digits →</text>
+
+  <line class="edge" x1="230" y1="42" x2="120" y2="92"/>
+  <line class="edge hl" x1="230" y1="42" x2="230" y2="92"/>
+  <line class="edge" x1="230" y1="42" x2="340" y2="92"/>
+  <circle class="node done" cx="120" cy="106" r="16"/><text class="lbl" x="120" y="106">1</text>
+  <text class="wt" x="120" y="138">&lt;2 → free: 3² = 9</text>
+  <circle class="node cur" cx="230" cy="106" r="16"/><text class="lbl inv" x="230" y="106">2</text>
+  <text class="wt" x="230" y="138">=2 → stay tight</text>
+  <circle class="node" cx="340" cy="106" r="16"/><text class="lbl" x="340" y="106">3</text>
+  <text class="wt" x="340" y="138">&gt;2 → ✗ illegal</text>
+
+  <line class="edge" x1="230" y1="150" x2="150" y2="192"/>
+  <line class="edge hl" x1="230" y1="150" x2="310" y2="192"/>
+  <circle class="node done" cx="150" cy="206" r="16"/><text class="lbl" x="150" y="206">1·2</text>
+  <text class="wt" x="150" y="236">&lt;3 → free: 2×3 = 6</text>
+  <circle class="node cur" cx="310" cy="206" r="16"/><text class="lbl inv" x="310" y="206">3</text>
+  <text class="wt" x="322" y="236">=3 → tight; last digit ≤ 4: all 3 fit</text>
+</svg>
+<figcaption>The tight spine (highlighted) follows N = 2,3,4. Each branch left of the spine goes free and contributes a closed-form block. Plus lengths 1–2, fully free: 3 + 9.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">shorter lengths (1 and 2 digits, no leading-zero worry): 3 + 3² = <span class="ptr">12</span></span>
+<span class="step now">pos 0, tight, limit 2: d=1 &lt; 2 → free, 3² = <span class="ptr">9</span> numbers (111..133) · d=2 = 2 → stay tight · d=3 &gt; 2 → illegal</span>
+<span class="step now">pos 1, tight, limit 3: d=1,2 &lt; 3 → free, 2 × 3 = <span class="ptr">6</span> (211..223) · d=3 = 3 → stay tight</span>
+<span class="step now">pos 2, tight, limit 4: d=1,2,3 all ≤ 4 → <span class="ptr">3</span> survivors (231, 232, 233)</span>
+<span class="step">total = 12 + 9 + 6 + 3 = <span class="ptr">30</span></span>
+<span class="step">sanity: 1-digit 3, 2-digit 9, 3-digit ≤ 234: 1xx = 9, 21x/22x/23x = 9 → 3+9+18 = 30 ✓</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Leading zeros:</strong> if the property inspects actual digits (digit sets, "contains a 7"), add a <code>started</code> flag so a leading 0 means "number hasn't begun", not "digit 0 was used".</li>
+  <li><strong>Memo vs tight:</strong> never cache tight states without including <code>tight</code> in the key — the safe habit is cache-only-when-free.</li>
+  <li><strong>f(L−1) off-by-one:</strong> the range trick needs L−1, and L = 0 makes it −1 — special-case it.</li>
+  <li><strong>long everywhere:</strong> N up to 10¹⁸ doesn't fit an int; counts can overflow too (use <code>long</code>, apply the modulus if asked).</li>
+  <li><strong>Does 0 count?</strong> "Non-negative" (600) includes 0; "positive numbers made of set digits" (902) does not. Read the range's left end.</li>
+  <li><strong>Base ≠ 10:</strong> 600 is the same template on bits — <code>limit</code> comes from n's binary digits.</li>
+</ul>
+
+<h2>6 · DP-optimization map</h2>
+<p>Sometimes the recurrence is right but too slow — the fix is speeding up the <em>transition</em>, not
+changing the state. The first two below are interview-real (learn them with code); the last three are
+Codeforces-level (learn to <em>recognize</em> them).</p>
+
+<h3>Monotonic deque — sliding-window max over dp</h3>
+<p><strong>When it fires:</strong> the transition takes a max (or min) over a <em>sliding window</em> of
+earlier states — <code>dp[i] = a[i] + max(dp[i−k..i−1])</code>. Naively that inner max costs O(k) per i →
+O(nk) total. A deque of <em>candidate indices, kept in decreasing dp order</em>, answers each window-max in
+O(1): the front is always the current winner, and anything smaller than a newer value can never win again,
+so it's popped forever. This is exactly LC 239 Sliding Window Maximum, welded onto a dp array.</p>
+<p><strong>State:</strong> <code>dp[i]</code> = max sum of a valid subsequence ending at i (LC 1425:
+consecutive picks at most k apart). <strong>Recurrence:</strong>
+<code>dp[i] = nums[i] + max(0, dp[i−k..i−1])</code> — the <code>max(0, …)</code> lets i start a fresh
+subsequence instead of extending a negative one. <strong>Base:</strong> the empty deque contributes 0.</p>
+<pre><code>int constrainedSubsetSum(int[] nums, int k) {   <span class="cmt">// LC 1425</span>
+    int n = nums.length;
+    int[] dp = new int[n];
+    ArrayDeque&lt;Integer&gt; dq = new ArrayDeque&lt;&gt;(); <span class="cmt">// indices; dp values decreasing front → back</span>
+    int best = Integer.MIN_VALUE;
+    for (int i = 0; i &lt; n; i++) {
+        while (!dq.isEmpty() &amp;&amp; dq.peekFirst() &lt; i - k)
+            dq.pollFirst();                       <span class="cmt">// evict indices that fell out of the window [i−k, i−1]</span>
+        int windowMax = dq.isEmpty() ? 0 : Math.max(0, dp[dq.peekFirst()]);
+        dp[i] = nums[i] + windowMax;              <span class="cmt">// extend the best in-window chain, or start fresh (the 0)</span>
+        best = Math.max(best, dp[i]);
+        while (!dq.isEmpty() &amp;&amp; dp[dq.peekLast()] &lt;= dp[i])
+            dq.pollLast();                        <span class="cmt">// dominated: older AND ≤ dp[i] → can never be the max again</span>
+        dq.addLast(i);
+    }
+    return best;                                  <span class="cmt">// subsequence must be non-empty → best dp[i], not dp[n−1]</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) — each index enters and leaves the deque at most once.
+<strong>Space</strong> O(n) for dp (the deque holds ≤ k+1 indices). Same skeleton, min-deque instead of
+max: LC 1696 Jump Game VI.</p>
+
+<div class="callout trap">
+  <span class="label">Deque traps</span>
+  (1) Store <em>indices</em>, not values — you can't evict by age otherwise. (2) Evict from the
+  <em>front</em> by window (<code>&lt; i − k</code>), pop from the <em>back</em> by dominance — mixing the
+  ends up is the classic bug. (3) In 1425 specifically, forgetting the <code>max(0, …)</code> forces every
+  subsequence to chain through negatives and fails on all-negative inputs (answer should be the single
+  largest element).
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 239 · Sliding Window Maximum</strong> (Hard) — the deque primitive by itself, no DP; do this first.</li>
+  <li><strong>LC 1425 · Constrained Subsequence Sum</strong> (Hard) — the template above; dp + window max.</li>
+  <li><strong>LC 1696 · Jump Game VI</strong> (Medium) — identical shape with max score instead of subsequence sum; write it without looking.</li>
+</ul>
+
+<h3>Prefix-sum / prefix-max over dp</h3>
+<p><strong>When it fires:</strong> the transition <em>sums</em> (or maxes) a contiguous range of earlier
+states — <code>dp[i] = Σ dp[i−k..i−1]</code>. Don't re-scan the range; carry a running window aggregate and
+update it in O(1) as i advances. Before/after on the same recurrence:</p>
+<pre><code><span class="cmt">// BEFORE — O(n·k): every i re-scans its window</span>
+for (int i = 1; i &lt;= n; i++)
+    for (int j = Math.max(0, i - k); j &lt; i; j++)
+        dp[i] += dp[j];
+
+<span class="cmt">// AFTER — O(n): maintain win = dp[i−k] + … + dp[i−1] incrementally</span>
+long win = dp[0];                          <span class="cmt">// window sum entering i = 1</span>
+for (int i = 1; i &lt;= n; i++) {
+    dp[i] = win;
+    win += dp[i];                          <span class="cmt">// i joins the window for i+1</span>
+    if (i - k &gt;= 0) win -= dp[i - k];      <span class="cmt">// i−k slides out — forget this line and win grows forever</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(n). For prefix-<em>max</em> over a window that only
+grows (no elements ever leave), a single running variable suffices; if elements leave, you're back to the
+deque above — that's how the two techniques divide the territory.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 837 · New 21 Game</strong> (Medium) — probabilities with <code>dp[i] = (Σ dp[i−W..i−1]) / W</code>; the sliding window sum is the entire solution.</li>
+  <li><strong>LC 1871 · Jump Game VII</strong> (Medium) — reachable[i] = "any reachable j in [i−maxJump, i−minJump]?" — a windowed <em>count</em> of reachable states via prefix sums.</li>
+</ul>
+
+<h3>Codeforces-level: recognize, don't memorize</h3>
+<p>These three are beyond Google-intern interviews but standard in Div. 1/2 contests. For each, know the
+recurrence shape it fires on and what it buys — that's enough to look up the rest mid-practice.</p>
+<ul>
+  <li><strong>Knuth's optimization</strong> — fires on interval DP
+      <code>dp[i][j] = min over k of (dp[i][k] + dp[k][j]) + cost(i, j)</code> when the optimal split point
+      is monotone: <code>opt[i][j−1] ≤ opt[i][j] ≤ opt[i+1][j]</code> (holds when cost satisfies the
+      quadrangle inequality). Searching k only between those bounds telescopes O(n³) → <strong>O(n²)</strong>.
+      Practice: the classic <em>Breaking Strings / Optimal BST</em> problem (UVa 10003 "Cutting Sticks" is
+      the same DP — LC 1547 without Knuth, then add the bound).</li>
+  <li><strong>Divide &amp; conquer optimization</strong> — fires on layered transitions
+      <code>dp[t][i] = min over j&lt;i of (dp[t−1][j] + cost(j, i))</code> when the argmin is monotone in i.
+      Solve each layer by recursing on (range of i, range of candidate j), splitting at the midpoint's
+      argmin: O(k·n²) → <strong>O(k·n log n)</strong>.
+      Practice: Codeforces 321E "Ciel and Gondolas".</li>
+  <li><strong>Convex hull trick (CHT)</strong> — fires when the transition is a min/max over <em>lines</em>:
+      <code>dp[i] = min over j of (m<sub>j</sub>·x<sub>i</sub> + c<sub>j</sub>)</code>, i.e. cost splits into
+      (slope from j) × (query from i) + intercept. Maintain the lower envelope of the lines; each query is
+      amortized <strong>O(1)</strong> (sorted slopes/queries) or O(log n) (Li Chao tree): O(n²) → O(n log n).
+      Practice: Codeforces 319C "Kalila and Dimna in the Logging Industry".</li>
+</ul>
+<div class="callout tip">
+  <span class="label">Contest smell test</span>
+  If a Codeforces DP is Θ(n²) with n = 10⁵ (or Θ(n³) intervals with n = 5000), the intended solution is
+  almost certainly one of these three. Identify which by the transition's <em>shape</em>: split point in an
+  interval → Knuth; layered min with monotone argmin → D&amp;C; lines in the cost → CHT.
+</div>
+
+<h2>7 · DP track cheat sheet — all 12 families</h2>
+<p>One row per lesson. Trigger → state → transition is the interview reflex; print this page.</p>
+<table>
+  <thead><tr><th>Family</th><th>Trigger</th><th>State dp[…] =</th><th>Transition (1 line)</th><th>Time</th><th>Canonical LC#</th></tr></thead>
+  <tbody>
+    <tr><td>1 · Foundations</td><td>"count ways / best over choices", future depends on compact past</td><td><code>dp[i]</code> = answer for first i</td><td><code>dp[i] = dp[i−1] + dp[i−2]</code></td><td>O(n)</td><td>70</td></tr>
+    <tr><td>2 · 1D sequence</td><td>one array, scan left→right, adjacency constraint</td><td><code>dp[i]</code> = best for prefix ending at i</td><td><code>dp[i] = max(dp[i−1], dp[i−2] + a[i])</code></td><td>O(n)</td><td>198</td></tr>
+    <tr><td>3 · Grid</td><td>robot right/down, min/max path in matrix</td><td><code>dp[r][c]</code> = best reaching cell</td><td>from top + left: <code>dp[r−1][c] ⊕ dp[r][c−1]</code></td><td>O(mn)</td><td>62</td></tr>
+    <tr><td>4 · Knapsack</td><td>subset with sum/weight vs target, coins</td><td><code>dp[cap]</code> = best using capacity cap</td><td>0/1: cap <em>descending</em>; unbounded: ascending</td><td>O(n·W)</td><td>416 / 322</td></tr>
+    <tr><td>5 · LCS family</td><td>TWO strings: common / convert / delete</td><td><code>dp[i][j]</code> = answer for prefixes i, j</td><td>match: diag + 1; else best of skip-left / skip-up</td><td>O(mn)</td><td>1143</td></tr>
+    <tr><td>6 · Palindrome</td><td>"palindrom-" + longest / count / partition</td><td><code>isPal[i][j]</code> for substring i..j</td><td><code>s[i]==s[j] &amp;&amp; isPal[i+1][j−1]</code>, by length</td><td>O(n²)</td><td>5</td></tr>
+    <tr><td>7 · LIS</td><td>"longest increasing / chain / nested"</td><td><code>dp[i]</code> = best chain ending at i (or <code>tails[]</code>)</td><td>extend from smaller; tails + binary search</td><td>O(n log n)</td><td>300</td></tr>
+    <tr><td>8 · State machine</td><td>buy/sell rules, cooldown, fee, k transactions</td><td><code>dp[i][state]</code>, few named states</td><td>automaton edges: hold/free/cooldown</td><td>O(n·S)</td><td>309</td></tr>
+    <tr><td>9 · Interval</td><td>burst/merge/cut over a range; two-player ends</td><td><code>dp[i][j]</code> = answer for range i..j</td><td>pick LAST op k in (i, j); by increasing length</td><td>O(n³)</td><td>312</td></tr>
+    <tr><td>10 · Tree</td><td>tree + best over paths/subtrees, non-adjacent picks</td><td>DFS returns tuple per node (e.g. {rob, skip})</td><td>postorder: combine children's tuples</td><td>O(n)</td><td>337</td></tr>
+    <tr><td>11 · Bitmask</td><td>n ≤ 20, "assign/visit/partition ALL"</td><td><code>dp[mask]</code> (routes: <code>dp[mask][last]</code>)</td><td>add one element: <code>mask | (1&lt;&lt;j)</code>, masks ascending</td><td>O(2ⁿ·n)</td><td>698</td></tr>
+    <tr><td>12 · Digit</td><td>"how many integers ≤ N with …", N ≤ 10¹⁸</td><td><code>(pos, state, tight)</code></td><td>digit d ≤ (tight ? N's digit : 9); memo free states</td><td>O(len·S·10)</td><td>902</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">How to revise with this table</span>
+  Cover the right columns, read a Trigger, and say the state + transition aloud before uncovering.
+  In an interview you get ~2 minutes to classify the problem — the trigger column is that classification.
+  If two families both seem to fit, the state that's <em>smaller</em> usually wins.
+</div>
+
+<h2>8 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does the digit-DP template memoize only when <code>tight == false</code>?</div>
+  <button class="opt">Tight results are usually wrong to cache because the limit changes the arithmetic mod 10</button>
+  <button class="opt">There is only one glued prefix, so each tight state occurs at most once — only free states repeat enough to be worth caching</button>
+  <button class="opt">Java's <code>Integer[][]</code> cannot represent a boolean third dimension without boxing overhead</button>
+  <div class="fb" data-correct="The tight path is the single spine that mirrors N's digits — at most one tight visit per (pos, state). All the repetition (and all the savings) lives in the free world, keyed by (pos, state) alone." data-wrong="Think about how many tight states can exist: being tight means every digit so far equals N's — one prefix per position. Caching them buys nothing; the free states are the ones hit again and again."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You've written <code>f(N)</code> = count of qualifying numbers in [0, N]. The count in [L, R] is:</div>
+  <button class="opt"><code>f(R) − f(L)</code> — subtract everything up to the left endpoint</button>
+  <button class="opt"><code>f(R − L)</code> — shift the range down so it starts at zero</button>
+  <button class="opt"><code>f(R) − f(L − 1)</code> — remove [0, L−1] so L itself stays counted</button>
+  <div class="fb" data-correct="Subtracting f(L) would wrongly delete L itself when L qualifies. f(R) − f(L−1) keeps [L, R] exactly — just watch the L = 0 edge case." data-wrong="Inclusion boundaries: you want to KEEP L. f(R) − f(L−1) removes precisely [0, L−1]. (Shifting by L breaks digit properties entirely — 'contains a 7' isn't shift-invariant.)"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">From the cheat sheet: "n ≤ 16, split the array into k groups each summing to target" vs "two strings, min operations to convert one into the other" — the families are:</div>
+  <button class="opt">Bitmask DP (dp[mask] over used elements) and LCS-family two-string DP (dp[i][j] with edit ops)</button>
+  <button class="opt">Knapsack (dp[cap] descending) and Palindrome DP (isPal[i][j] by length)</button>
+  <button class="opt">Interval DP (dp[i][j], choose last cut) and Digit DP ((pos, state, tight))</button>
+  <div class="fb" data-correct="n ≤ 16 + 'partition ALL' is the bitmask signature (LC 698); TWO strings + 'convert' is the LCS/Edit-Distance family (LC 72). Trigger → family is exactly the reflex this table drills." data-wrong="Match the triggers: a tiny n with 'use every element in groups' screams dp[mask]; two strings with convert/delete operations is the LCS family's dp[i][j]. Re-read rows 11 and 5."></div>
+</div>
+
+<h2>9 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (read):</strong> <a href="https://codeforces.com/blog/entry/53960">Codeforces — Digit DP tutorial</a> (the classic writeup) with <a href="https://cp-algorithms.com/dynamic_programming/intro-to-dp.html">CP-Algorithms — DP intro</a> as the reference shelf; for the Codeforces-level optimizations, <a href="https://cp-algorithms.com/dynamic_programming/divide-and-conquer-dp.html">CP-Algorithms — Divide &amp; Conquer DP</a> is the reference when you meet one in a contest.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 902 (Digit Set) → LC 600 (No Consecutive Ones) → <strong>LC 233 (Number of Digit One — Google-reported, hard)</strong> → LC 239 → LC 1425 → LC 1696 (the deque optimization, primitive → dp → repeat) → CSES "Counting Numbers" (the [L,R] drill).</li>
+  <li><strong>Whole-track review:</strong> take the cheat sheet, pick 12 random problems from the ladders of Lessons 1–12, and for each write ONLY the state + recurrence on paper in under 2 minutes. Classification speed is the skill.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — and that's a wrap on DP</span>
+  Twelve lessons: from fib(5)'s collapsing recursion tree to counting numbers you could never enumerate.
+  You now own the 5-step framework (state → recurrence → base → order → answer) and a trigger table for
+  all twelve families. For Google intern loops: be airtight on Lessons 1–5 and 8 (sequences, grids,
+  knapsack, LCS, stocks), fluent on 6–7 and 9–10, and keep 11–12 at confident recognition depth. Want a
+  spaced-repetition plan over the whole track, a mock "classify these 10 problems" drill, or a dry run of
+  any worked example again? Ask in the chat. Otherwise — say <strong>"next"</strong> and we pick your
+  next gap from the Mission.
+</div>
+
+<div class="nav">
+  <span><a href="0011-bitmask-dp.html">← Bitmask DP</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span>DP track complete 🎉</span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

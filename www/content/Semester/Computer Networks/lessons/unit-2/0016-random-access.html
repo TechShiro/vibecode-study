@@ -1,0 +1,320 @@
+<title>Random Access</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 16 of 27</p>
+<h1>Multiple Access: Random Access</h1>
+<p class="deck">ALOHA, CSMA, CSMA/CD and CSMA/CA. Two throughput formulas, the three persistence methods, the minimum-frame-size rule, and the reason wireless cannot use the same mechanism as wired Ethernet.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three near-certain questions. (1) <strong>Pure vs slotted ALOHA</strong> with the throughput formulas and their maxima &mdash; memorise <strong>0.184 at G = 0.5</strong> and <strong>0.368 at G = 1</strong>; those two numbers alone often carry the question. (2) <strong>The three persistence methods</strong>, with a flowchart for each. (3) <strong>CSMA/CD vs CSMA/CA</strong>, and <em>why</em> wireless needs avoidance rather than detection &mdash; that "why" is where the marks separate.</p>
+</div>
+
+<h2>The three families of multiple access</h2>
+
+<p>When many stations share one link, something must decide who transmits when. The <strong>Medium Access Control (MAC)</strong> sublayer of the data link layer does this, and its protocols fall into three families:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Family</th><th>Principle</th><th>Protocols</th></tr></thead>
+<tbody>
+<tr><td><strong>Random access</strong> (contention)</td><td>No station is superior; each transmits when it wishes, and <strong>collisions are possible</strong></td><td>ALOHA, CSMA, CSMA/CD, CSMA/CA &mdash; <em>this lesson</em></td></tr>
+<tr><td><strong>Controlled access</strong></td><td>Stations consult one another to find which has the right to send &mdash; <strong>no collisions</strong></td><td>Reservation, polling, token passing &mdash; <em>Lesson 17</em></td></tr>
+<tr><td><strong>Channelization</strong></td><td>The available bandwidth is <strong>shared out</strong> in time, frequency or code</td><td>FDMA, TDMA, CDMA &mdash; <em>Lesson 17</em></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>In random access, two features define the family: <strong>there is no scheduled time</strong> for a station to transmit, and <strong>no rules specify which station sends next</strong>. Stations compete, so the protocols must answer four questions: when can a station access the medium, what if the medium is busy, how can a station know if its transmission succeeded, and what to do if there is a collision.</p>
+
+<h2>ALOHA</h2>
+
+<p>The earliest random access method, developed at the University of Hawaii for a radio network. Its rule is as simple as possible: <strong>whenever a station has a frame, it sends it.</strong> If an acknowledgement does not arrive within the timeout, the station assumes a collision and resends after a random <strong>back-off time</strong>.</p>
+
+<h3>Pure ALOHA</h3>
+
+<ul>
+<li>Stations transmit <strong>whenever they like</strong>, with no coordination at all.</li>
+<li>A frame is destroyed if any part of it overlaps with any part of another frame.</li>
+<li><strong>Vulnerable time = 2 &times; T<sub>fr</sub></strong> &mdash; a collision occurs if another station sends within one frame-time <em>before</em> or one frame-time <em>after</em> our transmission starts.</li>
+</ul>
+
+<h3>Slotted ALOHA</h3>
+
+<ul>
+<li>Time is divided into <strong>slots of T<sub>fr</sub> seconds</strong>, and a station <strong>must wait for the beginning of a slot</strong> to transmit.</li>
+<li>This halves the danger window: two stations either choose the same slot (collision) or different slots (both succeed).</li>
+<li><strong>Vulnerable time = T<sub>fr</sub></strong> &mdash; exactly half that of pure ALOHA, which is why the throughput doubles.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">ALOHA throughput</span>
+  <strong>Pure ALOHA:</strong> &nbsp; S = G &times; e<sup>&minus;2G</sup> &nbsp;&nbsp;&rarr;&nbsp;&nbsp; maximum <strong>S = 0.184 at G = 0.5</strong> (18.4%)<br>
+  <strong>Slotted ALOHA:</strong> &nbsp; S = G &times; e<sup>&minus;G</sup> &nbsp;&nbsp;&rarr;&nbsp;&nbsp; maximum <strong>S = 0.368 at G = 1</strong> (36.8%)<br>
+  G = average number of frames generated per frame-time &nbsp;&middot;&nbsp; S = throughput
+</div>
+
+<div class="box win">
+  <span class="lbl">The four numbers to memorise</span>
+  <p><strong>Pure ALOHA: 18.4% at G = 0.5. Slotted ALOHA: 36.8% at G = 1.</strong> Slotted is exactly twice as good, because slotting halves the vulnerable time. If you remember nothing else about ALOHA, remember these.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; ALOHA throughput</span>
+  <p><strong>Q.</strong> A shared 200 kbps channel is used by 200 stations, each sending 200-bit frames. Each station sends on average one frame per second. Find the throughput for pure and for slotted ALOHA.</p>
+
+  <p><strong>Frame time</strong> T<sub>fr</sub> = 200 bits &divide; 200,000 bps = <strong>1 ms</strong></p>
+  <p><strong>Load G</strong> = frames generated per frame-time = 200 stations &times; 1 frame/s &times; 0.001 s = <strong>0.2</strong></p>
+
+  <p><strong>Pure ALOHA:</strong> S = G e<sup>&minus;2G</sup> = 0.2 &times; e<sup>&minus;0.4</sup> = 0.2 &times; 0.6703 = <strong>0.134</strong><br>
+  Successful frames per second = 0.134 &divide; 0.001 = <strong>134 frames/s</strong> out of 200 attempted.</p>
+
+  <p><strong>Slotted ALOHA:</strong> S = G e<sup>&minus;G</sup> = 0.2 &times; e<sup>&minus;0.2</sup> = 0.2 &times; 0.8187 = <strong>0.164</strong><br>
+  Successful frames per second = <strong>164 frames/s</strong>.</p>
+
+  <p><em>Sanity check:</em> slotted must always beat pure at the same G, and 164 &gt; 134. &#10003; Also note that both are well below the maxima, because G = 0.2 is below the optimal load &mdash; the channel is under-used rather than congested.</p>
+</div>
+
+<h2>CSMA &mdash; Carrier Sense Multiple Access</h2>
+
+<p>ALOHA transmits blindly. <strong>CSMA adds one rule: "listen before talking" (sense before transmit).</strong> A station first checks whether the medium is idle.</p>
+
+<p><strong>Collisions still happen</strong>, and the reason is the exam's favourite point: <strong>propagation delay</strong>. When station A begins transmitting, the first bit takes time to reach station B. If B senses the channel during that interval, it hears silence, concludes the medium is free, and transmits &mdash; producing a collision. Hence:</p>
+
+<div class="formula">
+  <span class="name">CSMA vulnerable time</span>
+  Vulnerable time = <strong>T<sub>p</sub></strong>, the maximum propagation time<br>
+  The longer the propagation time, the worse the chance of collision.
+</div>
+
+<h3>The three persistence methods</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>If the channel is idle</th><th>If the channel is busy</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td><strong>1-persistent</strong></td><td>Transmit <strong>immediately</strong> (with probability 1)</td><td><strong>Keep sensing continuously</strong>, and transmit the instant it becomes idle</td><td>Highest chance of collision &mdash; if several stations are waiting, they all pounce at the same moment. Used by <strong>Ethernet</strong>.</td></tr>
+<tr><td><strong>Non-persistent</strong></td><td>Transmit immediately</td><td><strong>Wait a random amount of time</strong>, then sense again</td><td>Reduces collisions, but <strong>wastes bandwidth</strong> &mdash; the channel may sit idle while everyone is in a random wait.</td></tr>
+<tr><td><strong>p-persistent</strong></td><td>Transmit with probability <strong>p</strong>; with probability <strong>1&minus;p</strong>, wait one time slot and repeat</td><td>Keep sensing until idle, then apply the p rule</td><td><strong>The compromise</strong> &mdash; reduces collisions <em>and</em> improves efficiency. Used on <strong>slotted channels</strong>.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>CSMA/CD &mdash; Collision Detection</h2>
+
+<p>CSMA says what to do <em>before</em> sending but nothing about what happens <em>after</em> a collision. <strong>CSMA/CD adds: monitor the channel while transmitting, and if a collision is detected, abort immediately.</strong></p>
+
+<h3>The procedure</h3>
+<ol>
+<li>Sense the channel; when idle, begin transmitting (1-persistent, for Ethernet).</li>
+<li><strong>While transmitting, keep listening.</strong> A collision is detected as an <strong>abnormal rise in signal energy</strong> on the medium.</li>
+<li>On detecting a collision, <strong>abort the transmission at once</strong> and send a short <strong>jam signal</strong> so every station knows a collision occurred.</li>
+<li>Wait a random <strong>back-off time</strong>, then return to step 1.</li>
+</ol>
+
+<div class="box exam">
+  <span class="lbl">The minimum frame size rule &mdash; asked as a numerical</span>
+  <p>A station must still be transmitting when the collision signal gets back to it, otherwise it will never learn of the collision. So the transmission must last <strong>at least the round-trip propagation time</strong>:</p>
+</div>
+
+<div class="formula">
+  <span class="name">Minimum frame size for CSMA/CD</span>
+  T<sub>fr</sub> &ge; 2 &times; T<sub>p</sub><br>
+  Minimum frame length L<sub>min</sub> = 2 &times; T<sub>p</sub> &times; Bandwidth
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; minimum frame size</span>
+  <p><strong>Q.</strong> A 10 Mbps CSMA/CD network has a maximum one-way propagation time of 25.6 &micro;s. Find the minimum frame size.</p>
+
+  <p>Round-trip time = 2 &times; T<sub>p</sub> = 2 &times; 25.6 = <strong>51.2 &micro;s</strong> (this is Ethernet's <em>slot time</em>)</p>
+  <p>L<sub>min</sub> = 51.2 &times; 10<sup>&minus;6</sup> s &times; 10 &times; 10<sup>6</sup> bps = <strong>512 bits = 64 bytes</strong></p>
+
+  <p><strong>This is exactly the 64-byte minimum frame size of standard Ethernet</strong> &mdash; say so; it converts a calculation into an explanation, and it is usually worth a mark.</p>
+
+  <p><em>The consequence worth adding:</em> as bandwidth rises, the minimum frame size must rise too, or the network's maximum length must shrink. That is why Gigabit Ethernet needs <strong>carrier extension</strong> to pad short frames.</p>
+</div>
+
+<h3>Binary exponential back-off</h3>
+
+<p>After the <em>k</em>th collision, the station waits a random number of slot times chosen from <strong>0 to 2<sup>k</sup> &minus; 1</strong>. So after one collision it picks from {0, 1}; after two, from {0, 1, 2, 3}; after three, from {0&hellip;7}. The range doubles each time, spreading the contenders further apart as congestion grows. After <strong>16 attempts</strong> the frame is discarded and the failure reported.</p>
+
+<h2>CSMA/CA &mdash; Collision Avoidance</h2>
+
+<p>The wireless counterpart. The question examiners ask is <em>why a different mechanism is needed at all</em>, and there are three reasons:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Reason</th><th>Explanation</th></tr></thead>
+<tbody>
+<tr><td><strong>Detection needs full duplex</strong></td><td>To detect a collision, a station must send and receive at the same time. Wireless stations are typically <strong>half-duplex</strong> &mdash; they cannot listen while transmitting.</td></tr>
+<tr><td><strong>Signal attenuation</strong></td><td>A radio signal <strong>fades rapidly with distance</strong>. The transmitting station's own signal drowns out the far weaker signal of a distant colliding station, so a collision would be inaudible even if it could listen.</td></tr>
+<tr><td><strong>Hidden station problem</strong></td><td>Two stations may both be in range of the access point but <strong>not in range of each other</strong>. Neither can sense the other's transmission at all, so carrier sensing does not prevent their collision.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three avoidance strategies</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Strategy</th><th>How it works</th></tr></thead>
+<tbody>
+<tr><td><strong>IFS &mdash; Interframe Space</strong></td><td>When the channel is found idle, the station does <strong>not send immediately</strong>; it waits an interframe space first. This allows for a distant station's signal still in flight, and the <strong>length of the IFS sets priority</strong> &mdash; a shorter IFS means higher priority.</td></tr>
+<tr><td><strong>Contention window</strong></td><td>After the IFS, the station waits a random number of slots from a window whose size <strong>doubles after each collision</strong> (binary exponential back-off). The station <strong>freezes its timer</strong> if the channel becomes busy and resumes when it is idle again &mdash; so a station that has already waited a long time keeps its advantage.</td></tr>
+<tr><td><strong>Acknowledgement</strong></td><td>Because collisions cannot be detected, success is confirmed <strong>positively</strong>: the receiver returns an ACK. No ACK within the timeout means the frame is presumed lost, and it is resent.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>RTS/CTS handshake</strong> &mdash; the optional extension that solves the hidden station problem. Before sending, a station transmits a short <strong>Request To Send</strong>; the access point replies with a <strong>Clear To Send</strong>, which <em>all</em> stations in its range hear, including those hidden from the sender. They then defer for the announced duration. Mention this in one line; it is often the last mark on a CSMA/CA question.</p>
+
+<h3>CSMA/CD vs CSMA/CA</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>CSMA/CD</th><th>CSMA/CA</th></tr></thead>
+<tbody>
+<tr><td><strong>Approach</strong></td><td><strong>Detects</strong> collisions after they occur, then recovers</td><td><strong>Avoids</strong> collisions before they occur</td></tr>
+<tr><td><strong>Medium</strong></td><td><strong>Wired</strong> networks</td><td><strong>Wireless</strong> networks</td></tr>
+<tr><td><strong>Duplex needed</strong></td><td>Full-duplex &mdash; sends and listens at once</td><td>Works with half-duplex</td></tr>
+<tr><td><strong>On sensing idle</strong></td><td>Transmits immediately</td><td>Waits an <strong>IFS</strong>, then a random back-off</td></tr>
+<tr><td><strong>Success confirmed by</strong></td><td>Absence of a collision signal</td><td><strong>An explicit acknowledgement</strong></td></tr>
+<tr><td><strong>Extra mechanism</strong></td><td>Jam signal, binary exponential back-off</td><td>IFS, contention window, ACK, optional RTS/CTS</td></tr>
+<tr><td><strong>Efficiency</strong></td><td>Higher &mdash; less overhead</td><td>Lower &mdash; more waiting and handshaking</td></tr>
+<tr><td><strong>Used in</strong></td><td><strong>Ethernet, IEEE 802.3</strong></td><td><strong>Wi-Fi, IEEE 802.11</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Random Access MAC Protocols Evolution & Vulnerable Time</div>
+  <div class="flow-row">
+    <div class="flow-box warn"><strong>Pure ALOHA</strong><span class="sub">Transmit whenever ready &bull; Vulnerable Time = 2 &times; T<sub>fr</sub> &bull; Max Throughput S = 1/(2e) &approx; 18.4%</span></div>
+    <div class="flow-arrow-right">&rarr;</div>
+    <div class="flow-box highlight"><strong>Slotted ALOHA</strong><span class="sub">Transmit only at slot boundaries &bull; Vulnerable Time = T<sub>fr</sub> &bull; Max Throughput S = 1/e &approx; 36.8%</span></div>
+    <div class="flow-arrow-right">&rarr;</div>
+    <div class="flow-box ok"><strong>CSMA / CD</strong><span class="sub">Listen Before Talk + Listen While Talk &bull; Abort on collision &bull; Requires T<sub>fr</sub> &ge; 2 &times; T<sub>p</sub></span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Random Access MAC</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-34: Pure ALOHA vs Slotted ALOHA and CSMA/CD</div>
+    <div class="v-desc">Complete mathematical derivation of vulnerable periods, throughput equations, and the collision detection condition T_frame >= 2*T_prop.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=ggdeb2_z240" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The maximum throughput of pure ALOHA and slotted ALOHA are respectively:</p>
+  <div class="opts">
+    <button class="opt">18.4% at G = 1 and 36.8% at G = 0.5</button>
+    <button class="opt">36.8% at G = 1 and 18.4% at G = 0.5</button>
+    <button class="opt" data-ok="1">18.4% at G = 0.5 and 36.8% at G = 1</button>
+    <button class="opt">50.0% at G = 0.5 and 100% at G = 1</button>
+  </div>
+  <p class="why">S = Ge^(−2G) peaks at 0.184 when G = 0.5; S = Ge^(−G) peaks at 0.368 when G = 1. Slotting halves the vulnerable time from 2T<sub>fr</sub> to T<sub>fr</sub>, which is exactly why the throughput doubles.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Collisions still occur in CSMA despite carrier sensing because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Propagation delay means a distant station may sense an idle channel that is not</button>
+    <button class="opt">The acknowledgement frames themselves collide with data</button>
+    <button class="opt">Stations deliberately ignore the result of the carrier sense</button>
+    <button class="opt">Carrier sensing only works on wireless, never on wired media</button>
+  </div>
+  <p class="why">The first bit of A's frame takes time to reach B. During that window B senses silence, believes the medium free, and transmits. That is why the vulnerable time of CSMA equals the maximum propagation time T<sub>p</sub>.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Which persistence method waits a random time when it finds the channel busy?</p>
+  <div class="opts">
+    <button class="opt">p-persistent &mdash; it transmits with probability p when idle</button>
+    <button class="opt">1-persistent &mdash; it senses continuously until idle</button>
+    <button class="opt">All three behave identically when the channel is busy</button>
+    <button class="opt" data-ok="1">Non-persistent &mdash; it backs off rather than keep sensing</button>
+  </div>
+  <p class="why">Non-persistent stops sensing and waits a random period, reducing collisions but leaving the channel idle sometimes. 1-persistent keeps sensing and pounces the instant it clears — which is why several waiting stations collide.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. A 100 Mbps CSMA/CD network has a one-way propagation time of 5 μs. The minimum frame size is:</p>
+  <div class="opts">
+    <button class="opt">500 bits, from 5 μs × 100 Mbps directly</button>
+    <button class="opt" data-ok="1">1000 bits, from 2 × 5 μs × 100 Mbps</button>
+    <button class="opt">512 bits, the fixed Ethernet minimum frame size</button>
+    <button class="opt">2000 bits, from 4 × 5 μs × 100 Mbps</button>
+  </div>
+  <p class="why">L<sub>min</sub> = 2 × T<sub>p</sub> × bandwidth = 10 μs × 10⁸ = 1000 bits. Forgetting to double T<sub>p</sub> is the usual error — the station must still be sending when the collision signal returns, so the round trip is what matters.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Wireless networks use CSMA/CA rather than CSMA/CD mainly because:</p>
+  <div class="opts">
+    <button class="opt">Collisions cannot physically occur on a wireless medium</button>
+    <button class="opt">Wireless media have no propagation delay to worry about</button>
+    <button class="opt" data-ok="1">Stations are half-duplex and a distant collision is drowned out by their own signal</button>
+    <button class="opt">Wireless frames are too short for a collision to be detected</button>
+  </div>
+  <p class="why">Detection requires sending and listening simultaneously, which half-duplex radios cannot do; and signal attenuation means a far-off colliding signal is far weaker than the station's own. Add the hidden station problem and detection becomes unworkable — hence avoidance.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. After its third successive collision, a station using binary exponential back-off waits a random number of slots chosen from:</p>
+  <div class="opts">
+    <button class="opt">0 to 3</button>
+    <button class="opt" data-ok="1">0 to 7</button>
+    <button class="opt">1 to 8</button>
+    <button class="opt">0 to 15</button>
+  </div>
+  <p class="why">The range after the kth collision is 0 to 2^k − 1, so k = 3 gives 0 to 7. The range doubles each time, spreading contenders further apart as congestion rises. After 16 attempts the frame is discarded.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the three families of multiple access protocols with their members.</summary>
+    <p class="ans">Random access (contention): ALOHA, CSMA, CSMA/CD, CSMA/CA. Controlled access: reservation, polling, token passing. Channelization: FDMA, TDMA, CDMA.</p></details>
+  <details class="card"><summary>State the two ALOHA throughput formulas with their maxima.</summary>
+    <p class="ans">Pure ALOHA: S = Ge^(−2G), maximum 0.184 (18.4%) at G = 0.5. Slotted ALOHA: S = Ge^(−G), maximum 0.368 (36.8%) at G = 1.</p></details>
+  <details class="card"><summary>Give the vulnerable time of pure ALOHA, slotted ALOHA and CSMA.</summary>
+    <p class="ans">Pure ALOHA: 2 × T<sub>fr</sub>. Slotted ALOHA: T<sub>fr</sub>. CSMA: T<sub>p</sub>, the maximum propagation time.</p></details>
+  <details class="card"><summary>Describe the three persistence methods.</summary>
+    <p class="ans">1-persistent: transmit immediately when idle, and if busy keep sensing continuously and send the instant it clears — most collisions, used by Ethernet. Non-persistent: if busy, wait a random time then sense again — fewer collisions but wasted bandwidth. p-persistent: when idle transmit with probability p, else wait a slot and repeat — the compromise, used on slotted channels.</p></details>
+  <details class="card"><summary>Describe the CSMA/CD procedure.</summary>
+    <p class="ans">Sense the channel and transmit when idle; keep listening while transmitting; on detecting a collision (an abnormal rise in signal energy), abort immediately and send a jam signal; wait a random back-off time and retry. After 16 attempts, discard the frame.</p></details>
+  <details class="card"><summary>State the minimum frame size rule and explain why it exists.</summary>
+    <p class="ans">T<sub>fr</sub> ≥ 2 × T<sub>p</sub>, so L<sub>min</sub> = 2 × T<sub>p</sub> × bandwidth. The station must still be transmitting when the collision signal reaches it back, or it would never learn of the collision. For 10 Mbps Ethernet this gives 512 bits = 64 bytes.</p></details>
+  <details class="card"><summary>Why can wireless networks not use CSMA/CD? Give three reasons.</summary>
+    <p class="ans">Collision detection needs full duplex, but wireless stations are half-duplex. Signals attenuate rapidly, so a distant colliding signal is drowned by the station's own. And the hidden station problem means two stations may be unable to sense each other at all.</p></details>
+  <details class="card"><summary>Name the three strategies of CSMA/CA.</summary>
+    <p class="ans">Interframe space (wait after finding the channel idle; its length sets priority), contention window (random back-off doubling after each collision, with the timer frozen while the channel is busy), and acknowledgement (positive confirmation, since collisions cannot be detected). Optionally RTS/CTS to solve the hidden station problem.</p></details>
+</div>
+
+<p class="ask">Want the ALOHA throughput curve drawn, plus five more G-value numericals? Ask &mdash; the curve makes the two maxima much easier to remember.</p>
+
+<div class="nav">
+  <a href="0015-hdlc-and-ppp.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0017-controlled-access-and-channelization.html">Next: Controlled Access and Channelization &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,133 @@
+<title>Perceptron Training and Delta Rule</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit IV &middot; Lesson 17 of 20</p>
+<h1>Perceptron Training and Delta Rule</h1>
+<p class="deck">The single-layer perceptron, the perceptron learning algorithm with a full worked AND-gate example, the perceptron convergence theorem, XOR limitation, and why multi-layer networks are needed.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>Perceptron training numerical</strong> is a guaranteed 10-marker. Show weight updates epoch by epoch until convergence. <strong>&ldquo;Why can&rsquo;t a perceptron learn XOR?&rdquo;</strong> is a classic short-answer.</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Perceptron Training Algorithm &amp; Convergence</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=qjMmMmwTOKI" target="_blank">Perceptron Training Algorithm &amp; Weight Update Traces</a>
+    <span class="v-meta">Gate Smashers &middot; 13:20</span>
+    <div class="v-why">Step-by-step examination derivation demonstrating initial weights, bias calculation, epoch iteration, and weight vector adjustment on misclassified samples.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Linear Separability &amp; The XOR Bottleneck</span>
+      <span class="best-tag">Top Exam Concept</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=BPOl4_vN3IM" target="_blank">Lec-49: Multilayer Perceptron &amp; Why Single Layer Fails on XOR</a>
+    <span class="v-meta">Gate Smashers &middot; 12:45</span>
+    <div class="v-why">Visual geometric proof showing why a single hyperplane separates AND and OR, but fails completely on XOR, motivating hidden layers.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: LINEAR SEPARABILITY GEOMETRY -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Geometry: Linear Separability vs The XOR Dilemma</span>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.4rem;">
+    <div style="border:1.5px solid var(--ok); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--ok); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        Linearly Separable (AND / OR)
+      </div>
+      <div class="flow-col">
+        <div class="flow-box ok"><strong>Single Hyperplane Exists</strong><span class="sub">$w_1 x_1 + w_2 x_2 + b = 0$</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box"><strong>Single-Layer Perceptron Solves</strong><span class="sub">Weight updates guaranteed to terminate via Novikoff Convergence Theorem</span></div>
+      </div>
+      <p style="font-size:.8rem; color:var(--ink-soft); margin:.8rem 0 0; text-align:center;">Truth table points (0,0), (0,1), (1,0) separated cleanly from (1,1).</p>
+    </div>
+
+    <div style="border:1.5px solid var(--warn); border-radius:6px; padding:1rem; background:var(--panel);">
+      <div style="text-align:center; font-weight:700; color:var(--warn); margin-bottom:.8rem; font-size:.88rem; text-transform:uppercase;">
+        Non-Linearly Separable (XOR)
+      </div>
+      <div class="flow-col">
+        <div class="flow-box warn"><strong>No Single Line Can Separate</strong><span class="sub">Opposite diagonal corners have identical labels: $(0,0)=0, (1,1)=0$ vs $(0,1)=1, (1,0)=1$</span></div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box highlight"><strong>Requires Hidden Layer (MLP)</strong><span class="sub">Two hyperplanes combine to enclose the decision boundary</span></div>
+      </div>
+      <p style="font-size:.8rem; color:var(--warn); margin:.8rem 0 0; text-align:center;">Minsky &amp; Papert's 1969 proof ended early perceptron research until backprop emerged.</p>
+    </div>
+  </div>
+</div>
+
+
+<h2>Perceptron</h2>
+<p>Single-layer network with step activation. Output: y = 1 if &Sigma;w<sub>i</sub>x<sub>i</sub> + b &ge; 0, else 0.</p>
+
+<h2>Perceptron learning algorithm</h2>
+<div class="formula"><span class="name">Algorithm</span>
+1. Initialise weights w and bias b (usually to 0 or small random).<br>
+2. For each training sample (x, d):<br>
+&nbsp;&nbsp; Compute y = step(&Sigma;w<sub>i</sub>x<sub>i</sub> + b).<br>
+&nbsp;&nbsp; If y &ne; d: <strong>w<sub>i</sub> = w<sub>i</sub> + &eta;(d &minus; y)x<sub>i</sub></strong>, b = b + &eta;(d &minus; y).<br>
+3. Repeat until no errors (convergence).<br><br>
+<strong>&eta; = learning rate</strong> (typically 1 for simple examples).</div>
+
+<div class="solve"><span class="lbl">Worked example — AND gate (&eta; = 1)</span>
+<p>Training data: (0,0)→0, (0,1)→0, (1,0)→0, (1,1)→1. Init: w1=0, w2=0, b=0.</p>
+<div class="tw"><table>
+<thead><tr><th>Epoch</th><th>Input</th><th>d</th><th>net</th><th>y</th><th>Error</th><th>w1</th><th>w2</th><th>b</th></tr></thead>
+<tbody>
+<tr><td rowspan="4">1</td><td>(0,0)</td><td>0</td><td>0</td><td>1</td><td>&minus;1</td><td>0</td><td>0</td><td>&minus;1</td></tr>
+<tr><td>(0,1)</td><td>0</td><td>&minus;1</td><td>0</td><td>&minus;1</td><td>0</td><td>&minus;1</td><td>&minus;2</td></tr>
+<tr><td>(1,0)</td><td>0</td><td>&minus;2</td><td>0</td><td>0</td><td>0</td><td>&minus;1</td><td>&minus;2</td></tr>
+<tr><td>(1,1)</td><td>1</td><td>&minus;3</td><td>0</td><td>1</td><td>1</td><td>0</td><td>&minus;1</td></tr>
+<tr><td rowspan="4">2</td><td>(0,0)</td><td>0</td><td>&minus;1</td><td>0</td><td>0</td><td>1</td><td>0</td><td>&minus;1</td></tr>
+<tr><td>(0,1)</td><td>0</td><td>&minus;1</td><td>0</td><td>0</td><td>1</td><td>0</td><td>&minus;1</td></tr>
+<tr><td>(1,0)</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>&minus;1</td></tr>
+<tr><td>(1,1)</td><td>1</td><td>0</td><td>0</td><td>1</td><td>2</td><td>1</td><td>0</td></tr>
+</tbody></table></div>
+<p>Continue epochs until all four samples produce correct output. Final weights define a line w1&middot;x1 + w2&middot;x2 + b = 0 separating class 0 from class 1.</p></div>
+
+<h2>Perceptron convergence theorem</h2>
+<p>If the training data is <strong>linearly separable</strong>, the perceptron algorithm is <strong>guaranteed to converge</strong> in a finite number of steps.</p>
+
+<h2>XOR limitation</h2>
+<div class="box exam"><span class="lbl">XOR is NOT linearly separable</span>
+<p>No single line can separate (0,0)→0, (1,1)→0 from (0,1)→1, (1,0)→1. A single perceptron <strong>cannot learn XOR</strong>. Solution: <strong>multi-layer perceptron</strong> with at least one hidden layer.</p></div>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. The perceptron weight update rule is:</p>
+<div class="opts">
+<button class="opt" data-ok="1">w<sub>i</sub> = w<sub>i</sub> + &eta;(d &minus; y)x<sub>i</sub></button>
+<button class="opt">w<sub>i</sub> = d &minus; y</button>
+<button class="opt">w<sub>i</sub> = w<sub>i</sub> &times; x<sub>i</sub></button>
+<button class="opt">w<sub>i</sub> = &eta; / x<sub>i</sub></button>
+</div><p class="why">Error-correcting: adjust weight by learning rate × error × input. If y = d, no change.</p></div>
+<div class="q"><p class="stem">2. A single perceptron cannot learn XOR because:</p>
+<div class="opts">
+<button class="opt">The learning rate is too high</button>
+<button class="opt" data-ok="1">XOR is not linearly separable — no single line can separate the classes</button>
+<button class="opt">XOR requires unsupervised learning</button>
+<button class="opt">XOR has too many inputs</button>
+</div><p class="why">Perceptron = linear classifier. XOR needs a non-linear boundary = multi-layer network.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>Perceptron algorithm in four steps.</summary><p class="ans">Init weights. For each sample: compute y = step(Σwx+b). If error: w += η(d-y)x, b += η(d-y). Repeat until convergence.</p></details>
+<details class="card"><summary>Why perceptron fails on XOR.</summary><p class="ans">XOR is not linearly separable. Need ≥1 hidden layer (MLP) to learn it.</p></details>
+</div>
+
+<div class="nav">
+<a href="0016-learning-rules-and-paradigms.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0018-back-propagation.html">Next: Back-Propagation &rarr;</a>
+<a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

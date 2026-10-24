@@ -1,0 +1,298 @@
+<title>TCP Flow and Error Control</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit IV &middot; Lesson 32 of 42</p>
+<h1>TCP Flow and Error Control</h1>
+<p class="deck">The sliding window in bytes rather than frames, the window-size formula that ties flow and congestion control together, silly window syndrome with both its fixes, and the three error-control mechanisms including fast retransmit.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two questions. (1) <strong>"Explain flow control in TCP"</strong> &mdash; draw the sliding window over a byte line, define the four pointers, and give the <strong>window-size formula</strong>. (2) <strong>"What is silly window syndrome and how is it solved?"</strong> &mdash; a 5-mark question with a clean structure: the sender's version fixed by <strong>Nagle's algorithm</strong>, the receiver's version fixed by <strong>Clark's solution</strong> or delayed acknowledgement. Naming the two algorithms is where the marks are.</p>
+</div>
+
+<h2>Flow control in TCP</h2>
+
+<p>Flow control balances the rate a producer creates data against the rate a consumer can absorb it. TCP separates the two concerns cleanly:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Flow control</th><th>Congestion control</th></tr></thead>
+<tbody>
+<tr><td><strong>Protects</strong></td><td>The <strong>receiver</strong></td><td>The <strong>network</strong></td></tr>
+<tr><td><strong>Driven by</strong></td><td><strong>rwnd</strong> &mdash; the receiver's advertised window, carried in the header</td><td><strong>cwnd</strong> &mdash; the congestion window, computed by the sender itself</td></tr>
+<tr><td><strong>Signalled how</strong></td><td>Explicitly, in the <strong>window size field</strong> of every segment</td><td>Implicitly, by <strong>packet loss and timeouts</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The formula that ties them together</span>
+  <strong>Send window size = minimum ( rwnd , cwnd )</strong><br>
+  The sender obeys whichever constraint is tighter.
+</div>
+
+<p>This single line answers "how do flow and congestion control interact?" and it is the most valuable sentence in the lesson.</p>
+
+<h3>The sliding window</h3>
+
+<p>TCP's sliding window differs from the data link layer's in three ways, and the differences are examinable:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Data link layer window</th><th>TCP window</th></tr></thead>
+<tbody>
+<tr><td><strong>Counts</strong></td><td><strong>Frames</strong></td><td><strong>Bytes</strong></td></tr>
+<tr><td><strong>Size</strong></td><td>Fixed by the protocol</td><td><strong>Variable</strong> &mdash; the receiver changes it segment by segment</td></tr>
+<tr><td><strong>Acknowledgement</strong></td><td>Per frame</td><td><strong>Cumulative</strong>, by byte number</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The sender's window covers four regions of the byte stream:</p>
+
+<div class="formula">
+  <span class="name">The four regions</span>
+  1. Bytes <strong>sent and acknowledged</strong> &mdash; may be purged from the buffer<br>
+  2. Bytes <strong>sent but not yet acknowledged</strong> &nbsp;&larr; <em>outstanding</em><br>
+  3. Bytes <strong>not yet sent but which may be sent now</strong> &nbsp;&larr; <em>usable window</em><br>
+  4. Bytes that <strong>cannot be sent until the window moves</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Window movement</th><th>Cause</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><strong>Opens</strong> (right edge moves right)</td><td>The receiver's application consumes data, freeing buffer space</td><td>More bytes become sendable</td></tr>
+<tr><td><strong>Closes</strong> (left edge moves right)</td><td>Data is sent and acknowledged</td><td>Acknowledged bytes leave the window</td></tr>
+<tr><td><strong>Shrinks</strong> (right edge moves <em>left</em>)</td><td>The receiver advertises a smaller window</td><td><strong>Strongly discouraged</strong> &mdash; it can leave already-sent bytes outside the window</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked example &mdash; the effective window</span>
+  <p><strong>Q.</strong> A receiver advertises rwnd = 5000 bytes. The sender's congestion window is 3000 bytes, and it has already sent 1200 bytes that remain unacknowledged. How many more bytes may it send right now?</p>
+
+  <p><strong>Send window</strong> = min(rwnd, cwnd) = min(5000, 3000) = <strong>3000 bytes</strong></p>
+  <p><strong>Outstanding</strong> (sent, not acknowledged) = 1200 bytes</p>
+  <p><strong>Usable window</strong> = 3000 &minus; 1200 = <strong>1800 bytes</strong></p>
+
+  <p><em>Sanity check:</em> the usable window can never be negative. If it comes out negative, either the outstanding count is wrong or the receiver shrank its window &mdash; which is exactly the situation TCP discourages.</p>
+
+  <p><strong>Follow-up:</strong> if the receiver's application now reads 2000 bytes and it re-advertises rwnd = 7000, but cwnd is unchanged, the send window is still min(7000, 3000) = <strong>3000</strong>. <em>Opening the receiver's window does nothing while congestion control is the binding constraint</em> &mdash; a good line to add, because it shows which limit is actually operating.</p>
+</div>
+
+<h3>The zero-window problem and the persistence timer</h3>
+
+<p>If the receiver advertises <strong>rwnd = 0</strong>, the sender must stop. The receiver will send a window-update segment when space frees up &mdash; but <strong>that update is a pure acknowledgement, and pure acknowledgements are not acknowledged, so they are not retransmitted if lost</strong>. Both sides would then wait forever: a deadlock.</p>
+
+<p><strong>The fix is the persistence timer.</strong> When the sender receives a zero-window advertisement it starts this timer; on expiry it sends a <strong>probe segment of one byte</strong>, which forces the receiver to respond with its current window size. Cover this here; the timer itself returns in Lesson 34.</p>
+
+<h2>Silly window syndrome</h2>
+
+<p><strong>The problem:</strong> segments carrying only a few bytes of data but a full 20-byte TCP header and 20-byte IP header. Sending 1 byte of data in a 41-byte packet is about <strong>2% efficiency</strong>. It can be caused by either end.</p>
+
+<h3>Caused by the sender &mdash; Nagle's algorithm</h3>
+
+<p>An application such as TELNET generates one byte at a time. If TCP sent each one immediately, the link would fill with 41-byte packets carrying one byte each.</p>
+
+<div class="formula">
+  <span class="name">Nagle's algorithm</span>
+  1. The sending TCP sends the <strong>first piece of data immediately</strong>, however small &mdash; even one byte.<br>
+  2. After that, it <strong>waits</strong>, accumulating data in the buffer, until <strong>either</strong> an acknowledgement for the outstanding data arrives, <strong>or</strong> enough data has accumulated to fill a <strong>maximum-size segment (MSS)</strong>.<br>
+  3. Repeat step 2 for the rest of the transmission.
+</div>
+
+<p><strong>Why it is elegant, and worth stating:</strong> the algorithm is <strong>self-adjusting</strong>. On a fast network acknowledgements return quickly, so segments are sent often and latency stays low. On a slow network they return slowly, so more data accumulates and segments are larger &mdash; exactly when efficiency matters most. It adapts to the link without being told anything about it.</p>
+
+<h3>Caused by the receiver &mdash; Clark's solution and delayed acknowledgement</h3>
+
+<p>A receiving application that consumes one byte at a time frees one byte of buffer at a time, and if TCP advertises each such opening the sender responds with another one-byte segment.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Fix</th><th>How it works</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td><strong>Clark's solution</strong></td><td>Send an acknowledgement as soon as data arrives, but <strong>advertise a window of zero</strong> until either the buffer space is <strong>half empty</strong> or there is room for a <strong>maximum-size segment</strong>.</td><td>None significant &mdash; the sender is kept informed but not invited to send trivial segments.</td></tr>
+<tr><td><strong>Delayed acknowledgement</strong></td><td><strong>Do not acknowledge immediately.</strong> The delay prevents the sender sliding its window at once, and gives the receiving application time to consume more. It also reduces traffic by acknowledging several segments at once.</td><td>The sender may <strong>retransmit unnecessarily</strong> if the delay is too long, so it is bounded &mdash; typically <strong>at most 500 ms</strong>.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The three-line answer to "what is silly window syndrome?"</span>
+  <p><strong>Segments carrying only a few bytes of data with 40 bytes of headers, wasting bandwidth.</strong> If the <strong>sender</strong> causes it (an application producing one byte at a time), <strong>Nagle's algorithm</strong> fixes it. If the <strong>receiver</strong> causes it (an application consuming one byte at a time), <strong>Clark's solution</strong> or <strong>delayed acknowledgement</strong> fixes it. Name the cause and the matching fix for each side &mdash; that structure is what the marks are for.</p>
+</div>
+
+<h2>Error control in TCP</h2>
+
+<p>TCP is reliable, and it achieves that with exactly three tools:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Tool</th><th>Detects / handles</th></tr></thead>
+<tbody>
+<tr><td><strong>Checksum</strong></td><td>Corrupted segments. 16 bits, covering header, data and pseudoheader. <strong>Mandatory.</strong> A corrupted segment is silently <strong>discarded</strong> by the receiver, which then looks like a lost segment.</td></tr>
+<tr><td><strong>Acknowledgement</strong></td><td>Confirms arrival. <strong>Cumulative</strong> &mdash; acknowledging byte n confirms everything before it. TCP also supports <strong>selective acknowledgement (SACK)</strong> as an option.</td></tr>
+<tr><td><strong>Retransmission</strong></td><td>Recovers lost or discarded segments. Triggered in two ways &mdash; see below.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The two retransmission triggers</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>Retransmission timeout (RTO)</th><th>Fast retransmit</th></tr></thead>
+<tbody>
+<tr><td><strong>Trigger</strong></td><td>The <strong>retransmission timer expires</strong> before the segment is acknowledged</td><td><strong>Three duplicate acknowledgements</strong> arrive for the same byte number</td></tr>
+<tr><td><strong>Why it works</strong></td><td>No news at all &mdash; the segment is presumed lost</td><td>Later segments <em>are</em> arriving (each triggering a duplicate ACK for the still-missing byte), so the network is working and one specific segment is missing</td></tr>
+<tr><td><strong>Speed</strong></td><td><strong>Slow</strong> &mdash; must wait out the whole timeout</td><td><strong>Fast</strong> &mdash; acts as soon as the third duplicate arrives</td></tr>
+<tr><td><strong>Effect on congestion window</strong></td><td>Treated as <strong>severe</strong> congestion &mdash; cwnd drops to 1 MSS</td><td>Treated as <strong>mild</strong> &mdash; cwnd is halved (TCP Reno)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Why three duplicates and not one?</strong> Segments can arrive out of order through the network, and a single out-of-order arrival produces one duplicate ACK without anything being lost. Waiting for <strong>three</strong> makes reordering an unlikely explanation and loss the likely one &mdash; it trades a little delay for far fewer needless retransmissions.</p>
+
+<div class="box exam">
+  <span class="lbl">Two rules examiners test directly</span>
+  <p><strong>A corrupted segment is discarded, not negatively acknowledged.</strong> TCP has no NAK. Corruption therefore looks identical to loss, and is recovered the same way.<br>
+  <strong>An out-of-order segment is buffered, not discarded</strong> (unlike Go-Back-N at the data link layer). The receiver holds it and sends a duplicate ACK for the byte still missing &mdash; which is exactly what triggers fast retransmit.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">TCP Sliding Window Flow Control & Silly Window Prevention</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Advertised Receiver Window (rwnd)</strong>
+      <span class="sub">Effective Window = min(rwnd, cwnd) &bull; Prevents sender from overwhelming receiver buffer</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box warn"><strong>Silly Window Syndrome</strong><span class="sub">Data transmitted in 1-byte trickles with 40 bytes of TCP/IP overhead (massive waste!)</span></div>
+    <div class="flow-box ok"><strong>Clark's Solution (Receiver)</strong><span class="sub">Do not advertise window until buffer can take 1 MSS or 50% capacity</span></div>
+    <div class="flow-box"><strong>Nagle's Algorithm (Sender)</strong><span class="sub">Hold small packets until full MSS accumulated or previous ACK arrives</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">TCP Flow Control</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-72: TCP Flow Control, Window Management & Piggybacking</div>
+    <div class="v-desc">Illustrates the sliding window byte-level buffer pointers, cumulative acknowledgements, zero-window probes, and silly window avoidance.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=7zPfuIf4GL0" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The sender's window size in TCP is:</p>
+  <div class="opts">
+    <button class="opt">The maximum of rwnd and cwnd</button>
+    <button class="opt">Always equal to rwnd, the advertised window</button>
+    <button class="opt">The sum of rwnd and cwnd</button>
+    <button class="opt" data-ok="1">The minimum of rwnd and cwnd</button>
+  </div>
+  <p class="why">The sender must satisfy both constraints, so it obeys whichever is tighter. If cwnd is the smaller, opening the receiver's window changes nothing — congestion is the binding limit.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. rwnd = 8000, cwnd = 4000, and 2500 bytes are outstanding. The sender may now send:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">1500 bytes</button>
+    <button class="opt">2500 bytes</button>
+    <button class="opt">5500 bytes</button>
+    <button class="opt">4000 bytes</button>
+  </div>
+  <p class="why">Send window = min(8000, 4000) = 4000. Usable = 4000 − 2500 = 1500. Using rwnd instead of the minimum gives 5500, which is the standard error.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Nagle's algorithm sends the first piece of data:</p>
+  <div class="opts">
+    <button class="opt">Only after the persistence timer expires</button>
+    <button class="opt">Only once a full MSS has accumulated</button>
+    <button class="opt" data-ok="1">Immediately, however small it is</button>
+    <button class="opt">Only after three duplicate ACKs arrive</button>
+  </div>
+  <p class="why">Rule 1 sends the first byte at once so interactivity is not damaged; only afterwards does it accumulate until an ACK returns or an MSS is full. That is what makes it self-adjusting — fast networks get frequent small segments, slow ones get larger ones.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Silly window syndrome caused by the receiving application is solved by:</p>
+  <div class="opts">
+    <button class="opt">Fast retransmit after three duplicate ACKs</button>
+    <button class="opt" data-ok="1">Clark's solution or delayed acknowledgement</button>
+    <button class="opt">The persistence timer probing with one byte</button>
+    <button class="opt">Nagle's algorithm applied at the receiver</button>
+  </div>
+  <p class="why">Nagle fixes the sender's version. Clark's solution — acknowledge but advertise zero until the buffer is half empty or an MSS fits — fixes the receiver's, as does delaying the acknowledgement. Pairing each cause with its own fix is what the question tests.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Fast retransmit is triggered by:</p>
+  <div class="opts">
+    <button class="opt">One duplicate acknowledgement, to act as early as possible</button>
+    <button class="opt" data-ok="1">Three duplicate acknowledgements for the same byte number</button>
+    <button class="opt">A negative acknowledgement sent by the receiver</button>
+    <button class="opt">The expiry of the retransmission timeout timer</button>
+  </div>
+  <p class="why">One duplicate could simply mean a segment arrived out of order. Three makes reordering unlikely and loss likely. Note also that TCP has no NAK at all — a corrupted segment is silently discarded and looks exactly like a lost one.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A TCP receiver that gets an out-of-order segment will:</p>
+  <div class="opts">
+    <button class="opt">Discard it, as Go-Back-N does at the data link layer</button>
+    <button class="opt" data-ok="1">Buffer it and send a duplicate ACK for the byte still missing</button>
+    <button class="opt">Send a negative acknowledgement naming the missing byte</button>
+    <button class="opt">Acknowledge it individually with its own byte number</button>
+  </div>
+  <p class="why">TCP buffers out-of-order data rather than throwing it away, and repeats the acknowledgement for the still-missing byte. Those repeated ACKs are precisely the duplicates that trigger fast retransmit.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Distinguish flow control from congestion control, with the formula.</summary>
+    <p class="ans">Flow control protects the receiver and is driven by rwnd, advertised explicitly in the window size field. Congestion control protects the network and is driven by cwnd, computed by the sender from loss and timeouts. Send window = min(rwnd, cwnd).</p></details>
+  <details class="card"><summary>Give three differences between TCP's sliding window and the data link layer's.</summary>
+    <p class="ans">TCP's counts bytes rather than frames; its size is variable, changed by the receiver segment by segment; and its acknowledgements are cumulative by byte number rather than per frame.</p></details>
+  <details class="card"><summary>Name the four regions of the sender's window.</summary>
+    <p class="ans">Sent and acknowledged (may be purged); sent but not yet acknowledged (outstanding); not sent but sendable now (usable window); and not sendable until the window moves.</p></details>
+  <details class="card"><summary>What are window opening, closing and shrinking?</summary>
+    <p class="ans">Opening — the right edge moves right as the receiving application consumes data. Closing — the left edge moves right as data is acknowledged. Shrinking — the right edge moves left because a smaller window was advertised; strongly discouraged, since it can leave already-sent bytes outside the window.</p></details>
+  <details class="card"><summary>Explain the zero-window deadlock and its fix.</summary>
+    <p class="ans">A receiver advertising rwnd = 0 stops the sender. The later window update is a pure acknowledgement, which is not itself acknowledged and so is not retransmitted if lost — both sides would wait forever. The persistence timer fixes it: on expiry the sender sends a one-byte probe segment forcing the receiver to report its current window.</p></details>
+  <details class="card"><summary>Define silly window syndrome and name both fixes.</summary>
+    <p class="ans">Segments carrying only a few bytes of data with 40 bytes of TCP and IP headers, wasting bandwidth. Sender-caused: Nagle's algorithm — send the first piece immediately, then wait for an acknowledgement or a full MSS. Receiver-caused: Clark's solution — acknowledge but advertise zero until the buffer is half empty or an MSS fits — or delayed acknowledgement, bounded at about 500 ms.</p></details>
+  <details class="card"><summary>Name TCP's three error-control tools.</summary>
+    <p class="ans">Checksum (mandatory, 16 bits, over header, data and pseudoheader; corrupted segments are discarded), acknowledgement (cumulative, with optional SACK), and retransmission (on RTO expiry or on three duplicate acknowledgements).</p></details>
+  <details class="card"><summary>Compare timeout retransmission with fast retransmit.</summary>
+    <p class="ans">Timeout: the timer expires with no news, the segment is presumed lost, and it is treated as severe congestion — cwnd drops to 1 MSS. Fast retransmit: three duplicate ACKs show later segments are arriving, so only one is missing; it acts immediately and is treated as mild congestion — cwnd is halved in TCP Reno.</p></details>
+</div>
+
+<p class="ask">Next: congestion control itself &mdash; slow start, congestion avoidance, and the window-versus-time graph that is the most-drawn diagram of the unit after the handshake.</p>
+
+<div class="nav">
+  <a href="0031-tcp-connection-management.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0033-tcp-congestion-control.html">Next: TCP Congestion Control &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit4-cheat-sheet.html">Unit IV sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

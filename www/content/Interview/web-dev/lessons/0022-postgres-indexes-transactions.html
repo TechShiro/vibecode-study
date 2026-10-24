@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 22 — PostgreSQL: Indexes, Transactions &amp; JSONB</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 22 of 24 · indexes, transactions, JSONB, node-postgres</div>
+<h1>PostgreSQL: Indexes, Transactions &amp; JSONB</h1>
+<p class="subtitle">Lesson 21 taught you to talk to Postgres — this one teaches you how Postgres thinks: why some queries are 1000× faster than others, how money never vanishes mid-transfer, and the one security bug every interviewer asks about.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 22 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · How a query actually runs</h2>
+<p>
+When you hit Enter on a <code>SELECT</code>, Postgres doesn't just "look at the table". Your SQL goes through a pipeline:
+</p>
+<ul>
+  <li><strong>Parser</strong> — checks the syntax and turns your text into a tree. (Like <code>javac</code> parsing your Java source.)</li>
+  <li><strong>Planner / optimizer</strong> — the interesting part. There are usually <em>many</em> ways to execute the same query: scan the whole table, use an index, join in one order or another. The planner estimates the cost of each strategy using statistics it keeps about your data (row counts, value distributions) and picks the cheapest plan.</li>
+  <li><strong>Executor</strong> — actually runs the chosen plan and streams rows back to you.</li>
+</ul>
+<p>
+This is the key mental shift of this lesson: <strong>SQL says <em>what</em> you want, the planner decides <em>how</em> to get it.</strong>
+Your job as a developer is to give the planner good options — and the main way you do that is with <strong>indexes</strong>.
+</p>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "SQL is declarative — I describe the result, and the query planner picks an execution strategy based on table statistics.
+  Indexes don't change what a query returns; they change what strategies are available, which can turn a full table scan into a direct lookup."
+</div>
+
+<h2>2 · Indexes — the phone book</h2>
+<p>
+Imagine a phone book with 1,000,000 entries <em>in random order</em>, and you're asked to find "Krish Sharma".
+Your only option is to read every single entry — on average 500,000 checks. That's a <strong>sequential scan</strong>,
+and it's exactly what Postgres does when you filter on a column with no index.
+</p>
+<p>
+A real phone book is sorted by name, so you can flip to the middle, see you're too far, flip again — and land on the entry
+in about 20 steps instead of 500,000. That's binary search, and an index gives Postgres the same power:
+a <strong>separate, sorted structure</strong> that maps column values to row locations.
+</p>
+<p>
+The default index type is a <strong>B-tree</strong> — a balanced, wide tree kept sorted at all times. Lookups, range scans
+(<code>BETWEEN</code>, <code>&lt;</code>, <code>&gt;</code>) and sorted reads are all O(log n). With a branching factor in the
+hundreds, a B-tree over millions of rows is only 3–4 levels deep: a handful of page reads instead of scanning everything.
+</p>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  A table with no index is an <code>ArrayList</code> you search with a for-loop — O(n).
+  A B-tree index is like a <code>TreeMap</code> kept alongside it — O(log n) lookups <em>and</em> sorted iteration,
+  which is why one index can serve <code>WHERE</code>, range filters, and <code>ORDER BY</code>.
+  (Why not a <code>HashMap</code>? Hash indexes exist in Postgres, but they can only answer <code>=</code> —
+  no ranges, no ordering — so B-tree is the default.)
+</div>
+
+<p>Creating one is a single statement. Using the users/posts schema from Lesson 21:</p>
+
+<pre><code><span class="cmt">-- posts(id, user_id, title, body, created_at) from Lesson 21</span>
+CREATE INDEX idx_posts_user_id ON posts (user_id);
+
+<span class="cmt">-- naming convention: idx_&lt;table&gt;_&lt;columns&gt; — future-you will thank you</span>
+DROP INDEX idx_posts_user_id;   <span class="cmt">-- removing one is just as easy</span></code></pre>
+
+<p><strong>When does an index help?</strong> When a column appears in:</p>
+<ul>
+  <li><code>WHERE</code> — <code>WHERE user_id = 7</code> becomes a direct lookup instead of a scan.</li>
+  <li><code>JOIN ... ON</code> — join columns are looked up once per row of the other table; without an index that's a scan per row. <strong>Foreign key columns are the #1 thing to index</strong> — Postgres does NOT index them automatically.</li>
+  <li><code>ORDER BY</code> — the index is already sorted, so Postgres can skip the sort step entirely (huge for <code>ORDER BY created_at DESC LIMIT 10</code> feeds).</li>
+</ul>
+
+<p><strong>Why not index everything, then?</strong> Because indexes are not free:</p>
+<ul>
+  <li><strong>Writes get slower.</strong> Every <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> must also update every index on the table. Five indexes ≈ six writes per insert.</li>
+  <li><strong>Disk space.</strong> Each index is a full extra copy of the indexed columns plus tree overhead.</li>
+  <li><strong>The planner may ignore it anyway.</strong> If a filter matches most of the table (say <code>WHERE is_active = true</code> and 95% of rows are active), a sequential scan is genuinely cheaper — one pass beats a million tree lookups.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Rule of thumb</span>
+  Index the columns you <em>search, join, and sort by</em> — in practice: every foreign key, plus whatever your
+  <code>WHERE</code> clauses actually filter on. Don't index tiny tables, rarely-queried columns, or columns
+  where almost every row matches the filter.
+</div>
+
+<h2>3 · Composite indexes, unique indexes, and the freebies</h2>
+<p>
+An index can cover multiple columns. Order matters enormously:
+</p>
+
+<pre><code>CREATE INDEX idx_posts_user_created ON posts (user_id, created_at);</code></pre>
+
+<p>
+Think of it as a phone book sorted by <em>last name, then first name</em>. You can find all "Sharma"s fast (first column alone),
+and all "Sharma, Krish"s fast (both columns). But finding everyone named "Krish" regardless of surname? Useless — you're back
+to scanning, because first names are scattered across the whole book.
+</p>
+<p>
+That's the <strong>leftmost-prefix rule</strong>: a composite index on <code>(a, b)</code> accelerates queries filtering on
+<code>a</code>, or on <code>a AND b</code> — but <em>not</em> on <code>b</code> alone. So
+<code>WHERE user_id = 7 AND created_at &gt; '2026-01-01'</code> flies, while <code>WHERE created_at &gt; '2026-01-01'</code>
+by itself ignores this index and needs its own.
+</p>
+
+<p>A <strong>unique index</strong> is an index that also enforces a rule — no two rows may share a value:</p>
+
+<pre><code>CREATE UNIQUE INDEX idx_users_email ON users (email);
+<span class="cmt">-- equivalent effect to the UNIQUE constraint you wrote in Lesson 21:</span>
+<span class="cmt">-- ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email);</span></code></pre>
+
+<div class="callout">
+  <span class="label">The freebies</span>
+  Postgres <strong>automatically creates</strong> a unique index for every <code>PRIMARY KEY</code> and every
+  <code>UNIQUE</code> constraint — that's literally how it enforces them (to reject a duplicate fast, it needs a fast lookup).
+  So <code>WHERE id = 5</code> is always indexed for free. What is <em>never</em> automatic: indexes on
+  <strong>foreign key columns</strong>. Add those yourself.
+</div>
+
+<h2>4 · EXPLAIN — watching the planner think</h2>
+<p>
+Don't guess whether an index is used — ask. <code>EXPLAIN</code> shows the plan without running the query;
+<code>EXPLAIN ANALYZE</code> runs it and shows real timings. Let's see the before/after with enough rows to matter
+(<code>generate_series</code> is Postgres's built-in row factory — great for experiments):
+</p>
+
+<pre><code><span class="cmt">-- seed a play table with 1 million rows</span>
+CREATE TABLE bench (
+  id    integer PRIMARY KEY,
+  label text NOT NULL
+);
+INSERT INTO bench (id, label)
+SELECT n, 'row-' || n FROM generate_series(1, 1000000) AS n;
+
+<span class="cmt">-- BEFORE: filter on the un-indexed column</span>
+EXPLAIN ANALYZE SELECT * FROM bench WHERE label = 'row-777777';</code></pre>
+
+<pre><code><span class="cmt">-- output (abridged) — read the first word of the node:</span>
+Seq Scan on bench  (cost=0.00..17906.00 rows=1 width=14)
+                   (actual time=41.3..78.9 ms rows=1)
+  Filter: (label = 'row-777777')
+  Rows Removed by Filter: 999999    <span class="cmt">-- read a million rows to keep ONE</span></code></pre>
+
+<pre><code><span class="cmt">-- AFTER: add the index, run the same query</span>
+CREATE INDEX idx_bench_label ON bench (label);
+EXPLAIN ANALYZE SELECT * FROM bench WHERE label = 'row-777777';
+
+Index Scan using idx_bench_label on bench
+                   (cost=0.42..8.44 rows=1 width=14)
+                   (actual time=0.031..0.033 ms rows=1)
+  Index Cond: (label = 'row-777777')</code></pre>
+
+<p>
+78 ms → 0.03 ms, roughly <strong>2000× faster</strong>, from one line of SQL. Reading plans in depth is a career-long skill,
+but for now you need exactly two words:
+</p>
+<ul>
+  <li><strong>Seq Scan</strong> — "I read the entire table." Fine for small tables or match-everything filters; a red flag on big tables with selective filters.</li>
+  <li><strong>Index Scan</strong> — "I walked the B-tree straight to the rows." What you want for selective lookups. (Cousins you'll meet: <em>Index Only Scan</em> — even better, answer came from the index alone; <em>Bitmap Index Scan</em> — index used in bulk mode for medium-sized result sets.)</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Gotcha</span>
+  <code>EXPLAIN ANALYZE</code> <em>actually executes</em> the statement. Harmless for <code>SELECT</code> — but
+  <code>EXPLAIN ANALYZE DELETE FROM users</code> really deletes. Wrap risky ones in a transaction:
+  <code>BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;</code> — which is a perfect segue.
+</div>
+
+<h2>5 · Transactions — the bank transfer</h2>
+<p>
+You're moving ₹500 from account A to account B. That's two updates:
+</p>
+
+<pre><code>UPDATE accounts SET balance = balance - 500 WHERE id = 'A';
+<span class="cmt">-- ⚡ power cut / server crash / app exception happens HERE</span>
+UPDATE accounts SET balance = balance + 500 WHERE id = 'B';</code></pre>
+
+<p>
+If the world stops between the two statements, ₹500 has vanished: A was debited, B was never credited. No amount of careful
+application code fixes this — the crash can always land between any two statements. The fix has to come from the database:
+a <strong>transaction</strong> groups statements into a single all-or-nothing unit.
+</p>
+
+<pre><code>BEGIN;                                                    <span class="cmt">-- start the unit</span>
+UPDATE accounts SET balance = balance - 500 WHERE id = 'A';
+UPDATE accounts SET balance = balance + 500 WHERE id = 'B';
+COMMIT;                                                   <span class="cmt">-- make BOTH permanent, atomically</span>
+
+<span class="cmt">-- if anything goes wrong before COMMIT (error, crash, or you change your mind):</span>
+ROLLBACK;                                                 <span class="cmt">-- undo everything since BEGIN</span></code></pre>
+
+<p>
+If the server crashes mid-transaction, Postgres rolls the whole thing back on restart. The outside world only ever sees
+"transfer fully happened" or "transfer never happened" — never the half-done state.
+</p>
+<p>
+The guarantees transactions give you are the interview staple <strong>ACID</strong>. Learn these four properly — this is
+a top-5 backend interview question:
+</p>
+<ul>
+  <li><strong>A — Atomicity.</strong> All statements in the transaction apply, or none do. No partial transfers. (<code>COMMIT</code>/<code>ROLLBACK</code> is the mechanism.)</li>
+  <li><strong>C — Consistency.</strong> A transaction moves the database from one valid state to another — all constraints (<code>CHECK balance &gt;= 0</code>, foreign keys, uniqueness) hold before and after. If a statement would break a rule, the transaction fails rather than corrupting data.</li>
+  <li><strong>I — Isolation.</strong> Concurrent transactions don't trample each other; each behaves as if it had the database (mostly) to itself. "Mostly" is tunable — that's Section 6.</li>
+  <li><strong>D — Durability.</strong> Once <code>COMMIT</code> returns, the data survives crashes and power loss — Postgres writes to a write-ahead log (WAL) on disk <em>before</em> acknowledging the commit.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Isolation is the database's answer to the same problem <code>synchronized</code> solves in Java: interleaved access to
+  shared state. But a JVM lock protects one object inside one process; a transaction protects arbitrary rows across many
+  clients, survives crashes, and lets you tune how much interleaving is acceptable instead of serializing everything.
+</div>
+
+<div class="callout tip">
+  <span class="label">Gotcha</span>
+  Every single statement you've ever run in psql was <em>already</em> a transaction — Postgres auto-wraps each standalone
+  statement in its own tiny BEGIN/COMMIT. Explicit <code>BEGIN</code> is only needed to make <em>multiple</em> statements
+  atomic together.
+</div>
+
+<h2>6 · Concurrency anomalies and isolation levels</h2>
+<p>
+Perfect isolation is easy — run transactions one at a time. It's also uselessly slow. So databases allow controlled
+interleaving, and the SQL standard names the three weird things ("anomalies") that interleaving can cause:
+</p>
+<ul>
+  <li><strong>Dirty read</strong> — transaction B reads data that A has written <em>but not committed</em>. If A rolls back, B acted on data that never existed.</li>
+  <li><strong>Non-repeatable read</strong> — B reads a row, A commits an update to it, B reads the same row again and gets a <em>different value</em> within one transaction.</li>
+  <li><strong>Phantom read</strong> — B runs <code>SELECT COUNT(*) WHERE ...</code>, A commits an <code>INSERT</code> matching that filter, B re-runs the query and new "phantom" rows have appeared.</li>
+</ul>
+<p>
+<strong>Isolation levels</strong> are how much protection you buy, trading strictness for concurrency:
+</p>
+
+<table>
+  <thead><tr><th>Isolation level</th><th>Dirty read</th><th>Non-repeatable read</th><th>Phantom read</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>READ UNCOMMITTED</td><td>prevented*</td><td>possible</td><td>possible</td><td>*In Postgres this level silently behaves as READ COMMITTED — dirty reads are <em>never</em> possible in Postgres</td></tr>
+    <tr><td><strong>READ COMMITTED</strong> (Postgres default)</td><td>prevented</td><td>possible</td><td>possible</td><td>Each statement sees only committed data as of its start</td></tr>
+    <tr><td>REPEATABLE READ</td><td>prevented</td><td>prevented</td><td>prevented†</td><td>Whole transaction sees one frozen snapshot; †Postgres's MVCC snapshot also stops phantoms here, stricter than the standard requires</td></tr>
+    <tr><td>SERIALIZABLE</td><td>prevented</td><td>prevented</td><td>prevented</td><td>Result is as if transactions ran one-by-one; conflicting transactions abort with a serialization error — retry them</td></tr>
+  </tbody>
+</table>
+
+<pre><code>BEGIN;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;   <span class="cmt">-- per-transaction opt-in</span>
+SELECT balance FROM accounts WHERE id = 'A';       <span class="cmt">-- 1000</span>
+<span class="cmt">-- ...another session commits an update to A here...</span>
+SELECT balance FROM accounts WHERE id = 'A';       <span class="cmt">-- STILL 1000: frozen snapshot</span>
+COMMIT;</code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "Postgres defaults to READ COMMITTED: no dirty reads, but values can change between statements. For read-modify-write
+  logic like inventory or balances I either lock rows with <code>SELECT ... FOR UPDATE</code> or raise the level to
+  SERIALIZABLE and retry on conflict. Postgres uses MVCC — readers get snapshots instead of blocking writers — so even
+  its stricter levels stay fast."
+</div>
+
+<h2>7 · Locks — a glance</h2>
+<p>
+MVCC means <em>readers never block writers and writers never block readers</em>. But two <em>writers</em> touching the same
+row must queue: the second <code>UPDATE</code> waits until the first transaction commits or rolls back. That's an automatic
+<strong>row lock</strong>.
+</p>
+<p>
+Sometimes you want to lock <em>before</em> writing — the classic read-check-write race:
+</p>
+
+<pre><code>BEGIN;
+<span class="cmt">-- lock the row NOW so nobody else can change it under us</span>
+SELECT balance FROM accounts WHERE id = 'A' FOR UPDATE;
+<span class="cmt">-- app code checks: balance &gt;= 500? then:</span>
+UPDATE accounts SET balance = balance - 500 WHERE id = 'A';
+COMMIT;   <span class="cmt">-- lock released</span></code></pre>
+
+<p>
+Without <code>FOR UPDATE</code>, two concurrent withdrawals could both read balance = 600, both decide "600 ≥ 500, go ahead",
+and drive the account negative. With it, the second transaction waits at the <code>SELECT</code> until the first commits,
+then sees the updated balance of 100 and refuses.
+</p>
+<p>
+The classic failure mode: transaction 1 locks row A then wants B; transaction 2 locks B then wants A. Both wait forever —
+a <strong>deadlock</strong>, exactly like two Java threads acquiring locks in opposite order. Postgres detects the cycle
+after a moment, kills one transaction with a deadlock error, and lets the other proceed. Prevention is the same discipline
+as in Java: <em>always acquire locks in a consistent order</em> (e.g., lock accounts by ascending id).
+</p>
+
+<h2>8 · Views and materialized views</h2>
+<p>
+A <strong>view</strong> is a saved query that behaves like a read-only table — a named lens over your data:
+</p>
+
+<pre><code>CREATE VIEW post_stats AS
+SELECT u.username,
+       COUNT(p.id)        AS post_count,
+       MAX(p.created_at)  AS last_post_at
+FROM users u
+LEFT JOIN posts p ON p.user_id = u.id
+GROUP BY u.username;
+
+SELECT * FROM post_stats WHERE post_count &gt; 10;   <span class="cmt">-- like a table!</span></code></pre>
+
+<p>
+Views store <em>no data</em> — each query against the view re-runs the underlying SQL. They're for DRY (write the gnarly
+join once), for clean interfaces, and for hiding columns (grant an analyst access to a view without the
+<code>password_hash</code> column).
+</p>
+<p>
+A <strong>materialized view</strong> <em>does</em> store the result — a cached snapshot you refresh on your schedule:
+</p>
+
+<pre><code>CREATE MATERIALIZED VIEW daily_signups AS
+SELECT created_at::date AS day, COUNT(*) FROM users GROUP BY 1;
+
+REFRESH MATERIALIZED VIEW daily_signups;   <span class="cmt">-- re-run + re-store (e.g. nightly cron)</span></code></pre>
+
+<p>
+Perfect for expensive dashboard aggregates where "data as of last night" is acceptable. The trade: reads are instant,
+but the data is stale until the next refresh.
+</p>
+
+<h2>9 · JSONB — a document store inside your tables</h2>
+<p>
+Sometimes part of your data genuinely has no fixed shape. User preferences, third-party API payloads, per-product
+attributes (a phone has RAM, a shirt has size). Modeling every possible key as a column is madness. Postgres's answer:
+a <code>jsonb</code> column — binary-stored, indexable JSON.
+</p>
+
+<pre><code>CREATE TABLE events (
+  id      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  kind    text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'
+);
+
+INSERT INTO events (kind, payload) VALUES
+('signup', '{"plan": "free", "referrer": "google", "utm": {"campaign": "july"}}'),
+('signup', '{"plan": "pro",  "referrer": "friend"}');</code></pre>
+
+<p>Two extraction operators, and the difference bites everyone once:</p>
+
+<pre><code>SELECT payload -&gt; 'plan'  FROM events;   <span class="cmt">-- "pro"  → returns JSONB (note the quotes)</span>
+SELECT payload -&gt;&gt; 'plan' FROM events;   <span class="cmt">-- pro    → returns TEXT — use for comparisons</span>
+
+<span class="cmt">-- filter on a JSON field (-&gt;&gt; gives text, so compare with text)</span>
+SELECT * FROM events WHERE payload -&gt;&gt; 'plan' = 'pro';
+
+<span class="cmt">-- drill into nested objects: -&gt; to navigate, -&gt;&gt; for the last hop</span>
+SELECT payload -&gt; 'utm' -&gt;&gt; 'campaign' FROM events;      <span class="cmt">-- july</span>
+
+<span class="cmt">-- @&gt; containment: "does the JSON contain this sub-document?"</span>
+SELECT * FROM events WHERE payload @&gt; '{"plan": "pro"}';</code></pre>
+
+<p>
+B-trees can't index arbitrary keys inside a document — for that Postgres has <strong>GIN</strong> (Generalized Inverted
+Index), which indexes every key/value inside the JSON, making <code>@&gt;</code> queries fast:
+</p>
+
+<pre><code>CREATE INDEX idx_events_payload ON events USING GIN (payload);</code></pre>
+
+<div class="callout tip">
+  <span class="label">Gotcha</span>
+  JSONB is a tool, not an escape hatch from schema design. If a field is present on every row, has a known type, needs a
+  foreign key, or is central to your queries — <strong>make it a real column</strong>. Real columns get types, constraints,
+  and better statistics for the planner. Reach for JSONB only for genuinely variable, schema-less <em>parts</em> of a row.
+  "We put everything in one JSONB column" is a NoSQL cosplay that loses the R in relational.
+</div>
+
+<h2>10 · UUID vs serial primary keys</h2>
+<p>Lesson 21 used auto-incrementing integer keys. The alternative is a <code>uuid</code> — a random 128-bit identifier:</p>
+
+<pre><code>CREATE TABLE orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),   <span class="cmt">-- built-in since PG 13</span>
+  total numeric(10,2) NOT NULL
+);</code></pre>
+
+<table>
+  <thead><tr><th></th><th>serial / identity (int)</th><th>uuid</th></tr></thead>
+  <tbody>
+    <tr><td>Size</td><td>4–8 bytes — smaller table &amp; indexes</td><td>16 bytes</td></tr>
+    <tr><td>Generation</td><td>Database counter — needs a DB round-trip</td><td>Anywhere — app, client, offline — no coordination</td></tr>
+    <tr><td>Guessability</td><td><code>/users/42</code> leaks "you have ~42 users"; adjacent ids are enumerable</td><td>Unguessable — safe to expose in URLs</td></tr>
+    <tr><td>Index behaviour</td><td>Sequential — new rows append neatly to the B-tree</td><td>Random — inserts scatter across the tree (mildly worse at scale; UUIDv7 fixes this with time-ordering)</td></tr>
+    <tr><td>Multi-service / sharding</td><td>Counters collide across databases</td><td>Globally unique by construction</td></tr>
+  </tbody>
+</table>
+
+<p>
+Sensible default: <strong>integers for internal tables, UUIDs for anything exposed publicly</strong> (or wherever ids must
+be generated outside the database). Both are common; being able to argue the tradeoffs is what interviews want.
+</p>
+
+<h2>11 · Talking to Postgres from Node — and the injection attack</h2>
+<p>
+Time to connect the Express skills from Lessons 18–19 to a real database. The standard driver is the
+<code>pg</code> package (a.k.a. node-postgres):
+</p>
+
+<pre><code>npm install pg</code></pre>
+
+<pre><code><span class="cmt">// db.js</span>
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  host: 'localhost',
+  port: 5432,
+  database: 'blog',
+  user: 'postgres',
+  password: process.env.PGPASSWORD,   <span class="cmt">// never hardcode — env vars (Lesson 19)</span>
+  max: 10,                            <span class="cmt">// at most 10 open connections</span>
+});
+
+module.exports = pool;</code></pre>
+
+<p>
+<strong>Why a Pool?</strong> Opening a Postgres connection is expensive — a TCP handshake, authentication, and a dedicated
+server process on the Postgres side. Doing that per request would crush your throughput, and Postgres caps total connections
+(default 100). A pool opens a handful of connections once and <em>lends</em> them out per query, like a library lending
+books instead of printing a new copy per reader. (Java parallel: exactly what HikariCP does for JDBC.)
+</p>
+
+<pre><code><span class="cmt">// routes/posts.js — async/await from Lesson 7, Express from Lesson 18</span>
+const pool = require('../db');
+
+app.get('/api/posts/:id', async (req, res, next) =&gt; {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, title, body FROM posts WHERE id = $1',   <span class="cmt">// $1 = placeholder</span>
+      [req.params.id]                                      <span class="cmt">// values array</span>
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});</code></pre>
+
+<p>
+Those <code>$1, $2, ...</code> placeholders are not a style choice. To see why, look at the version <em>every beginner
+writes first</em> — and which interviewers will show you and ask "what's wrong here?":
+</p>
+
+<pre><code><span class="cmt">// ❌ VULNERABLE — user input concatenated straight into SQL</span>
+app.get('/api/users', async (req, res) =&gt; {
+  const sql = "SELECT id, username FROM users WHERE username = '"
+            + req.query.name + "'";
+  const { rows } = await pool.query(sql);
+  res.json(rows);
+});</code></pre>
+
+<p>Looks fine with <code>?name=krish</code>. Now watch an attacker choose the input:</p>
+
+<pre><code><span class="cmt">-- attacker requests:  /api/users?name=' OR '1'='1</span>
+<span class="cmt">-- your string-glue produces:</span>
+SELECT id, username FROM users WHERE username = '' OR '1'='1'
+<span class="cmt">-- '1'='1' is always true → WHERE matches EVERY row → entire users table leaked</span>
+
+<span class="cmt">-- attacker requests:  /api/users?name='; DROP TABLE users; --</span>
+SELECT id, username FROM users WHERE username = ''; DROP TABLE users; --'
+<span class="cmt">-- second statement DROPS YOUR TABLE; -- comments out the trailing quote</span></code></pre>
+
+<p>
+That's <strong>SQL injection</strong> — for over a decade the #1 vulnerability class on the web, and it has destroyed real
+companies. The root cause: the database can't tell where your <em>code</em> ends and the attacker's <em>data</em> begins,
+because you mixed them into one string.
+</p>
+<p>
+<strong>Parameterized queries kill it completely.</strong> With <code>$1</code>, the SQL text and the values travel to
+Postgres <em>separately</em>. Postgres compiles the query first, then slots values in as pure data — a value can never be
+reinterpreted as SQL, no matter what it contains:
+</p>
+
+<pre><code><span class="cmt">// ✅ SAFE — the attack string is just a weird username that matches nothing</span>
+const { rows } = await pool.query(
+  'SELECT id, username FROM users WHERE username = $1',
+  [req.query.name]     <span class="cmt">// even "'; DROP TABLE users; --" is inert data here</span>
+);</code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "SQL injection happens when untrusted input is concatenated into query text, letting data be executed as SQL.
+  The fix is parameterized queries — the query shape and the values are sent separately, so input can never change
+  the query's structure. Escaping by hand is fragile; parameterization is the correct fix, and ORMs use it under the hood."
+</div>
+
+<p>And the bank transfer from Section 5, done properly from Node — one dedicated connection for the whole transaction:</p>
+
+<pre><code>async function transfer(fromId, toId, amount) {
+  const client = await pool.connect();      <span class="cmt">// checkout ONE connection —</span>
+  try {                                     <span class="cmt">// a transaction must stay on it</span>
+    await client.query('BEGIN');
+    await client.query(
+      'UPDATE accounts SET balance = balance - $1 WHERE id = $2', [amount, fromId]);
+    await client.query(
+      'UPDATE accounts SET balance = balance + $1 WHERE id = $2', [amount, toId]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');         <span class="cmt">// any failure → undo both</span>
+    throw err;
+  } finally {
+    client.release();                       <span class="cmt">// ALWAYS return it to the pool</span>
+  }
+}</code></pre>
+
+<h2>12 · Migrations — schema changes as code</h2>
+<p>
+Your schema will change: new columns, new tables, new indexes. The amateur move is running <code>ALTER TABLE</code> by hand
+in a psql prompt on the production server. Why that fails:
+</p>
+<ul>
+  <li>Your laptop's DB, your teammate's DB, and production silently <strong>drift apart</strong> — "works on my machine" but the deploy explodes.</li>
+  <li>There's <strong>no history</strong> — nobody knows what changed, when, or why, and there's no way to recreate the schema from scratch.</li>
+  <li>Hand-typed DDL on prod at 11pm is how tables get dropped.</li>
+</ul>
+<p>
+The fix is <strong>migrations</strong>: every schema change is a small, numbered SQL file committed to git, and a tool
+applies — in order — exactly the ones a given database hasn't seen yet (tracked in a bookkeeping table):
+</p>
+
+<pre><code>migrations/
+  0001_create_users.sql        <span class="cmt">-- CREATE TABLE users (...);</span>
+  0002_create_posts.sql        <span class="cmt">-- CREATE TABLE posts (...);</span>
+  0003_add_posts_user_idx.sql  <span class="cmt">-- CREATE INDEX idx_posts_user_id ...;</span>
+  0004_users_add_bio.sql       <span class="cmt">-- ALTER TABLE users ADD COLUMN bio text;</span></code></pre>
+
+<p>
+Schema history becomes reviewable in pull requests, reproducible on any machine, and automatable in deploys — the same
+philosophy as git itself: <em>changes as versioned, ordered diffs</em>. You won't write a migration runner by hand:
+in Lesson 23, <strong>Drizzle</strong> will <em>generate</em> these SQL files from a TypeScript schema and run them for you —
+now you'll know exactly what it's doing and why.
+</p>
+
+<h2>13 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"What is an index and when would you add one?"</strong><br>
+  A separate sorted structure (B-tree by default) mapping column values to rows, turning O(n) scans into O(log n) lookups.
+  Add on columns used in WHERE, JOIN (especially foreign keys — not auto-indexed), and ORDER BY. Cost: slower writes and
+  extra disk, so don't index blindly. Verify with EXPLAIN ANALYZE: Seq Scan → Index Scan.</li>
+  <li><strong>"Explain ACID."</strong><br>
+  Atomicity — all-or-nothing statement groups via COMMIT/ROLLBACK. Consistency — constraints hold before and after every
+  transaction. Isolation — concurrent transactions don't see each other's intermediate states, tunable by isolation level.
+  Durability — committed data survives crashes via the write-ahead log.</li>
+  <li><strong>"What isolation levels exist, and what's the Postgres default?"</strong><br>
+  READ COMMITTED (default: no dirty reads, but non-repeatable and phantom reads possible), REPEATABLE READ (frozen snapshot —
+  in Postgres this also prevents phantoms), SERIALIZABLE (as-if-sequential; conflicting transactions abort and retry).
+  Postgres never allows dirty reads — READ UNCOMMITTED is silently upgraded.</li>
+  <li><strong>"How does SQL injection work and how do you prevent it?"</strong><br>
+  Concatenating user input into query text lets input like <code>' OR '1'='1</code> or <code>'; DROP TABLE ...--</code>
+  change the query's structure. Prevention: parameterized queries ($1 placeholders) — SQL and values are transmitted
+  separately so values can never execute as SQL. ORMs do this by default.</li>
+  <li><strong>"Composite index on (a, b) — which queries can use it?"</strong><br>
+  Leftmost-prefix rule: filters on <code>a</code>, or <code>a AND b</code> — not <code>b</code> alone, just as a
+  last-name-then-first-name phone book can't find people by first name.</li>
+  <li><strong>"Why use a connection pool?"</strong><br>
+  Connections are expensive (handshake, auth, a server process each) and Postgres caps them. A pool reuses a fixed set of
+  warm connections across requests — same idea as HikariCP in Java.</li>
+  <li><strong>"When would you use JSONB vs normal columns?"</strong><br>
+  JSONB for genuinely variable, schema-less fragments (preferences, third-party payloads), indexed with GIN for containment
+  queries. Fixed, always-present, constrained, or frequently-joined data belongs in real columns.</li>
+</ul>
+
+<h2>14 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You have <code>CREATE INDEX ON posts (user_id, created_at)</code>. Which query can NOT use this index efficiently?</div>
+  <button class="opt"><code>WHERE user_id = 7 AND created_at &gt; '2026-01-01'</code></button>
+  <button class="opt"><code>WHERE created_at &gt; '2026-01-01'</code></button>
+  <button class="opt"><code>WHERE user_id = 7</code></button>
+  <div class="fb" data-correct="Leftmost-prefix rule: the index is sorted by user_id first, then created_at. Filtering on created_at alone is like searching a phone book by first name — the values are scattered, so the index is useless and that query needs its own index." data-wrong="The index is sorted by user_id first, then created_at within each user. Queries starting from user_id (alone, or with created_at) work; created_at alone violates the leftmost-prefix rule."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In a READ COMMITTED transaction you <code>SELECT balance</code> twice and get two different values. Which anomaly is this, and is it a bug in Postgres?</div>
+  <button class="opt">Dirty read — yes, this is a Postgres bug, uncommitted data leaked</button>
+  <button class="opt">Phantom read — no bug, but only SERIALIZABLE could prevent it</button>
+  <button class="opt">Non-repeatable read — no bug; READ COMMITTED permits it, REPEATABLE READ would prevent it</button>
+  <div class="fb" data-correct="Another transaction committed an update between your two reads — a non-repeatable read, explicitly allowed at READ COMMITTED (each statement sees the latest committed data). REPEATABLE READ freezes a snapshot for the whole transaction. A dirty read (seeing UNcommitted data) is never possible in Postgres." data-wrong="Dirty reads (uncommitted data) never happen in Postgres at any level. Phantoms are about NEW rows appearing in re-run range queries. A re-read of the same row giving a different committed value is a non-repeatable read — allowed at READ COMMITTED, prevented from REPEATABLE READ up."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does <code>pool.query('SELECT * FROM users WHERE email = $1', [email])</code> completely prevent SQL injection?</div>
+  <button class="opt">The query text and values are sent to Postgres separately, so a value can never be parsed as SQL</button>
+  <button class="opt">The pg library scans the value for dangerous words like DROP and OR and strips them out</button>
+  <button class="opt">The pool encrypts each value before it is inserted into the SQL string</button>
+  <div class="fb" data-correct="Exactly — parameterization is structural, not a filter. Postgres receives the query shape and the values in separate protocol messages, compiles the query first, and treats values purely as data. Even a value containing '; DROP TABLE users; -- is just an odd string that matches no email." data-wrong="No blacklist or encryption is involved — filtering 'dangerous words' is exactly the fragile approach that fails. Parameterization works because SQL text and values travel separately: the query structure is fixed before values arrive, so input can never become code."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">EXPLAIN ANALYZE shows <code>Seq Scan on orders ... Rows Removed by Filter: 4999999</code> for <code>WHERE customer_id = 42</code>. Best fix?</div>
+  <button class="opt">Raise the isolation level to SERIALIZABLE so the scan runs atomically</button>
+  <button class="opt">Create a B-tree index on <code>orders (customer_id)</code> and re-check the plan</button>
+  <button class="opt">Rewrite the query as a view so Postgres caches the result</button>
+  <div class="fb" data-correct="Postgres read 5M rows to keep a handful — the classic missing-index signature, and customer_id is a foreign key, which Postgres never auto-indexes. After CREATE INDEX, EXPLAIN should show an Index Scan. Isolation levels affect correctness under concurrency, not speed; plain views cache nothing." data-wrong="Isolation levels don't make queries faster, and a regular view just re-runs the same SQL. The plan screams missing index: millions of rows read and discarded for a selective filter on a foreign key column. CREATE INDEX ON orders (customer_id) turns it into an Index Scan."></div>
+</div>
+
+<h2>15 · Do this next</h2>
+<ul>
+  <li><strong>See a 1000× speedup with your own eyes.</strong> Recreate the <code>bench</code> table from Section 4 with <code>generate_series(1, 1000000)</code>. Run <code>EXPLAIN ANALYZE</code> on a <code>WHERE label = ...</code> query, save the timing, create the index, run it again. Then check what <code>WHERE id = 500000</code> does <em>without</em> you creating anything — and explain why (Section 3's freebies).</li>
+  <li><strong>Break and fix a transfer.</strong> Create an <code>accounts(id text PRIMARY KEY, balance numeric CHECK (balance &gt;= 0))</code> table with two rows. In psql: <code>BEGIN</code>, debit A, then try crediting a <em>nonexistent</em> account id and watch the error; <code>ROLLBACK</code> and verify A's balance is untouched. Then open <em>two</em> psql windows and reproduce a non-repeatable read at READ COMMITTED; repeat at REPEATABLE READ and watch it disappear.</li>
+  <li><strong>Hack yourself.</strong> Wire the vulnerable string-concatenation route from Section 11 into your Lesson 18 Express CRUD app (point it at Postgres now). Attack it with <code>?name=' OR '1'='1</code> from your browser and watch every row leak. Then fix it with <code>$1</code> parameters and confirm the same attack now returns an empty array. Screenshot both — it makes a great "security" talking point on your project.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on why the planner sometimes ignores your index, what REPEATABLE READ actually freezes, when
+  <code>FOR UPDATE</code> beats raising the isolation level, or why <code>-&gt;</code> vs <code>-&gt;&gt;</code> broke your
+  JSONB comparison? Ask in the chat — any question is fair game. When you can explain the phone-book analogy, recite ACID
+  with an example for each letter, and demonstrate the injection attack <em>and</em> its fix from memory, say
+  <strong>"next"</strong> and we move to Lesson 23: Drizzle ORM — where TypeScript starts writing this SQL for you.
+</div>
+
+<div class="nav">
+  <span><a href="0021-postgres-sql-fundamentals.html">← SQL Fundamentals</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0023-drizzle-orm.html">Drizzle ORM →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

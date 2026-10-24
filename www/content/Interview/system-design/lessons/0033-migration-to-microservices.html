@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 33 - Migration to Microservices | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 33 of 66 · Strangler Fig Pattern, CDC, Dual Writes</div>
+  
+  <h1>Migration to Microservices: The Strangler Fig</h1>
+  <p class="subtitle">How to incrementally replace a giant legacy monolith without rewriting the world from scratch.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module H — Microservices Architecture</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>The "Big Bang Rewrite" (stopping all feature development for 18 months to rebuild the entire system as microservices from scratch) is the single most infamous way software projects fail. By the time the rewrite finishes, business requirements have shifted and the new system has 1,000 unforeseen bugs. The proven industry method is the <strong>Strangler Fig Pattern</strong>: gradually carving off small features one by one until the monolith naturally withers away.</p>
+
+  <h2>2 · The Strangler Fig Architecture</h2>
+  <div class="arch-flow">
+    <div class="box">API Gateway / Reverse Proxy</div>
+    <div class="arrow-right"></div>
+    <div class="box">Monolith (90% legacy routes)</div>
+  </div>
+  <div class="arch-flow">
+    <div class="box">Route /users/*</div>
+    <div class="arrow-right"></div>
+    <div class="box good">New User Microservice (10% traffic)</div>
+  </div>
+
+  <ol>
+    <li><strong>Place a Proxy at the Front:</strong> Put an API Gateway (like Envoy or Nginx) in front of the existing monolith.</li>
+    <li><strong>Carve Out a Vertical Slice:</strong> Pick one clean, bounded domain (e.g. Notification Service or User Profile). Build it as a standalone microservice with its own database.</li>
+    <li><strong>Divert Traffic:</strong> Update the proxy route: send <code>/notifications/*</code> to the new microservice; keep all other traffic flowing to the monolith.</li>
+    <li><strong>Repeat:</strong> Carve out the next domain (Payments, Inventory, Orders). Over months, the monolith shrinks until it can be safely decommissioned!</li>
+  </ol>
+
+  <h2>3 · The Hard Part: Database Migration</h2>
+  <p>Migrating code is easy; migrating active production databases with millions of users is where data corruption happens. Use the <strong>Dual-Write &amp; CDC Strategy</strong>:</p>
+  <ul>
+    <li><strong>Step 1 (Dual Write):</strong> Application writes to both the legacy database and the new microservice database.</li>
+    <li><strong>Step 2 (Change Data Capture / CDC):</strong> Use a tool like <strong>Debezium</strong> on PostgreSQL/MySQL replication logs to stream past historical rows to the new database.</li>
+    <li><strong>Step 3 (Reconciliation &amp; Dark Launch):</strong> Run background batch scripts comparing both databases to verify 100% data fidelity. Direct reads to the new service while keeping writes dual.</li>
+    <li><strong>Step 4 (Cutover):</strong> Cut all write traffic to the new service and sever the legacy database connection.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>We enter Module I: Monitoring &amp; Logging. How do you observe and debug distributed systems? Next: Logging &amp; Monitoring Metrics.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0032-containerization.html">← Previous: Containerization</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0034-logging-monitoring.html">Next: Logging &amp; Monitoring Metrics →</a>
+  </div>
+</body>
+</html>

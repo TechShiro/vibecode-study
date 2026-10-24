@@ -1,0 +1,360 @@
+<title>B-Trees</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 10 of 15</p>
+<h1>B-Trees and B+ Trees</h1>
+<p class="deck">Why disks need a different tree, the order rules, insertion by splitting, deletion by borrowing and merging, the height bounds, and the B-tree versus B+ tree comparison.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Construct a B-tree of order m by inserting the following keys&rdquo; is the question, and it is entirely mechanical once you know two numbers: max keys = m &minus; 1 and min keys = &lceil;m/2&rceil; &minus; 1.</strong> Write both numbers at the top of your answer before you start. <strong>Redraw the tree after every split</strong> &mdash; the marks are in the intermediate states. Deletion is asked less often but follows one rule: <strong>borrow if a sibling can spare a key, otherwise merge</strong>. <strong>B-tree vs B+ tree</strong> is a reliable short comparison.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">B-Tree of Order m Multi-Way Search & Node Split Engine</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>B-Tree Properties (Order m):</strong>
+      <span class="sub">Root has &ge; 2 children &bull; Every internal node has &lceil;m/2&rceil; to m children and &lceil;m/2&rceil;-1 to m-1 sorted keys &bull; All leaves at identical depth</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Insertion into full node (contains m keys)</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>Median Key Promoted to Parent &bull; Node Splits in Two</strong>
+      <span class="sub">Keys &lt; median form left child &bull; Keys &gt; median form right child &bull; Tree grows from leaves upward!</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">B-Trees</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-114 & Lec-115: B-Tree Architecture & Insertion Examples</div>
+    <div class="v-desc">Detailed visualization of multiway search tree properties, disk block alignment, and node splitting on overflow.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=KcApkM5WYGw" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Why B-trees exist</h2>
+
+<div class="box win">
+  <span class="lbl">The motivating sentence &mdash; open every B-tree answer with it</span>
+  <p><strong>A disk access is roughly a hundred thousand times slower than a memory access.</strong> So for data stored on disk, the cost of a search is <strong>the number of nodes visited</strong>, not the number of comparisons. A binary tree of a million keys is about 20 levels deep &mdash; 20 disk reads. <strong>A B-tree makes each node as large as one disk block</strong>, so it holds hundreds of keys, and a million keys fit in <strong>two or three levels</strong>. <strong>B-trees minimise the height by maximising the branching factor.</strong></p>
+</div>
+
+<h2>The rules</h2>
+
+<div class="formula">
+  <span class="name">A B-tree of order m</span>
+  <strong>1.</strong> Every node has <strong>at most m children</strong> and therefore <strong>at most m &minus; 1 keys</strong>.<br>
+  <strong>2.</strong> Every node other than the root and the leaves has <strong>at least &lceil;m/2&rceil; children</strong>, hence <strong>at least &lceil;m/2&rceil; &minus; 1 keys</strong>.<br>
+  <strong>3.</strong> The <strong>root</strong> has at least <strong>2 children</strong> (and at least 1 key), unless it is a leaf.<br>
+  <strong>4.</strong> <strong>All leaves appear at the same level</strong> &mdash; the tree is <em>perfectly height-balanced</em>.<br>
+  <strong>5.</strong> A node with k keys has exactly <strong>k + 1 children</strong>, and the keys within a node are kept <strong>in sorted order</strong>.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Order m</th><th>Max keys<br>m &minus; 1</th><th>Min keys<br>&lceil;m/2&rceil; &minus; 1</th><th>Max children<br>m</th><th>Min children<br>&lceil;m/2&rceil;</th><th>Also called</th></tr></thead>
+<tbody>
+<tr><td class="num"><strong>3</strong></td><td class="num">2</td><td class="num">1</td><td class="num">3</td><td class="num">2</td><td>2&ndash;3 tree</td></tr>
+<tr><td class="num"><strong>4</strong></td><td class="num">3</td><td class="num">1</td><td class="num">4</td><td class="num">2</td><td>2&ndash;3&ndash;4 tree</td></tr>
+<tr><td class="num"><strong>5</strong></td><td class="num">4</td><td class="num"><strong>2</strong></td><td class="num">5</td><td class="num">3</td><td>&mdash;</td></tr>
+<tr><td class="num"><strong>6</strong></td><td class="num">5</td><td class="num">2</td><td class="num">6</td><td class="num">3</td><td>&mdash;</td></tr>
+<tr><td class="num"><strong>7</strong></td><td class="num">6</td><td class="num">3</td><td class="num">7</td><td class="num">4</td><td>&mdash;</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><em>Note the important special case:</em> <strong>a 2&ndash;3&ndash;4 tree (order 4) is exactly equivalent to a red&ndash;black tree.</strong> Every red&ndash;black tree can be converted into one and back &mdash; a fact worth stating when the paper asks you to relate the two.</p>
+
+<h2>Insertion &mdash; always at a leaf, always splitting upward</h2>
+
+<div class="formula">
+  <span class="name">The algorithm</span>
+  <strong>Step 1.</strong> Search down to the correct <strong>leaf</strong> and insert the key there, keeping the node sorted. <strong>Keys are only ever inserted into leaves.</strong><br>
+  <strong>Step 2.</strong> If the leaf now holds <strong>more than m &minus; 1 keys</strong>, it <strong>overflows</strong>. Then:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>SPLIT</strong> it into two nodes and <strong>push the MEDIAN key up into the parent</strong>.<br>
+  <strong>Step 3.</strong> If the parent now overflows, split it too &mdash; and repeat upward.<br>
+  <strong>Step 4.</strong> If the <strong>root</strong> splits, the median becomes a <strong>new root</strong>, and <strong>the height of the tree increases by one</strong>.
+</div>
+
+<div class="box">
+  <span class="lbl">The two facts examiners test</span>
+  <p><strong>1. A B-tree grows upward from the root, never downward from the leaves</strong> &mdash; which is exactly why all leaves stay at the same level.</p>
+  <p><strong>2. With an even number of keys after overflow, take the LEFT median</strong> &mdash; for example, from 5 keys the 3rd is the median; from 4 keys after overflow in an order-4 tree, take the 2nd. State your convention; both are accepted, but be consistent.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Construct a B-tree of order 5 by inserting 10, 20, 30, 40, 50, 60, 70, 80, 90.</span>
+  <p><strong>Order 5 &rArr; maximum 4 keys per node, minimum 2 keys (except the root).</strong> Write that line first.</p>
+
+  <p><strong>Insert 10, 20, 30, 40.</strong> All fit in the single root node.</p>
+  <p style="font-family:ui-monospace,monospace; font-size:.85rem; text-align:center"><strong>[ 10 | 20 | 30 | 40 ]</strong> &nbsp;&mdash; full, but legal</p>
+
+  <p><strong>Insert 50.</strong> The node would hold 10, 20, 30, 40, 50 &mdash; <strong>5 keys, one too many. OVERFLOW.</strong></p>
+  <ul>
+    <li>The median of 10, 20, <strong>30</strong>, 40, 50 is <strong>30</strong>.</li>
+    <li><strong>30 moves up</strong> and becomes a new root; the rest splits into two children.</li>
+    <li>The height grows from 0 to 1.</li>
+  </ul>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center; line-height:1.6">
+    <strong>[ 30 ]</strong><br>
+    /&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    <strong>[10|20]</strong>&nbsp;&nbsp;<strong>[40|50]</strong>
+    </div>
+  </div>
+
+  <p><strong>Insert 60.</strong> 60 &gt; 30 &rarr; the right child. It becomes <strong>[40 | 50 | 60]</strong> &mdash; 3 keys, no overflow.</p>
+
+  <p><strong>Insert 70.</strong> Right child becomes <strong>[40 | 50 | 60 | 70]</strong> &mdash; 4 keys, full but legal.</p>
+
+  <p><strong>Insert 80.</strong> The right child would hold 40, 50, 60, 70, 80 &mdash; <strong>OVERFLOW.</strong></p>
+  <ul>
+    <li>Median of 40, 50, <strong>60</strong>, 70, 80 is <strong>60</strong>.</li>
+    <li><strong>60 moves up into the root</strong>, which becomes <strong>[30 | 60]</strong> &mdash; 2 keys, legal.</li>
+    <li>The child splits into <strong>[40 | 50]</strong> and <strong>[70 | 80]</strong>.</li>
+  </ul>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center; line-height:1.6">
+    <strong>[ 30 | 60 ]</strong><br>
+    /&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    <strong>[10|20]</strong>&nbsp;&nbsp;<strong>[40|50]</strong>&nbsp;&nbsp;<strong>[70|80]</strong>
+    </div>
+  </div>
+
+  <p><strong>Insert 90.</strong> 90 &gt; 60 &rarr; the rightmost child. It becomes <strong>[70 | 80 | 90]</strong> &mdash; no overflow.</p>
+
+  <div class="formula">
+    <span class="name">Final B-tree of order 5</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center; line-height:1.6">
+    <strong>[ 30 | 60 ]</strong><br>
+    /&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    <strong>[10|20]</strong>&nbsp;&nbsp;<strong>[40|50]</strong>&nbsp;&nbsp;<strong>[70|80|90]</strong>
+    </div>
+  </div>
+  <p><strong>Checks:</strong> every node has between 2 and 4 keys except the root, which may have fewer &check;. All leaves are at the same level &check;. Each node with k keys has k + 1 children &check;. Reading the keys left to right in sorted traversal order gives 10, 20, 30, 40, 50, 60, 70, 80, 90 &check;.</p>
+  <p><em>Note how flat it is:</em> 9 keys in 2 levels. A binary search tree would need 4 levels; an AVL tree, 3.</p>
+</div>
+
+<h2>Deletion &mdash; borrow, or merge</h2>
+
+<div class="formula">
+  <span class="name">The algorithm</span>
+  <strong>Step 1.</strong> If the key is in an <strong>internal node</strong>, replace it with its <strong>inorder predecessor or successor</strong> (which lives in a leaf), and delete <em>that</em> instead. <strong>All real deletion happens at leaves.</strong><br>
+  <strong>Step 2.</strong> Remove the key from the leaf. If the leaf still has at least <strong>&lceil;m/2&rceil; &minus; 1 keys</strong>, stop.<br>
+  <strong>Step 3 &mdash; UNDERFLOW.</strong> Otherwise:<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>(a) BORROW</strong>, if an <em>immediate</em> sibling has <strong>more than the minimum</strong>. Move the parent's separator key <strong>down</strong> into the deficient node, and move the sibling's adjacent key <strong>up</strong> into the parent. This is a <strong>rotation</strong>.<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>(b) MERGE</strong>, if no sibling can spare a key. Combine the deficient node, the parent's separator key, and a sibling into one node. The parent loses a key and may itself underflow &mdash; repeat upward.<br>
+  <strong>Step 4.</strong> If the <strong>root</strong> loses its last key, its single remaining child becomes the new root and <strong>the height decreases by one</strong>.
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. From the final tree above, delete 40, then delete 50.</span>
+
+  <p><strong>Delete 40.</strong> It is in the leaf [40 | 50], which becomes <strong>[50]</strong> &mdash; only 1 key, and the minimum is 2. <strong>UNDERFLOW.</strong></p>
+  <ul>
+    <li><strong>Left sibling [10 | 20]</strong> has exactly 2 keys &mdash; the minimum, so it <strong>cannot spare one</strong>.</li>
+    <li><strong>Right sibling [70 | 80 | 90]</strong> has 3 keys &mdash; <strong>it can lend.</strong></li>
+    <li><strong>Borrow from the right:</strong> the separator <strong>60</strong> comes <em>down</em> into the deficient node, and the sibling's smallest key <strong>70</strong> goes <em>up</em> to replace it.</li>
+  </ul>
+  <div class="formula">
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center; line-height:1.6">
+    <strong>[ 30 | 70 ]</strong><br>
+    /&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    <strong>[10|20]</strong>&nbsp;&nbsp;<strong>[50|60]</strong>&nbsp;&nbsp;<strong>[80|90]</strong>
+    </div>
+  </div>
+  <p><em>Check the ordering:</em> everything in [50|60] lies between 30 and 70 &check;; everything in [80|90] is greater than 70 &check;.</p>
+
+  <p><strong>Delete 50.</strong> The leaf becomes <strong>[60]</strong> &mdash; <strong>UNDERFLOW</strong> again.</p>
+  <ul>
+    <li><strong>Left sibling [10 | 20]</strong>: 2 keys &mdash; the minimum, cannot lend.</li>
+    <li><strong>Right sibling [80 | 90]</strong>: 2 keys &mdash; the minimum, cannot lend.</li>
+    <li><strong>Neither can lend &rarr; MERGE.</strong> Combine [60] with the left sibling [10 | 20] and the separator <strong>30</strong> between them: <strong>[10 | 20 | 30 | 60]</strong>.</li>
+    <li>The parent loses 30 and becomes <strong>[70]</strong> &mdash; 1 key, which is <strong>legal for a root</strong>.</li>
+  </ul>
+  <div class="formula">
+    <span class="name">After both deletions</span>
+    <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:center; line-height:1.6">
+    <strong>[ 70 ]</strong><br>
+    /&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+    <strong>[10|20|30|60]</strong>&nbsp;&nbsp;<strong>[80|90]</strong>
+    </div>
+  </div>
+  <p><strong>Checks:</strong> the merged node has 4 keys, which is the maximum &mdash; legal &check;. The root has 1 key, allowed for a root &check;. All leaves are still at the same level &check;. Sorted order: 10, 20, 30, 60, 70, 80, 90 &check;.</p>
+  <p><em>The one-line rule to remember:</em> <strong>&ldquo;Borrow if you can, merge if you must.&rdquo;</strong></p>
+</div>
+
+<h2>Height and complexity</h2>
+
+<div class="formula">
+  <span class="name">The bounds for a B-tree of order m with n keys and height h</span>
+  <strong>Maximum keys</strong> at height h: &nbsp; <strong>m<sup>h+1</sup> &minus; 1</strong> &nbsp; (every node completely full)<br>
+  <strong>Minimum keys</strong> at height h: &nbsp; <strong>2&lceil;m/2&rceil;<sup>h</sup> &minus; 1</strong> &nbsp; (every node at the minimum)<br><br>
+  <strong>Height bound:</strong> &nbsp; <strong>h &le; log<sub>&lceil;m/2&rceil;</sub> ((n + 1) / 2)</strong> &nbsp; &rArr; &nbsp; <strong>h = O(log<sub>m</sub> n)</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical. A B-tree of order 101 stores 10<sup>6</sup> keys. How many disk accesses does a search need in the worst case?</span>
+  <p>Minimum children per non-root node = <strong>&lceil;101/2&rceil; = 51</strong>.</p>
+  <p>Worst case: h &le; log<sub>51</sub>((10<sup>6</sup> + 1)/2) = log<sub>51</sub>(500000) &asymp; ln 500000 / ln 51 = 13.12 / 3.93 &asymp; <strong>3.34</strong>, so <strong>h &le; 3</strong>.</p>
+  <p><strong>Reading a path from the root visits h + 1 = 4 nodes, so at most 4 disk accesses.</strong></p>
+  <p><em>Compare a balanced binary tree:</em> log<sub>2</sub>(10<sup>6</sup>) &asymp; <strong>20 levels &rarr; 20 disk accesses</strong>. <strong>Five times fewer disk reads</strong>, which is precisely why every database index is a B-tree or a B+ tree.</p>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Operation</th><th>Disk accesses</th><th>CPU time</th></tr></thead>
+<tbody>
+<tr><td><strong>Search</strong></td><td>&Theta;(log<sub>m</sub> n)</td><td>&Theta;(m log<sub>m</sub> n), or &Theta;(log m &middot; log<sub>m</sub> n) with binary search inside each node</td></tr>
+<tr><td><strong>Insert</strong></td><td>&Theta;(log<sub>m</sub> n)</td><td>&Theta;(m log<sub>m</sub> n)</td></tr>
+<tr><td><strong>Delete</strong></td><td>&Theta;(log<sub>m</sub> n)</td><td>&Theta;(m log<sub>m</sub> n)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>B+ trees</h2>
+
+<div class="formula">
+  <span class="name">The two changes</span>
+  <strong>1. All the actual data records live in the LEAVES.</strong> Internal nodes hold <strong>only keys, as separators</strong> for routing &mdash; a key may appear both in an internal node and again in a leaf.<br>
+  <strong>2. The leaves are LINKED together</strong> in a singly or doubly linked list, in sorted order.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>B-tree</strong></th><th><strong>B+ tree</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Data stored in</strong></td><td><strong>Every node</strong> &mdash; internal and leaf alike</td><td><strong>Leaves only</strong>; internal nodes hold routing keys</td></tr>
+<tr><td><strong>Key duplication</strong></td><td>None &mdash; each key appears once</td><td>Keys are <strong>duplicated</strong> in internal nodes and leaves</td></tr>
+<tr><td><strong>Leaves linked?</strong></td><td>No</td><td><strong>Yes</strong> &mdash; a linked list in sorted order</td></tr>
+<tr><td><strong>Search cost</strong></td><td>Variable &mdash; can stop early at an internal node</td><td><strong>Uniform</strong> &mdash; every search reaches a leaf</td></tr>
+<tr><td><strong>Range and sequential queries</strong></td><td>Poor &mdash; needs a full inorder traversal</td><td><strong>Excellent</strong> &mdash; find the start, then walk the leaf links</td></tr>
+<tr><td><strong>Branching factor</strong></td><td>Lower &mdash; each node carries data too</td><td><strong>Higher</strong> &mdash; internal nodes carry only keys, so more fit per block &rArr; a <strong>shallower tree</strong></td></tr>
+<tr><td><strong>Deletion</strong></td><td>Harder &mdash; may have to delete from an internal node</td><td><strong>Easier</strong> &mdash; deletion only ever happens in a leaf</td></tr>
+<tr><td><strong>Used in</strong></td><td>File systems (NTFS, HFS+), some databases</td><td><strong>Nearly all database indexes</strong> &mdash; MySQL InnoDB, Oracle, PostgreSQL</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The sentence to end a comparison with</span>
+  <p><strong>B+ trees dominate in practice because databases run range queries constantly &mdash; &ldquo;all rows with salary between X and Y&rdquo; &mdash; and the linked leaves turn that into one search plus a sequential scan.</strong> A plain B-tree would need a full traversal.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In a B-tree of order 5, the minimum number of keys in a non-root node is:</p>
+  <div class="opts">
+    <button class="opt">4</button>
+    <button class="opt">3</button>
+    <button class="opt">1</button>
+    <button class="opt" data-ok="1">2</button>
+  </div>
+  <p class="why">⌈5/2⌉ − 1 = 3 − 1 = 2, and the maximum is m − 1 = 4. Write both numbers at the top of the answer before starting.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. When a B-tree node overflows, what happens to the median key?</p>
+  <div class="opts">
+    <button class="opt">It stays in the left half</button>
+    <button class="opt">It is discarded</button>
+    <button class="opt">It becomes a new leaf</button>
+    <button class="opt" data-ok="1">It moves up into the parent, and the rest splits into two nodes</button>
+  </div>
+  <p class="why">This is why a B-tree grows upward from the root rather than downward, and why all leaves stay at the same level.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Inserting 10, 20, 30, 40, 50, 60, 70, 80, 90 into a B-tree of order 5 gives a root of:</p>
+  <div class="opts">
+    <button class="opt">[40 | 80]</button>
+    <button class="opt" data-ok="1">[30 | 60]</button>
+    <button class="opt">[30]</button>
+    <button class="opt">[50]</button>
+  </div>
+  <p class="why">The first split pushes 30 up; inserting 80 overflows the right child and pushes 60 up beside it. The final tree has three leaves: [10|20], [40|50] and [70|80|90].</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. On underflow after a deletion, you should first try to:</p>
+  <div class="opts">
+    <button class="opt">Merge with a sibling immediately</button>
+    <button class="opt">Rebuild the whole tree</button>
+    <button class="opt">Delete the parent</button>
+    <button class="opt" data-ok="1">Borrow a key from an immediate sibling that has more than the minimum</button>
+  </div>
+  <p class="why">&ldquo;Borrow if you can, merge if you must.&rdquo; Borrowing rotates the parent's separator down and the sibling's adjacent key up; merging shrinks the parent and may cascade.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A B-tree of order 101 holding 10⁶ keys needs how many disk accesses for a search, at worst?</p>
+  <div class="opts">
+    <button class="opt">About 100</button>
+    <button class="opt">About 20</button>
+    <button class="opt" data-ok="1">About 4</button>
+    <button class="opt">About 1000</button>
+  </div>
+  <p class="why">h ≤ log₅₁(500000) ≈ 3.34, so h ≤ 3 and a root-to-leaf path visits 4 nodes. A balanced binary tree would need about 20.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. In a B+ tree, the actual data records are stored:</p>
+  <div class="opts">
+    <button class="opt">Outside the tree entirely</button>
+    <button class="opt">In the root only</button>
+    <button class="opt" data-ok="1">In the leaves only, with internal nodes holding routing keys</button>
+    <button class="opt">In every node</button>
+  </div>
+  <p class="why">That raises the branching factor, since internal nodes hold only keys, and it makes every search cost the same. The linked leaves are what make range queries fast.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A 2–3–4 tree (a B-tree of order 4) is equivalent to:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A red–black tree</button>
+    <button class="opt">An AVL tree</button>
+    <button class="opt">A binary heap</button>
+    <button class="opt">A hash table</button>
+  </div>
+  <p class="why">Every red–black tree corresponds to a 2–3–4 tree and back — a red node together with its black parent becomes a multi-key node. It is worth naming when a question asks you to relate the two.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Why do B-trees exist?</summary>
+    <p class="ans">A disk access is about a hundred thousand times slower than a memory access, so the cost of a search is the number of nodes visited. Making each node the size of a disk block gives a branching factor in the hundreds, so a million keys sit in two or three levels rather than twenty. B-trees minimise height by maximising branching factor.</p></details>
+  <details class="card"><summary>Give the five rules of a B-tree of order m.</summary>
+    <p class="ans">At most m children and m − 1 keys per node; at least &lceil;m/2&rceil; children and &lceil;m/2&rceil; − 1 keys for every non-root, non-leaf node; the root has at least 2 children unless it is a leaf; all leaves are at the same level; and a node with k keys has exactly k + 1 children, kept sorted.</p></details>
+  <details class="card"><summary>Describe B-tree insertion.</summary>
+    <p class="ans">Insert only at a leaf, in sorted position. On overflow — more than m − 1 keys — split the node and push the median key up into the parent, repeating upward. If the root splits, the median becomes a new root and the height grows by one. The tree grows upward, which is why leaves stay level.</p></details>
+  <details class="card"><summary>Describe B-tree deletion.</summary>
+    <p class="ans">If the key is in an internal node, replace it with its inorder predecessor or successor from a leaf and delete that instead. On underflow, borrow from an immediate sibling with more than the minimum by rotating the parent's separator down and the sibling's key up; if no sibling can spare one, merge the node, the separator and a sibling into one, which may make the parent underflow in turn. If the root loses its last key the height decreases by one. &ldquo;Borrow if you can, merge if you must.&rdquo;</p></details>
+  <details class="card"><summary>Give the height bounds.</summary>
+    <p class="ans">Maximum keys at height h: m^(h+1) − 1. Minimum keys: 2&lceil;m/2&rceil;^h − 1. Height h &le; log_&lceil;m/2&rceil;((n+1)/2), so h = O(log_m n). All operations cost &Theta;(log_m n) disk accesses.</p></details>
+  <details class="card"><summary>Compare B-trees with B+ trees on six points.</summary>
+    <p class="ans">Data in every node versus leaves only; no key duplication versus keys duplicated in internal nodes and leaves; leaves unlinked versus linked in sorted order; variable search cost versus uniform; poor versus excellent range queries; lower versus higher branching factor and so a shallower tree. B+ trees also make deletion easier, since it only happens in leaves, and they are what nearly every database index uses.</p></details>
+</div>
+
+<p class="ask">Next: the structure that abandons ordering altogether for O(1) average access &mdash; hashing.</p>
+
+<div class="nav">
+  <a href="0009-red-black-trees.html">&larr; Red&ndash;Black Trees</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0011-hashing.html">Next: Hashing &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

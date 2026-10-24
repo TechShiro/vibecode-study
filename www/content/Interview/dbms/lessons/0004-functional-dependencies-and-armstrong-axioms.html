@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBMS Lesson 04 – Functional Dependencies & Armstrong's Axioms</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Database Systems · Module B · Lesson 4 of 17 · Schema Rigor & Keys</div>
+  <h1>Functional Dependencies & Armstrong's Axioms</h1>
+  <p class="subtitle">Mathematical constraints that govern relational schemas, determining candidate keys and formal closure sets.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module B – Normalization</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>A <strong>Functional Dependency (FD)</strong> is a mathematical constraint between two sets of attributes in a relation. If attribute set <code>X</code> uniquely determines attribute set <code>Y</code>, we write <code>X &rarr; Y</code>. This means: in any legal state of relation <code>R</code>, whenever two tuples have identical values for <code>X</code>, they <strong>must</strong> have identical values for <code>Y</code> (<code>t1[X] = t2[X] &rArr; t1[Y] = t2[Y]</code>). Understanding FDs is the foundation of schema normalization.</p>
+
+  <h2>2 · Armstrong's Axioms (Sound & Complete)</h2>
+  <p>In 1974, William W. Armstrong developed a set of inference rules that generate all valid FDs logically implied by a given FD set <em>F</em>:</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">Rule 1</div>
+      <h3>Reflexivity</h3>
+      <p>If <code>Y &sube; X</code>, then <code>X &rarr; Y</code>.<br><em>Example:</em> <code>{emp_id, emp_name} &rarr; emp_id</code>. (Trivial dependency).</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Rule 2</div>
+      <h3>Augmentation</h3>
+      <p>If <code>X &rarr; Y</code>, then <code>XZ &rarr; YZ</code> for any attribute set <code>Z</code>.<br>Adding identical attributes to both sides preserves validity.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">Rule 3</div>
+      <h3>Transitivity</h3>
+      <p>If <code>X &rarr; Y</code> and <code>Y &rarr; Z</code>, then <code>X &rarr; Z</code>.<br><em>Example:</em> <code>roll_no &rarr; dept_id</code> and <code>dept_id &rarr; hod_name</code> &rArr; <code>roll_no &rarr; hod_name</code>.</p>
+    </div>
+  </div>
+
+  <h3>Secondary Inferred Rules</h3>
+  <ul>
+    <li><strong>Union Rule</strong>: If <code>X &rarr; Y</code> and <code>X &rarr; Z</code>, then <code>X &rarr; YZ</code>.</li>
+    <li><strong>Decomposition Rule</strong>: If <code>X &rarr; YZ</code>, then <code>X &rarr; Y</code> and <code>X &rarr; Z</code>. <em>(Note: You CANNOT decompose the left-hand side!)</em></li>
+    <li><strong>Pseudotransitivity Rule</strong>: If <code>X &rarr; Y</code> and <code>WY &rarr; Z</code>, then <code>WX &rarr; Z</code>.</li>
+  </ul>
+
+  <h2>3 · Attribute Closure Algorithm (X<sup>+</sup>)</h2>
+  <p>The closure of attribute set <code>X</code> under FD set <em>F</em> (denoted <code>X<sup>+</sup></code>) is the set of all attributes functionally determined by <code>X</code>.</p>
+
+  <div class="callout info">
+    <h4>Algorithm: Computing X<sup>+</sup></h4>
+    <ol>
+      <li>Initialize <code>result = X</code>.</li>
+      <li>Repeat until <code>result</code> does not change:
+        <ul>
+          <li>For each FD <code>A &rarr; B</code> in <em>F</em>: if <code>A &sube; result</code>, then <code>result = result &cup; B</code>.</li>
+        </ul>
+      </li>
+      <li>Return <code>result</code>.</li>
+    </ol>
+  </div>
+
+  <h2>4 · Finding All Candidate Keys Algorithmically</h2>
+  <p>A <strong>Superkey</strong> is any attribute set <code>K</code> such that <code>K<sup>+</sup> = R</code> (determines all attributes of the table). A <strong>Candidate Key</strong> is a <em>minimal</em> superkey (no proper subset of <code>K</code> is a superkey).</p>
+
+  <div class="callout warning">
+    <h4>Heuristic for Candidate Key Discovery:</h4>
+    <ul>
+      <li><strong>Essential Attributes</strong>: Attributes that appear <strong>only on the Left-Hand Side (LHS)</strong> of FDs or <strong>never appear in any FD</strong> MUST be part of every candidate key.</li>
+      <li><strong>Redundant Attributes</strong>: Attributes that appear <strong>only on the Right-Hand Side (RHS)</strong> can NEVER be part of any candidate key.</li>
+      <li>Start by computing the closure of all essential attributes. If their closure equals the entire relation <code>R</code>, it is the unique candidate key!</li>
+    </ul>
+  </div>
+
+  <h2>5 · Canonical Cover (Minimal Cover)</h2>
+  <p>A Canonical Cover <em>F<sub>c</sub></em> of FD set <em>F</em> is a minimal equivalent set of FDs without redundancy:</p>
+  <ol>
+    <li>Decompose all RHS attributes into singletons (<code>X &rarr; YZ</code> becomes <code>X &rarr; Y</code> and <code>X &rarr; Z</code>).</li>
+    <li>Eliminate extraneous LHS attributes (e.g., if <code>AB &rarr; C</code> and <code>A &rarr; B</code>, then <code>B</code> is extraneous in LHS).</li>
+    <li>Eliminate redundant FDs whose removal does not shrink the closure.</li>
+  </ol>
+
+  <nav class="bottom-nav">
+    <a href="0003-relational-algebra-and-calculus.html">← Lesson 03: Relational Algebra</a>
+    <a href="0005-normalization-1nf-to-bcnf.html">Lesson 05: Normalization: 1NF to BCNF →</a>
+  </nav>
+</body>
+</html>

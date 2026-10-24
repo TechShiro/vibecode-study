@@ -1,0 +1,271 @@
+<title>Genetic Algorithm Fundamentals: Encoding, Fitness, Selection and Operators</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Soft Computing &middot; Unit V &middot; Lesson 20 of 23</p>
+<h1>Genetic Algorithm Fundamentals</h1>
+<p class="deck">Biological roots, chromosome representations, fitness landscapes, selection mechanisms (Roulette Wheel, Tournament, Rank), crossover and mutation operators, and the canonical evolutionary cycle.</p>
+
+<div class="box exam"><span class="lbl">Exam strategy</span>
+<p><strong>&ldquo;Explain the working cycle of a Genetic Algorithm with a neat flowchart&rdquo;</strong> and <strong>&ldquo;Calculate selection probabilities using Roulette Wheel Selection&rdquo;</strong> are recurrent 5-to-10 mark questions. Make sure you memorize the selection probability formula <code>P_i = f_i / &Sigma;f_j</code>, know at least three encoding techniques, and understand why elitism prevents loss of the best candidate solution.</p></div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Genetic Algorithm Fundamentals</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=96-u9s6D16k" target="_blank">Lec-38: Genetic Algorithm in Artificial Intelligence | Core Fundamentals</a>
+    <span class="v-meta">Gate Smashers &middot; 14:15</span>
+    <div class="v-why">Comprehensive exam walkthrough explaining John Holland's evolutionary metaphor: chromosomes, genes, population fitness, survival of the fittest, and termination criteria.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; Roulette Wheel &amp; Selection Operators</span>
+      <span class="best-tag">Top Exam Numerical</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=-BDo0Ufl2zs" target="_blank">Roulette Wheel Selection with Solved Numerical Example</a>
+    <span class="v-meta">Gate Smashers &middot; 12:40</span>
+    <div class="v-why">High-scoring numerical calculating individual fitness $f_i$, total population fitness $\sum f$, selection probability $p_i = f_i / \sum f$, and cumulative probability distribution slots.</div>
+  </div>
+</div>
+
+<!-- FLOWCHART: GENETIC ALGORITHM CYCLE -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Visual Architecture: The Canonical Genetic Algorithm Lifecycle</span>
+  <div class="flow-col">
+    <div class="flow-box highlight">
+      <strong>Step 1 &middot; Initialize Population</strong>
+      <span class="sub">Random binary / real-coded strings (chromosomes) of size $N$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Compute Objective / Fitness Function $f(x)$</span>
+    
+    <div class="flow-box">
+      <strong>Step 2 &middot; Fitness Evaluation &amp; Ranking</strong>
+      <span class="sub">Assign fitness score to each candidate chromosome in generation $t$</span>
+    </div>
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Check Termination (Max Epochs / Fitness Threshold)</span>
+    
+    <div class="phase-layout" style="width:100%; max-width:32rem; margin:0.3rem 0;">
+      <div class="side-pillar">
+        <strong>Selection</strong>
+        <span class="sub">Roulette wheel, Tournament, or Rank selection</span>
+      </div>
+      <div class="flow-box warn" style="min-width:auto;">
+        <strong>REPRODUCTION OPERATORS</strong>
+        <span class="sub">Creates generation $t+1$ offspring</span>
+      </div>
+      <div class="side-pillar">
+        <strong>Crossover &amp; Mutation</strong>
+        <span class="sub">Recombine parent genes ($p_c$) &middot; Flip bits ($p_m$)</span>
+      </div>
+    </div>
+    
+    <div class="flow-arrow-down"></div>
+    <span class="flow-label">&darr; Convergence Reached</span>
+    <div class="flow-box ok">
+      <strong>Near-Optimal Solution Chromosome</strong>
+      <span class="sub">Decoded global optimum parameters for engineering problem</span>
+    </div>
+  </div>
+</div>
+
+
+
+
+<h2>What is a Genetic Algorithm?</h2>
+<p>Developed by <strong>John H. Holland (1975)</strong> and popularized by David E. Goldberg, a <strong>Genetic Algorithm (GA)</strong> is an adaptive heuristic search and optimization algorithm grounded in Charles Darwin's principles of natural evolution &mdash; <em>&ldquo;survival of the fittest&rdquo;</em>.</p>
+<p>Unlike calculus-based methods that require gradient information (and thus stumble on discontinuous, non-differentiable, or multimodal landscapes), GAs operate on a <strong>population of candidate solutions</strong> simultaneously, exploring multiple regions of the search space via stochastic operators.</p>
+
+<div class="tw"><table>
+<thead><tr><th>Biological Term</th><th>Genetic Algorithm Equivalent</th><th>Meaning in Optimization</th></tr></thead>
+<tbody>
+<tr><td><strong>Individual / Organism</strong></td><td>Candidate solution</td><td>One trial solution to the problem</td></tr>
+<tr><td><strong>Chromosome</strong></td><td>Encoded string</td><td>Representation of the solution variables</td></tr>
+<tr><td><strong>Gene</strong></td><td>Bit or feature variable</td><td>A specific parameter or decision variable</td></tr>
+<tr><td><strong>Allele</strong></td><td>Gene value</td><td>Specific value at a gene locus (e.g., 0 or 1)</td></tr>
+<tr><td><strong>Genotype</strong></td><td>Coded representation</td><td>The internal data string (e.g., binary <code>10110</code>)</td></tr>
+<tr><td><strong>Phenotype</strong></td><td>Decoded solution</td><td>The actual physical value in the problem domain (e.g., <code>x = 22</code>)</td></tr>
+<tr><td><strong>Fitness</strong></td><td>Objective evaluation score</td><td>How well the solution solves the target problem</td></tr>
+</tbody></table></div>
+
+<h2>Chromosome Encoding Schemes</h2>
+<p>Encoding translates problem parameters into a form the genetic operators can manipulate. Choosing the correct representation is vital for algorithm performance:</p>
+
+<div class="tw"><table>
+<thead><tr><th>Encoding Type</th><th>Representation Example</th><th>Typical Application</th></tr></thead>
+<tbody>
+<tr><td><strong>Binary Encoding</strong></td><td><code>1 0 0 1 1 0 1</code> (bit strings)</td><td>0/1 Knapsack, boolean logic, discretized continuous parameters</td></tr>
+<tr><td><strong>Real / Value Encoding</strong></td><td><code>[3.1415, -0.82, 45.0, 1.09]</code></td><td>Continuous parameter optimization, neural network weight tuning</td></tr>
+<tr><td><strong>Permutation Encoding</strong></td><td><code>[3 &rarr; 5 &rarr; 1 &rarr; 2 &rarr; 4]</code></td><td>Ordering &amp; routing problems (TSP, job shop scheduling)</td></tr>
+<tr><td><strong>Tree Encoding</strong></td><td>Syntax tree: <code>(+ (* x 3) (sin y))</code></td><td>Genetic programming, evolving mathematical expressions or rules</td></tr>
+</tbody></table></div>
+
+<h2>Fitness Function</h2>
+<p>The <strong>fitness function</strong> assesses the quality or performance of each candidate solution. It guides the survival and reproduction mechanism:</p>
+<ul>
+  <li>For a <strong>maximization</strong> problem: fitness is often directly proportional to the objective function, e.g., <code>F(x) = f(x)</code> (with shifting if values are negative).</li>
+  <li>For a <strong>minimization</strong> problem (cost, error): fitness must invert the objective, e.g., <code>F(x) = 1 / (1 + f(x))</code> or <code>F(x) = M - f(x)</code> where <code>M</code> is an upper bound.</li>
+</ul>
+
+<div class="formula"><span class="name">Fitness Mapping Example</span>
+Given an objective to maximize f(x) = x&sup2; over integer range [0, 31]:<br>
+Chromosome <code>10101</code><sub>2</sub> &rarr; Phenotype <code>x = 21</code> &rarr; Fitness <code>F(x) = 21&sup2; = 441</code>.
+</div>
+
+<h2>Selection Methods (Reproduction)</h2>
+<p>Selection allocates reproductive trials to chromosomes based on their fitness. Fitter chromosomes get more copies in the mating pool, while weaker ones tend to die out.</p>
+
+<h3>1. Roulette Wheel Selection (Fitness Proportionate)</h3>
+<p>Each chromosome is allocated a slice of a circular roulette wheel proportional to its fitness score. The wheel is spun <code>N</code> times to select <code>N</code> parents.</p>
+
+<div class="formula"><span class="name">Selection Probability Formula</span>
+P<sub>i</sub> = f<sub>i</sub> / &Sigma;<sub>j=1</sub><sup>N</sup> f<sub>j</sub><br>
+Expected Count: e<sub>i</sub> = f<sub>i</sub> / f&#772; &nbsp; (where f&#772; = mean population fitness)
+</div>
+
+<div class="solve"><span class="lbl">Worked selection example</span>
+<p>Consider a population of 4 chromosomes with the following fitness values:</p>
+<ul>
+  <li>Chromosome 1: <code>f₁ = 15</code></li>
+  <li>Chromosome 2: <code>f₂ = 25</code></li>
+  <li>Chromosome 3: <code>f₃ = 10</code></li>
+  <li>Chromosome 4: <code>f₄ = 50</code></li>
+</ul>
+<p><strong>Total Fitness:</strong> &Sigma;f = 15 + 25 + 10 + 50 = <strong>100</strong>.</p>
+<p><strong>Selection Probabilities &amp; Cumulative Ranges:</strong></p>
+<div class="tw"><table>
+<thead><tr><th>Chrom.</th><th>Fitness (f<sub>i</sub>)</th><th>P<sub>i</sub> = f<sub>i</sub> / 100</th><th>Percentage</th><th>Cumulative Interval [0, 1)</th></tr></thead>
+<tbody>
+<tr><td>C1</td><td>15</td><td>0.15</td><td>15%</td><td>[0.00, 0.15)</td></tr>
+<tr><td>C2</td><td>25</td><td>0.25</td><td>25%</td><td>[0.15, 0.40)</td></tr>
+<tr><td>C3</td><td>10</td><td>0.10</td><td>10%</td><td>[0.40, 0.50)</td></tr>
+<tr><td>C4</td><td>50</td><td>0.50</td><td>50%</td><td>[0.50, 1.00)</td></tr>
+</tbody></table></div>
+<p>If random spins generate <code>r = 0.32</code>, <code>r = 0.78</code>, <code>r = 0.05</code>, <code>r = 0.61</code>: selected chromosomes are <strong>C2, C4, C1, C4</strong>. Notice C4 (highest fitness) was picked twice, while C3 was eliminated.</p>
+</div>
+
+<h3>2. Tournament Selection</h3>
+<p>Randomly pick <code>k</code> individuals (tournament size, e.g., <code>k = 2</code> or <code>3</code>) from the population. The one with the highest fitness among the <code>k</code> contestants wins and enters the mating pool. Repeat until the pool is full. Advantage: very fast <code>O(k)</code>, no need to compute global population sum, works naturally in parallel.</p>
+
+<h3>3. Rank Selection</h3>
+<p>Chromosomes are sorted in ascending order of fitness and assigned ranks from <code>1</code> (worst) to <code>N</code> (best). Selection probabilities are calculated from their ranks rather than raw fitness scores. This prevents a &ldquo;super-individual&rdquo; from dominating early generations and stalling diversity.</p>
+
+<h3>4. Elitism</h3>
+<p>Standard selection and crossover can accidentally destroy the best solution found so far. <strong>Elitism</strong> copies the top 1 or 2 highest-performing individuals directly into the next generation without modification, ensuring the maximum fitness never decreases across iterations.</p>
+
+<h2>Crossover (Recombination) Operators</h2>
+<p>Crossover combines genetic material from two parent chromosomes to produce offspring, exploiting promising building blocks (schemas). It is applied with a high probability <code>p_c</code> (typically <code>0.60 &ndash; 0.95</code>).</p>
+
+<div class="tw"><table>
+<thead><tr><th>Crossover Operator</th><th>Mechanism</th><th>Schematic Example</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Single-Point Crossover</strong></td>
+  <td>A single crossover site is randomly chosen along the string; bits beyond this site are swapped between parents.</td>
+  <td>
+    Parent 1: <code>1 1 0 | 0 1</code> &rarr; Child 1: <code>1 1 0 1 0</code><br>
+    Parent 2: <code>0 0 1 | 1 0</code> &rarr; Child 2: <code>0 0 1 0 1</code>
+  </td>
+</tr>
+<tr>
+  <td><strong>Two-Point Crossover</strong></td>
+  <td>Two cut points are chosen; the segment between the two points is swapped. Reduces positional bias.</td>
+  <td>
+    Parent 1: <code>1 1 | 0 0 | 1</code> &rarr; Child 1: <code>1 1 1 1 1</code><br>
+    Parent 2: <code>0 0 | 1 1 | 0</code> &rarr; Child 2: <code>0 0 0 0 0</code>
+  </td>
+</tr>
+<tr>
+  <td><strong>Uniform Crossover</strong></td>
+  <td>Each bit position is decided independently based on a random mask (e.g., coin toss probability 0.5).</td>
+  <td>
+    Mask: <code>1 0 1 0 0</code> (1=P1, 0=P2)<br>
+    Child 1 gets bits {1, 3} from P1, and bits {2, 4, 5} from P2.
+  </td>
+</tr>
+</tbody></table></div>
+
+<h2>Mutation Operators</h2>
+<p>Mutation alters one or more gene values in a chromosome with a small probability <code>p_m</code> (typically <code>0.001 &ndash; 0.05</code>). Its critical purpose is to <strong>maintain genetic diversity</strong> and recover beneficial alleles that may have been lost during selection, preventing the population from getting permanently stuck in local optima.</p>
+
+<ul>
+  <li><strong>Bit-Flip Mutation (Binary):</strong> Inverts a bit (<code>0 &rarr; 1</code> or <code>1 &rarr; 0</code>).</li>
+  <li><strong>Swap Mutation (Permutation):</strong> Randomly picks two gene positions and exchanges their values.</li>
+  <li><strong>Inversion Mutation:</strong> Picks a contiguous subarray of genes and reverses their order.</li>
+</ul>
+
+<h2>The Canonical GA Cycle</h2>
+<div class="formula"><span class="name">Algorithmic Lifecycle</span>
+[Start: Generate Initial Population P(0)]<br>
+&darr;<br>
+[Evaluate Fitness of all Individuals in P(t)]<br>
+&darr;<br>
+[Check Termination Condition met? (Yes &rarr; Halt &amp; Return Best Solution)]<br>
+&darr; No<br>
+[Selection: Choose Parents according to Fitness]<br>
+&darr;<br>
+[Crossover: Recombine Parent Pairs with Probability p<sub>c</sub>]<br>
+&darr;<br>
+[Mutation: Mutate Offspring Genes with Probability p<sub>m</sub>]<br>
+&darr;<br>
+[Form New Population P(t+1)] &rarr; [Increment Generation t = t + 1] &rarr; [Repeat]
+</div>
+
+<h2>Convergence &amp; Stopping Criteria</h2>
+<p>A genetic algorithm runs until one or more termination criteria are met:</p>
+<ol>
+  <li><strong>Maximum generations reached</strong> (e.g., 500 or 1000 iterations).</li>
+  <li><strong>Target fitness achieved</strong> (e.g., error falls below 10<sup>&minus;4</sup>).</li>
+  <li><strong>Population stagnation</strong>: the average fitness becomes nearly identical to the maximum fitness (diversity collapsed).</li>
+  <li><strong>No improvement</strong> over a fixed number of successive generations (stall limit).</li>
+</ol>
+<p><strong>Premature Convergence:</strong> Occurs when the population becomes uniform around a sub-optimal local peak early in the run. Common causes include an overly aggressive selection pressure, high crossover with near-zero mutation, or small population size.</p>
+
+<h2>Check yourself</h2>
+<div class="quiz"><h3>Retrieval practice</h3>
+<div class="q"><p class="stem">1. In Roulette Wheel Selection, the probability of selecting chromosome i is proportional to:</p>
+<div class="opts">
+<button class="opt">A purely uniform random number independent of fitness</button>
+<button class="opt">The length of its binary string</button>
+<button class="opt" data-ok="1">Its fitness relative to the sum of all individuals' fitness: f_i / &Sigma;f_j</button>
+<button class="opt">The inverse of its rank</button>
+</div><p class="why">Roulette wheel selection assigns slice sizes directly proportional to fitness ratios.</p></div>
+
+<div class="q"><p class="stem">2. What is the primary role of the mutation operator in a Genetic Algorithm?</p>
+<div class="opts">
+<button class="opt">To combine high-fitness building blocks from two parents</button>
+<button class="opt" data-ok="1">To inject genetic diversity and prevent premature convergence into local optima</button>
+<button class="opt">To evaluate the mathematical objective function</button>
+<button class="opt">To decode genotype into phenotype</button>
+</div><p class="why">Crossover explores by recombining existing traits, whereas mutation ensures new or lost traits can re-enter the population.</p></div>
+
+<div class="q"><p class="stem">3. Why is elitism used in genetic algorithms?</p>
+<div class="opts">
+<button class="opt">To make all chromosomes identical in generation 1</button>
+<button class="opt">To replace the fitness function with a constant</button>
+<button class="opt">To eliminate the need for mutation entirely</button>
+<button class="opt" data-ok="1">To guarantee that the best solution found so far is preserved without destructive crossover or mutation</button>
+</div><p class="why">Without elitism, stochastic crossover and mutation could disrupt the highest fitness chromosome of generation t.</p></div>
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+<details class="card"><summary>Name four chromosome encoding methods and an example application of each.</summary><p class="ans">Binary (knapsack/0-1 problems), Real-value (continuous parameter optimization, NN weights), Permutation (TSP, job sequencing), Tree (genetic programming, evolving code expressions).</p></details>
+<details class="card"><summary>What is the difference between Roulette Wheel Selection and Rank Selection?</summary><p class="ans">Roulette wheel allocates selection probability based on raw fitness (P_i = f_i / &Sigma;f). Rank selection sorts individuals and assigns probability based on rank order (1 to N), preventing a super-fit individual from dominating the wheel and stalling diversity.</p></details>
+<details class="card"><summary>Write down the GA lifecycle sequence.</summary><p class="ans">1. Initialize population &rarr; 2. Evaluate fitness &rarr; 3. Test termination condition &rarr; 4. Select parents &rarr; 5. Apply crossover (p_c) &rarr; 6. Apply mutation (p_m) &rarr; 7. Form next generation and repeat.</p></details>
+</div>
+
+<div class="nav">
+<a href="../unit-4/0019-hopfield-and-applications.html">&larr; Previous</a>
+<a href="../../index.html">All lessons</a>
+<a href="0021-ga-worked-example-and-moga.html">Next: GA Worked Example &amp; MOGA &rarr;</a>
+<a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+</div>
+<script src="../../assets/quiz.js"></script>

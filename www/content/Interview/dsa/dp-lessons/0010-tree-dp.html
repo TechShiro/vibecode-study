@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 10 — DP on Trees</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 10 of 12 · postorder DFS meets DP</div>
+<h1>DP on Trees</h1>
+<p class="subtitle">No table to fill here — the recursion <em>is</em> the iteration order. Each node returns a tiny tuple summarizing its subtree, and the parent just combines.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 10 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+On arrays we filled <code>dp[i]</code> left→right because state <code>i</code> depended on earlier indices.
+On a tree, a node's answer depends on its <strong>children's</strong> answers — so the natural fill order is
+<strong>postorder DFS</strong>: solve both subtrees first, then combine at the parent. The state is
+<code>(node, small enum)</code> — e.g. "best if this node is robbed" vs "best if skipped" — and the DFS
+<strong>returns that tuple</strong> instead of writing into a table. Memoization is free: each node is
+visited exactly once.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  A <strong>tree</strong> + "max / min / count over <em>paths</em> or <em>subtrees</em>",
+  "place cameras / distribute coins", or a <em>non-adjacent selection</em> constraint
+  (rob a node → can't rob its children). If the answer for a node is computable from a
+  small fixed summary of each child, it's tree DP: postorder DFS returning a tuple.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<p>The 5-part framework, instantiated for House Robber III (LC 337):</p>
+<ul>
+  <li><strong>State:</strong> <code>dfs(node)</code> returns <code>int[]{rob, skip}</code> —
+      <code>rob</code> = best loot in this subtree if we rob <code>node</code>;
+      <code>skip</code> = best if we don't.</li>
+  <li><strong>Recurrence:</strong> <code>rob = node.val + left.skip + right.skip</code>
+      (rob me → children must be skipped);
+      <code>skip = max(left.rob, left.skip) + max(right.rob, right.skip)</code>
+      (skip me → each child is free to choose).</li>
+  <li><strong>Base case:</strong> <code>null → {0, 0}</code>. A missing subtree contributes nothing either way.</li>
+  <li><strong>Order:</strong> postorder — recurse into children <em>before</em> computing the node's tuple. The call stack is the "table".</li>
+  <li><strong>Answer:</strong> <code>max(root.rob, root.skip)</code>.</li>
+</ul>
+
+<h2>3 · Core template</h2>
+<pre><code><span class="cmt">// LC 337 House Robber III — THE tree-DP template. State enum = {robbed, skipped}.</span>
+int rob(TreeNode root) {
+    int[] r = dfs(root);
+    return Math.max(r[0], r[1]);           <span class="cmt">// answer lives at the root: rob it or not</span>
+}
+int[] dfs(TreeNode node) {                 <span class="cmt">// returns {rob, skip} for node's subtree</span>
+    if (node == null) return new int[]{0, 0};       <span class="cmt">// base case</span>
+    int[] L = dfs(node.left), R = dfs(node.right);  <span class="cmt">// postorder: children FIRST</span>
+    int rob  = node.val + L[1] + R[1];              <span class="cmt">// rob me → children forced to skip</span>
+    int skip = Math.max(L[0], L[1]) + Math.max(R[0], R[1]); <span class="cmt">// skip me → children choose freely</span>
+    return new int[]{rob, skip};
+}</code></pre>
+<p><strong>Time</strong> O(n) — each node computed once (this <em>is</em> the memoization; contrast the naive
+"rob root + grandchildren vs children" recursion, which re-solves subtrees exponentially).
+<strong>Space</strong> O(h) recursion stack, h = tree height. There is no bottom-up table version worth
+writing — postorder DFS already visits states in dependency order.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 337 · House Robber III</strong> (Medium) — the template verbatim; write the <code>{rob, skip}</code> tuple and the null base case from memory.</li>
+  <li><strong>LC 508 · Most Frequent Subtree Sum</strong> (Medium) — the returned tuple shrinks to one number (subtree sum); record frequencies in a HashMap as each call returns.</li>
+  <li><strong>LC 1339 · Maximum Product of Splitted Binary Tree</strong> (Medium) — return subtree sums in one pass, record the best <code>(total − sub) · sub</code> split; use <code>long</code> before the final mod.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">Return vs record — the one distinction that unlocks path problems</span>
+  For <em>path</em> problems, two different quantities live at every node:
+  the best path <strong>ending at</strong> the node (straight — extendable upward, so you <em>return</em> it)
+  and the best path <strong>through</strong> the node (bent left-node-right — it can't extend to the parent,
+  so you <em>record</em> it in a global and never return it). Mixing these up is the #1 tree-DP bug.
+</div>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>House Robber III</td><td>337</td><td>The template: return <code>{rob, skip}</code>, combine children</td></tr>
+    <tr><td>Diameter of Binary Tree</td><td>543</td><td><em>Return</em> height; <em>record</em> <code>leftH + rightH</code> in a global</td></tr>
+    <tr><td>Binary Tree Maximum Path Sum</td><td>124</td><td>Same shape as 543 but values can be negative → clamp child gains at 0</td></tr>
+    <tr><td>Longest Univalue Path</td><td>687</td><td>Diameter, but a child arm only counts if <code>child.val == node.val</code></td></tr>
+    <tr><td>Binary Tree Cameras</td><td>968</td><td>Three states per node: needs-cover / covered / has-camera; greedy-flavored combine</td></tr>
+    <tr><td>Distribute Coins in Binary Tree</td><td>979</td><td>Return the subtree's coin <em>excess</em>; every unit of |excess| crosses the parent edge</td></tr>
+    <tr><td>Sum of Distances in Tree</td><td>834</td><td>Rerooting: two passes — down-pass subtree sums, up-pass shift the root (CP depth)</td></tr>
+  </tbody>
+</table>
+
+<h3>Diameter (543) — the return-vs-record template</h3>
+<pre><code>int best = 0;
+int diameterOfBinaryTree(TreeNode root) { height(root); return best; }
+int height(TreeNode n) {
+    if (n == null) return 0;
+    int l = height(n.left), r = height(n.right);   <span class="cmt">// O(n): heights computed ONCE, bottom-up</span>
+    best = Math.max(best, l + r);   <span class="cmt">// bent path THROUGH n (in edges) → RECORD globally</span>
+    return 1 + Math.max(l, r);      <span class="cmt">// straight path ENDING at n → RETURN to parent</span>
+}</code></pre>
+<div class="callout trap">
+  <span class="label">The O(n²) trap</span>
+  Calling a separate <code>height()</code> for every node ("diameter = max over nodes of leftH+rightH")
+  recomputes heights repeatedly — O(n²) on a skewed tree. Tree DP computes each height once
+  <em>inside the same postorder pass</em> that updates the answer. Same subproblem, never solved twice —
+  that's the DP.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 543 · Diameter of Binary Tree</strong> (Easy) — this section's code as-is; if already solved, re-solve stating the return-vs-record distinction out loud (return = straight height, record = bent l+r).</li>
+  <li><strong>LC 110 · Balanced Binary Tree</strong> (Easy) — return height, record the "unbalanced" verdict (or sentinel −1 propagated up) when |l − r| &gt; 1.</li>
+  <li><strong>LC 563 · Binary Tree Tilt</strong> (Easy) — return subtree <em>sum</em> instead of height; record |leftSum − rightSum| into the global.</li>
+</ul>
+
+<h3>Maximum Path Sum (124) — negatives join the party</h3>
+<pre><code>int best = Integer.MIN_VALUE;              <span class="cmt">// NOT 0 — the whole tree can be negative</span>
+int maxPathSum(TreeNode root) { gain(root); return best; }
+int gain(TreeNode n) {
+    if (n == null) return 0;
+    int l = Math.max(0, gain(n.left));     <span class="cmt">// a negative arm? drop it (take empty path)</span>
+    int r = Math.max(0, gain(n.right));
+    best = Math.max(best, n.val + l + r);  <span class="cmt">// bent path through n → record</span>
+    return n.val + Math.max(l, r);         <span class="cmt">// straight path ending at n → return</span>
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 124 · Binary Tree Maximum Path Sum</strong> (Hard) — Google-reported; drill the two guards: <code>best = Integer.MIN_VALUE</code> and <code>Math.max(0, gain)</code> on each arm.</li>
+  <li><strong>LC 2246 · Longest Path With Different Adjacent Characters</strong> (Hard) — the n-ary version of the same shape: keep the top TWO child arms whose character differs from yours, record their sum, return the best single arm.</li>
+</ul>
+
+<h3>Longest Univalue Path (687) — diameter with a membership test</h3>
+<p>Same skeleton as 543, but a child's arm only survives if the child's value matches the current node's.
+State: <code>arm(n)</code> returns the longest same-value path (in <em>edges</em>) starting at <code>n</code> and going
+straight down. Recurrence: recurse into both children first, then set each arm to <code>childArm + 1</code>
+if <code>child.val == n.val</code>, else reset it to <code>0</code>; record <code>leftArm + rightArm</code>
+(the bent path through <code>n</code>) globally and return the larger single arm. Base case: null → 0.</p>
+<pre><code>int best = 0;
+int longestUnivaluePath(TreeNode root) { arm(root); return best; }
+int arm(TreeNode n) {
+    if (n == null) return 0;
+    int l = arm(n.left), r = arm(n.right);   <span class="cmt">// ALWAYS recurse — a mismatching subtree may hold the answer</span>
+    int la = (n.left  != null &amp;&amp; n.left.val  == n.val) ? l + 1 : 0;  <span class="cmt">// arm survives only on value match</span>
+    int ra = (n.right != null &amp;&amp; n.right.val == n.val) ? r + 1 : 0;
+    best = Math.max(best, la + ra);          <span class="cmt">// bent path through n → record</span>
+    return Math.max(la, ra);                 <span class="cmt">// straight arm ending at n → return</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(h) — one postorder pass, same as diameter.</p>
+<div class="callout trap">
+  <span class="label">Two classic bugs</span>
+  (1) Skipping the recursion into a mismatching child — wrong: the answer path may live entirely
+  <em>inside</em> that subtree; you recurse everywhere and only reset the <em>arm</em> to 0.
+  (2) Counting nodes instead of edges — 687's answer is in edges, so a single node scores 0.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 687 · Longest Univalue Path</strong> (Medium) — this template; test on a tree of all-equal values (the arms chain the whole way up).</li>
+  <li><strong>LC 1372 · Longest ZigZag Path in a Binary Tree</strong> (Medium) — same reset-the-arm idea, keyed on <em>direction</em> instead of value: a left-step extends the child's right-arm and kills its left-arm.</li>
+</ul>
+
+<h3>Binary Tree Cameras (968) — a three-value state enum</h3>
+<pre><code><span class="cmt">// States: 0 = needs cover, 1 = covered (no camera), 2 = has camera.</span>
+int cameras = 0;
+int minCameraCover(TreeNode root) {
+    if (dfs(root) == 0) cameras++;         <span class="cmt">// root left uncovered → it needs its own camera</span>
+    return cameras;
+}
+int dfs(TreeNode n) {
+    if (n == null) return 1;               <span class="cmt">// null pretends to be covered → leaves report 0</span>
+    int l = dfs(n.left), r = dfs(n.right);
+    if (l == 0 || r == 0) { cameras++; return 2; } <span class="cmt">// a child needs cover → camera HERE</span>
+    if (l == 2 || r == 2) return 1;        <span class="cmt">// a child's camera watches me → covered</span>
+    return 0;                              <span class="cmt">// children fine but nobody watches me → ask parent</span>
+}</code></pre>
+<p>Why parents, not leaves, get cameras: a camera on a leaf covers 2 nodes; on the leaf's parent it covers up to 4. The state machine encodes exactly that greedy.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 968 · Binary Tree Cameras</strong> (Hard) — the three-state enum above; re-derive out loud why <code>null</code> returns "covered" before you code.</li>
+  <li><strong>LC 1443 · Minimum Time to Collect All Apples</strong> (Medium) — the returned state is "is this subtree worth entering?" — a child that returns cost 0 and no apples contributes nothing; otherwise add its cost + 2 edges.</li>
+</ul>
+
+<h3>Distribute Coins (979) — return the flow, count the moves</h3>
+<pre><code>int moves = 0;
+int distributeCoins(TreeNode root) { excess(root); return moves; }
+int excess(TreeNode n) {                   <span class="cmt">// (coins in subtree) − (nodes in subtree)</span>
+    if (n == null) return 0;
+    int flow = excess(n.left) + excess(n.right) + n.val - 1;  <span class="cmt">// keep 1 coin for myself</span>
+    moves += Math.abs(flow);               <span class="cmt">// every surplus/deficit coin crosses my parent edge</span>
+    return flow;
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 979 · Distribute Coins in Binary Tree</strong> (Medium) — the flow template above; convince yourself why surplus and deficit both cost |flow| moves on the parent edge.</li>
+  <li><strong>LC 2049 · Count Nodes With the Highest Score</strong> (Medium) — same "return a subtree fact" move: return subtree <em>size</em>; deleting a node splits the tree into components whose sizes you multiply.</li>
+</ul>
+
+<h3>Sum of Distances in Tree (834) — rerooting: two passes, every node gets to be root</h3>
+<p>One DFS from node 0 answers "sum of distances from 0" — but 834 wants that sum for <em>every</em>
+node, and n separate DFS runs are O(n²). <strong>Rerooting</strong> answers all n in two passes.
+State: <code>size[u]</code> = nodes in u's subtree, <code>ans[u]</code> = sum of distances from u.
+<strong>Down-pass</strong> (postorder): compute <code>size[u]</code> and, node by node,
+<code>ans[0]</code> — each child subtree contributes its own internal distances plus one extra edge
+per node in it, so <code>ans[u] += ans[v] + size[v]</code>. Base case: a leaf has
+<code>size = 1</code>, partial <code>ans = 0</code>. <strong>Up-pass</strong> (preorder): moving the
+root one edge from parent to child makes the <code>size[child]</code> nodes in the child's subtree
+one step <em>closer</em> and the other <code>n − size[child]</code> nodes one step <em>farther</em>,
+so the answer transfers in O(1):
+<code>ans[child] = ans[parent] − size[child] + (n − size[child]) = ans[parent] + (n − 2·size[child])</code>.</p>
+
+<div class="callout">
+  <span class="label">When rerooting fires</span>
+  The question asks for an answer with <strong>EVERY node as the root</strong> — "for each node,
+  the sum/count/max over the whole tree" — and n is too big for n separate DFS runs. Recipe:
+  one postorder pass for subtree facts + the root-0 answer, one preorder pass with an O(1)
+  parent→child transfer formula. If you can write that transfer formula, the problem is done.
+</div>
+
+<pre><code>int n; int[] size, ans;
+List&lt;List&lt;Integer&gt;&gt; g;
+int[] sumOfDistancesInTree(int n, int[][] edges) {
+    this.n = n; size = new int[n]; ans = new int[n];
+    g = new ArrayList&lt;&gt;();                        <span class="cmt">// adjacency list — 834 hands you an edge list</span>
+    for (int i = 0; i &lt; n; i++) g.add(new ArrayList&lt;&gt;());
+    for (int[] e : edges) { g.get(e[0]).add(e[1]); g.get(e[1]).add(e[0]); }
+    down(0, -1);                                  <span class="cmt">// pass 1: size[] everywhere + ans[0] correct</span>
+    up(0, -1);                                    <span class="cmt">// pass 2: shift the root down every edge</span>
+    return ans;
+}
+void down(int u, int parent) {                    <span class="cmt">// postorder: subtree sizes + root-0 answer</span>
+    size[u] = 1;
+    for (int v : g.get(u)) if (v != parent) {
+        down(v, u);
+        size[u] += size[v];
+        ans[u]  += ans[v] + size[v];              <span class="cmt">// v's subtree: its distances + 1 extra edge each</span>
+    }
+}
+void up(int u, int parent) {                      <span class="cmt">// preorder: transfer BEFORE recursing</span>
+    for (int v : g.get(u)) if (v != parent) {
+        ans[v] = ans[u] + n - 2 * size[v];        <span class="cmt">// size[v] nodes get closer, n−size[v] get farther</span>
+        up(v, u);
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n) — two linear DFS passes instead of n. <strong>Space</strong> O(n) for the
+adjacency list and arrays, O(h) recursion stack. This is the CP end of tree DP: know the
+two-pass shape and the transfer formula cold; deriving novel transfer formulas under interview
+pressure is beyond intern scope.</p>
+
+<div class="callout trap">
+  <span class="label">Order bugs that break rerooting</span>
+  In the up-pass, <code>ans[v]</code> must be set from <code>ans[u]</code> <em>before</em> recursing into
+  <code>v</code> — preorder, the mirror of the down-pass's postorder. And after the down-pass,
+  only <code>ans[0]</code> is a real answer; every other <code>ans[u]</code> is a <em>partial</em>
+  (subtree-only) sum that the up-pass overwrites. Returning the array without the up-pass is the
+  classic half-solution.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 834 · Sum of Distances in Tree</strong> (Hard) — the two-pass template verbatim; re-derive <code>n − 2·size[child]</code> before you peek.</li>
+  <li><strong>LC 310 · Minimum Height Trees</strong> (Medium) — a "which root is best?" question; solvable by rerooting max-depth, or by the leaf-peeling BFS — do it both ways and compare.</li>
+  <li><strong>LC 2581 · Count Number of Possible Root Nodes</strong> (Hard, stretch) — rerooting where the down-pass counts correct guesses for root 0 and each parent→child shift flips at most the one guess on that edge.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>House Robber III on <code>root = [3,2,3,null,3,null,1]</code>. Each node shows its computed
+<code>{rob, skip}</code> pair — filled bottom-up by the postorder DFS:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 340 235" role="img" aria-label="A five-node binary tree: root 3 with children 2 and 3; node 2 has right child 3, the right node 3 has right child 1. Each node is annotated with its rob and skip values.">
+  <line class="edge" x1="160" y1="45" x2="90"  y2="115"/>
+  <line class="edge" x1="160" y1="45" x2="230" y2="115"/>
+  <line class="edge" x1="90"  y1="115" x2="125" y2="185"/>
+  <line class="edge" x1="230" y1="115" x2="265" y2="185"/>
+  <circle class="node cur" cx="160" cy="45" r="18"/><text class="lbl inv" x="160" y="45">3</text>
+  <text class="wt" x="222" y="35">{rob 7, skip 6}</text>
+  <circle class="node done" cx="90" cy="115" r="18"/><text class="lbl" x="90" y="115">2</text>
+  <text class="wt" x="42" y="110">{2, 3}</text>
+  <circle class="node done" cx="230" cy="115" r="18"/><text class="lbl" x="230" y="115">3</text>
+  <text class="wt" x="285" y="110">{3, 1}</text>
+  <circle class="node done" cx="125" cy="185" r="18"/><text class="lbl" x="125" y="185">3</text>
+  <text class="wt" x="125" y="222">{3, 0}</text>
+  <circle class="node done" cx="265" cy="185" r="18"/><text class="lbl" x="265" y="185">1</text>
+  <text class="wt" x="265" y="222">{1, 0}</text>
+</svg>
+<figcaption>Postorder fills the leaves first, then combines upward. Answer = max at the root = 7 (rob root 3 + both grandchildren 3 and 1).</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">dfs(leaf 3): children null → {0,0}. rob = 3+0+0 = 3, skip = 0 → <span class="ptr">{3, 0}</span></span>
+<span class="step">dfs(node 2): left null, right {3,0}. rob = 2 + 0(rightSkip) = 2; skip = max(3,0) = 3 → <span class="ptr">{2, 3}</span></span>
+<span class="step">dfs(leaf 1): → <span class="ptr">{1, 0}</span></span>
+<span class="step">dfs(node 3, right): rob = 3 + 0(leftSkip) + 0(rightSkip) = 3; skip = max(1,0) = 1 → <span class="ptr">{3, 1}</span></span>
+<span class="step now">dfs(root 3): rob = 3 + L.skip(3) + R.skip(1) = <span class="ptr">7</span>; skip = max(2,3) + max(3,1) = 3+3 = 6 → {7, 6}</span>
+<span class="step">answer = max(7, 6) = <span class="ptr">7</span> — rob the root and the two grandchildren</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Null base case first.</strong> Decide what a missing subtree reports — <code>{0,0}</code> for robber, <code>0</code> for height, <code>1</code> ("covered") for cameras — and get it right before anything else.</li>
+  <li><strong>Return vs record:</strong> path-<em>through</em>-node answers go into a global; only the <em>extendable</em> (straight) value is returned. Returning the bent path corrupts every ancestor.</li>
+  <li><strong>Negative values (124):</strong> initialize <code>best</code> to <code>Integer.MIN_VALUE</code>, not 0, and clamp child gains with <code>Math.max(0, ·)</code> — an all-negative tree's answer is its largest single node.</li>
+  <li><strong>Single-node tree:</strong> the combine step must degrade gracefully when both children are null.</li>
+  <li><strong>Skewed trees:</strong> recursion depth = n in the worst case; for n ~ 10⁵ mention an iterative postorder (rarely required, always worth saying).</li>
+  <li><strong>Don't recompute subtree facts</strong> (heights, sums) with separate helpers per node — that's the O(n²) trap. One postorder pass computes and consumes them.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In House Robber III, <code>dfs</code> returns <code>{rob, skip}</code>. The correct value of <code>skip</code> (node not robbed) is:</div>
+  <button class="opt"><code>L.skip + R.skip</code> — if I'm skipped, my children must be skipped too</button>
+  <button class="opt"><code>max(L.rob, L.skip) + max(R.rob, R.skip)</code> — each child independently chooses its better option</button>
+  <button class="opt"><code>L.rob + R.rob</code> — skipping me means both children are always robbed</button>
+  <div class="fb" data-correct="Skipping a node frees each child to make its own best choice — robbed or not. Forcing either choice on the children undercounts." data-wrong="The constraint only forbids robbing ADJACENT nodes. A skipped parent puts no constraint on children, so each child takes max(rob, skip) independently."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 124 (Maximum Path Sum), why does <code>gain(n)</code> return <code>n.val + max(l, r)</code> instead of <code>n.val + l + r</code>?</div>
+  <button class="opt">Returning both arms would double-count <code>n.val</code> in the parent's computation</button>
+  <button class="opt">Because <code>l + r</code> can overflow int while a single arm cannot</button>
+  <button class="opt">A path using both arms bends at <code>n</code>, so it cannot extend up to the parent — it's recorded globally, never returned</button>
+  <div class="fb" data-correct="Exactly the return-vs-record distinction: the bent (through-node) path is a complete candidate answer, but only a straight one-arm path can be prolonged by an ancestor." data-wrong="Think about path shape: a path that goes left-arm → n → right-arm has already 'turned'. The parent can only extend a straight path, so the function returns one arm and records the bent total in a global."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Binary Tree Cameras (968), the DFS makes <code>null</code> children return "covered" (state 1). What does this achieve?</div>
+  <button class="opt">Leaves see all-covered children and return "needs cover", so cameras land on leaf <em>parents</em> — each covering more nodes</button>
+  <button class="opt">It guarantees every leaf receives its own camera, which is optimal for wide trees</button>
+  <button class="opt">It lets the recursion terminate without a special base case for one-child nodes</button>
+  <div class="fb" data-correct="A leaf with 'covered' children falls through to state 0 (needs cover), which forces its PARENT to take the camera — a parent camera covers up to 4 nodes vs a leaf camera's 2." data-wrong="Trace a leaf: children are null → both 'covered' → no child needs cover, no child has a camera → the leaf returns 0 (needs cover), pushing the camera to its parent, where it covers more."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://takeuforward.org/data-structure/maximum-sum-path-in-binary-tree/">Striver — Maximum Path Sum in Binary Tree</a> (the return-vs-record idea drawn out) and <a href="https://neetcode.io/problems/house-robber-iii">NeetCode — House Robber III</a>. Reference: <a href="https://cp-algorithms.com/graph/tree_painting.html">CP-Algorithms — rerooting-style tree DP</a> for 834-depth.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 543 (Diameter) → LC 687 (Longest Univalue Path) → LC 337 (House Robber III) → <strong>LC 124 (Max Path Sum — Google-reported, drill from a blank file twice)</strong> → LC 968 (Cameras) → LC 979 (Distribute Coins) → LC 834 (Sum of Distances — stretch/CP).</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0011-bitmask-dp.html">DP Lesson 11 — Bitmask DP</a>.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure when to return a tuple vs update a global, want me to dry-run cameras on a sample tree, or
+  curious how rerooting shifts the answer edge by edge? Ask in the chat. When you can write House
+  Robber III and Max Path Sum from memory — including the null base cases — say <strong>"next"</strong>
+  and we compress subsets into integers with bitmask DP.
+</div>
+
+<div class="nav">
+  <span><a href="0009-interval-dp.html">← Interval DP</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0011-bitmask-dp.html">Bitmask DP →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

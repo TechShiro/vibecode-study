@@ -1,0 +1,350 @@
+<title>String Matching</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Design and Analysis of Algorithms &middot; Unit II &middot; Lesson 15 of 15</p>
+<h1>String Matching &mdash; KMP and Boyer&ndash;Moore</h1>
+<p class="deck">The naive algorithm and why it is slow, the KMP failure function computed cell by cell with a full trace, Boyer&ndash;Moore's bad-character and good-suffix rules with a worked example, and the comparison table.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Compute the LPS / failure function for the given pattern&rdquo; is the single most likely question here</strong> &mdash; it is short, mechanical, and worth 5 marks. Learn the table-building rule until it is automatic. Then <strong>&ldquo;Search for the pattern in the text using KMP, showing all comparisons&rdquo;</strong>. For Boyer&ndash;Moore, the <strong>bad-character rule</strong> is what gets examined; the good-suffix rule is usually only described. Learn the <strong>complexity comparison</strong> too &mdash; especially that Boyer&ndash;Moore can be <strong>sublinear</strong>, which surprises people.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">KMP String Matching Algorithm & &pi; (LPS) Prefix Array Engine</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>&pi;[i] = Length of longest proper prefix of Pattern[0...i] that is also a suffix</strong>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>Mismatch at Pattern[j] while matching Text[i]:</strong>
+      <span class="sub">Do NOT roll back text pointer i! Shift pattern: <strong>j = &pi;[j - 1]</strong> &bull; Total Time: O(n + m)</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 22 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">KMP Pattern Matching</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">9.1 Knuth-Morris-Pratt KMP String Matching Algorithm</div>
+    <div class="v-desc">Detailed trace of LPS array construction and deterministic mismatch recovery in linear time with zero backtracking.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=V5-7GzOfADQ" target="_blank" rel="noopener">Watch on YouTube &rarr; (Abdul Bari)</a>
+  </div>
+</div>
+
+<h2>The problem</h2>
+
+<div class="formula">
+  <span class="name">Statement</span>
+  Given a <strong>text T</strong> of length <strong>n</strong> and a <strong>pattern P</strong> of length <strong>m</strong>, both over an alphabet &Sigma;, find <strong>all shifts s</strong> (0 &le; s &le; n &minus; m) at which <strong>P occurs in T</strong>, that is, at which T[s+1 &hellip; s+m] = P[1 &hellip; m].
+</div>
+
+<h2>1. The naive (brute-force) algorithm</h2>
+
+<div class="formula">
+  <span class="name">The algorithm</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  NAIVE-STRING-MATCHER(T, P)<br>
+  &nbsp;&nbsp; for s = 0 to n &minus; m<br>
+  &nbsp;&nbsp;&nbsp;&nbsp; if P[1 &hellip; m] == T[s+1 &hellip; s+m]<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; print "pattern occurs with shift" s
+  </div>
+  <span style="font-size:.85em">Slide the pattern one position at a time and compare all m characters at each of the n &minus; m + 1 positions.</span>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Case</th><th>Comparisons</th><th>When</th></tr></thead>
+<tbody>
+<tr><td><strong>Best</strong></td><td>&Theta;(n)</td><td>The first character always mismatches &mdash; T = &ldquo;AAAA&hellip;A&rdquo;, P = &ldquo;BAAA&rdquo;</td></tr>
+<tr><td><strong>Worst</strong></td><td><strong>&Theta;((n &minus; m + 1)m) = &Theta;(nm)</strong></td><td>T = &ldquo;AAAA&hellip;A&rdquo;, P = &ldquo;AAAB&rdquo; &mdash; every position matches m&minus;1 characters before failing</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why it is wasteful &mdash; the observation both better algorithms are built on</span>
+  <p><strong>The naive algorithm throws away everything it learnt.</strong> If P = &ldquo;ABABC&rdquo; and the first four characters matched before the fifth failed, we <em>know</em> the text contains &ldquo;ABAB&rdquo; there &mdash; so we know sliding by one must fail, and by two might work. <strong>KMP exploits what matched; Boyer&ndash;Moore exploits what mismatched.</strong> That single sentence frames the whole lesson.</p>
+</div>
+
+<h2>2. The Knuth&ndash;Morris&ndash;Pratt algorithm</h2>
+
+<div class="formula">
+  <span class="name">The idea</span>
+  Preprocess the <strong>pattern</strong> to build the <strong>LPS array</strong> &mdash; <em>Longest Proper Prefix which is also a Suffix</em>, also called the <strong>failure function</strong> &pi;.<br><br>
+  <strong>LPS[i] = the length of the longest proper prefix of P[0 &hellip; i] that is also a suffix of P[0 &hellip; i].</strong><br><br>
+  <em>&ldquo;Proper&rdquo; means it cannot be the whole string.</em><br><br>
+  On a mismatch after j characters have matched, <strong>do not move the text pointer at all</strong> &mdash; instead set <strong>j = LPS[j &minus; 1]</strong> and try again.
+</div>
+
+<h3>Building the LPS array</h3>
+
+<div class="formula">
+  <span class="name">The rule</span>
+  <div style="font-family:ui-monospace,monospace; font-size:.82rem; text-align:left">
+  len = 0; &nbsp; LPS[0] = 0; &nbsp; i = 1;<br>
+  while (i &lt; m) {<br>
+  &nbsp;&nbsp; if (P[i] == P[len]) { <strong>len++; LPS[i] = len; i++;</strong> }<br>
+  &nbsp;&nbsp; else if (len != 0) { <strong>len = LPS[len &minus; 1];</strong> }&nbsp;&nbsp;/* do NOT increment i */<br>
+  &nbsp;&nbsp; else { <strong>LPS[i] = 0; i++;</strong> }<br>
+  }
+  </div>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Compute the LPS array for P = &ldquo;ABABCABAB&rdquo; (m = 9).</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">i</th><th class="num">P[i]</th><th>Working</th><th class="num">LPS[i]</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td class="num">A</td><td>By definition</td><td class="num"><strong>0</strong></td></tr>
+  <tr><td class="num">1</td><td class="num">B</td><td>len = 0: P[1] = B &ne; P[0] = A, and len is already 0</td><td class="num"><strong>0</strong></td></tr>
+  <tr><td class="num">2</td><td class="num">A</td><td>P[2] = A = P[0] &rarr; len becomes 1</td><td class="num"><strong>1</strong></td></tr>
+  <tr><td class="num">3</td><td class="num">B</td><td>P[3] = B = P[1] &rarr; len becomes 2</td><td class="num"><strong>2</strong></td></tr>
+  <tr><td class="num">4</td><td class="num">C</td><td>P[4] = C &ne; P[2] = A. len = LPS[1] = 0. Now P[4] = C &ne; P[0] = A, and len = 0</td><td class="num"><strong>0</strong></td></tr>
+  <tr><td class="num">5</td><td class="num">A</td><td>P[5] = A = P[0] &rarr; len becomes 1</td><td class="num"><strong>1</strong></td></tr>
+  <tr><td class="num">6</td><td class="num">B</td><td>P[6] = B = P[1] &rarr; len becomes 2</td><td class="num"><strong>2</strong></td></tr>
+  <tr><td class="num">7</td><td class="num">A</td><td>P[7] = A = P[2] &rarr; len becomes 3</td><td class="num"><strong>3</strong></td></tr>
+  <tr><td class="num">8</td><td class="num">B</td><td>P[8] = B = P[3] &rarr; len becomes 4</td><td class="num"><strong>4</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.9rem"><strong>LPS = [0, 0, 1, 2, 0, 1, 2, 3, 4]</strong></p>
+  <p><strong>Verify LPS[8] = 4 by hand:</strong> the string is &ldquo;ABABCABAB&rdquo;. Its prefixes are A, AB, ABA, ABAB, ABABC, &hellip;; its suffixes are B, AB, BAB, ABAB, CABAB, &hellip;. The longest proper prefix that is also a suffix is <strong>&ldquo;ABAB&rdquo;, of length 4</strong>. &check; <strong>Always spot-check one entry this way</strong> &mdash; it catches a whole wrong table.</p>
+  <p><em>Two sanity rules:</em> <strong>LPS[0] is always 0</strong>, and <strong>LPS[i] can never exceed i</strong> (the prefix must be proper). <strong>LPS values can also only increase by at most 1 at a time</strong>, though they may drop by more.</p>
+</div>
+
+<h3>The search</h3>
+
+<div class="solve">
+  <span class="lbl">Q. Search for P = &ldquo;ABABCABAB&rdquo; in T = &ldquo;ABABDABACDABABCABAB&rdquo; (n = 19).</span>
+  <p style="font-family:ui-monospace,monospace; font-size:.78rem">index: 0&nbsp;1&nbsp;2&nbsp;3&nbsp;4&nbsp;5&nbsp;6&nbsp;7&nbsp;8&nbsp;9&nbsp;10 11 12 13 14 15 16 17 18<br>
+  T:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A&nbsp;B&nbsp;A&nbsp;B&nbsp;D&nbsp;A&nbsp;B&nbsp;A&nbsp;C&nbsp;D&nbsp;&nbsp;A&nbsp;&nbsp;B&nbsp;&nbsp;A&nbsp;&nbsp;B&nbsp;&nbsp;C&nbsp;&nbsp;A&nbsp;&nbsp;B&nbsp;&nbsp;A&nbsp;&nbsp;B</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">i (text)</th><th class="num">j (pattern)</th><th>Comparison</th><th>Action</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0&ndash;3</td><td class="num">0&ndash;3</td><td>A=A, B=B, A=A, B=B</td><td>Four matches; i = 4, j = 4</td></tr>
+  <tr><td class="num">4</td><td class="num">4</td><td>T[4] = D vs P[4] = C</td><td><strong>Mismatch.</strong> j &ne; 0, so <strong>j = LPS[3] = 2</strong>. <em>i does not move.</em></td></tr>
+  <tr><td class="num">4</td><td class="num">2</td><td>D vs P[2] = A</td><td>Mismatch. <strong>j = LPS[1] = 0</strong></td></tr>
+  <tr><td class="num">4</td><td class="num">0</td><td>D vs P[0] = A</td><td>Mismatch and j = 0, so <strong>i = 5</strong></td></tr>
+  <tr><td class="num">5&ndash;7</td><td class="num">0&ndash;2</td><td>A=A, B=B, A=A</td><td>Three matches; i = 8, j = 3</td></tr>
+  <tr><td class="num">8</td><td class="num">3</td><td>T[8] = C vs P[3] = B</td><td>Mismatch. <strong>j = LPS[2] = 1</strong></td></tr>
+  <tr><td class="num">8</td><td class="num">1</td><td>C vs P[1] = B</td><td>Mismatch. <strong>j = LPS[0] = 0</strong></td></tr>
+  <tr><td class="num">8</td><td class="num">0</td><td>C vs P[0] = A</td><td>Mismatch, j = 0, so <strong>i = 9</strong></td></tr>
+  <tr><td class="num">9</td><td class="num">0</td><td>T[9] = D vs A</td><td>Mismatch, <strong>i = 10</strong></td></tr>
+  <tr><td class="num">10&ndash;18</td><td class="num">0&ndash;8</td><td>A B A B C A B A B &mdash; all nine match</td><td>j reaches 9 = m</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Pattern found at shift i &minus; j = 19 &minus; 9 = 10.</strong> &check;</p>
+  <p><strong>The property to state:</strong> <strong>the text pointer i never moves backwards</strong>. Every character of T is examined at most once for advancing, so the search is <strong>&Theta;(n)</strong>, and with &Theta;(m) preprocessing the total is <strong>&Theta;(n + m)</strong> &mdash; <em>in every case, best and worst alike</em>.</p>
+</div>
+
+<h2>3. The Boyer&ndash;Moore algorithm</h2>
+
+<div class="formula">
+  <span class="name">The two ideas</span>
+  <strong>1. Compare from RIGHT to LEFT</strong> within the pattern, though the pattern still slides left to right along the text.<br>
+  <strong>2. On a mismatch, shift by the MAXIMUM of two rules:</strong> the <strong>bad-character rule</strong> and the <strong>good-suffix rule</strong>.
+</div>
+
+<h3>The bad-character rule</h3>
+
+<div class="formula">
+  <span class="name">The rule</span>
+  Let the mismatch occur at pattern position j against text character <strong>c</strong>.<br><br>
+  <strong>If c occurs in the pattern:</strong> shift so that the <strong>rightmost occurrence of c in P[0 &hellip; j&minus;1]</strong> aligns with that text position.<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>shift = max(1, j &minus; last[c])</strong><br><br>
+  <strong>If c does not occur in the pattern at all:</strong> the pattern can be moved <strong>entirely past c</strong>.<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;<strong>shift = j + 1</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Q. Search for P = &ldquo;ABC&rdquo; in T = &ldquo;ABAAABCD&rdquo; using the bad-character rule. n = 8, m = 3.</span>
+  <p><strong>Step 1 &mdash; the last-occurrence table.</strong> For each character, the rightmost index at which it appears in P:</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Character</th><th class="num">A</th><th class="num">B</th><th class="num">C</th><th>any other</th></tr></thead>
+  <tbody>
+  <tr><td><strong>last[c]</strong></td><td class="num">0</td><td class="num">1</td><td class="num">2</td><td class="num"><strong>&minus;1</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Step 2 &mdash; the search, comparing right to left at each shift.</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Shift s</th><th>Alignment</th><th>Comparison (right to left)</th><th>Shift by</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0</td><td>ABC vs T[0..2] = ABA</td><td>j = 2: T[2] = <strong>A</strong> vs P[2] = C &rarr; <strong>mismatch</strong></td><td>max(1, 2 &minus; last[A]) = max(1, 2 &minus; 0) = <strong>2</strong></td></tr>
+  <tr><td class="num">2</td><td>ABC vs T[2..4] = AAA</td><td>j = 2: T[4] = <strong>A</strong> vs C &rarr; <strong>mismatch</strong></td><td>max(1, 2 &minus; 0) = <strong>2</strong></td></tr>
+  <tr><td class="num">4</td><td>ABC vs T[4..6] = ABC</td><td>j = 2: C = C &check; &nbsp; j = 1: B = B &check; &nbsp; j = 0: A = A &check;</td><td><strong>MATCH at shift 4</strong></td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Pattern found at index 4.</strong> &check;</p>
+  <p><em>Count the work:</em> Boyer&ndash;Moore made <strong>5 comparisons</strong> in total. The naive algorithm would have made far more, and would have tested every shift from 0 to 5. <strong>Shifting by 2 each time means some text characters were never examined at all</strong> &mdash; which is how the algorithm becomes sublinear.</p>
+</div>
+
+<h3>The good-suffix rule</h3>
+
+<div class="formula">
+  <span class="name">The rule &mdash; three cases</span>
+  Suppose the characters P[j+1 &hellip; m&minus;1] matched (call this the <strong>good suffix</strong>) before P[j] mismatched.<br><br>
+  <strong>Case 1.</strong> The good suffix occurs <strong>elsewhere in P</strong>, preceded by a <em>different</em> character &rarr; shift so that <strong>that other occurrence</strong> aligns with the text.<br>
+  <strong>Case 2.</strong> The good suffix does <strong>not</strong> occur again, but a <strong>suffix of the good suffix is a prefix of P</strong> &rarr; shift so that <strong>that prefix</strong> aligns.<br>
+  <strong>Case 3.</strong> Neither &rarr; shift the pattern <strong>past the good suffix entirely</strong>, by m.
+</div>
+
+<div class="box win">
+  <span class="lbl">How to describe the two rules in one line each</span>
+  <p><strong>Bad character:</strong> &ldquo;align the mismatched <em>text</em> character with its rightmost occurrence in the pattern, or skip past it entirely if it does not occur.&rdquo;</p>
+  <p><strong>Good suffix:</strong> &ldquo;align the part that <em>did</em> match with another occurrence of it in the pattern, or with a prefix of the pattern.&rdquo;</p>
+  <p><strong>Boyer&ndash;Moore takes the LARGER of the two shifts</strong> &mdash; both are safe, so taking the bigger can never miss a match.</p>
+</div>
+
+<h2>The comparison table</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Naive</strong></th><th><strong>KMP</strong></th><th><strong>Boyer&ndash;Moore</strong></th><th>Rabin&ndash;Karp</th></tr></thead>
+<tbody>
+<tr><td><strong>Preprocessing</strong></td><td>None</td><td>&Theta;(m) &mdash; the LPS array</td><td>&Theta;(m + |&Sigma;|) &mdash; the two tables</td><td>&Theta;(m)</td></tr>
+<tr><td><strong>Matching &mdash; worst</strong></td><td><strong>O(nm)</strong></td><td><strong>&Theta;(n)</strong></td><td>O(nm)</td><td>O(nm)</td></tr>
+<tr><td><strong>Matching &mdash; best</strong></td><td>&Omega;(n)</td><td>&Theta;(n)</td><td><strong>&Omega;(n/m)</strong> &mdash; sublinear</td><td>&Omega;(n + m)</td></tr>
+<tr><td><strong>Total worst</strong></td><td>O(nm)</td><td><strong>&Theta;(n + m)</strong></td><td>O(nm)</td><td>O(nm)</td></tr>
+<tr><td><strong>Total average</strong></td><td>O(n + m)</td><td>&Theta;(n + m)</td><td><strong>Sublinear &mdash; the fastest in practice</strong></td><td>O(n + m)</td></tr>
+<tr><td><strong>Compares</strong></td><td>Left to right</td><td>Left to right</td><td><strong>Right to left</strong></td><td>Hash values</td></tr>
+<tr><td><strong>Exploits</strong></td><td>Nothing</td><td><strong>What MATCHED</strong> &mdash; the prefix&ndash;suffix structure of P</td><td><strong>What MISMATCHED</strong> &mdash; and what matched</td><td>Rolling hash</td></tr>
+<tr><td><strong>Text pointer</strong></td><td>Backtracks</td><td><strong>Never backtracks</strong></td><td>Jumps forward</td><td>Never backtracks</td></tr>
+<tr><td><strong>Extra space</strong></td><td>O(1)</td><td>O(m)</td><td>O(m + |&Sigma;|)</td><td>O(1)</td></tr>
+<tr><td><strong>Best when</strong></td><td>m is tiny</td><td>A <strong>worst-case guarantee</strong> is needed; streaming text</td><td><strong>The alphabet is large and the pattern long</strong> &mdash; text editors, <code>grep</code></td><td>Multiple patterns; plagiarism detection</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The two facts worth stating at the end of a comparison answer</span>
+  <p><strong>1. Boyer&ndash;Moore is sublinear in the best and average case</strong> &mdash; it can skip up to m characters at a time, so it may never even look at most of the text. <strong>It is the algorithm used in real text editors and in <code>grep</code>.</strong></p>
+  <p><strong>2. But its worst case is O(nm), no better than naive</strong> &mdash; for example T = &ldquo;AAAA&hellip;A&rdquo; with P = &ldquo;AAAA&rdquo;. <strong>KMP is the one with the guarantee.</strong> The Boyer&ndash;Moore&ndash;Galil variant repairs the worst case to O(n).</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. LPS[i] in the KMP failure function is:</p>
+  <div class="opts">
+    <button class="opt">The number of mismatches so far</button>
+    <button class="opt">The index of the last occurrence of P[i]</button>
+    <button class="opt">Always equal to i</button>
+    <button class="opt" data-ok="1">The length of the longest proper prefix of P[0…i] that is also a suffix of it</button>
+  </div>
+  <p class="why">&ldquo;Proper&rdquo; means it cannot be the whole string, so LPS[i] can never exceed i, and LPS[0] is always 0.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. The LPS array for &ldquo;ABABCABAB&rdquo; is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">[0, 0, 1, 2, 0, 1, 2, 3, 4]</button>
+    <button class="opt">[0, 1, 2, 3, 4, 5, 6, 7, 8]</button>
+    <button class="opt">[0, 0, 1, 2, 3, 4, 5, 6, 7]</button>
+    <button class="opt">[0, 0, 0, 0, 0, 1, 2, 3, 4]</button>
+  </div>
+  <p class="why">The C at index 4 resets the run to 0. Check the last entry by hand: the longest proper prefix of &ldquo;ABABCABAB&rdquo; that is also a suffix is &ldquo;ABAB&rdquo;, of length 4.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. On a KMP mismatch after j characters have matched, you set:</p>
+  <div class="opts">
+    <button class="opt">j = j − 1 and move the text pointer forward</button>
+    <button class="opt">j = 0 and move the text pointer back</button>
+    <button class="opt" data-ok="1">j = LPS[j − 1], leaving the text pointer where it is</button>
+    <button class="opt">j = LPS[j] and move the text pointer forward</button>
+  </div>
+  <p class="why">The text pointer never backtracks — that is what makes the search Θ(n). Only when j is already 0 does the text pointer advance.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. KMP's total running time is:</p>
+  <div class="opts">
+    <button class="opt">O(nm) in the worst case</button>
+    <button class="opt">Sublinear on average</button>
+    <button class="opt" data-ok="1">Θ(n + m) in every case</button>
+    <button class="opt">Θ(n log m)</button>
+  </div>
+  <p class="why">Θ(m) to build the LPS array plus Θ(n) to search, with no dependence on the data. Sublinear behaviour belongs to Boyer–Moore.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Boyer–Moore compares characters:</p>
+  <div class="opts">
+    <button class="opt">Left to right within the pattern</button>
+    <button class="opt">In random order</button>
+    <button class="opt">From the middle outward</button>
+    <button class="opt" data-ok="1">Right to left within the pattern, while sliding the pattern left to right</button>
+  </div>
+  <p class="why">Right-to-left comparison is what makes the bad-character rule powerful: a mismatch at the far right can justify skipping the whole pattern length forward.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. If the mismatched text character does not appear in the pattern at all, Boyer–Moore shifts by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">j + 1 — moving the pattern entirely past that character</button>
+    <button class="opt">Always m</button>
+    <button class="opt">1</button>
+    <button class="opt">m − j</button>
+  </div>
+  <p class="why">No alignment that keeps the pattern over that character can ever match, so it can be skipped completely. This is why a large alphabet makes Boyer–Moore fast.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. Boyer–Moore's worst-case complexity is:</p>
+  <div class="opts">
+    <button class="opt">Θ(n log n)</button>
+    <button class="opt">Always sublinear</button>
+    <button class="opt" data-ok="1">O(nm) — no better than naive, for instance on T = &ldquo;AAAA…&rdquo; with P = &ldquo;AAAA&rdquo;</button>
+    <button class="opt">Θ(n + m), like KMP</button>
+  </div>
+  <p class="why">It is the fastest in practice but carries no worst-case guarantee. KMP is the one with the guarantee; the Boyer–Moore–Galil variant repairs the worst case to O(n).</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>State the string-matching problem and the naive algorithm's complexity.</summary>
+    <p class="ans">Given a text of length n and a pattern of length m, find all shifts at which the pattern occurs. The naive algorithm slides the pattern one position at a time and compares all m characters, costing &Theta;(n) at best and &Theta;((n − m + 1)m) = &Theta;(nm) at worst — for example T = &ldquo;AAA…A&rdquo; with P = &ldquo;AAAB&rdquo;.</p></details>
+  <details class="card"><summary>What do KMP and Boyer&ndash;Moore each exploit?</summary>
+    <p class="ans">The naive algorithm discards everything it learnt from a partial match. KMP exploits what matched — the prefix-suffix structure of the pattern. Boyer–Moore exploits what mismatched, through the bad-character rule, as well as what matched, through the good-suffix rule.</p></details>
+  <details class="card"><summary>Define the LPS array and give the rule for building it.</summary>
+    <p class="ans">LPS[i] is the length of the longest proper prefix of P[0…i] that is also a suffix of it. Build it with len = 0 and LPS[0] = 0; if P[i] equals P[len], increment len, set LPS[i] = len and advance i; otherwise if len is non-zero set len = LPS[len−1] without advancing i; otherwise set LPS[i] = 0 and advance i.</p></details>
+  <details class="card"><summary>Give the LPS array for &ldquo;ABABCABAB&rdquo; and verify the last entry.</summary>
+    <p class="ans">[0, 0, 1, 2, 0, 1, 2, 3, 4]. The last entry is 4 because the longest proper prefix of the whole pattern that is also a suffix is &ldquo;ABAB&rdquo;.</p></details>
+  <details class="card"><summary>Describe the KMP search and its complexity.</summary>
+    <p class="ans">Compare left to right; on a mismatch after j matches, set j = LPS[j−1] without moving the text pointer, and if j is already 0 advance the text pointer instead. The text pointer never backtracks, so the search is &Theta;(n) and the total, including &Theta;(m) preprocessing, is &Theta;(n + m) in every case.</p></details>
+  <details class="card"><summary>State Boyer&ndash;Moore's two rules.</summary>
+    <p class="ans">Bad character: on a mismatch at pattern position j against text character c, shift by max(1, j − last[c]) so the rightmost occurrence of c in the pattern aligns; if c does not occur in the pattern at all, shift by j + 1 and skip past it. Good suffix: align the part that already matched with another occurrence of it in the pattern, or with a prefix of the pattern, or shift past it entirely. Take the larger of the two shifts.</p></details>
+  <details class="card"><summary>Compare naive, KMP and Boyer&ndash;Moore.</summary>
+    <p class="ans">Naive: no preprocessing, O(nm) worst, O(1) space. KMP: &Theta;(m) preprocessing, &Theta;(n + m) in every case, O(m) space, never backtracks — use it when a worst-case guarantee is needed. Boyer–Moore: &Theta;(m + |&Sigma;|) preprocessing, sublinear &Omega;(n/m) in the best case and fastest in practice, but O(nm) worst — used by text editors and grep, and repaired to O(n) by the Boyer–Moore–Galil variant.</p></details>
+</div>
+
+<p class="ask">That completes Unit II. Both exam sheets are linked below &mdash; use them for the final pass before the paper.</p>
+
+<div class="nav">
+  <a href="0014-linear-time-sorting.html">&larr; Sorting in Linear Time</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../unit-3/0016-graph-representation-bfs-dfs.html">Next: Graphs &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

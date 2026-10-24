@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 05 — Two-string DP: the LCS family</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 05 of 12 · one 2D table, a dozen problems</div>
+<h1>Two-string DP: the LCS family</h1>
+<p class="subtitle">Longest Common Subsequence is not one problem — it's a template. Match → diagonal + 1; mismatch → best of skip-left / skip-up. Change what "match" and "skip" cost and you get Edit Distance, Distinct Subsequences, and regex matching.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 5 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+With two strings, the state is a <strong>pair of prefixes</strong>: <code>dp[i][j]</code> = answer for
+<code>s1[0..i)</code> vs <code>s2[0..j)</code>. Every transition asks one question — do the last characters
+<code>s1[i-1]</code> and <code>s2[j-1]</code> agree? <strong>Match:</strong> extend the diagonal,
+<code>dp[i-1][j-1]</code>. <strong>Mismatch:</strong> combine the "skip one character" neighbors
+<code>dp[i-1][j]</code> / <code>dp[i][j-1]</code> (or pay an edit cost). That single question, re-costed,
+is the entire family.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  <strong>TWO strings</strong> + any of "common / convert / delete / distance / interleave / match /
+  supersequence". The moment both inputs are strings and the answer depends on aligning them,
+  draw the (m+1) × (n+1) table and ask the match/mismatch question.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<table>
+  <thead><tr><th>Part</th><th>For the LCS family</th></tr></thead>
+  <tbody>
+    <tr><td><strong>State</strong></td><td><code>dp[i][j]</code> = answer for prefixes <code>s1[0..i)</code> and <code>s2[0..j)</code> (note: <em>lengths</em>, so char indices are <code>i-1</code>, <code>j-1</code>).</td></tr>
+    <tr><td><strong>Recurrence</strong></td><td><code>s1[i-1] == s2[j-1]</code> → <code>dp[i-1][j-1] + 1</code> (or +0 for edit distance). Else → combine <code>dp[i-1][j]</code>, <code>dp[i][j-1]</code> (and <code>dp[i-1][j-1]</code> for replace).</td></tr>
+    <tr><td><strong>Base case</strong></td><td>Row 0 / column 0 = answer against the empty string: 0 for LCS, <code>i</code> or <code>j</code> deletions/insertions for Edit Distance, 1 way for counting an empty target.</td></tr>
+    <tr><td><strong>Order</strong></td><td>Row by row, left to right — every cell's three dependencies (up, left, diagonal) are already filled.</td></tr>
+    <tr><td><strong>Answer</strong></td><td><code>dp[m][n]</code>, bottom-right corner.</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · Core template</h2>
+<h3>LCS (LC 1143) — the full 2D table</h3>
+<pre><code>int longestCommonSubsequence(String s1, String s2) {
+    int m = s1.length(), n = s2.length();
+    int[][] dp = new int[m + 1][n + 1];      <span class="cmt">// row 0 / col 0 = vs empty string = 0</span>
+    for (int i = 1; i &lt;= m; i++)
+        for (int j = 1; j &lt;= n; j++)
+            if (s1.charAt(i - 1) == s2.charAt(j - 1))
+                dp[i][j] = dp[i - 1][j - 1] + 1;                  <span class="cmt">// match → extend diagonal</span>
+            else
+                dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);  <span class="cmt">// skip one last char</span>
+    return dp[m][n];
+}</code></pre>
+<pre><code><span class="cmt">// Rolling 1D: each row reads only the previous row → keep two rows, swap.</span>
+int[] prev = new int[n + 1], cur = new int[n + 1];
+for (int i = 1; i &lt;= m; i++) {
+    for (int j = 1; j &lt;= n; j++)
+        cur[j] = s1.charAt(i - 1) == s2.charAt(j - 1)
+               ? prev[j - 1] + 1                  <span class="cmt">// prev[j-1] = the diagonal</span>
+               : Math.max(prev[j], cur[j - 1]);
+    int[] t = prev; prev = cur; cur = t;          <span class="cmt">// swap references, no reallocation</span>
+}
+return prev[n];</code></pre>
+<p><strong>Time</strong> O(m·n). <strong>Space</strong> O(m·n) full table, O(n) rolled. Keep the full table if you must <em>reconstruct</em> the subsequence (walk back from <code>dp[m][n]</code>).</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1143 · Longest Common Subsequence</strong> (Medium) — the template verbatim; write it 2D first, then roll to two rows without peeking.</li>
+  <li><strong>LC 1035 · Uncrossed Lines</strong> (Medium) — LCS in a costume: "non-crossing connecting lines" between two arrays IS the LCS recurrence, unchanged.</li>
+  <li><strong>LC 718 · Maximum Length of Repeated Subarray</strong> (Medium) — the SUBSTRING twin: on mismatch dp[i][j] resets to 0 instead of taking max(up, left); answer = max over all cells, not the corner.</li>
+</ul>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Longest Common Subsequence</td><td>1143</td><td>The template itself: match +1 diagonal, mismatch max(up, left).</td></tr>
+    <tr><td>Edit Distance</td><td>72</td><td>Min ops; mismatch = 1 + min(replace ↖, delete ↑, insert ←); base row/col = i, j.</td></tr>
+    <tr><td>Delete Operation for Two Strings</td><td>583</td><td>No new dp: answer = <code>m + n − 2·LCS</code>.</td></tr>
+    <tr><td>Minimum ASCII Delete Sum</td><td>712</td><td>583 with weights: deleting char c costs its ASCII value; base cases = prefix ASCII sums.</td></tr>
+    <tr><td>Distinct Subsequences</td><td>115</td><td>Counting: skip s's char always; on match, <em>add</em> the diagonal. Column 0 = 1.</td></tr>
+    <tr><td>Is Subsequence</td><td>392</td><td>Two pointers, O(m+n) — the "know when NOT to DP" entry.</td></tr>
+    <tr><td>Interleaving String</td><td>97</td><td>Boolean: dp[i][j] = can s1[0..i)+s2[0..j) weave into s3[0..i+j)? OR of top/left.</td></tr>
+    <tr><td>Shortest Common Supersequence</td><td>1092</td><td>Length = <code>m + n − LCS</code>; the string itself via table walk-back.</td></tr>
+    <tr><td>Regular Expression Matching</td><td>10</td><td><code>'*'</code> binds to the <em>preceding</em> element: zero copies (←←) or one more (↑).</td></tr>
+    <tr><td>Wildcard Matching</td><td>44</td><td><code>'*'</code> stands alone, matches any run: empty (←) or swallow a char and stay (↑).</td></tr>
+  </tbody>
+</table>
+
+<h3>Edit Distance (72) — the three edit operations, one per neighbor</h3>
+<pre><code>int minDistance(String a, String b) {
+    int m = a.length(), n = b.length();
+    int[][] dp = new int[m + 1][n + 1];
+    for (int i = 0; i &lt;= m; i++) dp[i][0] = i;   <span class="cmt">// vs empty b: delete all i chars</span>
+    for (int j = 0; j &lt;= n; j++) dp[0][j] = j;   <span class="cmt">// vs empty a: insert all j chars</span>
+    for (int i = 1; i &lt;= m; i++)
+        for (int j = 1; j &lt;= n; j++)
+            dp[i][j] = a.charAt(i - 1) == b.charAt(j - 1)
+                     ? dp[i - 1][j - 1]                          <span class="cmt">// chars agree — free move</span>
+                     : 1 + Math.min(dp[i - 1][j - 1],            <span class="cmt">// replace  (↖)</span>
+                           Math.min(dp[i - 1][j],                <span class="cmt">// delete a[i-1]  (↑)</span>
+                                    dp[i][j - 1]));              <span class="cmt">// insert b[j-1]  (←)</span>
+    return dp[m][n];
+}</code></pre>
+<p><strong>Time</strong> O(m·n). <strong>Space</strong> O(m·n), rolls to O(n) exactly like LCS (only the previous row is read).</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 72 · Edit Distance</strong> (Medium, Google-reported) — the section's template; dry-run "horse" → "ros" on paper before submitting.</li>
+  <li><strong>LC 583 · Delete Operation for Two Strings</strong> (Medium) — first solve it HERE as delete-only edit distance (drop the replace ↖ branch, base rows stay i and j); the next section re-solves it with LCS arithmetic — do both and compare.</li>
+</ul>
+
+<h3>583, 712 and 1092 — arithmetic on top of LCS, no new table shape</h3>
+<p>
+Three problems that look scary but are the LCS table wearing a hat. <strong>583:</strong> both strings delete
+down to their LCS, so the answer is pure arithmetic. <strong>1092:</strong> a shortest supersequence contains
+each string once but shares the LCS only once — length is arithmetic, and the actual <em>string</em> comes
+from walking the LCS table back from <code>dp[m][n]</code> (emit the diagonal char on match, else move toward
+the larger neighbor emitting the skipped char). <strong>712:</strong> 583 with weights — every delete costs the
+character's ASCII value, so the base row/column become prefix ASCII sums instead of 0, 1, 2, …
+</p>
+<pre><code><span class="cmt">// LC 583: keep the LCS, delete everything else from both strings.</span>
+return m + n - 2 * lcs(word1, word2);
+<span class="cmt">// LC 1092 (length): the supersequence shares the LCS once.</span>
+<span class="cmt">// length = m + n - lcs;  the actual string = walk the LCS table back from dp[m][n].</span></code></pre>
+<pre><code><span class="cmt">// LC 712 — dp[i][j] = min ASCII sum deleted to equalize a[0..i) and b[0..j).</span>
+int minimumDeleteSum(String a, String b) {
+    int m = a.length(), n = b.length();
+    int[][] dp = new int[m + 1][n + 1];
+    for (int i = 1; i &lt;= m; i++) dp[i][0] = dp[i - 1][0] + a.charAt(i - 1);  <span class="cmt">// vs empty b: delete a's whole prefix, ASCII-weighted</span>
+    for (int j = 1; j &lt;= n; j++) dp[0][j] = dp[0][j - 1] + b.charAt(j - 1);
+    for (int i = 1; i &lt;= m; i++)
+        for (int j = 1; j &lt;= n; j++)
+            dp[i][j] = a.charAt(i - 1) == b.charAt(j - 1)
+                     ? dp[i - 1][j - 1]                              <span class="cmt">// match — keep both, pay nothing</span>
+                     : Math.min(dp[i - 1][j] + a.charAt(i - 1),      <span class="cmt">// delete a[i-1], pay its ASCII</span>
+                                dp[i][j - 1] + b.charAt(j - 1));     <span class="cmt">// delete b[j-1], pay its ASCII</span>
+    return dp[m][n];
+}</code></pre>
+<p><strong>Time</strong> O(m·n). <strong>Space</strong> O(m·n), rolls to O(n).</p>
+<div class="callout trap">
+  <span class="label">Trap</span>
+  In 712 the base row/column are NOT 0, 1, 2, … — they are <em>running ASCII sums</em>
+  (<code>dp[i][0] = dp[i-1][0] + a.charAt(i-1)</code>). Copying Edit Distance's <code>dp[i][0] = i</code>
+  seeding here compiles fine and fails on the first test with unequal leftover prefixes.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 583 · Delete Operation for Two Strings</strong> (Medium) — re-solve with this method: one LCS call + <code>m + n − 2·L</code>; confirm it matches your delete-only edit-distance answer.</li>
+  <li><strong>LC 712 · Minimum ASCII Delete Sum</strong> (Medium) — the weighted template above; watch the ASCII-sum base cases.</li>
+  <li><strong>LC 1092 · Shortest Common Supersequence</strong> (Hard) — length is <code>m + n − LCS</code>; the follow-up (build the string) is the LCS walk-back — a favorite Google reconstruction exercise.</li>
+</ul>
+
+<h3>Distinct Subsequences (115) — the counting variant</h3>
+<pre><code><span class="cmt">// dp[i][j] = #ways to form t[0..j) from s[0..i).</span>
+long[][] dp = new long[m + 1][n + 1];
+for (int i = 0; i &lt;= m; i++) dp[i][0] = 1;       <span class="cmt">// empty target: one way — delete everything</span>
+for (int i = 1; i &lt;= m; i++)
+    for (int j = 1; j &lt;= n; j++) {
+        dp[i][j] = dp[i - 1][j];                 <span class="cmt">// never use s[i-1]</span>
+        if (s.charAt(i - 1) == t.charAt(j - 1))
+            dp[i][j] += dp[i - 1][j - 1];        <span class="cmt">// use s[i-1] to match t[j-1]</span>
+    }
+return (int) dp[m][n];</code></pre>
+<p><strong>Time</strong> O(m·n). <strong>Space</strong> O(m·n), rolls to O(n) with <code>prev</code>/<code>cur</code> rows. Compute in <code>long</code> — intermediate counts overflow int even when the final answer fits.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 115 · Distinct Subsequences</strong> (Hard) — the template above; the "always inherit skip, add diagonal on match" order is the whole problem.</li>
+  <li><strong>LC 1639 · Number of Ways to Form a Target String Given a Dictionary</strong> (Hard) — same counting recurrence, but the "source" is a column-wise character-frequency table instead of one string; multiply the diagonal by the count.</li>
+  <li><strong>LC 940 · Distinct Subsequences II</strong> (Hard) — one-string cousin: count distinct subsequences of s itself; the dedup trick (subtract the last contribution of a repeated char) is what changes.</li>
+</ul>
+
+<h3>Is Subsequence (392) — when NOT to DP</h3>
+<pre><code><span class="cmt">// A greedy pointer scan is O(m+n), beats the O(m·n) table. If only feasibility of</span>
+<span class="cmt">// one alignment direction is asked, reach for two pointers first.</span>
+int i = 0;
+for (int j = 0; j &lt; t.length() &amp;&amp; i &lt; s.length(); j++)
+    if (s.charAt(i) == t.charAt(j)) i++;
+return i == s.length();</code></pre>
+<p><strong>Time</strong> O(m + n). <strong>Space</strong> O(1). The DP table only earns its O(m·n) when you need to <em>count</em>, <em>optimize a cost</em>, or answer the follow-up with many queries.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 392 · Is Subsequence</strong> (Easy) — the two-pointer scan; then read the follow-up ("billions of s queries") and note THAT is where preprocessing t pays off.</li>
+  <li><strong>LC 792 · Number of Matching Subsequences</strong> (Medium) — 392's follow-up made real: bucket words by their next needed char and sweep t once — still no dp table.</li>
+  <li><strong>LC 2486 · Append Characters to String to Make Subsequence</strong> (Medium) — run the same pointer scan; the answer is just the unmatched tail length of t.</li>
+</ul>
+
+<h3>Interleaving String (97) — boolean OR over the same grid</h3>
+<pre><code><span class="cmt">// dp[i][j] = can s3[0..i+j) be woven from s1[0..i) and s2[0..j)?</span>
+if (m + n != s3.length()) return false;
+boolean[][] dp = new boolean[m + 1][n + 1];
+dp[0][0] = true;
+for (int i = 0; i &lt;= m; i++)
+    for (int j = 0; j &lt;= n; j++) {
+        if (i &gt; 0 &amp;&amp; dp[i - 1][j] &amp;&amp; s1.charAt(i - 1) == s3.charAt(i + j - 1)) dp[i][j] = true;
+        if (j &gt; 0 &amp;&amp; dp[i][j - 1] &amp;&amp; s2.charAt(j - 1) == s3.charAt(i + j - 1)) dp[i][j] = true;
+    }
+return dp[m][n];</code></pre>
+<p><strong>Time</strong> O(m·n). <strong>Space</strong> O(m·n), rolls to O(n) — dp[i][j] reads only the row above and the cell to the left.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 97 · Interleaving String</strong> (Medium, Google-reported) — the template above; don't skip the <code>m + n != s3.length()</code> guard.</li>
+  <li><strong>LC 139 · Word Break</strong> (Medium) — re-solve with this method's lens: same boolean-reachability dp you met in Lesson 2, but on ONE string's prefixes — see how 97 is its two-string big sibling.</li>
+</ul>
+
+<h3>Regex (10) vs Wildcard (44) — the two '*' recurrences, side by side</h3>
+<p>
+Both are boolean grids on the same axes — <code>dp[i][j]</code> = does <code>s[0..i)</code> match pattern
+<code>p[0..j)</code>? — and both stand or fall on one column-0/row-0 insight: <code>dp[0][0] = true</code>
+(empty matches empty), column 0 below that is all false (a non-empty s never matches an empty pattern),
+and <strong>row 0 must be seeded</strong> because star-bearing patterns can match the empty string.
+The recurrences differ only in what <code>'*'</code> means:
+</p>
+<pre><code><span class="cmt">// LC 10 — '*' modifies the PRECEDING element p[j-2] ("zero or more of it"):</span>
+<span class="cmt">//   zero copies:   dp[i][j] = dp[i][j-2]          (erase "x*" from the pattern)</span>
+<span class="cmt">//   one more copy: dp[i][j] |= dp[i-1][j]   if s[i-1] matches p[j-2] ('.' matches any)</span>
+
+<span class="cmt">// LC 44 — '*' stands ALONE and matches any run, possibly empty:</span>
+<span class="cmt">//   match empty:   dp[i][j] = dp[i][j-1]</span>
+<span class="cmt">//   swallow s[i-1]: dp[i][j] |= dp[i-1][j]   (star stays active for the next char)</span></code></pre>
+
+<pre><code><span class="cmt">// LC 10 — Regular Expression Matching, bottom-up.</span>
+boolean isMatch(String s, String p) {
+    int m = s.length(), n = p.length();
+    boolean[][] dp = new boolean[m + 1][n + 1];
+    dp[0][0] = true;
+    for (int j = 2; j &lt;= n; j++)                       <span class="cmt">// seed row 0: "a*", "a*b*" can match ""</span>
+        if (p.charAt(j - 1) == '*') dp[0][j] = dp[0][j - 2];
+    for (int i = 1; i &lt;= m; i++)
+        for (int j = 1; j &lt;= n; j++) {
+            char pc = p.charAt(j - 1);
+            if (pc == '*') {
+                dp[i][j] = dp[i][j - 2];               <span class="cmt">// zero copies of p[j-2]</span>
+                if (fits(s.charAt(i - 1), p.charAt(j - 2)))
+                    dp[i][j] |= dp[i - 1][j];          <span class="cmt">// one more copy — consume s[i-1], keep "x*"</span>
+            } else if (fits(s.charAt(i - 1), pc)) {
+                dp[i][j] = dp[i - 1][j - 1];           <span class="cmt">// plain char or '.' — the LCS diagonal move</span>
+            }                                          <span class="cmt">// else stays false</span>
+        }
+    return dp[m][n];
+}
+boolean fits(char sc, char pc) { return pc == '.' || pc == sc; }</code></pre>
+
+<pre><code><span class="cmt">// LC 44 — Wildcard Matching, bottom-up. Same skeleton, simpler star.</span>
+boolean isMatch(String s, String p) {
+    int m = s.length(), n = p.length();
+    boolean[][] dp = new boolean[m + 1][n + 1];
+    dp[0][0] = true;
+    for (int j = 1; j &lt;= n &amp;&amp; p.charAt(j - 1) == '*'; j++)
+        dp[0][j] = true;                               <span class="cmt">// only a LEADING run of stars matches ""</span>
+    for (int i = 1; i &lt;= m; i++)
+        for (int j = 1; j &lt;= n; j++) {
+            char pc = p.charAt(j - 1);
+            if (pc == '*')
+                dp[i][j] = dp[i][j - 1] || dp[i - 1][j];   <span class="cmt">// match empty ← | swallow s[i-1] ↑</span>
+            else if (pc == '?' || pc == s.charAt(i - 1))
+                dp[i][j] = dp[i - 1][j - 1];               <span class="cmt">// exact char or '?' — diagonal</span>
+        }
+    return dp[m][n];
+}</code></pre>
+<p><strong>Time</strong> O(m·n) for both. <strong>Space</strong> O(m·n), rolls to O(n) (each cell reads ↑, ←, and for LC 10 the same-row <code>j−2</code>).</p>
+
+<div class="callout">
+  <span class="label">The two stars are different animals</span>
+  Regex <code>'*'</code> (LC 10) is a <strong>quantifier</strong> — it never matches anything itself, it says
+  "zero or more copies of the <em>preceding</em> element". That's why its zero-copies move jumps TWO pattern
+  columns (<code>dp[i][j-2]</code> erases the pair <code>"x*"</code>), and why the one-more-copy move must
+  re-check <code>s[i-1]</code> against <code>p[j-2]</code>, not <code>p[j-1]</code>. Wildcard <code>'*'</code>
+  (LC 44) is a <strong>matcher</strong> in its own right — a standalone token that eats any sequence, so its
+  moves are one column left (match empty) or one row up (swallow another char). If you remember one sentence:
+  <em>regex star looks back at its neighbor; wildcard star acts alone.</em>
+</div>
+
+<div class="callout trap">
+  <span class="label">Trap — the row-0 seeding</span>
+  <code>new boolean[m+1][n+1]</code> is all-false, and that default is WRONG for row 0: in LC 10,
+  <code>"a*b*"</code> matches <code>""</code> (seed <code>dp[0][j] = dp[0][j-2]</code> at each star); in LC 44,
+  <code>"***"</code> matches <code>""</code> (seed while the pattern's prefix is all stars — and stop at the
+  first non-star). Skip the seeding and every star-only pattern against an empty or short string fails silently.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 678 · Valid Parenthesis String</strong> (Medium) — warm-up star flexibility: <code>'*'</code> can be '(' / ')' / empty; solvable greedily with a low–high open-count range before any table.</li>
+  <li><strong>LC 44 · Wildcard Matching</strong> (Hard) — the simpler star: two moves, ← or ↑; get this green before attempting 10.</li>
+  <li><strong>LC 10 · Regular Expression Matching</strong> (Hard, Google-reported) — the quantifier star; if the <code>j−2</code> jump feels arbitrary, re-read the callout above until it doesn't.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>LCS of <code>s1 = "abcde"</code> (rows) and <code>s2 = "ace"</code> (columns). Three diagonal matches
+— <code>a</code>, <code>c</code>, <code>e</code> — each bump the value by 1; every other cell copies its best neighbor:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 200 220" role="img" aria-label="6 by 4 LCS dp table for abcde versus ace; matches at a, c, e step the value from 1 to 2 to 3 along the diagonal">
+  <text class="wt" x="72" y="14">∅</text><text class="wt" x="104" y="14">a</text><text class="wt" x="136" y="14">c</text><text class="wt" x="168" y="14">e</text>
+  <text class="wt" x="40" y="36">∅</text><text class="wt" x="40" y="68">a</text><text class="wt" x="40" y="100">b</text><text class="wt" x="40" y="132">c</text><text class="wt" x="40" y="164">d</text><text class="wt" x="40" y="196">e</text>
+  <rect class="cell" x="56" y="20" width="32" height="32"/><rect class="cell" x="88" y="20" width="32" height="32"/><rect class="cell" x="120" y="20" width="32" height="32"/><rect class="cell" x="152" y="20" width="32" height="32"/>
+  <text class="lbl" x="72" y="36">0</text><text class="lbl" x="104" y="36">0</text><text class="lbl" x="136" y="36">0</text><text class="lbl" x="168" y="36">0</text>
+  <rect class="cell" x="56" y="52" width="32" height="32"/><rect class="cell cur" x="88" y="52" width="32" height="32"/><rect class="cell" x="120" y="52" width="32" height="32"/><rect class="cell" x="152" y="52" width="32" height="32"/>
+  <text class="lbl" x="72" y="68">0</text><text class="lbl inv" x="104" y="68">1</text><text class="lbl" x="136" y="68">1</text><text class="lbl" x="168" y="68">1</text>
+  <rect class="cell" x="56" y="84" width="32" height="32"/><rect class="cell done" x="88" y="84" width="32" height="32"/><rect class="cell" x="120" y="84" width="32" height="32"/><rect class="cell" x="152" y="84" width="32" height="32"/>
+  <text class="lbl" x="72" y="100">0</text><text class="lbl" x="104" y="100">1</text><text class="lbl" x="136" y="100">1</text><text class="lbl" x="168" y="100">1</text>
+  <rect class="cell" x="56" y="116" width="32" height="32"/><rect class="cell" x="88" y="116" width="32" height="32"/><rect class="cell cur" x="120" y="116" width="32" height="32"/><rect class="cell" x="152" y="116" width="32" height="32"/>
+  <text class="lbl" x="72" y="132">0</text><text class="lbl" x="104" y="132">1</text><text class="lbl inv" x="136" y="132">2</text><text class="lbl" x="168" y="132">2</text>
+  <rect class="cell" x="56" y="148" width="32" height="32"/><rect class="cell" x="88" y="148" width="32" height="32"/><rect class="cell done" x="120" y="148" width="32" height="32"/><rect class="cell" x="152" y="148" width="32" height="32"/>
+  <text class="lbl" x="72" y="164">0</text><text class="lbl" x="104" y="164">1</text><text class="lbl" x="136" y="164">2</text><text class="lbl" x="168" y="164">2</text>
+  <rect class="cell" x="56" y="180" width="32" height="32"/><rect class="cell" x="88" y="180" width="32" height="32"/><rect class="cell" x="120" y="180" width="32" height="32"/><rect class="cell cur" x="152" y="180" width="32" height="32"/>
+  <text class="lbl" x="72" y="196">0</text><text class="lbl" x="104" y="196">1</text><text class="lbl" x="136" y="196">2</text><text class="lbl inv" x="168" y="196">3</text>
+</svg>
+<figcaption>Filled cells = the three diagonal matches (a, c, e), each = its ↖ neighbor + 1. Shaded cells = the walk-back path between matches (copying from above). Answer: dp[5][3] = 3 → "ace".</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">row a: match at column a → dp[1][1] = dp[0][0] + <span class="ptr">1</span>; the 1 propagates right</span>
+<span class="step">row b: 'b' matches nothing in "ace" → whole row copies from above: 0 1 1 1</span>
+<span class="step now">row c: match at column c → dp[3][2] = dp[2][1] + 1 = <span class="ptr">2</span></span>
+<span class="step">row d: no match → copies: 0 1 2 2</span>
+<span class="step now">row e: match at column e → dp[5][3] = dp[4][2] + 1 = <span class="ptr">3</span></span>
+<span class="step">answer dp[5][3] = <span class="ptr">3</span>; walk-back through the three match cells spells "ace"</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Off-by-one everywhere:</strong> <code>dp[i][j]</code> is about prefixes of length i, j — the characters compared are <code>charAt(i-1)</code>, <code>charAt(j-1)</code>. Mixing these up is the family's #1 bug.</li>
+  <li><strong>Base row/col differ per problem:</strong> 0 for LCS, <code>i</code>/<code>j</code> for Edit Distance, 1s down column 0 for 115, star-seeded row 0 for 10/44. Never assume all-zero.</li>
+  <li><strong>Match ≠ forced take</strong> in counting problems: 115 adds the skip case <em>and</em> the match case.</li>
+  <li><strong>Rolling array + diagonal:</strong> in 1-row compression the diagonal <code>dp[i-1][j-1]</code> gets overwritten — keep <code>prev[]</code>/<code>cur[]</code> (or a saved <code>prevDiag</code> temp).</li>
+  <li><strong>Empty strings:</strong> the template handles them via row/col 0 — but only if you seeded those correctly.</li>
+  <li><strong>97 length guard:</strong> if <code>m + n != s3.length()</code>, return false before touching the table.</li>
+  <li><strong>Counting overflow:</strong> 115 can exceed int mid-table — compute in <code>long</code>.</li>
+  <li><strong>Don't auto-DP:</strong> 392 falls to two pointers in O(m+n). Check for a greedy scan before building a table.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In LCS, when <code>s1[i-1] == s2[j-1]</code>, the correct transition is:</div>
+  <button class="opt"><code>dp[i][j] = dp[i-1][j-1] + 1</code> — extend the diagonal, consuming both characters</button>
+  <button class="opt"><code>dp[i][j] = max(dp[i-1][j], dp[i][j-1]) + 1</code> — best neighbor plus the new match</button>
+  <button class="opt"><code>dp[i][j] = dp[i-1][j] + 1</code> — consume the character from s1 only</button>
+  <div class="fb" data-correct="A match consumes the last character of BOTH prefixes, so the subproblem is (i−1, j−1). Adding 1 to max(up, left) can double-count a character that one side already matched." data-wrong="On a match both last characters pair up, so you step diagonally: dp[i−1][j−1] + 1. The max(up,left)+1 version double-counts — a classic silent bug that overshoots the LCS."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Delete Operation for Two Strings (583): lengths m and n, LCS length L. The minimum total deletions is:</div>
+  <button class="opt"><code>max(m, n) − L</code> — only the longer string needs trimming</button>
+  <button class="opt"><code>m + n − L</code> — every character outside the common part, counted once</button>
+  <button class="opt"><code>m + n − 2·L</code> — both strings keep the LCS and delete the rest</button>
+  <div class="fb" data-correct="Both strings are reduced TO the LCS: string 1 deletes m − L chars, string 2 deletes n − L, total m + n − 2L. No new dp table needed." data-wrong="Each string independently deletes down to the shared LCS: (m − L) + (n − L) = m + n − 2L. The LCS survives in both, so it's subtracted twice."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">The <code>'*'</code> in Regular Expression Matching (10) vs Wildcard Matching (44):</div>
+  <button class="opt">They behave identically — both match any run of characters on their own</button>
+  <button class="opt">In 10, <code>'*'</code> means zero-or-more copies of the <em>preceding</em> element; in 44 it stands alone and matches any run</button>
+  <button class="opt">In 10, <code>'*'</code> stands alone matching any run; in 44 it multiplies the previous character</button>
+  <div class="fb" data-correct="Exactly. LC 10's star binds to p[j−2]: dp[i][j] = dp[i][j−2] (zero copies) or dp[i−1][j] (one more, if s[i−1] fits p[j−2]). LC 44's lone star: dp[i][j−1] (empty) or dp[i−1][j] (swallow a char)." data-wrong="They differ: regex '*' quantifies the PRECEDING pattern element (so the zero-copies move jumps two pattern columns, dp[i][j−2]); wildcard '*' is standalone and eats any run (dp[i][j−1] or dp[i−1][j])."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/roadmap">NeetCode — Longest Common Subsequence &amp; 2D DP</a>. Backup: <a href="https://takeuforward.org/strivers-a2z-dsa-course/strivers-a2z-dsa-course-sheet-2/">Striver DP on Strings series</a> (Java-first, covers 1143 → 72 → 115 in sequence).</li>
+  <li><strong>Java practice ladder (easiest → hardest):</strong>
+    <a href="https://leetcode.com/problems/is-subsequence/">392 Is Subsequence</a> (two pointers!) →
+    <a href="https://leetcode.com/problems/longest-common-subsequence/">1143 LCS</a> →
+    <a href="https://leetcode.com/problems/delete-operation-for-two-strings/">583 Delete Operation</a> →
+    <a href="https://leetcode.com/problems/minimum-ascii-delete-sum-for-two-strings/">712 Min ASCII Delete Sum</a> →
+    <a href="https://leetcode.com/problems/edit-distance/">72 Edit Distance</a> (Google-reported) →
+    <a href="https://leetcode.com/problems/interleaving-string/">97 Interleaving String</a> →
+    <a href="https://leetcode.com/problems/distinct-subsequences/">115 Distinct Subsequences</a> →
+    <a href="https://leetcode.com/problems/shortest-common-supersequence/">1092 Shortest Common Supersequence</a> →
+    <a href="https://leetcode.com/problems/wildcard-matching/">44 Wildcard Matching</a> →
+    <a href="https://leetcode.com/problems/regular-expression-matching/">10 Regular Expression Matching</a> (Google-reported; full templates in section 4).</li>
+  <li><strong>Drill:</strong> hand-fill the LCS table for "abcba" × "abcbcba" on paper, then reconstruct the subsequence by walking back — reconstruction is a favorite follow-up.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the Edit Distance table dry-run on "horse" → "ros", the 115 counting logic unpacked, or the
+  walk-back reconstruction traced cell by cell? Ask in the chat. When you can write LCS and Edit
+  Distance from memory and state which base cases differ, say <strong>"next"</strong> for palindrome DP.
+</div>
+
+<div class="nav">
+  <span><a href="0004-knapsack.html">← Knapsack</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0006-palindrome-dp.html">Palindrome DP →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

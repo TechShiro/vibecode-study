@@ -1,0 +1,433 @@
+<title>Simple LR (SLR) Parsing</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit III &middot; Lesson 15 of 17</p>
+<h1>Simple LR (SLR) Parsing</h1>
+<p class="deck">LR(0) items, the canonical collection of item sets, closure and GOTO operations, constructing the SLR(1) parsing table using FOLLOW sets, step-by-step stack simulation, and SLR conflict detection.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Construct the SLR parsing table for the given grammar and trace the string&rdquo;</strong> is a 15&ndash;20 mark master question in almost every university paper. To score full marks: (1) state the augmented grammar, (2) compute CLOSURE and GOTO for every item set $I_0 \dots I_n$, (3) draw the DFA state transition diagram, (4) calculate FOLLOW sets for all non-terminals, (5) write the SLR(1) Action &amp; Goto table, and (6) execute the complete 4-column stack simulation table.</p>
+</div>
+
+<!-- CURATED VIDEO MASTERCLASS -->
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; LR(0) Items &amp; Canonical Collection</span>
+      <span class="best-tag">Recommended Best</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLxCzCOWd7aiEKtKSIHYusizkESC42diyc" target="_blank">SLR Parser Table Construction &amp; LR(0) Items Collection</a>
+    <span class="v-meta">Gate Smashers &middot; 16:42</span>
+    <div class="v-why">Crystal-clear step-by-step derivation of the augmented grammar, calculating item closures, building GOTO transitions, and assembling the full parsing matrix.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 2 &middot; SLR(1) Table &amp; Conflict Resolution</span>
+      <span class="best-tag">Top Theory Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/playlist?list=PLBlnK6fEyqRjT3oJxFXRgjPNzeS-LFY-q" target="_blank">Simple LR (SLR) Parsing Table Construction &amp; Conflicts</a>
+    <span class="v-meta">Neso Academy &middot; 18:15</span>
+    <div class="v-why">Rigorous explanation of why FOLLOW sets govern SLR reduction actions, accompanied by the classic non-SLR Shift/Reduce conflict proof.</div>
+  </div>
+</div>
+
+<h2>1. LR(0) Items and Categories</h2>
+
+<p>An <strong>LR(0) item</strong> of a grammar $G$ is a production of $G$ with a distinguished dot symbol (&bull;) placed at some position on the right-hand side.</p>
+
+<div class="formula">
+  <span class="name">Semantics of the Dot Position</span>
+  A &rarr; &alpha; &bull; &beta;<br><br>
+  <em>Indicates that substring &alpha; has already been seen (shifted onto the stack), and substring &beta; is expected next in the input.</em>
+</div>
+
+<p>For a production with $n$ symbols on its right-hand side ($A \to X_1 X_2 \dots X_n$), there are exactly <strong>$n + 1$ distinct LR(0) items</strong>. For an $\epsilon$-production $A \to \epsilon$, there is only 1 item: $[A \to \cdot]$.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Item Classification</th><th>Dot Position</th><th>Example</th><th>Parser Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Initial Item</strong></td><td>Dot at extreme left</td><td><code>A &rarr; &bull; X Y</code></td><td>Parsing of $A$ has not started yet; expecting to see symbols deriving $X$.</td></tr>
+<tr><td><strong>Intermediate Item (Shift Item)</strong></td><td>Dot between symbols</td><td><code>A &rarr; X &bull; Y</code></td><td>Prefix $X$ has been recognized; expecting symbols deriving $Y$.</td></tr>
+<tr><td><strong>Complete Item (Reduce Item)</strong></td><td>Dot at extreme right</td><td><code>A &rarr; X Y &bull;</code></td><td>Entire RHS has been matched on the stack; ready to reduce to non-terminal $A$.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Kernel vs Non-Kernel Items</h3>
+<ul>
+  <li><strong>Kernel Items:</strong> The initial item $S' \to \cdot S$ and all items whose dots are NOT at the beginning of the RHS. These define the "core" identity of a state.</li>
+  <li><strong>Non-Kernel Items:</strong> All items whose dots are at the extreme beginning of the RHS (except $S' \to \cdot S$), generated dynamically during closure calculation.</li>
+</ul>
+
+<h2>2. The Augmented Grammar</h2>
+
+<p>If grammar $G$ has start symbol $S$, its <strong>augmented grammar $G'$</strong> introduces a new start symbol $S'$ and the production:</p>
+
+<div class="formula">
+  <span class="name">Augmented Production</span>
+  S&prime; &rarr; S<br><br>
+  <em>Why is this necessary? It ensures that the parser accepts if and only if it reduces by $S' \to S$. When the item $[S' \to S \cdot]$ is reached with lookahead $\$$, the parser halts and announces success without ambiguity.</em>
+</div>
+
+<h2>3. Canonical Collection Operations: CLOSURE and GOTO</h2>
+
+<p>The parser tracks viable prefixes using a Deterministic Finite Automaton (DFA) whose states are sets of LR(0) items. Two fundamental functions construct this DFA:</p>
+
+<div class="formula">
+  <span class="name">Algorithm: CLOSURE(I)</span>
+  <strong>Input:</strong> A set of items $I$.<br>
+  <strong>Output:</strong> The closure of $I$.<br>
+  1. Initialize $CLOSURE(I) = I$.<br>
+  2. If $[A \to \alpha \cdot B \beta] \in CLOSURE(I)$ and $B \to \gamma$ is a production, then add $[B \to \cdot \gamma]$ to $CLOSURE(I)$, provided it is not already present.<br>
+  3. Repeat step 2 until no new items can be added.
+</div>
+
+<div class="formula">
+  <span class="name">Algorithm: GOTO(I, X)</span>
+  <strong>Input:</strong> A set of items $I$ and a grammar symbol $X$ (terminal or non-terminal).<br>
+  <strong>Output:</strong> The set of items that the parser transitions to after recognizing $X$.<br>
+  $$GOTO(I, X) = CLOSURE(\{[A \to \alpha X \cdot \beta] \mid [A \to \alpha \cdot X \beta] \in I\})$$
+  <em>Simply advance the dot past symbol $X$ for all matching items in $I$, then compute the closure of that result.</em>
+</div>
+
+<h2>4. Full Worked Example &mdash; SLR(1) Grammar</h2>
+
+<p>Let us construct the complete SLR(1) parsing machinery for the textbook grammar:</p>
+<div class="formula">
+  (1) S &rarr; C C &emsp;&emsp; (2) C &rarr; c C &emsp;&emsp; (3) C &rarr; d
+</div>
+
+<h3>Step 1: Augmented Grammar</h3>
+<p>$$S' \to S, \quad S \to C C, \quad C \to c C, \quad C \to d$$</p>
+
+<h3>Step 2: Canonical Collection of LR(0) Items</h3>
+<ul>
+  <li><strong>State $I_0$ = $CLOSURE(\{S' \to \cdot S\})$:</strong><br>
+    <code>S' &rarr; &bull; S</code><br>
+    <code>S  &rarr; &bull; C C</code> &nbsp;(since dot before $S$)<br>
+    <code>C  &rarr; &bull; c C</code> &nbsp;(since dot before $C$)<br>
+    <code>C  &rarr; &bull; d</code> &nbsp;&nbsp;&nbsp;(production of $C$)
+  </li>
+  <li><strong>State $I_1$ = $GOTO(I_0, S)$:</strong><br>
+    <code>S' &rarr; S &bull;</code> &nbsp;&nbsp;<strong>[Accept State on $]</strong>
+  </li>
+  <li><strong>State $I_2$ = $GOTO(I_0, C)$:</strong><br>
+    <code>S &rarr; C &bull; C</code><br>
+    <code>C &rarr; &bull; c C</code> &nbsp;(closure from dot before $C$)<br>
+    <code>C &rarr; &bull; d</code>
+  </li>
+  <li><strong>State $I_3$ = $GOTO(I_0, c)$:</strong><br>
+    <code>C &rarr; c &bull; C</code><br>
+    <code>C &rarr; &bull; c C</code> &nbsp;(closure from dot before $C$)<br>
+    <code>C &rarr; &bull; d</code>
+  </li>
+  <li><strong>State $I_4$ = $GOTO(I_0, d)$:</strong><br>
+    <code>C &rarr; d &bull;</code> &nbsp;&nbsp;<strong>[Complete Item: Reduce by $C \to d$]</strong>
+  </li>
+  <li><strong>State $I_5$ = $GOTO(I_2, C)$:</strong><br>
+    <code>S &rarr; C C &bull;</code> &nbsp;<strong>[Complete Item: Reduce by $S \to CC$]</strong>
+  </li>
+  <li><strong>State $I_6$ = $GOTO(I_3, C)$:</strong><br>
+    <code>C &rarr; c C &bull;</code> &nbsp;<strong>[Complete Item: Reduce by $C \to cC$]</strong>
+  </li>
+  <li><strong>Other GOTO Transitions:</strong><br>
+    $GOTO(I_2, c) = I_3$, &emsp; $GOTO(I_2, d) = I_4$<br>
+    $GOTO(I_3, c) = I_3$ (self-loop), &emsp; $GOTO(I_3, d) = I_4$
+  </li>
+</ul>
+
+<!-- DFA FLOWCHART DIAGRAM -->
+<div class="diagram-wrap">
+  <span class="diagram-title">State Transition DFA for LR(0) Canonical Items</span>
+  
+  <div class="flow-col">
+    <!-- State 0 -->
+    <div class="flow-box highlight" style="min-width:18rem;">
+      <strong>State I<sub>0</sub> (Initial)</strong><br>
+      <code>S' &rarr; &bull; S</code><br>
+      <code>S  &rarr; &bull; C C</code><br>
+      <code>C  &rarr; &bull; c C | &bull; d</code>
+    </div>
+
+    <!-- Branching arrows from I0 -->
+    <div style="display:flex; justify-content:space-around; width:100%; max-width:38rem; margin:0.8rem 0;">
+      <div style="text-align:center;">
+        <span class="flow-label">on S</span>
+        <div class="flow-arrow-down"></div>
+      </div>
+      <div style="text-align:center;">
+        <span class="flow-label">on C</span>
+        <div class="flow-arrow-down"></div>
+      </div>
+      <div style="text-align:center;">
+        <span class="flow-label">on c</span>
+        <div class="flow-arrow-down"></div>
+      </div>
+      <div style="text-align:center;">
+        <span class="flow-label">on d</span>
+        <div class="flow-arrow-down"></div>
+      </div>
+    </div>
+
+    <!-- Level 1 States: I1, I2, I3, I4 -->
+    <div class="flow-row" style="gap:1rem;">
+      <div class="flow-box ok" style="min-width:9rem;">
+        <strong style="color:var(--ok);">I<sub>1</sub></strong><br>
+        <code>S' &rarr; S &bull;</code><br>
+        <span class="sub">Accept on $</span>
+      </div>
+
+      <div class="flow-box highlight" style="min-width:10rem;">
+        <strong>I<sub>2</sub></strong><br>
+        <code>S &rarr; C &bull; C</code><br>
+        <code>C &rarr; &bull; c C | &bull; d</code>
+      </div>
+
+      <div class="flow-box highlight" style="min-width:10rem;">
+        <strong>I<sub>3</sub></strong> (loop on c)<br>
+        <code>C &rarr; c &bull; C</code><br>
+        <code>C &rarr; &bull; c C | &bull; d</code>
+      </div>
+
+      <div class="flow-box warn" style="min-width:9rem;">
+        <strong style="color:var(--warn);">I<sub>4</sub></strong><br>
+        <code>C &rarr; d &bull;</code><br>
+        <span class="sub">Reduce $C \to d$</span>
+      </div>
+    </div>
+
+    <!-- Downward arrows to Level 2 -->
+    <div style="display:flex; justify-content:center; gap:8rem; width:100%; margin:0.8rem 0;">
+      <div style="text-align:center;">
+        <span class="flow-label">on C from I<sub>2</sub></span>
+        <div class="flow-arrow-down"></div>
+      </div>
+      <div style="text-align:center;">
+        <span class="flow-label">on C from I<sub>3</sub></span>
+        <div class="flow-arrow-down"></div>
+      </div>
+    </div>
+
+    <!-- Level 2 States: I5, I6 -->
+    <div class="flow-row" style="gap:5rem;">
+      <div class="flow-box warn" style="min-width:12rem;">
+        <strong style="color:var(--warn);">I<sub>5</sub></strong><br>
+        <code>S &rarr; C C &bull;</code><br>
+        <span class="sub">Reduce $S \to C C$</span>
+      </div>
+
+      <div class="flow-box warn" style="min-width:12rem;">
+        <strong style="color:var(--warn);">I<sub>6</sub></strong><br>
+        <code>C &rarr; c C &bull;</code><br>
+        <span class="sub">Reduce $C \to c C$</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Step 3: Compute FIRST and FOLLOW Sets</h3>
+<div class="solve">
+  <span class="lbl">FIRST &amp; FOLLOW Sets Calculation</span>
+  <ul>
+    <li>$FIRST(C) = \{c, d\}$</li>
+    <li>$FIRST(S) = FIRST(C) = \{c, d\}$</li>
+    <li>$FOLLOW(S) = \{\$\}$ &nbsp;(Start symbol rule)</li>
+    <li>$FOLLOW(C)$:
+      <ul>
+        <li>From production $S \to C C$, the first $C$ is followed by non-terminal $C$, so $FIRST(C) = \{c, d\} \subseteq FOLLOW(C)$.</li>
+        <li>The second $C$ is at the end of $S \to C C$, so $FOLLOW(S) = \{\$\} \subseteq FOLLOW(C)$.</li>
+        <li>Therefore: <strong>$FOLLOW(C) = \{c, d, \$\}$</strong>.</li>
+      </ul>
+    </li>
+  </ul>
+</div>
+
+<h2>5. SLR(1) Table Construction Rules</h2>
+
+<div class="formula">
+  <span class="name">SLR(1) Parsing Table Construction Algorithm</span>
+  For each state $i$ corresponding to item set $I_i$ in the canonical collection:<br>
+  1. <strong>Shift:</strong> If $[A \to \alpha \cdot a \beta] \in I_i$ and $GOTO(I_i, a) = I_j$ (where $a$ is a terminal), set <strong>ACTION[i, a] = $s_j$</strong>.<br>
+  2. <strong>Reduce:</strong> If $[A \to \alpha \cdot] \in I_i$ (where $A \neq S'$), set <strong>ACTION[i, a] = $r_k$</strong> for all <strong>$a \in FOLLOW(A)$</strong>, where $k$ is the production number $A \to \alpha$.<br>
+  3. <strong>Accept:</strong> If $[S' \to S \cdot] \in I_i$, set <strong>ACTION[i, \$] = acc</strong>.<br>
+  4. <strong>Goto:</strong> If $GOTO(I_i, A) = I_j$ (where $A$ is a non-terminal), set <strong>GOTO[i, A] = $j$</strong>.<br>
+  5. All undefined table cells are marked as <strong>Error</strong> (blank).
+</div>
+
+<h3>The SLR(1) Parsing Table</h3>
+<p>Number the grammar productions: <strong>(1) $S \to CC$</strong>, &nbsp; <strong>(2) $C \to cC$</strong>, &nbsp; <strong>(3) $C \to d$</strong>.</p>
+
+<div class="tw">
+<table>
+<thead>
+  <tr>
+    <th rowspan="2" style="vertical-align:middle; text-align:center;">State</th>
+    <th colspan="3" style="text-align:center; border-bottom:1px solid var(--rule);">ACTION</th>
+    <th colspan="2" style="text-align:center; border-bottom:1px solid var(--rule);">GOTO</th>
+  </tr>
+  <tr>
+    <th class="num">c</th><th class="num">d</th><th class="num">$</th>
+    <th class="num">S</th><th class="num">C</th>
+  </tr>
+</thead>
+<tbody>
+  <tr><td class="num"><strong>0</strong></td><td class="num">s3</td><td class="num">s4</td><td></td><td class="num">1</td><td class="num">2</td></tr>
+  <tr><td class="num"><strong>1</strong></td><td></td><td></td><td class="num" style="font-weight:700; color:var(--ok);">acc</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>2</strong></td><td class="num">s3</td><td class="num">s4</td><td></td><td></td><td class="num">5</td></tr>
+  <tr><td class="num"><strong>3</strong></td><td class="num">s3</td><td class="num">s4</td><td></td><td></td><td class="num">6</td></tr>
+  <tr><td class="num"><strong>4</strong></td><td class="num">r3</td><td class="num">r3</td><td class="num">r3</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>5</strong></td><td></td><td></td><td class="num">r1</td><td></td><td></td></tr>
+  <tr><td class="num"><strong>6</strong></td><td class="num">r2</td><td class="num">r2</td><td class="num">r2</td><td></td><td></td></tr>
+</tbody>
+</table>
+</div>
+<p>Notice that state 4 has reduce $r_3$ in columns $c, d, \$$ because $FOLLOW(C) = \{c, d, \$\}$. State 5 has reduce $r_1$ only in column $\$$ because $FOLLOW(S) = \{\$\}$. Every entry has at most one action &mdash; therefore, the grammar is <strong>SLR(1)</strong>.</p>
+
+<h2>6. Step-by-Step Stack Simulation</h2>
+
+<p>Let us trace the input string <strong>$w = c\ c\ d\ d\ \$$</strong> using this SLR(1) parsing table:</p>
+
+<div class="tw">
+<table>
+<thead>
+  <tr>
+    <th>Step</th>
+    <th>Stack</th>
+    <th>Input Buffer</th>
+    <th>Action &amp; Working</th>
+  </tr>
+</thead>
+<tbody>
+  <tr><td>1</td><td><code>$ 0</code></td><td><code>c c d d $</code></td><td>ACTION[0, c] = <strong>s3</strong> (Push c, 3)</td></tr>
+  <tr><td>2</td><td><code>$ 0 c 3</code></td><td><code>c d d $</code></td><td>ACTION[3, c] = <strong>s3</strong> (Push c, 3)</td></tr>
+  <tr><td>3</td><td><code>$ 0 c 3 c 3</code></td><td><code>d d $</code></td><td>ACTION[3, d] = <strong>s4</strong> (Push d, 4)</td></tr>
+  <tr><td>4</td><td><code>$ 0 c 3 c 3 d 4</code></td><td><code>d $</code></td><td>ACTION[4, d] = <strong>r3</strong>: Reduce $C \to d$. Pop 2 items (d, 4). Stack top is 3. GOTO[3, C] = 6. Push C, 6.</td></tr>
+  <tr><td>5</td><td><code>$ 0 c 3 c 3 C 6</code></td><td><code>d $</code></td><td>ACTION[6, d] = <strong>r2</strong>: Reduce $C \to c C$. Pop 4 items. Stack top is 3. GOTO[3, C] = 6. Push C, 6.</td></tr>
+  <tr><td>6</td><td><code>$ 0 c 3 C 6</code></td><td><code>d $</code></td><td>ACTION[6, d] = <strong>r2</strong>: Reduce $C \to c C$. Pop 4 items. Stack top is 0. GOTO[0, C] = 2. Push C, 2.</td></tr>
+  <tr><td>7</td><td><code>$ 0 C 2</code></td><td><code>d $</code></td><td>ACTION[2, d] = <strong>s4</strong> (Push d, 4)</td></tr>
+  <tr><td>8</td><td><code>$ 0 C 2 d 4</code></td><td><code>$</code></td><td>ACTION[4, $] = <strong>r3</strong>: Reduce $C \to d$. Pop 2 items. Stack top is 2. GOTO[2, C] = 5. Push C, 5.</td></tr>
+  <tr><td>9</td><td><code>$ 0 C 2 C 5</code></td><td><code>$</code></td><td>ACTION[5, $] = <strong>r1</strong>: Reduce $S \to C C$. Pop 4 items. Stack top is 0. GOTO[0, S] = 1. Push S, 1.</td></tr>
+  <tr><td>10</td><td><code>$ 0 S 1</code></td><td><code>$</code></td><td>ACTION[1, $] = <strong>ACCEPT</strong> &check; (Successful parse)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>7. SLR Conflicts &mdash; The Classic Non-SLR Grammar</h2>
+
+<p>An SLR conflict occurs whenever an entry in the ACTION table receives multiple actions (either a <strong>Shift/Reduce conflict</strong> or a <strong>Reduce/Reduce conflict</strong>).</p>
+
+<div class="box exam">
+  <span class="lbl">Classic Exam Proof: Why is this Grammar Not SLR(1)?</span>
+  <p>Consider the assignment grammar:</p>
+  <div class="formula">
+    S &rarr; L = R &nbsp;|&nbsp; R<br>
+    L &rarr; * R &nbsp;|&nbsp; id<br>
+    R &rarr; L
+  </div>
+  <p><strong>Step 1:</strong> Augmented grammar adds $S' \to S$.</p>
+  <p><strong>Step 2:</strong> Compute state $I_0$:</p>
+  <pre class="mono">I₀ = CLOSURE({S' &rarr; &bull; S}) =
+     S' &rarr; &bull; S
+     S  &rarr; &bull; L = R
+     S  &rarr; &bull; R
+     L  &rarr; &bull; * R
+     L  &rarr; &bull; id
+     R  &rarr; &bull; L</pre>
+  <p><strong>Step 3:</strong> Compute $I_2 = GOTO(I_0, L)$:</p>
+  <pre class="mono">I₂ = S &rarr; L &bull; = R
+     R &rarr; L &bull;</pre>
+  <p><strong>Step 4:</strong> Check conflicts in $I_2$:</p>
+  <ul>
+    <li>Item $S \to L \cdot = R$ says: on input terminal <code>=</code>, <strong>SHIFT</strong> to next state ($s_6$).</li>
+    <li>Item $R \to L \cdot$ is complete, so it instructs: <strong>REDUCE</strong> by $R \to L$ on all terminals in <strong>$FOLLOW(R)$</strong>.</li>
+    <li>What is $FOLLOW(R)$? Since $S \Rightarrow L = R \Rightarrow * R = R$, the terminal <code>=</code> can legally appear after $R$ in a sentential form! Hence, <strong><code>=</code> $\in FOLLOW(R)$</strong> (along with $\$$).</li>
+    <li>Therefore, in State 2 on input <code>=</code>, the table contains <strong>BOTH Shift and Reduce by $R \to L$</strong>:
+      $$\text{ACTION}[2, =] = \{s_6, r_{R \to L}\}$$
+    </li>
+  </ul>
+  <p><strong>Conclusion:</strong> The grammar has an <strong>SLR Shift/Reduce conflict</strong> in State 2. Hence, this grammar is <strong>NOT SLR(1)</strong>.</p>
+</div>
+
+<div class="box win">
+  <span class="lbl">Why CLR/LALR Solves This</span>
+  <p>Although <code>=</code> is in $FOLLOW(R)$ in general, in the specific context of State $I_2$, we just saw $L$ at the very beginning of the string. $R$ can only follow $L$ if it is reduced in a valid derivation. For $S \to R$, the lookahead is strictly <code>$</code>, <strong>NOT <code>=</code></strong>. CLR and LALR track exact context lookaheads and avoid this false conflict!</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In SLR(1) parsing, on what set of terminals is a reduction $A \to \alpha$ placed in the ACTION table?</p>
+  <div class="opts">
+    <button class="opt">All terminals in FIRST(A)</button>
+    <button class="opt">Only the exact lookahead carried by the item</button>
+    <button class="opt" data-ok="1">All terminals in FOLLOW(A)</button>
+    <button class="opt">All terminals in the grammar vocabulary</button>
+  </div>
+  <p class="why">SLR relies on the coarse FOLLOW(A) set for all reductions. This is simpler than CLR, but can cause false conflicts when a terminal in FOLLOW(A) cannot legally follow A in that specific state.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. An item set contains $[A \to \alpha \cdot a \beta]$ and $[B \to \gamma \cdot]$. An SLR Shift/Reduce conflict occurs if and only if:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Terminal $a$ is in FOLLOW(B)</button>
+    <button class="opt">$\alpha$ and $\gamma$ have identical lengths</button>
+    <button class="opt">$A$ and $B$ are identical non-terminals</button>
+    <button class="opt">Terminal $a$ is in FIRST(B)</button>
+  </div>
+  <p class="why">The parser wants to shift on $a$ due to the first item, and simultaneously wants to reduce by $B \to \gamma$ on all terminals in $FOLLOW(B)$. If $a \in FOLLOW(B)$, cell ACTION[i, a] has both actions.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. Why is an augmented grammar $S' \to S$ added prior to LR item construction?</p>
+  <div class="opts">
+    <button class="opt">To eliminate left recursion from the grammar</button>
+    <button class="opt">To calculate FIRST and FOLLOW sets automatically</button>
+    <button class="opt" data-ok="1">To ensure a unique accept state $[S' \to S \cdot]$ when lookahead is $</button>
+    <button class="opt">To make the grammar unambiguous</button>
+  </div>
+  <p class="why">Without $S' \to S$, if the start symbol $S$ appeared on the RHS of another rule, the parser could not distinguish between a sub-reduction and full sentence acceptance.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. If a production is $A \to X_1 X_2 X_3$, how many distinct LR(0) items can be formed from it?</p>
+  <div class="opts">
+    <button class="opt">6 items</button>
+    <button class="opt">3 items</button>
+    <button class="opt">1 item</button>
+    <button class="opt" data-ok="1">4 items (dot at 0, 1, 2, and 3 positions)</button>
+  </div>
+  <p class="why">A production with $n$ RHS symbols produces $n + 1$ items corresponding to placing the dot before each symbol plus at the end.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>SLR parsing table construction rules.</summary>
+    <p class="ans">Shift: If $[A \to \alpha \cdot a \beta] \in I_i$ and $GOTO(I_i, a) = I_j$, ACTION[i, a] = $s_j$.<br>
+    Reduce: If $[A \to \alpha \cdot] \in I_i$, ACTION[i, a] = $r_k$ for every $a \in FOLLOW(A)$.<br>
+    Accept: If $[S' \to S \cdot] \in I_i$, ACTION[i, \$] = acc.<br>
+    Goto: If $GOTO(I_i, A) = I_j$, GOTO[i, A] = $j$.</p></details>
+  <details class="card"><summary>Why does $S \to L = R \mid R$ cause an SLR Shift/Reduce conflict?</summary>
+    <p class="ans">In state $I_2 = \{S \to L \cdot = R, R \to L \cdot\}$, the dot before $=$ indicates shift on $=$. The complete item $R \to L \cdot$ calls for reduce on all terminals in $FOLLOW(R)$. Because $S \Rightarrow L = R \Rightarrow *R = R$, the terminal $=$ is in $FOLLOW(R)$, triggering both shift and reduce on $=$.</p></details>
+</div>
+
+<div class="nav">
+  <a href="0014-shift-reduce-parsing.html">&larr; Previous: Shift-Reduce</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0016-clr-and-lalr-parsing.html">Next: CLR &amp; LALR &rarr;</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

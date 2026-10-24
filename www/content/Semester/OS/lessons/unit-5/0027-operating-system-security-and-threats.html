@@ -1,0 +1,197 @@
+<title>Operating System Security and Threats</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit V &middot; Lesson 27 of 27</p>
+<h1>Operating System Security and Threats</h1>
+<p class="deck">The security problem, program threats (Trojans, trapdoors, logic bombs, buffer overflows), system and network threats (DoS, port scanning), and Linux/Windows modern security case studies (SELinux and Windows UAC).</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain program threats and system threats with examples&rdquo;</strong> and <strong>&ldquo;Compare Linux (SELinux) and Windows OS security architectures&rdquo;</strong> are recurrent 7-to-10 mark questions. Define the standard threat taxonomy and detail Mandatory Access Control (MAC) vs Discretionary Access Control (DAC).</p>
+</div>
+
+<h2>The Security Problem</h2>
+<p>An operating system is <strong>secure</strong> if its resources are used and accessed as intended under all circumstances. System security encompasses four core dimensions:</p>
+<ol>
+  <li><strong>Confidentiality:</strong> Preventing unauthorized disclosure of user files, credentials, and memory contents.</li>
+  <li><strong>Integrity:</strong> Preventing unauthorized modification or corruption of system binaries, configurations, and user data.</li>
+  <li><strong>Availability:</strong> Ensuring system hardware, CPU time, and network bandwidth remain accessible to authorized users.</li>
+  <li><strong>Authenticity &amp; Accountability:</strong> Ensuring every request is tied to a verified identity, recorded in tamper-resistant audit logs.</li>
+</ol>
+
+<h2>Program Threats</h2>
+<p>Program threats exploit software bugs, design flaws, or social engineering to execute unauthorized instructions within a process context.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Program Threat</th><th>Mechanism</th><th>Real-World Scenario / Impact</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Trojan Horse</strong></td>
+  <td>Disguises itself as a useful, benign application (e.g., a system game, screensaver, or driver update) while secretly executing unauthorized actions.</td>
+  <td>A user installs a fake calculator app; the program runs normally on screen while secretly dumping browser passwords.</td>
+</tr>
+<tr>
+  <td><strong>Trapdoor / Backdoor</strong></td>
+  <td>A secret entry point or bypass intentionally or inadvertently left in the code by a developer that skips standard authentication.</td>
+  <td>A hardcoded master password (<code>admin/admin123</code>) left in production firmware that grants instant root access.</td>
+</tr>
+<tr>
+  <td><strong>Logic Bomb</strong></td>
+  <td>Dormant embedded code that remains completely silent until a specific logical condition is satisfied (e.g., a date, a database query, or absence of an employee ID).</td>
+  <td>A disgruntled engineer programs code to erase accounting databases if their name disappears from the company payroll roster.</td>
+</tr>
+<tr>
+  <td><strong>Buffer Overflow</strong></td>
+  <td>Writing past array boundaries in memory to corrupt adjacent control structures (saved EBP and return address), redirecting execution to shellcode.</td>
+  <td>Overwriting stack frames in network daemons to spawn a root shell without credentials.</td>
+</tr>
+<tr>
+  <td><strong>Viruses &amp; Worms</strong></td>
+  <td>Code that infects host executables (virus) or autonomous self-replicating programs that propagate over network sockets (worm).</td>
+  <td>Morris worm, CIH virus, Slammer.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>System and Network Threats</h2>
+
+<div class="solve">
+  <span class="lbl">1. Port Scanning</span>
+  <p>Automated reconnaissance using tools like <code>nmap</code> to probe a target IP for open TCP/UDP ports. Attackers identify running services (e.g., Apache 2.4.49, OpenSSH 7.2) and map them to published vulnerabilities (CVEs).</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">2. Denial of Service (DoS and DDoS)</span>
+  <p>Attacks aimed at destroying <strong>availability</strong> rather than stealing data:</p>
+  <ul>
+    <li><strong>TCP SYN Flood:</strong> Attacker sends thousands of spoofed TCP SYN packets. The OS allocates a transmission control block (TCB) in the &ldquo;half-open&rdquo; queue and waits for the final ACK. The queue exhausts, causing the server to reject legitimate users. Defended using <strong>SYN Cookies</strong>.</li>
+    <li><strong>DDoS:</strong> A botnet of hundreds of thousands of compromised devices floods a target with hundreds of gigabits of traffic simultaneously, choking upstream network bandwidth.</li>
+  </ul>
+</div>
+
+<h2>Modern OS Security Case Studies</h2>
+
+<h3>Case Study 1: Linux Security Model &amp; SELinux</h3>
+<p>Traditional Linux utilizes <strong>Discretionary Access Control (DAC)</strong> based on owner, group, and others (<code>chmod 755</code>). A major flaw in DAC is that if an attacker compromises a daemon running as <code>root</code>, they gain total control over the entire system.</p>
+
+<div class="box win">
+  <span class="lbl">Mandatory Access Control (MAC) via SELinux</span>
+  <p><strong>Security-Enhanced Linux (SELinux)</strong> enforces <strong>Mandatory Access Control (MAC)</strong> using Flask security architecture:</p>
+  <ul>
+    <li>Every process (subject) and system file/socket (object) is assigned a security context label: <code>user:role:type:sensitivity</code>.</li>
+    <li>Access is governed strictly by the <strong>Type Enforcement (TE)</strong> model: even if a process runs as <code>root</code>, if the policy rule does not explicitly grant the type permission to write to <code>/etc/shadow</code>, the Linux kernel blocks the access and logs an audit failure.</li>
+    <li>Root's omnipotent power is effectively curtailed.</li>
+  </ul>
+</div>
+
+<h3>Case Study 2: Windows Security Architecture</h3>
+<p>Windows NT/10/11 implements an object-based security model managed by the <strong>Security Reference Monitor (SRM)</strong>:</p>
+
+<div class="solve">
+  <span class="lbl">Windows Security Components</span>
+  <ul>
+    <li><strong>Security Identifiers (SIDs):</strong> Every user, group, and computer account has a globally unique, immutable string identifier (e.g., <code>S-1-5-21-...-1001</code>).</li>
+    <li><strong>Access Token:</strong> Created when a user logs in (LSASS). Contains the user's SID, group SIDs, and active privileges. Every child process spawned inherits this access token.</li>
+    <li><strong>Security Descriptor (SD):</strong> Attached to every securable OS object (files, registry keys, threads). Contains the Owner SID and a <strong>DACL (Discretionary Access Control List)</strong> composed of Access Control Entries (ACEs) specifying Allow or Deny permissions.</li>
+    <li><strong>User Account Control (UAC):</strong> Even when an administrator logs in, their primary login session receives a stripped standard-user access token. High-privilege tasks prompt the user with a secure desktop consent dialog before elevating to administrator privilege.</li>
+  </ul>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Principle of Least Privilege & Defense-in-Depth Ring Model</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Principle of Least Privilege (PoLP):</strong>
+      <span class="sub">Every program and every user must operate using the minimal set of privileges necessary to perform the task!</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Hierarchical Protection Rings</div>
+    <div class="flow-row">
+      <div class="flow-box"><strong>Ring 3: User Space</strong><span class="sub">Unprivileged applications</span></div>
+      <div class="flow-arrow-right">&rarr; Trap &rarr;</div>
+      <div class="flow-box ok"><strong>Ring 0: Kernel Core</strong><span class="sub">Full hardware isolation & MMU enforcement</span></div>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box warn"><strong>Threat Taxonomy:</strong> Trojan Horses, Trapdoors, Worms, Viruses, Buffer Overflows & DDoS</div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 16 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">OS Security & Protection</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Protection and Security in Operating Systems Explained</div>
+    <div class="v-desc">Covers goals of protection, violation categories, user authentication defenses, and the principle of least privilege.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=DKb7KhfoZmU" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. Why does Mandatory Access Control (MAC / SELinux) provide stronger security than traditional Linux DAC permissions?</p>
+  <div class="opts">
+    <button class="opt">SELinux encrypts the entire hard drive with AES-512</button>
+    <button class="opt">SELinux eliminates the need for passwords</button>
+    <button class="opt" data-ok="1">SELinux enforces kernel policy rules across labels regardless of root UID status</button>
+    <button class="opt">SELinux runs exclusively on ARM processors</button>
+  </div>
+  <p class="why">In SELinux MAC, policy rules dictate what types can interact; even root processes are strictly confined to their declared domains.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In a TCP SYN flood Denial of Service attack, what operating system resource is exhausted?</p>
+  <div class="opts">
+    <button class="opt">The disk swap space</button>
+    <button class="opt" data-ok="1">The half-open TCP connection table / backlog queue</button>
+    <button class="opt">The display adapter framebuffer</button>
+    <button class="opt">The user account registry</button>
+  </div>
+  <p class="why">The server allocates state for incomplete 3-way handshakes until its connection backlog is exhausted.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. In Windows security, what object is created upon logon and inherited by all spawned child processes?</p>
+  <div class="opts">
+    <button class="opt">The Interrupt Vector</button>
+    <button class="opt">The Device Controller Register</button>
+    <button class="opt">The Security Descriptor</button>
+    <button class="opt" data-ok="1">The Access Token</button>
+  </div>
+  <p class="why">The Access Token carries the user's SIDs, group memberships, and privileges throughout their process tree.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>Contrast a Trojan Horse and a Trapdoor.</summary>
+    <p class="ans">Trojan: masquerades as useful software while secretly performing unauthorized actions. Trapdoor: a hidden developer backdoor that bypasses standard authentication.</p></details>
+  <details class="card"><summary>How does SELinux enforce security differently from traditional Linux DAC?</summary>
+    <p class="ans">Traditional DAC allows the root user to bypass all checks. SELinux (MAC) labels all processes and objects with types; the kernel blocks actions unless an explicit policy rule permits them, even for root.</p></details>
+  <details class="card"><summary>Name the key components of the Windows security model.</summary>
+    <p class="ans">SIDs (unique identity identifiers), Access Tokens (process credentials), Security Descriptors with DACLs (attached to objects), and UAC (least-privilege elevation).</p></details>
+</div>
+
+<div class="box win">
+  <span class="lbl">Unit V and Operating Systems are complete!</span>
+  <p>Review the comprehensive printable summary on the <a href="../../reference/unit5-cheat-sheet.html">Unit V Cheat Sheet</a>.</p>
+</div>
+
+<div class="nav">
+  <a href="0026-protection-and-access-matrix.html">&larr; Previous: Protection &amp; Access Matrix</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Cheat sheet &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

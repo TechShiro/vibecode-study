@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 31 - Cascading Failures &amp; Resilience | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 31 of 66 · Circuit Breaker, Bulkhead, Exponential Backoff</div>
+  
+  <h1>Cascading Failures &amp; System Resilience</h1>
+  <p class="subtitle">Preventing a minor failure in one dependency from pulling down your entire distributed architecture.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module H — Microservices Architecture</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In a microservice chain (Service A → Service B → Service C), if Service C becomes slow, Service B's worker threads block waiting for C to reply. Soon, Service B runs out of threads and stops responding to Service A. Service A's threads block and crash. Within minutes, a minor hiccup in a non-critical analytics service has triggered a <strong>Cascading Failure</strong> that knocks out checkout and authentication across the entire company.</p>
+
+  <h2>2 · The 4 Resilience Patterns</h2>
+
+  <h3>1. Circuit Breaker Pattern (Netflix Hystrix / Resilience4j)</h3>
+  <p>Acts exactly like an electrical circuit breaker in your house: stops sending traffic to a failing downstream service before it causes a fire.</p>
+  <ul>
+    <li><strong>Closed (Normal):</strong> Requests pass through. If failure rate exceeds threshold (e.g. 50% errors over 10s), the breaker trips <strong>OPEN</strong>.</li>
+    <li><strong>Open (Tripped):</strong> Breaker immediately fails fast without making any network call. Returns an instant fallback response (e.g. cached recommendations).</li>
+    <li><strong>Half-Open (Testing):</strong> After a sleep window (e.g. 30s), breaker lets a few test requests pass. If they succeed, it returns to <strong>Closed</strong>. If they fail, it remains <strong>Open</strong>.</li>
+  </ul>
+
+  <h3>2. Bulkhead Pattern (Ship Hull Compartments)</h3>
+  <p>Ships divide their hulls into watertight bulkheads so if one compartment floods, the ship stays afloat. In software, isolate thread pools and connection pools per dependency so that an outage in the "Reviews Service" cannot exhaust the thread pool dedicated to the "Payment Service".</p>
+
+  <h3>3. Timeouts (Never Wait Forever)</h3>
+  <p>Never make a network call without an explicit timeout! Default to aggressive timeouts (e.g., 500ms). A fast failure is 100x better than a slow hang.</p>
+
+  <h3>4. Exponential Backoff with Jitter</h3>
+  <p>When retrying a failed network call, do not hammer the server immediately. Double the wait time after each attempt: $100	ext{ms} 	o 200	ext{ms} 	o 400	ext{ms} 	o 800	ext{ms}$.</p>
+  <div class="callout tip">
+    <span class="label">Why Jitter is Vital</span>
+    If 10,000 clients fail at the same moment and all retry at exactly 1.00s and 2.00s, they hit the recovering server in waves of synchronized shock (thundering herd). Adding <strong>random jitter</strong> (e.g., $	ext{sleep} = 2^k + 	ext{random}(0, 100	ext{ms})$) smooths retries into an even distribution.
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do we package and run microservices reliably across thousands of servers? Next: Containerization (Docker &amp; Kubernetes).</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0030-single-point-of-failure.html">← Previous: SPOF</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0032-containerization.html">Next: Containerization (Docker &amp; K8s) →</a>
+  </div>
+</body>
+</html>

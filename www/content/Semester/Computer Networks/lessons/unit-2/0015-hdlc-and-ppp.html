@@ -1,0 +1,343 @@
+<title>HDLC and PPP</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit II &middot; Lesson 15 of 27</p>
+<h1>HDLC and Point-to-Point Protocol</h1>
+<p class="deck">Two named data link protocols. HDLC gives you configurations, transfer modes and three frame types; PPP gives you a frame format, four transition phases and two authentication protocols. Both are descriptive &mdash; diagram-and-list questions, no numericals.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Asked as <strong>"Explain HDLC with its frame format"</strong> and <strong>"Explain PPP and its frame format"</strong> &mdash; 5 marks each, sometimes combined into 10. <strong>Draw the frame format as a labelled box diagram with byte counts</strong>; that diagram is most of the mark. Then list the field meanings in one line each. For HDLC, the three frame types (I, S, U) are the part most often asked on its own.</p>
+</div>
+
+<h2>HDLC &mdash; High-level Data Link Control</h2>
+
+<p><em class="term">HDLC</em> is a <strong>bit-oriented</strong> protocol for communication over point-to-point and multipoint links. It implements the ARQ mechanisms of the previous lesson. It was developed by <strong>ISO</strong>, and is the basis from which PPP, LAPB, LAPD and Frame Relay were derived.</p>
+
+<h3>Station types and configurations</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Station</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><strong>Primary station</strong></td><td>Controls the link. The frames it sends are called <strong>commands</strong>.</td></tr>
+<tr><td><strong>Secondary station</strong></td><td>Operates under the primary's control. The frames it sends are called <strong>responses</strong>.</td></tr>
+<tr><td><strong>Combined station</strong></td><td>Acts as both primary and secondary; may send both commands and responses.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Configuration</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><strong>Unbalanced</strong></td><td>One primary station and one or more secondary stations. Point-to-point or multipoint.</td></tr>
+<tr><td><strong>Balanced</strong></td><td>Two combined stations, of equal status. Point-to-point only.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The two transfer modes &mdash; a standard 3-mark question</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th></th><th>NRM &mdash; Normal Response Mode</th><th>ABM &mdash; Asynchronous Balanced Mode</th></tr></thead>
+<tbody>
+<tr><td><strong>Configuration</strong></td><td><strong>Unbalanced</strong> &mdash; one primary, one or more secondaries</td><td><strong>Balanced</strong> &mdash; two combined stations</td></tr>
+<tr><td><strong>Who may initiate</strong></td><td>Only the <strong>primary</strong>. A secondary may transmit <strong>only when the primary permits it</strong>.</td><td><strong>Either station</strong> may initiate transmission at any time.</td></tr>
+<tr><td><strong>Link type</strong></td><td>Point-to-point or multipoint</td><td>Point-to-point only</td></tr>
+<tr><td><strong>Usage</strong></td><td>Older, master&ndash;slave arrangements</td><td><strong>The common mode today</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>(An older third mode, <strong>ARM &mdash; Asynchronous Response Mode</strong>, lets a secondary start transmission without permission but keeps the primary responsible for the link. Mention it in one line if you have room.)</p>
+
+<h3>The HDLC frame format</h3>
+
+<div class="formula">
+  <span class="name">HDLC frame</span>
+  | <strong>Flag</strong> | <strong>Address</strong> | <strong>Control</strong> | <strong>Information</strong> | <strong>FCS</strong> | <strong>Flag</strong> |<br>
+  &nbsp;&nbsp;&nbsp;8 bits &nbsp;&nbsp;&nbsp; 8 or more &nbsp;&nbsp; 8 or 16 &nbsp;&nbsp; variable &nbsp;&nbsp; 16 or 32 &nbsp;&nbsp; 8 bits
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Flag</strong></td><td>8 bits</td><td>The pattern <strong><code>01111110</code></strong>, marking the start and end of the frame. <strong>Bit stuffing</strong> keeps this pattern out of the data.</td></tr>
+<tr><td><strong>Address</strong></td><td>1 or more bytes</td><td>The address of the <strong>secondary</strong> station. If the primary created the frame it holds the <em>to</em> address; if a secondary created it, the <em>from</em> address.</td></tr>
+<tr><td><strong>Control</strong></td><td>1 or 2 bytes</td><td>Used for flow and error control. <strong>Its first bits determine the frame type</strong> &mdash; see below.</td></tr>
+<tr><td><strong>Information</strong></td><td>Variable</td><td>The user data, or network management information in a U-frame.</td></tr>
+<tr><td><strong>FCS</strong></td><td>2 or 4 bytes</td><td><strong>Frame Check Sequence</strong> &mdash; the error-detection field, a <strong>CRC-16 or CRC-32</strong>.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three frame types</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Control field starts with</th><th>Carries</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>I-frame</strong> (Information)</td><td><code>0</code></td><td>User data, plus control information <strong>piggybacked</strong> on it</td><td>Transporting user data from the network layer, and acknowledging received frames at the same time</td></tr>
+<tr><td><strong>S-frame</strong> (Supervisory)</td><td><code>10</code></td><td><strong>No user data</strong></td><td>Flow and error control only &mdash; acknowledgements (RR), negative acknowledgements (REJ, SREJ), and stopping the sender (RNR)</td></tr>
+<tr><td><strong>U-frame</strong> (Unnumbered)</td><td><code>11</code></td><td>System management information</td><td>Link setup and disconnection, mode setting (SNRM, SABM, DISC), and reporting</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Inside the control field, three sub-fields recur and are worth naming: <strong>N(S)</strong> the send sequence number, <strong>N(R)</strong> the receive sequence number (the acknowledgement), and the <strong>P/F bit</strong> (Poll/Final) &mdash; called <em>Poll</em> when the primary sends it and <em>Final</em> when a secondary does.</p>
+
+<div class="box win">
+  <span class="lbl">Piggybacking &mdash; a 2-mark definition worth having ready</span>
+  <p><strong>Piggybacking</strong> is attaching an acknowledgement for received frames onto an outgoing data frame, instead of sending a separate acknowledgement frame. It saves bandwidth and reduces the number of frames on the link. In HDLC it is the N(R) field carried inside an I-frame.</p>
+</div>
+
+<h2>PPP &mdash; Point-to-Point Protocol</h2>
+
+<p><em class="term">PPP</em> is <strong>the most common protocol for point-to-point access</strong> &mdash; the one used when a user dials in to an ISP, and on serial and DSL links. It is <strong>byte-oriented</strong>, unlike HDLC.</p>
+
+<h3>What PPP provides &mdash; and what it deliberately does not</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>PPP provides</th><th>PPP does <em>not</em> provide</th></tr></thead>
+<tbody>
+<tr><td>A <strong>frame format</strong> for encapsulating data</td><td><strong>Flow control</strong> &mdash; a sender may send as many frames as it wishes</td></tr>
+<tr><td>A <strong>link control protocol (LCP)</strong> for establishing, maintaining and terminating the link</td><td><strong>Error control</strong> &mdash; errors are <em>detected</em> by the FCS but corrupted frames are simply discarded, not retransmitted</td></tr>
+<tr><td><strong>Authentication</strong> protocols (PAP and CHAP)</td><td><strong>Addressing</strong> for a multipoint configuration &mdash; it is point-to-point only</td></tr>
+<tr><td><strong>Network control protocols (NCPs)</strong>, one per network-layer protocol carried</td><td>Support for multipoint links or sophisticated flow control</td></tr>
+<tr><td>A way to carry <strong>multiple network-layer protocols</strong> over one link</td><td></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The lack of flow and error control is a genuine design decision, not an oversight: PPP is used over links where higher layers (TCP) already provide these services, and duplicating them would only add overhead.</p>
+
+<h3>The PPP frame format</h3>
+
+<div class="formula">
+  <span class="name">PPP frame</span>
+  | <strong>Flag</strong> | <strong>Address</strong> | <strong>Control</strong> | <strong>Protocol</strong> | <strong>Payload</strong> | <strong>FCS</strong> | <strong>Flag</strong> |<br>
+  &nbsp;&nbsp;1 byte &nbsp;&nbsp;&nbsp; 1 byte &nbsp;&nbsp;&nbsp; 1 byte &nbsp;&nbsp; 1 or 2 bytes &nbsp; variable &nbsp; 2 or 4 &nbsp;&nbsp; 1 byte
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Field</th><th>Value / size</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><strong>Flag</strong></td><td><code>01111110</code> (0x7E)</td><td>Frame delimiter. Because PPP is byte-oriented, it uses <strong>byte stuffing</strong>, not bit stuffing &mdash; the escape byte is <strong>0x7D</strong>.</td></tr>
+<tr><td><strong>Address</strong></td><td>Constant <code>11111111</code> (0xFF)</td><td>The <strong>broadcast address</strong>. It is fixed because there is only one possible recipient on a point-to-point link.</td></tr>
+<tr><td><strong>Control</strong></td><td>Constant <code>00000011</code> (0x03)</td><td>Fixed, indicating an unnumbered frame &mdash; PPP does not use sequence numbers.</td></tr>
+<tr><td><strong>Protocol</strong></td><td>1 or 2 bytes</td><td>States <strong>what the payload contains</strong> &mdash; user data, or LCP, or an NCP, or an authentication packet. This is the field that lets PPP multiplex several protocols.</td></tr>
+<tr><td><strong>Payload</strong></td><td>Variable, default max 1500 bytes</td><td>The data being carried.</td></tr>
+<tr><td><strong>FCS</strong></td><td>2 or 4 bytes</td><td>CRC for error <em>detection</em>.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box exam">
+  <span class="lbl">The point examiners test on the PPP frame</span>
+  <p><strong>The address and control fields are constants</strong> (0xFF and 0x03) and carry no information. Why? On a point-to-point link there is exactly one other station, so there is nothing to address and no sequence to manage. Say this explicitly &mdash; it shows you understand the frame rather than having memorised the byte values.</p>
+</div>
+
+<h3>The transition phases</h3>
+
+<div class="formula">
+  <span class="name">PPP link lifecycle</span>
+  <strong>Dead</strong> &rarr; <strong>Establish</strong> &rarr; (<strong>Authenticate</strong>) &rarr; <strong>Network</strong> &rarr; <strong>Open</strong> &rarr; <strong>Terminate</strong> &rarr; Dead
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Phase</th><th>What happens</th></tr></thead>
+<tbody>
+<tr><td><strong>Dead</strong></td><td>The link is not in use; no carrier is present.</td></tr>
+<tr><td><strong>Establish</strong></td><td>A carrier is detected. <strong>LCP</strong> packets negotiate options and set up the link.</td></tr>
+<tr><td><strong>Authenticate</strong></td><td><strong>Optional.</strong> If required during establishment, PAP or CHAP packets are exchanged. Failure returns the link to Dead.</td></tr>
+<tr><td><strong>Network</strong></td><td><strong>NCP</strong> packets configure the network-layer protocol(s) to be carried &mdash; for example IPCP for IP.</td></tr>
+<tr><td><strong>Open</strong></td><td>Data transfer takes place.</td></tr>
+<tr><td><strong>Terminate</strong></td><td>The connection is closed down and the link returns to Dead.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three protocol groups inside PPP</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Protocol</th><th>Full name</th><th>Job</th></tr></thead>
+<tbody>
+<tr><td><strong>LCP</strong></td><td>Link Control Protocol</td><td>Establishing, maintaining, configuring and terminating the link; negotiating options such as maximum payload size and authentication method.</td></tr>
+<tr><td><strong>AP</strong></td><td>Authentication Protocols</td><td><strong>PAP</strong> and <strong>CHAP</strong> &mdash; verifying the identity of the party at the other end.</td></tr>
+<tr><td><strong>NCP</strong></td><td>Network Control Protocols</td><td>One per network-layer protocol carried &mdash; <strong>IPCP</strong> for IP, and others for IPX, AppleTalk, and so on. This is how PPP carries several protocols over one link.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>PAP vs CHAP &mdash; a reliable 3-mark comparison</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>PAP &mdash; Password Authentication Protocol</th><th>CHAP &mdash; Challenge Handshake Authentication Protocol</th></tr></thead>
+<tbody>
+<tr><td><strong>Steps</strong></td><td><strong>Two-step</strong>: the user sends name and password; the system replies with an authenticate-ack or authenticate-nak.</td><td><strong>Three-step</strong>: the system sends a <strong>challenge</strong> (a random value); the user replies with a <strong>hash</strong> of the challenge and its password; the system computes the same hash and compares.</td></tr>
+<tr><td><strong>Password on the link</strong></td><td>Sent <strong>in plain text</strong></td><td><strong>Never sent</strong> &mdash; only a hash of it travels</td></tr>
+<tr><td><strong>Security</strong></td><td><strong>Weak</strong> &mdash; anyone tapping the link learns the password</td><td><strong>Strong</strong> &mdash; the challenge changes every time, so a captured response is useless later</td></tr>
+<tr><td><strong>When it runs</strong></td><td>Once, at connection setup</td><td>At setup <strong>and repeatedly during the session</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>HDLC vs PPP</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>HDLC</th><th>PPP</th></tr></thead>
+<tbody>
+<tr><td><strong>Orientation</strong></td><td><strong>Bit-oriented</strong> &mdash; uses bit stuffing</td><td><strong>Byte-oriented</strong> &mdash; uses byte stuffing</td></tr>
+<tr><td><strong>Link types</strong></td><td>Point-to-point and multipoint</td><td><strong>Point-to-point only</strong></td></tr>
+<tr><td><strong>Address field</strong></td><td>Meaningful &mdash; identifies the secondary</td><td>Constant 0xFF, carries no information</td></tr>
+<tr><td><strong>Flow control</strong></td><td><strong>Provided</strong> (sliding window, N(S)/N(R))</td><td><strong>Not provided</strong></td></tr>
+<tr><td><strong>Error control</strong></td><td>Detection <strong>and</strong> retransmission (ARQ)</td><td>Detection only &mdash; bad frames are discarded</td></tr>
+<tr><td><strong>Multiple network protocols</strong></td><td>Not supported directly</td><td><strong>Supported</strong>, via the Protocol field and NCPs</td></tr>
+<tr><td><strong>Authentication</strong></td><td>None</td><td><strong>PAP and CHAP</strong></td></tr>
+<tr><td><strong>Standardised by</strong></td><td>ISO</td><td>IETF (RFC 1661)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">HDLC Frame Architecture & Frame Types</div>
+  <div class="flow-col">
+    <div class="flow-box" style="max-width:32rem;"><strong>HDLC Frame Layout</strong><span class="sub">Flag [01111110] | Address (8b) | Control (8/16b) | Information (Payload) | FCS (16/32b CRC) | Flag</span></div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box highlight"><strong>I-Frame (Information)</strong><span class="sub">Carries user data + piggybacked ACK & N(S), N(R)</span></div>
+    <div class="flow-box ok"><strong>S-Frame (Supervisory)</strong><span class="sub">Flow/error control: RR (Ready), RNR (Not Ready), REJ, SREJ</span></div>
+    <div class="flow-box warn"><strong>U-Frame (Unnumbered)</strong><span class="sub">Session link management: SABM, DISC, UA</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">HDLC & PPP Protocols</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">High-Level Data Link Control (HDLC) Architecture and Frames</div>
+    <div class="v-desc">Thorough breakdown of bit stuffing, configuration modes (NRM, ABM), and the control field encoding for I, S, and U frames.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=N2tgsPUPEBE" target="_blank" rel="noopener">Watch on YouTube &rarr; (Neso Academy)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. In HDLC Normal Response Mode (NRM), a secondary station may transmit:</p>
+  <div class="opts">
+    <button class="opt">Never &mdash; a secondary can only receive frames</button>
+    <button class="opt">Only after all other secondaries have finished</button>
+    <button class="opt" data-ok="1">Only when the primary station gives it permission</button>
+    <button class="opt">At any time it has data ready to send</button>
+  </div>
+  <p class="why">NRM is the unbalanced, master–slave mode: one primary controls the link and secondaries speak only when permitted. Either station transmitting freely describes ABM, the balanced mode used today.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. An HDLC frame whose control field begins with the bits 10 is:</p>
+  <div class="opts">
+    <button class="opt">A U-frame, carrying system management information</button>
+    <button class="opt" data-ok="1">An S-frame, carrying flow and error control but no user data</button>
+    <button class="opt">An I-frame, carrying user data with piggybacked control</button>
+    <button class="opt">A flag sequence marking the start of the frame</button>
+  </div>
+  <p class="why">The pattern is: 0 → I-frame, 10 → S-frame, 11 → U-frame. S-frames carry acknowledgements and rejects but never user data; that is exactly why they exist.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The address field of a PPP frame is always 0xFF because:</p>
+  <div class="opts">
+    <button class="opt">The real address is carried in the Protocol field instead</button>
+    <button class="opt" data-ok="1">There is only one possible recipient on a point-to-point link</button>
+    <button class="opt">0xFF is the address reserved for the ISP's access server</button>
+    <button class="opt">PPP frames are always broadcast to every station present</button>
+  </div>
+  <p class="why">With exactly one station at the other end, addressing is meaningless, so the field is fixed at the broadcast value and carries no information. The same reasoning fixes the control field at 0x03.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which service does PPP deliberately not provide?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Flow control &mdash; a sender may send as many frames as it wishes</button>
+    <button class="opt">Link establishment &mdash; the link must be configured manually</button>
+    <button class="opt">Error detection &mdash; there is no checksum field in the frame</button>
+    <button class="opt">Authentication &mdash; identity is never verified on the link</button>
+  </div>
+  <p class="why">PPP has an FCS (detection), PAP/CHAP (authentication) and LCP (establishment). What it omits is flow control, and it also omits error <em>correction</em> — bad frames are detected and discarded, never retransmitted.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. CHAP is more secure than PAP mainly because:</p>
+  <div class="opts">
+    <button class="opt">It uses a longer password than PAP is able to support</button>
+    <button class="opt" data-ok="1">The password is never sent &mdash; only a hash of a changing challenge</button>
+    <button class="opt">It runs only once, so there is less to intercept</button>
+    <button class="opt">It encrypts the entire frame, including the payload data</button>
+  </div>
+  <p class="why">PAP sends the password in plain text. CHAP sends only a hash of a random challenge, so an intercepted response cannot be reused — and CHAP repeats the check periodically during the session rather than only at setup.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. In the PPP transition phases, NCP packets are exchanged during the:</p>
+  <div class="opts">
+    <button class="opt">Establish phase, negotiating the link options</button>
+    <button class="opt">Open phase, while user data is being transferred</button>
+    <button class="opt">Authenticate phase, verifying the user's identity</button>
+    <button class="opt" data-ok="1">Network phase, configuring the network-layer protocol</button>
+  </div>
+  <p class="why">LCP runs in Establish, PAP/CHAP in Authenticate, NCP in Network, and only then does Open carry data. Keep the three protocol groups paired with their phases — that pairing is the question.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>What is HDLC, and what are its station types and configurations?</summary>
+    <p class="ans">A bit-oriented ISO protocol for point-to-point and multipoint links, implementing ARQ. Stations: primary (sends commands), secondary (sends responses), combined (both). Configurations: unbalanced (one primary with secondaries) and balanced (two combined stations, point-to-point only).</p></details>
+  <details class="card"><summary>Compare NRM and ABM.</summary>
+    <p class="ans">NRM is unbalanced: one primary, and a secondary may transmit only with the primary's permission; point-to-point or multipoint. ABM is balanced: two combined stations, either may initiate transmission at any time; point-to-point only, and the common mode today.</p></details>
+  <details class="card"><summary>Draw and label the HDLC frame format.</summary>
+    <p class="ans">Flag (8 bits, 01111110) | Address (1+ bytes, the secondary's address) | Control (1–2 bytes, sets the frame type) | Information (variable) | FCS (2 or 4 bytes, CRC-16/32) | Flag (8 bits). Bit stuffing prevents the flag pattern appearing in the data.</p></details>
+  <details class="card"><summary>Name the three HDLC frame types and their purposes.</summary>
+    <p class="ans">I-frame (control starts 0) — carries user data with piggybacked acknowledgement. S-frame (starts 10) — flow and error control only, no user data; RR, RNR, REJ, SREJ. U-frame (starts 11) — link management: setup, disconnection, mode setting.</p></details>
+  <details class="card"><summary>Define piggybacking.</summary>
+    <p class="ans">Attaching an acknowledgement for received frames onto an outgoing data frame instead of sending a separate acknowledgement frame, saving bandwidth and reducing the frame count. In HDLC it is the N(R) field inside an I-frame.</p></details>
+  <details class="card"><summary>Draw and label the PPP frame format.</summary>
+    <p class="ans">Flag (0x7E) | Address (constant 0xFF) | Control (constant 0x03) | Protocol (1–2 bytes, says what the payload is) | Payload (variable, default max 1500 bytes) | FCS (2 or 4 bytes) | Flag. Byte stuffing with escape byte 0x7D.</p></details>
+  <details class="card"><summary>List the PPP transition phases.</summary>
+    <p class="ans">Dead → Establish (LCP) → Authenticate (optional, PAP/CHAP) → Network (NCP) → Open (data transfer) → Terminate → Dead.</p></details>
+  <details class="card"><summary>What are LCP, AP and NCP?</summary>
+    <p class="ans">LCP — Link Control Protocol, establishes, maintains, configures and terminates the link. AP — Authentication Protocols, PAP and CHAP. NCP — Network Control Protocols, one per network-layer protocol carried (IPCP for IP), which is how PPP carries several protocols on one link.</p></details>
+  <details class="card"><summary>PAP vs CHAP — three differences.</summary>
+    <p class="ans">PAP is two-step and sends the password in plain text, once at setup, and is weak. CHAP is three-step (challenge, hashed response, verification), never sends the password, repeats during the session, and is strong because the challenge changes each time.</p></details>
+</div>
+
+<p class="ask">If your paper asks for the HDLC control-field bit layout in detail (N(S), P/F, N(R) positions), say so and I will add the bit-level diagrams &mdash; most syllabi stop at the frame level.</p>
+
+<div class="nav">
+  <a href="0014-framing-flow-and-error-control.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0016-random-access.html">Next: Random Access &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

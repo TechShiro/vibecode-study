@@ -1,0 +1,215 @@
+<title>Protection and the Access Matrix</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit V &middot; Lesson 26 of 27</p>
+<h1>Protection and the Access Matrix</h1>
+<p class="deck">Goals and principles of OS protection, domains of protection, the Access Matrix model, implementing access matrices (ACLs vs Capability Lists), and revocation of access rights.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain the Access Matrix model and compare Access Control Lists (ACL) with Capability Lists (C-Lists)&rdquo;</strong> is a guaranteed 10-mark question. Provide an explicit tabular matrix diagram and contrast revocation difficulty in both implementations.</p>
+</div>
+
+<h2>What is Protection?</h2>
+<p><strong>Protection</strong> refers to a mechanism for controlling the access of programs, processes, or users to the resources defined by a computer system. While <em>security</em> measures defend the system from external adversaries, <em>protection</em> ensures internal processes do not improperly manipulate internal OS objects.</p>
+
+<div class="box win">
+  <span class="lbl">The Principle of Least Privilege</span>
+  <p>Programs, users, and even systems should be operated using the <strong>minimum set of privileges</strong> necessary to complete their required job. This limits the damage (&ldquo;blast radius&rdquo;) caused by buggy code, malicious intrusions, or compromised credentials.</p>
+</div>
+
+<h2>Domain of Protection</h2>
+<p>A computer system contains objects (hardware devices like disks and printers, software objects like files, semaphores, and memory segments). An <strong>access right</strong> is the permission to perform a specific operation on an object (e.g., <code>read</code>, <code>write</code>, <code>execute</code>).</p>
+
+<div class="formula">
+  <span class="name">Definition of a Domain</span>
+  A <strong>Domain</strong> is a collection of access rights, where each right is an ordered pair:<br>
+  $$\langle \text{Object-ID}, \text{Rights-Set} \rangle$$
+  A process executes within the context of a protection domain.
+</div>
+
+<p><strong>Domain Association:</strong></p>
+<ul>
+  <li><strong>Static:</strong> The process stays in a fixed domain for its entire lifetime (simplistic, but violates least privilege).</li>
+  <li><strong>Dynamic (Domain Switching):</strong> A process can transition from one domain to another when invoking specialized procedures (e.g., the Unix <code>setuid</code> bit temporarily elevates a normal user process to the <code>root</code> domain while running <code>passwd</code>).</li>
+</ul>
+
+<h2>The Access Matrix Model</h2>
+<p>The <strong>Access Matrix</strong> is a general conceptual model for representing protection policies:</p>
+<ul>
+  <li><strong>Rows:</strong> Represent <strong>Domains</strong> ($D_1, D_2, \dots, D_n$).</li>
+  <li><strong>Columns:</strong> Represent <strong>Objects</strong> ($F_1, F_2, \dots, \text{Printer}, D_j$).</li>
+  <li><strong>Cell Entry $A[i, j]$:</strong> The set of access rights that a process in domain $D_i$ may exercise on object $O_j$.</li>
+</ul>
+
+<div class="solve">
+  <span class="lbl">Access Matrix with Domain Switching &amp; Dynamic Rights</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>Domain</th><th>File F1</th><th>File F2</th><th>Laser Printer</th><th>Domain D2</th><th>Domain D3</th></tr></thead>
+  <tbody>
+  <tr><td><strong>D1</strong></td><td>{ read }</td><td>{ read, write }</td><td>&empty;</td><td>{ switch }</td><td>&empty;</td></tr>
+  <tr><td><strong>D2</strong></td><td>&empty;</td><td>{ read* }</td><td>{ print }</td><td>&empty;</td><td>{ switch }</td></tr>
+  <tr><td><strong>D3</strong></td><td>{ read, write, execute }</td><td>&empty;</td><td>{ print }</td><td>&empty;</td><td>&empty;</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Special Dynamic Rights:</strong></p>
+  <ul>
+    <li><code>switch</code>: Allows a process in domain $D_1$ to switch its execution context into domain $D_2$.</li>
+    <li><code>copy right (*)</code>: A process holding <code>read*</code> can copy the <code>read</code> permission to other domains.</li>
+    <li><code>owner</code>: Allows a domain to add or delete access rights in that object's column.</li>
+    <li><code>control</code>: If $D_1$ has <code>control</code> over domain $D_2$, $D_1$ can modify the permissions in row $D_2$.</li>
+  </ul>
+</div>
+
+<h2>Implementation of the Access Matrix</h2>
+<p>In practice, the Access Matrix is immense and extremely sparse (thousands of files, but each domain accesses only a handful). Storing it as a dense 2D array is impossible. Operating systems implement it using one of three architectures:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Architecture</th><th>How it Stores the Matrix</th><th>Real-World Analogy</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>1. Global Table</strong></td>
+  <td>A single table of ordered triples: $\langle \text{Domain}, \text{Object}, \text{Rights} \rangle$. Stored in kernel RAM.</td>
+  <td>A master national registry database.</td>
+</tr>
+<tr>
+  <td><strong>2. Access Control Lists (ACL)</strong></td>
+  <td><strong>Column-wise:</strong> Each object has an attached list of pairs $\langle \text{Domain}, \text{Rights} \rangle$. Evaluated on object access.</td>
+  <td>A guest list held at the door of a VIP room.</td>
+</tr>
+<tr>
+  <td><strong>3. Capability Lists (C-Lists)</strong></td>
+  <td><strong>Row-wise:</strong> Each domain has an attached list of capabilities $\langle \text{Object}, \text{Rights} \rangle$.</td>
+  <td>A personal key ring or unforgeable concert tickets.</td>
+</tr>
+<tr>
+  <td><strong>4. Lock-and-Key</strong></td>
+  <td>Hybrid: Each object has a bit pattern (Lock); each domain holds unique bit patterns (Keys). Access granted if key matches lock.</td>
+  <td>Physical padlock and matching brass keys.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>Master Comparison: ACL vs Capability List (C-List)</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Access Control List (ACL)</th><th>Capability List (C-List)</th></tr></thead>
+<tbody>
+<tr><td><strong>Matrix Partition</strong></td><td>Decomposition by <strong>Columns</strong> (stored with the object)</td><td>Decomposition by <strong>Rows</strong> (stored with the domain / process)</td></tr>
+<tr><td><strong>Object Inspection</strong></td><td>Trivial &mdash; look at the object's ACL to see who has access</td><td>Difficult &mdash; must search every process capability list in the system</td></tr>
+<tr><td><strong>Domain Inspection</strong></td><td>Difficult &mdash; must scan all objects in the file system</td><td>Trivial &mdash; look at the process's own descriptor table</td></tr>
+<tr><td><strong>Security Enforcement</strong></td><td>Kernel checks credentials on every <code>open()</code> call</td><td>Process presents ticket; kernel verifies signature / tagged bits</td></tr>
+<tr><td><strong>Revocation of Rights</strong></td><td><strong>Extremely easy:</strong> delete or modify the user's entry in the object's ACL immediately</td><td><strong>Difficult:</strong> capabilities are scattered across hundreds of independent processes</td></tr>
+<tr><td><strong>Real-World Usage</strong></td><td>Standard file systems (Unix permissions, Windows NTFS ACLs)</td><td>Distributed systems (Mach, Amoeba, POSIX file descriptors)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Revocation of Access Rights</h2>
+<p>When an access right is rescinded, several design trade-offs emerge:</p>
+<ul>
+  <li><strong>Immediate vs Delayed:</strong> Immediate revocation affects active running processes instantly. Delayed revocation occurs the next time the process attempts to re-open the object.</li>
+  <li><strong>Selective vs General:</strong> Revoking access for a single specific user versus revoking it for all users of the object.</li>
+  <li><strong>Partial vs Total:</strong> Revoking only <code>write</code> access while preserving <code>read</code> access versus revoking all rights.</li>
+  <li><strong>Temporary vs Permanent:</strong> Whether the right can be restored or is permanently expunged.</li>
+</ul>
+
+<div class="box win">
+  <span class="lbl">Why Revocation is Hard in Capability Systems (and Solutions)</span>
+  <p>In a capability system, once a process holds a capability ticket, finding and revoking all copies is difficult. Systems solve this using:</p>
+  <ol>
+    <li><strong>Indirection / Back-pointers:</strong> Capabilities point to an entry in a global table, which then points to the object. Revoking the pointer in the table immediately invalidates all capabilities.</li>
+    <li><strong>Generation Keys:</strong> The object and capability both contain a generation number (e.g. 5). When revoked, the object increments its generation to 6. Old capabilities mismatch and fail.</li>
+  </ol>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Access Matrix Decomposition: ACLs (Objects) vs Capability Lists (Domains)</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Access Matrix M[Domain, Object] = Set of Access Rights (Read, Write, Execute)</strong>
+    </div>
+    <div class="flow-arrow-down">&darr; Stored in practice via Sparse Representation</div>
+    <div class="flow-row">
+      <div class="flow-box ok"><strong>Access Control Lists (ACLs) &bull; Column-wise</strong><span class="sub">Attached to each Object (File F1)<br>F1 &rarr; { (User1, R), (User2, RW) }<br>Easy to revoke object access</span></div>
+      <div class="flow-box"><strong>Capability Lists (C-Lists) &bull; Row-wise</strong><span class="sub">Attached to each Domain / Process<br>Domain1 &rarr; { (F1, R), (F2, RW) }<br>Unforgeable capability tickets</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Protection & Access Matrix</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Access Matrix & Implementation of Access Matrix (ACL vs Capabilities)</div>
+    <div class="v-desc">The standard university exam answer covering domains of protection, access matrix operations, and ACLs versus capability lists.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=2YIhzk7tJI8" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. What is the key distinction between an Access Control List (ACL) and a Capability List?</p>
+  <div class="opts">
+    <button class="opt">An ACL is hardware-enforced; a Capability List is software-enforced</button>
+    <button class="opt">An ACL stores passwords; a Capability List stores encryption keys</button>
+    <button class="opt">They are completely identical terms with no difference</button>
+    <button class="opt" data-ok="1">An ACL is stored with the object (column-wise); a Capability List is stored with the domain/process (row-wise)</button>
+  </div>
+  <p class="why">ACLs decompose the access matrix by columns (attached to objects); Capability lists decompose it by rows (attached to domains).</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Why is revoking access rights trivial in an ACL-based system?</p>
+  <div class="opts">
+    <button class="opt">Because ACLs do not use file permissions</button>
+    <button class="opt">Because the operating system terminates all processes automatically</button>
+    <button class="opt" data-ok="1">Because all authorized domains for the object are concentrated in a single list attached directly to that object</button>
+    <button class="opt">Because it requires no kernel intervention</button>
+  </div>
+  <p class="why">To revoke access to an object, the administrator simply modifies or deletes that domain's entry in the object's local ACL.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The Principle of Least Privilege states that:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Every process should execute using only the bare minimum privileges necessary to perform its task</button>
+    <button class="opt">CPU priority should be assigned randomly</button>
+    <button class="opt">Operating systems should not use passwords</button>
+    <button class="opt">All users should be granted administrator access by default</button>
+  </div>
+  <p class="why">Least privilege restricts access to prevent bugs or compromised components from damaging unrelated resources.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+<div class="recall">
+  <details class="card"><summary>What do rows and columns represent in an Access Matrix?</summary>
+    <p class="ans">Rows = Domains (protection contexts). Columns = Objects (files, devices, printers, other domains). Cells = Access rights.</p></details>
+  <details class="card"><summary>Contrast ACL vs Capability List on column/row and revocation.</summary>
+    <p class="ans">ACL: column-wise (stored with object), revocation is immediate and easy. Capability List: row-wise (stored with domain/process), revocation is difficult because copies are widely distributed.</p></details>
+  <details class="card"><summary>What are the four dynamic rights in an access matrix?</summary>
+    <p class="ans">Switch (domain transition), Copy (*) (duplicate right to another domain), Owner (modify column rights), Control (modify row rights).</p></details>
+</div>
+
+<div class="nav">
+  <a href="0025-kernel-io-subsystem.html">&larr; Previous: Kernel I/O Subsystem</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0027-operating-system-security-and-threats.html">Next: OS Security &amp; Threats &rarr;</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 02 — 1D DP on Sequences</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 02 of 12 · one array, one pass</div>
+<h1>1D DP on Sequences</h1>
+<p class="subtitle">One array in, one <code>dp</code> array over it. House Robber is the template; eight classic problems are that template with one twist each.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 2 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+For a single array or string, define <strong><code>dp[i]</code> = the best answer for the prefix ending
+at (or up to) index <code>i</code></strong>. The recurrence pulls from O(1) earlier states —
+<code>dp[i-1]</code>, <code>dp[i-2]</code> — or occasionally all O(i) of them. Scan left→right once,
+and the giant space of subsets/decodings/subarrays collapses into n cheap decisions, because
+<em>everything the future needs to know about the past fits in one or two numbers</em>.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  A single array or string + "max sum / count the ways / min cost" scanning left→right, especially with an
+  <strong>adjacency constraint</strong> ("can't pick neighbors", "digit pairs decode together", "contiguous
+  subarray"). If choice at <code>i</code> is constrained only by choices at <code>i-1</code>/<code>i-2</code>, it's 1D DP.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<p>The framework from Lesson 1, instantiated for House Robber (LC 198) — rob non-adjacent houses, maximize loot:</p>
+<table>
+  <thead><tr><th>Step</th><th>For House Robber</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1 · State</strong></td><td><code>dp[i]</code> = max loot obtainable from houses <code>0..i</code> (rob house <code>i</code> or not — both included)</td></tr>
+    <tr><td><strong>2 · Recurrence</strong></td><td><code>dp[i] = max(dp[i-1], dp[i-2] + nums[i])</code> — skip house <code>i</code>, or rob it (then <code>i-1</code> is off-limits)</td></tr>
+    <tr><td><strong>3 · Base cases</strong></td><td><code>dp[0] = nums[0]</code>, <code>dp[1] = max(nums[0], nums[1])</code></td></tr>
+    <tr><td><strong>4 · Order</strong></td><td><code>i</code> ascending — each state only looks back</td></tr>
+    <tr><td><strong>5 · Answer</strong></td><td><code>dp[n-1]</code> (but for "ending here" states like Kadane, the answer is the <strong>max over all</strong> <code>dp[i]</code> — always ask which)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">The state sentence is the whole game</span>
+  "Best <em>up to</em> i" and "best <em>ending exactly at</em> i" are different states with different answers.
+  House Robber is "up to i" (answer at <code>dp[n-1]</code>); Kadane is "ending at i" (answer is the max over
+  all i). Say the sentence out loud before writing the loop — most wrong 1D DP is a mis-stated state.
+</div>
+
+<h2>3 · Core template — House Robber (198)</h2>
+<pre><code><span class="cmt">// Full table first — see the state.</span>
+int rob(int[] nums) {
+    int n = nums.length;
+    if (n == 1) return nums[0];
+    int[] dp = new int[n];
+    dp[0] = nums[0];
+    dp[1] = Math.max(nums[0], nums[1]);
+    for (int i = 2; i &lt; n; i++)
+        dp[i] = Math.max(dp[i - 1],              <span class="cmt">// skip house i</span>
+                         dp[i - 2] + nums[i]);   <span class="cmt">// rob house i → i-1 forbidden</span>
+    return dp[n - 1];
+}</code></pre>
+<pre><code><span class="cmt">// Interview-final form: the recurrence looks back 2 → roll to two variables.</span>
+int rob(int[] nums) {
+    int prev2 = 0, prev1 = 0;                    <span class="cmt">// dp[i-2], dp[i-1]; zeros = "no houses yet"</span>
+    for (int x : nums) {
+        int cur = Math.max(prev1, prev2 + x);
+        prev2 = prev1; prev1 = cur;
+    }
+    return prev1;
+}</code></pre>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(1) rolled (O(n) with the table). The zero-seeded rolling version even handles <code>n=1</code> without a special case.</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 198 · House Robber</strong> (Medium) — the template verbatim; likely already solved — re-solve from a blank file using this lesson's five-part framework, state sentence first.</li>
+  <li><strong>LC 2140 · Solving Questions With Brainpower</strong> (Medium) — same take-or-skip choice, but taking question <code>i</code> jumps you <em>forward</em> — fill <code>dp</code> right→left with <code>dp[i] = max(dp[i+1], points[i] + dp[i+1+brainpower[i]])</code>.</li>
+  <li><strong>LC 983 · Minimum Cost For Tickets</strong> (Medium) — min instead of max, and <code>dp[day]</code> looks back 1 / 7 / 30 days instead of 1 / 2 — the look-back set is a dial, not a fixed pair.</li>
+</ul>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>House Robber</td><td>198</td><td>The template above</td></tr>
+    <tr><td>House Robber II</td><td>213</td><td>Circle: house 0 and house n−1 are adjacent → run the <em>linear</em> robber twice (exclude first / exclude last), take max</td></tr>
+    <tr><td>Decode Ways</td><td>91</td><td>Count instead of max; take 1 digit or 2; <code>'0'</code> traps everywhere</td></tr>
+    <tr><td>Maximum Subarray (Kadane)</td><td>53</td><td>State flips to "max sum <strong>ending exactly at</strong> i": extend or restart; answer = max over all i</td></tr>
+    <tr><td>Maximum Product Subarray</td><td>152</td><td>Track max <strong>and min</strong> ending here — a negative flips them</td></tr>
+    <tr><td>Delete and Earn</td><td>740</td><td>Reduce: bucket points by value → House Robber over the value line (taking v kills v−1)</td></tr>
+    <tr><td>Jump Game</td><td>55</td><td>DP is O(n²); a greedy reach pointer is O(n) — know when to abandon DP</td></tr>
+    <tr><td>Word Break</td><td>139</td><td><code>dp[i]</code> over <em>prefixes</em> + a dictionary lookup — your bridge to string DP (Lesson 5)</td></tr>
+  </tbody>
+</table>
+
+<h3>House Robber II (213) — the circle trick</h3>
+<p>
+Same state and recurrence as 198 — only the <em>boundary</em> changed: house 0 and house n−1 are now
+adjacent, so no plan may rob both. Every valid circular plan therefore lives in one of two <em>linear</em>
+worlds: "house n−1 untouched" (rob on <code>0..n−2</code>) or "house 0 untouched" (rob on <code>1..n−1</code>).
+Run the linear template on each range and take the max. <strong>Time</strong> O(n) · <strong>Space</strong> O(1).
+</p>
+<pre><code>int rob(int[] nums) {
+    int n = nums.length;
+    if (n == 1) return nums[0];
+    return Math.max(robLine(nums, 0, n - 2),     <span class="cmt">// case A: house n-1 never robbed</span>
+                    robLine(nums, 1, n - 1));    <span class="cmt">// case B: house 0 never robbed</span>
+}                                                <span class="cmt">// every valid circular plan lies in A or B</span>
+int robLine(int[] nums, int lo, int hi) {
+    int prev2 = 0, prev1 = 0;
+    for (int i = lo; i &lt;= hi; i++) {
+        int cur = Math.max(prev1, prev2 + nums[i]);
+        prev2 = prev1; prev1 = cur;
+    }
+    return prev1;
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 213 · House Robber II</strong> (Medium) — the code above; write the <code>n == 1</code> guard <em>first</em>, then the two ranges.</li>
+  <li><strong>LC 1388 · Pizza With 3n Slices</strong> (Hard, stretch) — circular non-adjacent selection again, but you must pick <em>exactly</em> n slices — the same exclude-first / exclude-last split, plus a "how many picked" dimension on the state.</li>
+</ul>
+
+<h3>Decode Ways (91) — counting with '0' traps</h3>
+<p>
+Same shape, different verb: <code>max</code> becomes <code>+</code>. State: <code>dp[i]</code> = number of ways
+to decode the prefix of <em>length</em> i. The last decoded token is either one digit (valid unless it's
+<code>'0'</code>) or two digits (valid only for 10–26), so <code>dp[i] = dp[i-1]·[1-digit ok] + dp[i-2]·[2-digit ok]</code>.
+Base: <code>dp[0] = 1</code> — one way to decode the empty prefix. <strong>Time</strong> O(n) · <strong>Space</strong> O(1) rolled.
+</p>
+<pre><code>int numDecodings(String s) {
+    int n = s.length();
+    if (s.charAt(0) == '0') return 0;            <span class="cmt">// "0..." decodes to nothing</span>
+    int prev2 = 1, prev1 = 1;                    <span class="cmt">// dp[0]=1 (empty prefix), dp[1]=1</span>
+    for (int i = 2; i &lt;= n; i++) {               <span class="cmt">// dp[i] = ways to decode s[0..i)</span>
+        int cur = 0;
+        if (s.charAt(i - 1) != '0') cur += prev1;            <span class="cmt">// take 1 digit — '0' alone is invalid</span>
+        int two = (s.charAt(i - 2) - '0') * 10 + (s.charAt(i - 1) - '0');
+        if (two &gt;= 10 &amp;&amp; two &lt;= 26) cur += prev2;            <span class="cmt">// take 2 digits — "06" fails (6 &lt; 10)</span>
+        prev2 = prev1; prev1 = cur;
+    }
+    return prev1;
+}</code></pre>
+
+<div class="callout trap">
+  <span class="label">dp[0] = 1 is not a hack</span>
+  Setting the empty prefix to 1 way feels arbitrary until a two-digit take at <code>i = 2</code> needs it:
+  decoding <code>"12"</code> as one token contributes <code>dp[0]</code> ways. Seed it 0 and every count that
+  goes through a leading pair silently vanishes. Counting DPs almost always base at 1, not 0.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 91 · Decode Ways</strong> (Medium, Google-reported) — the code above; hand-test <code>"0"</code>, <code>"06"</code>, <code>"30"</code>, <code>"100"</code> before submitting.</li>
+  <li><strong>LC 2266 · Count Number of Texts</strong> (Medium) — keypad decodings: the look-back grows to 3–4 <em>same</em> characters instead of 2 digits, and answers need <code>long</code> + modulo.</li>
+  <li><strong>LC 639 · Decode Ways II</strong> (Hard, stretch) — adds the <code>'*'</code> wildcard: same 1-or-2-digit recurrence, but each branch is multiplied by how many digits the <code>'*'</code> could be.</li>
+</ul>
+
+<h3>Maximum Subarray (53) — Kadane</h3>
+<p>
+The state flips to <strong>"ending exactly at i"</strong>: <code>dp[i]</code> = best sum of a subarray whose
+last element is <code>nums[i]</code>. At each step you either extend the previous run or restart —
+<code>dp[i] = max(nums[i], dp[i-1] + nums[i])</code> — and because the answer can end anywhere, a separate
+<code>best</code> takes the max over all i. Base: <code>dp[0] = nums[0]</code>. <strong>Time</strong> O(n) · <strong>Space</strong> O(1).
+</p>
+<pre><code>int maxSubArray(int[] nums) {
+    int endingHere = nums[0], best = nums[0];    <span class="cmt">// seed with nums[0], NOT 0 — all-negative arrays</span>
+    for (int i = 1; i &lt; nums.length; i++) {
+        endingHere = Math.max(nums[i], endingHere + nums[i]);  <span class="cmt">// restart here, or extend the run</span>
+        best = Math.max(best, endingHere);       <span class="cmt">// answer = max over ALL "ending here" states</span>
+    }
+    return best;
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 53 · Maximum Subarray</strong> (Medium, Google-reported) — likely already solved — re-solve from a blank file using this lesson's framework, saying the "ending exactly at i" state sentence out loud first.</li>
+  <li><strong>LC 918 · Maximum Sum Circular Subarray</strong> (Medium) — fresh: run Kadane for the max AND for the <em>min</em>; answer = <code>max(normalKadane, total − minSubarray)</code>, guarding the all-negative case.</li>
+  <li><strong>LC 978 · Longest Turbulent Subarray</strong> (Medium) — Kadane's state idea without sums: length of the run <em>ending at i</em>, with two alternating up/down tracks.</li>
+</ul>
+
+<h3>Maximum Product Subarray (152) — carry the min too</h3>
+<p>
+Kadane's shape, but multiplication breaks the single-track state: a negative number turns the
+<em>smallest</em> product ending here into tomorrow's largest. So carry <strong>two</strong> states —
+max product ending at i and min product ending at i — and on a negative element swap them before
+extending. Bases are both <code>nums[0]</code>; answer is the max over all i. <strong>Time</strong> O(n) · <strong>Space</strong> O(1).
+</p>
+<pre><code>int maxProduct(int[] nums) {
+    int max = nums[0], min = nums[0], best = nums[0];
+    for (int i = 1; i &lt; nums.length; i++) {
+        int x = nums[i];
+        if (x &lt; 0) { int t = max; max = min; min = t; }  <span class="cmt">// negative flips the extremes</span>
+        max = Math.max(x, max * x);              <span class="cmt">// best product ending here</span>
+        min = Math.min(x, min * x);              <span class="cmt">// worst — tomorrow's negative makes it the best</span>
+        best = Math.max(best, max);
+    }
+    return best;
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 152 · Maximum Product Subarray</strong> (Medium) — the code above; hand-test <code>[-2, 0, -1]</code> and <code>[-2, 3, -4]</code>.</li>
+  <li><strong>LC 1567 · Maximum Length of Subarray With Positive Product</strong> (Medium) — the same two-track state, but tracking <em>lengths</em> of positive- and negative-product runs ending here.</li>
+  <li><strong>LC 1186 · Maximum Subarray Sum with One Deletion</strong> (Medium) — two tracks again: best sum ending at i with zero deletions vs with exactly one — multi-track states are a habit now.</li>
+</ul>
+
+<h3>Delete and Earn (740) — reduce to House Robber</h3>
+<p>
+No new DP — a <em>reduction</em>. Taking one copy of value v forces you to take every copy (they're free
+once v±1 are dead), so bucket the input: <code>gain[v] = v × count(v)</code>. Now "taking v deletes v−1"
+is exactly the adjacency constraint of House Robber, on the value line instead of the house line.
+State, recurrence, bases: identical to 198. <strong>Time</strong> O(n + V) · <strong>Space</strong> O(V), V = max value (10⁴ here).
+</p>
+<pre><code>int deleteAndEarn(int[] nums) {
+    int[] gain = new int[10001];                 <span class="cmt">// gain[v] = v * count(v): take ALL copies of v at once</span>
+    for (int x : nums) gain[x] += x;
+    int prev2 = 0, prev1 = 0;                    <span class="cmt">// taking v deletes v-1 → "adjacent" on the value line</span>
+    for (int v = 0; v &lt;= 10000; v++) {
+        int cur = Math.max(prev1, prev2 + gain[v]);
+        prev2 = prev1; prev1 = cur;
+    }
+    return prev1;                                <span class="cmt">// literally rob(gain) — spotting reductions is a skill</span>
+}</code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 740 · Delete and Earn</strong> (Medium) — the reduction above; say "this is House Robber on the value line" before you type anything.</li>
+  <li><strong>LC 3186 · Maximum Total Damage With Spell Casting</strong> (Medium, stretch) — the same reduction, but taking value v blocks v±1 <em>and</em> v±2, and values reach 10⁹ — sort the distinct values and look back by index, not through a dense array.</li>
+</ul>
+
+<h3>Jump Game (55) — when to abandon DP</h3>
+<p>
+The honest DP first: <code>dp[i]</code> = "is index i reachable?", true if <em>any</em> earlier j has
+<code>dp[j]</code> and <code>j + nums[j] &gt;= i</code>. That's a look-back over all O(i) earlier states →
+O(n²) total. It's correct — but notice the state is just a boolean, and the transition only asks
+"did anything before me reach this far?". One running integer answers that for every i at once.
+</p>
+<pre><code><span class="cmt">// The DP you'd write on autopilot — correct, O(n²) time, O(n) space:</span>
+boolean canJump(int[] nums) {
+    int n = nums.length;
+    boolean[] dp = new boolean[n];               <span class="cmt">// dp[i] = can we reach index i?</span>
+    dp[0] = true;                                <span class="cmt">// base: we start at index 0</span>
+    for (int i = 1; i &lt; n; i++)
+        for (int j = 0; j &lt; i; j++)              <span class="cmt">// any earlier reachable j that jumps to/past i</span>
+            if (dp[j] &amp;&amp; j + nums[j] &gt;= i) { dp[i] = true; break; }
+    return dp[n - 1];
+}</code></pre>
+<pre><code><span class="cmt">// The whole dp[] collapses into one number — greedy, O(n) time, O(1) space:</span>
+boolean canJump(int[] nums) {
+    int reach = 0;                               <span class="cmt">// farthest index reachable so far</span>
+    for (int i = 0; i &lt; nums.length; i++) {
+        if (i &gt; reach) return false;             <span class="cmt">// stranded before reaching i</span>
+        reach = Math.max(reach, i + nums[i]);
+    }
+    return true;
+}                                                <span class="cmt">// greedy is safe here: only "how far", nothing to trade off</span></code></pre>
+
+<div class="callout trap">
+  <span class="label">Knowing when NOT to DP</span>
+  If the state you defined is a monotone boolean ("reachable?") and the transition is "does anything
+  before me satisfy X", a single running maximum usually replaces the whole table. In an interview,
+  <em>name</em> the O(n²) DP in one sentence, then present the O(n) greedy — that contrast is exactly
+  what the interviewer is fishing for on LC 55.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 55 · Jump Game</strong> (Medium, Google-reported) — code the greedy, but be ready to state the O(n²) DP you deliberately skipped.</li>
+  <li><strong>LC 45 · Jump Game II</strong> (Medium) — minimum jumps: the O(n²) <code>dp[i] = 1 + min(dp[j])</code> is your safety net; the O(n) answer is greedy BFS-style windows over reach.</li>
+  <li><strong>LC 1306 · Jump Game III</strong> (Medium) — jumps go <em>both</em> directions (i ± arr[i]), so no left→right fill order exists — it's BFS/DFS on indices, not 1D DP. Recognizing the broken order is the point.</li>
+</ul>
+
+<h3>Word Break (139) — dp over prefixes</h3>
+<p>
+The look-back stops being O(1): <code>dp[i]</code> = "can the prefix <code>s[0..i)</code> be segmented into
+dictionary words?" — true if <em>some</em> split point j has <code>dp[j]</code> true and <code>s[j..i)</code>
+in the dictionary. Base: <code>dp[0] = true</code>, the empty prefix. This "last word / last piece" scan
+over all j is the bridge to string DP in Lesson 5. <strong>Time</strong> O(n²) splits × substring cost · <strong>Space</strong> O(n).
+</p>
+<pre><code>boolean wordBreak(String s, List&lt;String&gt; wordDict) {
+    Set&lt;String&gt; dict = new HashSet&lt;&gt;(wordDict);
+    int n = s.length();
+    boolean[] dp = new boolean[n + 1];           <span class="cmt">// dp[i] = can s[0..i) be segmented?</span>
+    dp[0] = true;                                <span class="cmt">// empty prefix — the base every string DP starts from</span>
+    for (int i = 1; i &lt;= n; i++)
+        for (int j = i - 1; j &gt;= 0; j--)         <span class="cmt">// last word = s[j..i)</span>
+            if (dp[j] &amp;&amp; dict.contains(s.substring(j, i))) { dp[i] = true; break; }
+    return dp[n];
+}                                                <span class="cmt">// O(n²) states×splits (×substring cost) — fine for n ≤ 300</span></code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 139 · Word Break</strong> (Medium, Google-reported) — the code above; dry-run <code>s = "applepenapple"</code> on paper before typing.</li>
+  <li><strong>LC 2707 · Extra Characters in a String</strong> (Medium) — same prefix dp, minimizing instead of deciding: <code>dp[i] = min(dp[i-1] + 1, dp[j] for dictionary words s[j..i))</code>.</li>
+  <li><strong>LC 140 · Word Break II</strong> (Hard, stretch) — return the actual sentences: run 139's dp as a feasibility filter, then backtrack only through <code>true</code> states.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>House Robber on <code>nums = [2, 7, 9, 3, 1]</code>. Fill <code>dp[i] = max(dp[i-1], dp[i-2] + nums[i])</code> left to right:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 440 190" role="img" aria-label="Two rows of cells: nums = 2,7,9,3,1 and the dp array filling to 2,7,11,11,12">
+  <text class="wt" x="120" y="28">i=0</text>
+  <text class="wt" x="186" y="28">i=1</text>
+  <text class="wt" x="252" y="28">i=2</text>
+  <text class="wt" x="318" y="28">i=3</text>
+  <text class="wt" x="384" y="28">i=4</text>
+  <text class="wt" x="48" y="66">nums</text>
+  <rect class="cell" x="90"  y="40" width="60" height="46"/><text class="lbl" x="120" y="63">2</text>
+  <rect class="cell" x="156" y="40" width="60" height="46"/><text class="lbl" x="186" y="63">7</text>
+  <rect class="cell" x="222" y="40" width="60" height="46"/><text class="lbl" x="252" y="63">9</text>
+  <rect class="cell" x="288" y="40" width="60" height="46"/><text class="lbl" x="318" y="63">3</text>
+  <rect class="cell" x="354" y="40" width="60" height="46"/><text class="lbl" x="384" y="63">1</text>
+  <text class="wt" x="48" y="146">dp</text>
+  <rect class="cell done" x="90"  y="120" width="60" height="46"/><text class="lbl" x="120" y="143">2</text>
+  <rect class="cell done" x="156" y="120" width="60" height="46"/><text class="lbl" x="186" y="143">7</text>
+  <rect class="cell done" x="222" y="120" width="60" height="46"/><text class="lbl" x="252" y="143">11</text>
+  <rect class="cell done" x="288" y="120" width="60" height="46"/><text class="lbl" x="318" y="143">11</text>
+  <rect class="cell cur"  x="354" y="120" width="60" height="46"/><text class="lbl inv" x="384" y="143">12</text>
+</svg>
+<figcaption>dp fills to [2, 7, 11, 11, 12]. Answer 12 = rob houses 0, 2, 4 (2 + 9 + 1).</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">i=0 · base: dp[0] = <span class="ptr">2</span></span>
+<span class="step">i=1 · base: dp[1] = max(2, 7) = <span class="ptr">7</span></span>
+<span class="step now">i=2 · max(dp[1]=7, dp[0]+9 = 11) = <span class="ptr">11</span> — rob house 2</span>
+<span class="step">i=3 · max(dp[2]=11, dp[1]+3 = 10) = <span class="ptr">11</span> — skip house 3</span>
+<span class="step now">i=4 · max(dp[3]=11, dp[2]+1 = 12) = <span class="ptr">12</span> — rob house 4</span>
+<span class="step">return dp[4] = <span class="ptr">12</span> (loot plan: houses 0, 2, 4)</span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>n = 1 / n = 2:</strong> touching <code>dp[1]</code> on a length-1 array throws. Zero-seeded rolling variables (<code>prev2 = prev1 = 0</code>) dodge this; explicit tables need guards. LC 213 <em>requires</em> the <code>n == 1</code> check — both runs would see an empty range.</li>
+  <li><strong>All-negative array (53):</strong> initialize with <code>nums[0]</code>, not 0 — the empty subarray isn't allowed, so <code>[-3, -1, -2]</code> must return −1.</li>
+  <li><strong>'0' in Decode Ways:</strong> leading <code>'0'</code> → 0 ways; <code>"06"</code> is invalid as a pair (&lt; 10); a <code>'0'</code> not preceded by 1 or 2 (e.g. <code>"30"</code>) kills every decoding — <code>cur</code> becomes 0 and correctly stays 0.</li>
+  <li><strong>Zeros in Max Product (152):</strong> <code>max(x, max*x)</code> restarts at the element, so zeros reset both trackers naturally — don't special-case them.</li>
+  <li><strong>Prefix-indexed dp (91, 139):</strong> when <code>dp[i]</code> means "prefix of <em>length</em> i", size the array <code>n+1</code> and remember <code>dp[i]</code> pairs with character <code>s.charAt(i-1)</code>.</li>
+  <li><strong>"Up to i" vs "ending at i":</strong> for ending-at states the answer is <code>max</code> over all i, not <code>dp[n-1]</code>.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Kadane's algorithm (LC 53), what exactly does the running dp value mean at index <code>i</code>?</div>
+  <button class="opt">The max subarray sum that ends exactly at <code>i</code> — extend the previous run or restart at <code>nums[i]</code></button>
+  <button class="opt">The max subarray sum anywhere within <code>nums[0..i]</code> — always the global best so far</button>
+  <button class="opt">The max subarray sum that starts at <code>i</code> and extends as far right as profitable</button>
+  <div class="fb" data-correct="Yes — the state is 'best sum ENDING exactly here', which is why a separate best variable must take the max over all i. Mixing the two roles into one variable is the classic Kadane bug." data-wrong="The dp state is 'best sum ENDING exactly at i' (extend or restart). The global best lives in a separate variable updated with max over all i — that separation IS Kadane."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">House Robber II (LC 213): the houses form a circle, so 0 and n−1 are adjacent. The standard fix is:</div>
+  <button class="opt">Run the linear robber on the full array, then subtract the smaller of <code>nums[0]</code> and <code>nums[n-1]</code></button>
+  <button class="opt">Run the linear robber twice — on <code>nums[0..n-2]</code> and on <code>nums[1..n-1]</code> — and take the max</button>
+  <button class="opt">Run the linear robber once, starting from whichever end holds the larger value</button>
+  <div class="fb" data-correct="Right — any valid circular plan skips house 0 or skips house n−1 (they can't both be robbed), so the two linear runs cover every possibility. Reducing a new constraint to a solved problem is the pattern to remember." data-wrong="Every valid plan omits house 0 or house n−1, since the circle makes them adjacent. So: linear rob on nums[0..n−2], linear rob on nums[1..n−1], return the max. Subtracting after the fact double-counts."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Maximum Product Subarray (LC 152) tracks a running <strong>minimum</strong> alongside the maximum because:</div>
+  <button class="opt">Zeros reset the product, and the minimum records where the last zero occurred</button>
+  <button class="opt">The minimum detects overflow before it can flip the sign of the running product</button>
+  <button class="opt">A hugely negative "min ending here" becomes the max the instant it meets another negative</button>
+  <div class="fb" data-correct="Exactly — with products, sign flips mean today's worst is tomorrow's best. One future state needing TWO numbers from the past is your first taste of multi-track states (Lesson 8 runs on this idea)." data-wrong="It's about sign flips: (−big) × (−x) = +bigger, so the most negative product ending here can become the maximum at the next negative number. That's why both extremes ride along."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://www.youtube.com/watch?v=73r3KWiEvyk">NeetCode — House Robber</a>, then <a href="https://www.youtube.com/playlist?list=PLgUwDviBIf0qUlt5H_kiKYaNSqJ81PMMY">Striver DP Series Lec 5–6</a> (1D DP on arrays, Java-friendly).</li>
+  <li><strong>Practice ladder (easiest → hardest):</strong>
+    LC 53 Maximum Subarray <em>(Google-reported)</em> → LC 198 House Robber → LC 740 Delete and Earn →
+    LC 213 House Robber II → LC 91 Decode Ways <em>(Google-reported)</em> → LC 152 Maximum Product Subarray →
+    LC 55 Jump Game <em>(Google-reported)</em> → LC 139 Word Break <em>(Google-reported)</em>.</li>
+  <li><strong>Drill:</strong> before coding each one, write the five framework answers as comments — state sentence first. If you can't finish the sentence "dp[i] = …", you're not ready to type the loop.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0003-grid-dp.html">DP Lesson 03 — Grid DP</a>, where dp[i] grows a second index.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure why the circle needs two runs, how "06" differs from "16" in Decode Ways, or want a dry run of
+  Kadane on an all-negative array? Ask in the chat. When the House Robber recurrence and the
+  "up to i vs ending at i" distinction feel automatic, say <strong>"next"</strong> and we go 2D.
+</div>
+
+<div class="nav">
+  <span><a href="0001-dp-foundations.html">← DP Foundations</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-grid-dp.html">Grid DP →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

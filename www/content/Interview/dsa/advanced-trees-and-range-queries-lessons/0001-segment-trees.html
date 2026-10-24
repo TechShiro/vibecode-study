@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advanced Trees 01 — Segment Trees &amp; Range Queries</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Advanced Trees Track · Lesson 1 of 3 · RMQ, Range Sum, Lazy Propagation</div>
+<h1>Segment Trees &amp; Range Queries</h1>
+<p class="subtitle">Querying and updating arbitrary array intervals in logarithmic time.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master advanced competitive structures from 0 level. Lesson 1 of 3 in Advanced Trees.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<div class="yt-embed">
+  <div class="yt-title">📺 Recommended Lecture</div>
+  <a href="https://www.youtube.com/watch?v=ZBfvxosXaoA" target="_blank">Segment Tree Range Minimum Query — Tushar Roy</a>
+  <span class="yt-desc">Step-by-step whiteboard walkthrough of building the tree and querying intervals.</span>
+</div>
+
+<h2>1 · The One Idea</h2>
+<p>
+If an array is static, Prefix Sums answer range sum queries in $O(1)$ time. But what if values are <strong>dynamically updated</strong>? Updating a prefix sum array takes $O(N)$ time per update. A <strong>Segment Tree</strong> is a binary tree where each node stores the aggregated result (sum, minimum, maximum) of an interval $[L, R]$. It builds in $O(N)$ time, and answers both <strong>Range Queries and Point Updates in strictly O(log N) time</strong>!
+</p>
+
+<h2>2 · Array Representation &amp; Size 4N</h2>
+<p>
+Like binary heaps, a Segment Tree is stored compactly inside a 1D array of size $4N$:
+</p>
+<ul>
+  <li>Left child of node $i$: <code>2 * i + 1</code></li>
+  <li>Right child of node $i$: <code>2 * i + 2</code></li>
+  <li>Root represents full range $[0, N-1]$ at index 0.</li>
+</ul>
+
+<h2>3 · Java Implementation (Range Sum Query)</h2>
+<pre><code>public class SegmentTree {
+    private final int[] tree;
+    private final int n;
+
+    public SegmentTree(int[] arr) {
+        this.n = arr.length;
+        this.tree = new int[4 * n];
+        build(arr, 0, 0, n - 1);
+    }
+
+    private void build(int[] arr, int node, int start, int end) {
+        if (start == end) {
+            tree[node] = arr[start];
+            return;
+        }
+        int mid = start + (end - start) / 2;
+        build(arr, 2 * node + 1, start, mid);
+        build(arr, 2 * node + 2, mid + 1, end);
+        tree[node] = tree[2 * node + 1] + tree[2 * node + 2];
+    }
+
+    public void update(int idx, int val) { update(0, 0, n - 1, idx, val); }
+
+    private void update(int node, int start, int end, int idx, int val) {
+        if (start == end) {
+            tree[node] = val;
+            return;
+        }
+        int mid = start + (end - start) / 2;
+        if (idx &lt;= mid) update(2 * node + 1, start, mid, idx, val);
+        else update(2 * node + 2, mid + 1, end, idx, val);
+        tree[node] = tree[2 * node + 1] + tree[2 * node + 2];
+    }
+
+    public int query(int l, int r) { return query(0, 0, n - 1, l, r); }
+
+    private int query(int node, int start, int end, int l, int r) {
+        if (r &lt; start || end &lt; l) return 0; <span class="cmt">// Outside range</span>
+        if (l &lt;= start &amp;&amp; end &lt;= r) return tree[node]; <span class="cmt">// Completely inside</span>
+        int mid = start + (end - start) / 2;
+        return query(2 * node + 1, start, mid, l, r) + query(2 * node + 2, mid + 1, end, l, r);
+    }
+}</code></pre>
+
+<h2>Do this next</h2>
+<ul>
+  <li>Segment Trees require $4N$ memory. Can we do range queries in only $N$ space? Lesson 2: Fenwick Tree (Binary Indexed Tree).</li>
+</ul>
+
+<div class="nav">
+  <a href="../sorting-and-searching-lessons/0003-non-comparison-sorts.html">← Sorting Track</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0002-fenwick-tree-binary-indexed-tree.html">Next: Fenwick Tree (BIT) →</a>
+</div>
+</body>
+</html>

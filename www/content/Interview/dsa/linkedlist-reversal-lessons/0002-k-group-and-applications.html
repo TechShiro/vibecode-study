@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinkedList Reversal Lesson 02 — k-Group &amp; Applications</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">LinkedList Reversal Track · Lesson 2 of 2 · the boss problem and the combos</div>
+<h1>Reverse Nodes in k-Group &amp; Applications</h1>
+<p class="subtitle">One flip-loop, deployed in groups, in rotations, and welded to other patterns — everything a linked-list round can throw at you.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> LC 25 is a "hard" that big-tech screens love precisely because it's Lesson 1's template plus careful stitching — pure execution under pressure.
+  This is Lesson 2 of the 2-lesson LinkedList Reversal track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1 gave you the flip-loop. Real interview problems wrap it: reverse <strong>every k nodes</strong> (count
+first, flip only full groups), <strong>rotate</strong> a list (no flipping at all — cut and re-tie a ring), or
+<strong>combine</strong> reversal with another pattern (find-mid + reverse + merge = Reorder List). The skill
+being tested is no longer the loop — it's <strong>bookkeeping at the seams</strong>: who points at the group,
+who does the group point at.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Reverse in groups of k," "rotate right by k," "reorder / fold the list," "add numbers stored in lists."
+  Whenever a linked-list problem needs surgery beyond one pass of value-reading, reach for: dummy node, a
+  <strong>groupPrev</strong> anchor, and the Lesson-1 flip-loop as a subroutine.
+</div>
+
+<h2>2 · Core — Reverse Nodes in k-Group (LC 25), the boss</h2>
+<p>
+Per group: (1) <strong>probe</strong> k nodes ahead — if the group is short, leave it untouched; (2) <strong>flip</strong>
+exactly k arrows with the standard loop, letting <code>cur</code> land on the next group's head; (3) <strong>stitch</strong>:
+the anchor before the group points at the group's new head (<code>prev</code>), and the group's old head — now its
+tail — points at <code>cur</code>. That old head is the next anchor.
+</p>
+<pre><code>ListNode reverseKGroup(ListNode head, int k) {
+    ListNode dummy = new ListNode(0);
+    dummy.next = head;
+    ListNode groupPrev = dummy;              <span class="cmt">// anchor: node just before the current group</span>
+
+    while (true) {
+        ListNode kth = groupPrev;            <span class="cmt">// 1. PROBE: is there a full group of k?</span>
+        for (int i = 0; i &lt; k &amp;&amp; kth != null; i++) kth = kth.next;
+        if (kth == null) break;              <span class="cmt">// fewer than k left → leave the tail as-is</span>
+
+        ListNode groupNext = kth.next;       <span class="cmt">// first node AFTER this group</span>
+        ListNode prev = groupNext;           <span class="cmt">// 2. FLIP: seed prev with groupNext…</span>
+        ListNode cur  = groupPrev.next;      <span class="cmt">//    …so the k-th flip auto-connects the back seam</span>
+        while (cur != groupNext) {           <span class="cmt">// standard Lesson-1 loop, k times</span>
+            ListNode next = cur.next;
+            cur.next = prev;
+            prev = cur;
+            cur  = next;
+        }
+        ListNode newAnchor = groupPrev.next; <span class="cmt">// old group head = new group tail</span>
+        groupPrev.next = kth;                <span class="cmt">// 3. STITCH front seam: anchor → new head (kth)</span>
+        groupPrev = newAnchor;               <span class="cmt">// advance anchor to the group's tail</span>
+    }
+    return dummy.next;
+}</code></pre>
+<p><strong>Time</strong> O(n) — every node is probed once and flipped once. <strong>Space</strong> O(1).</p>
+
+<div class="callout tip">
+  <span class="label">The seed trick</span>
+  Seeding <code>prev = groupNext</code> (instead of <code>null</code>) means the group's old head ends up pointing
+  at <code>groupNext</code> <em>automatically</em> — the back seam stitches itself, and you only wire the front seam
+  by hand. One line, one whole class of bugs gone.
+</div>
+
+<h3>Dry run: k = 2 on 1 → 2 → 3 → 4 → 5</h3>
+<div class="trace">
+<span class="step">dummy→1→2→3→4→5, groupPrev = <span class="ptr">dummy</span></span>
+<span class="step now">probe: kth = 2, groupNext = 3; flip 1,2 seeded with 3 → 2→1→3; stitch dummy→2; anchor = 1</span>
+<span class="step now">probe from 1: kth = 4, groupNext = 5; flip 3,4 → 4→3→5; stitch 1→4; anchor = 3</span>
+<span class="step now">probe from 3: kth = null after 1 step past 5 → short group, <span class="ptr">break</span></span>
+<span class="step">result: 2→1→4→3→5 (last group of one left alone)</span>
+</div>
+
+<h2>3 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Reverse every k nodes</td><td>LC 25</td><td>The core above: probe → flip k → stitch → advance anchor.</td></tr>
+    <tr><td>Rotate right by k</td><td>LC 61</td><td>No flipping. Measure length, close into a ring, cut at <code>n − k % n</code>.</td></tr>
+    <tr><td>Fold the list (reorder)</td><td>LC 143</td><td>Three patterns welded: find mid (fast &amp; slow) + reverse back half + zip-merge.</td></tr>
+    <tr><td>Add two numbers</td><td>LC 2</td><td>No reversal needed — digits already come least-significant first. Dummy + carry sweep.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Rotate List (LC 61)</h3>
+<p>
+Rotating right by k moves the last <code>k % n</code> nodes to the front. Cleanest surgery: walk to the tail
+counting <code>n</code>, tie tail to head (a temporary ring), then cut the ring after node
+<code>n − k % n</code>. Two seams, zero flips.
+</p>
+<pre><code>ListNode rotateRight(ListNode head, int k) {
+    if (head == null || head.next == null || k == 0) return head;
+    ListNode tail = head;
+    int n = 1;
+    while (tail.next != null) { tail = tail.next; n++; } <span class="cmt">// find tail + length</span>
+    k %= n;                                  <span class="cmt">// k may be huge (k = 2·10⁹, n = 3)</span>
+    if (k == 0) return head;                 <span class="cmt">// full rotations = no-op</span>
+    tail.next = head;                        <span class="cmt">// close the ring</span>
+    ListNode newTail = head;
+    for (int i = 1; i &lt; n - k; i++) newTail = newTail.next; <span class="cmt">// new tail = node n−k</span>
+    ListNode newHead = newTail.next;
+    newTail.next = null;                     <span class="cmt">// cut the ring — forget this and you loop forever</span>
+    return newHead;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1).</p>
+
+<h3>Case: Reorder List (LC 143) — the three-pattern combo</h3>
+<p>
+Turn <code>a₁→a₂→…→aₙ</code> into <code>a₁→aₙ→a₂→aₙ₋₁→…</code>. No single trick does this; it's an assembly:
+<strong>find the middle</strong> with fast &amp; slow pointers (full story in
+<a href="../fast-slow-lessons/0001-cycle-detection.html">Fast &amp; Slow Lesson 1</a>), <strong>reverse the back
+half</strong> with Lesson 1's loop, then <strong>zip-merge</strong> the two halves alternately. Interviewers love
+it because it audits three patterns in one question.
+</p>
+<pre><code>void reorderList(ListNode head) {
+    <span class="cmt">// 1. find middle (slow lands on mid for odd n, left-mid's right for even)</span>
+    ListNode slow = head, fast = head;
+    while (fast.next != null &amp;&amp; fast.next.next != null) {
+        slow = slow.next;
+        fast = fast.next.next;
+    }
+    <span class="cmt">// 2. detach + reverse the second half</span>
+    ListNode second = slow.next;
+    slow.next = null;                        <span class="cmt">// SEVER — or the zip creates a cycle</span>
+    ListNode prev = null;
+    while (second != null) {
+        ListNode next = second.next;
+        second.next = prev;
+        prev = second;
+        second = next;
+    }
+    <span class="cmt">// 3. zip-merge: first half is ≥ as long, so it drives the loop</span>
+    ListNode p1 = head, p2 = prev;
+    while (p2 != null) {
+        ListNode n1 = p1.next, n2 = p2.next;
+        p1.next = p2;                        <span class="cmt">// a₁ → aₙ</span>
+        p2.next = n1;                        <span class="cmt">// aₙ → a₂</span>
+        p1 = n1;
+        p2 = n2;
+    }
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) — versus the lazy O(n)-space "dump into ArrayList and rebuild," which is exactly what the in-place constraint forbids.</p>
+
+<h3>Case: Add Two Numbers (LC 2)</h3>
+<p>
+Digits are stored <strong>reversed</strong> (least significant first), so you add left-to-right like grade-school
+arithmetic — no reversal needed. Dummy node builds the result; one <code>carry</code> variable rides along. (The
+follow-up LC 445 stores digits most-significant first — <em>there</em> you reverse both inputs first, then run
+this exact code.)
+</p>
+<pre><code>ListNode addTwoNumbers(ListNode l1, ListNode l2) {
+    ListNode dummy = new ListNode(0);
+    ListNode tail = dummy;
+    int carry = 0;
+    while (l1 != null || l2 != null || carry != 0) { <span class="cmt">// keep going while ANYTHING remains</span>
+        int sum = carry;
+        if (l1 != null) { sum += l1.val; l1 = l1.next; }
+        if (l2 != null) { sum += l2.val; l2 = l2.next; }
+        carry = sum / 10;
+        tail.next = new ListNode(sum % 10);
+        tail = tail.next;
+    }
+    return dummy.next;
+}</code></pre>
+<p><strong>Time</strong> O(max(m, n)), <strong>Space</strong> O(1) beyond the output. The <code>|| carry != 0</code> in the loop guard is what emits the final carry digit (99 + 1 = 100 has more digits than either input).</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Short last group (LC 25):</strong> probe first, flip only if k nodes exist. Flipping then un-flipping is a rewrite waiting to happen.</li>
+  <li><strong>k ≥ n (LC 61):</strong> take <code>k %= n</code> before anything else, and treat <code>k == 0</code> as a no-op. Forgetting the modulo TLEs on k = 2·10⁹.</li>
+  <li><strong>Cut every ring you tie.</strong> LC 61's <code>newTail.next = null</code>, LC 143's <code>slow.next = null</code>. A missing sever = an infinite loop that looks like a "working" submission until the judge times out.</li>
+  <li><strong>Anchor advancement (LC 25):</strong> the next anchor is the group's <em>old head</em> (its new tail) — capture it <em>before</em> restitching, or you'll advance into the wrong node.</li>
+  <li><strong>Zip-merge loop condition (LC 143):</strong> drive on <code>p2 != null</code> — the first half is never shorter, so it can't run out first.</li>
+  <li><strong>Final carry (LC 2):</strong> loop while <code>carry != 0</code> too, or 5+5 returns 0 instead of 0→1.</li>
+  <li><strong>Lists of different lengths (LC 2):</strong> null-check each list independently inside the loop; don't require both.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In LC 25, why do we seed the flip-loop with <code>prev = groupNext</code> instead of <code>prev = null</code>?</div>
+  <button class="opt">Because <code>null</code> would throw a NullPointerException when the loop flips the first arrow</button>
+  <button class="opt">So the group's old head automatically ends up pointing at the node after the group — the back seam stitches itself</button>
+  <button class="opt">Because Java requires loop variables to be initialized to a non-null value</button>
+  <div class="fb" data-correct="The first flip sets oldHead.next = prev. Seeded with groupNext, the old head (soon the group's tail) already points at the rest of the list — no manual back-seam stitch." data-wrong="Assigning null is perfectly legal (Lesson 1's template does it). The seed is a convenience: the first flip wires oldHead → groupNext, which is exactly the back seam you'd otherwise stitch by hand."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Rotate List (LC 61) with n = 3 and k = 2,000,000,000. What must happen before any pointer surgery?</div>
+  <button class="opt">Reverse the list so the rotation direction flips from right to left</button>
+  <button class="opt">Convert the list to an array, rotate the array, and rebuild the list</button>
+  <button class="opt">Reduce k with <code>k %= n</code> — only the remainder changes the list</button>
+  <div class="fb" data-correct="Rotating by n is the identity, so only k mod n matters: 2,000,000,000 mod 3 = 2. Without the modulo you'd walk the rotation two billion times." data-wrong="No reversal or array is involved in rotation. Rotating by exactly n returns the same list, so reduce k mod n first — here that leaves just 2."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Reorder List (LC 143), you skip <code>slow.next = null</code> before reversing the back half. What breaks?</div>
+  <button class="opt">The first half still runs into the (now reversed) second half, so the zip-merge chases a cycle forever</button>
+  <button class="opt">Nothing — the reversal overwrites all the pointers anyway</button>
+  <button class="opt">The reversal throws an exception because the half-lists share a node</button>
+  <div class="fb" data-correct="Without the sever, the first half's last node still points into the second half, whose arrows now run backwards — following the links loops forever. Every cut-then-recombine problem needs its sever line." data-wrong="No exception is thrown and the reversal does not fix it: the first half's tail keeps its old forward pointer into the reversed region, creating a cycle the zip-merge then walks endlessly."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/reverse-nodes-in-k-group">NeetCode — Reverse Nodes in k-Group</a> and <a href="https://neetcode.io/problems/reorder-linked-list">NeetCode — Reorder List</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 24 (re-solve as "k-group with k = 2") → LC 25 (the boss — write it until the probe/flip/stitch phases are automatic) → LC 61 (ring cut) → LC 2 (carry sweep) → LC 143 (the combo) → stretch: LC 445 (Add Two Numbers II — reverse both, run LC 2, reverse the result). Time yourself: LC 25 in under 20 minutes from blank is interview-ready.</li>
+</ul>
+
+<h2>7 · LinkedList Reversal cheat sheet</h2>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Full reversal</td><td>"reverse the list", O(1) space</td><td>save next → flip → slide prev, cur; return prev</td><td>O(n) / O(1)</td><td>206</td></tr>
+    <tr><td>Sublist reversal</td><td>"reverse positions left..right"</td><td>dummy → walk to anchor → flip (right−left+1)× → stitch both seams</td><td>O(n) / O(1)</td><td>92</td></tr>
+    <tr><td>Pair swap</td><td>"swap adjacent nodes"</td><td>anchor p: a→b.next, b→a, p→b; advance p to a</td><td>O(n) / O(1)</td><td>24</td></tr>
+    <tr><td>k-group reversal</td><td>"reverse every k nodes"</td><td>probe k → flip seeded with groupNext → front-stitch → anchor = old head</td><td>O(n) / O(1)</td><td>25</td></tr>
+    <tr><td>Rotate right by k</td><td>"rotate the list by k"</td><td>length + tie ring → cut after node n − k%n</td><td>O(n) / O(1)</td><td>61</td></tr>
+    <tr><td>Fold / reorder</td><td>"a₁→aₙ→a₂→aₙ₋₁…"</td><td>find mid (fast/slow) → sever → reverse back half → zip-merge</td><td>O(n) / O(1)</td><td>143</td></tr>
+    <tr><td>Digit-list arithmetic</td><td>"numbers stored as lists"</td><td>dummy + carry; loop while l1, l2, or carry remains</td><td>O(m+n) / O(1)</td><td>2</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry run of LC 25 with k = 3, help drawing LC 61's ring, or a walkthrough of why the zip-merge terminates?
+  Ask in the chat. When LC 25 flows from your fingers without notes, say <strong>"next"</strong> — Fast &amp; Slow
+  Pointers is up, starting with the cycle-detection trick you just borrowed for Reorder List.
+</div>
+
+<div class="nav">
+  <span><a href="0001-reversal-template.html">← The Reversal Template</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../fast-slow-lessons/0001-cycle-detection.html">Fast &amp; Slow: Cycle Detection →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 01 — Graph Foundations</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 01 of 09 · the on-ramp to the whole series</div>
+<h1>Graph Foundations</h1>
+<p class="subtitle">Before you can DFS or BFS anything, you must <em>build</em> the graph. Master the adjacency-list build and every later lesson becomes bookkeeping.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Graphs are ~25% of Google intern questions and your stated gap.
+  This is Lesson 1 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<div class="callout tip">
+  <span class="label">Prerequisite — the Java you'll type here</span>
+  This track uses <code>List&lt;List&lt;Integer&gt;&gt;</code>, <code>Queue&lt;int[]&gt;</code>,
+  <code>ArrayDeque</code>, and (later) <code>PriorityQueue</code>. Those "confusing Java" bits
+  now have their own focused lessons — do them alongside this track:
+  <a href="../java-lessons/0001-int-vs-integer.html">Java 01: int vs Integer</a> ·
+  <a href="../java-lessons/0002-queue-deque-stack.html">Java 02: Queue/Deque/Stack</a> ·
+  <a href="../java-lessons/0003-priorityqueue-and-comparators.html">Java 03: PriorityQueue &amp; Comparators</a>.
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A graph is just <strong>nodes (vertices, <code>V</code>) + connections (edges, <code>E</code>)</strong>.
+Trees, grids, linked lists, "course prerequisites", "word ladders", "friend networks" — all graphs.
+99% of interview problems never hand you a graph object: they hand you <em>raw edges</em>
+(<code>int[][] edges</code>) or an implicit structure (a grid, a dictionary of words), and
+<strong>step 1 is always to turn that into an adjacency list you can traverse.</strong>
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "connected / reachable / path / cycle / islands / network / prerequisites / shortest steps."
+  Anything about <em>relationships between things</em>. The moment you see <code>edges</code>,
+  a grid, or "A depends on B", you are in graph territory — build the adjacency list first.
+</div>
+
+<h2>2 · The vocabulary (60-second version)</h2>
+<table>
+  <thead><tr><th>Term</th><th>Means</th><th>Interview signal</th></tr></thead>
+  <tbody>
+    <tr><td>Directed vs Undirected</td><td>Edge has a one-way arrow vs both-ways</td><td>"a follows b" = directed; "a is friends with b" = undirected (add the edge <em>both</em> ways)</td></tr>
+    <tr><td>Weighted vs Unweighted</td><td>Edges carry a cost vs all cost 1</td><td>Unweighted shortest path → BFS (Lesson 03). Weighted → Dijkstra (Lesson 07)</td></tr>
+    <tr><td>Cyclic vs Acyclic (DAG)</td><td>Can you loop back? A DAG cannot</td><td>"ordering / prerequisites / build order" → DAG → topological sort (Lesson 05)</td></tr>
+    <tr><td>Dense vs Sparse</td><td>E ≈ V² vs E ≈ V</td><td>Decides adjacency <em>matrix</em> vs <em>list</em> (almost always list)</td></tr>
+    <tr><td>Connected component</td><td>A maximal "island" of mutually-reachable nodes</td><td>"number of provinces / islands / groups" → count DFS launches</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · Three ways to store a graph</h2>
+<table>
+  <thead><tr><th>Representation</th><th>Java type</th><th>Space</th><th>"Is u→v an edge?"</th><th>"Neighbors of u?"</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Adjacency list</strong> ← default</td><td><code>List&lt;List&lt;Integer&gt;&gt;</code></td><td>O(V+E)</td><td>O(degree)</td><td>O(degree) — fast</td></tr>
+    <tr><td>Adjacency matrix</td><td><code>int[][] / boolean[][]</code></td><td>O(V²)</td><td>O(1) — fast</td><td>O(V) — slow</td></tr>
+    <tr><td>Edge list (raw input)</td><td><code>int[][] edges</code></td><td>O(E)</td><td>O(E)</td><td>O(E) — slow</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">Default to the adjacency list</span>
+  Real graphs are sparse (E ≪ V²), and traversal asks "give me u's neighbors" constantly — exactly
+  what a list does in O(degree). Use a <strong>matrix</strong> only when V is small (≤ ~500) and you
+  query "is there an edge?" a lot, or the problem literally gives you a matrix (e.g. LC 547 Provinces).
+</div>
+
+<h3>Build an adjacency list from an edge list — the move you do every single time</h3>
+<pre><code><span class="cmt">// Input: n nodes (0..n-1) and edges[i] = {u, v}. UNDIRECTED graph.</span>
+List&lt;List&lt;Integer&gt;&gt; buildAdj(int n, int[][] edges) {
+    List&lt;List&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; n; i++) adj.add(new ArrayList&lt;&gt;());  <span class="cmt">// one empty list PER node — don't skip this</span>
+    for (int[] e : edges) {
+        adj.get(e[0]).add(e[1]);
+        adj.get(e[1]).add(e[0]);   <span class="cmt">// BOTH directions because undirected. Directed? delete this line.</span>
+    }
+    return adj;
+}</code></pre>
+<p><strong>Time</strong> O(V+E) to build. <strong>Space</strong> O(V+E). This is the first 4 lines of nearly every graph solution you will write at Google.</p>
+
+<div class="callout trap">
+  <span class="label">The #1 build bug</span>
+  Forgetting the <code>for (i&lt;n) adj.add(new ArrayList&lt;&gt;())</code> seed loop → <code>adj.get(u)</code>
+  throws <code>IndexOutOfBounds</code>. And forgetting the second <code>add</code> on an undirected
+  graph silently makes half your edges disappear — the bug that "passes 3 test cases then fails."
+</div>
+
+<h3>When nodes aren't 0..n-1 (strings, sparse ids) → use a Map</h3>
+<pre><code><span class="cmt">// e.g. nodes are airport codes. Map&lt;node, neighbors&gt;.</span>
+Map&lt;String, List&lt;String&gt;&gt; adj = new HashMap&lt;&gt;();
+for (String[] e : edges) {
+    adj.computeIfAbsent(e[0], k -&gt; new ArrayList&lt;&gt;()).add(e[1]);
+    <span class="cmt">// computeIfAbsent = "get the list, or create+insert an empty one first, then return it"</span>
+}</code></pre>
+<p>Weighted graph? Store <code>int[]{neighbor, weight}</code> instead of a bare Integer:
+<code>List&lt;List&lt;int[]&gt;&gt; adj</code>. You'll use this in Lesson 07 (Dijkstra).</p>
+
+<h2>4 · Putting it together: count connected components</h2>
+<p>The "hello world" of graphs — LC 547 / 323 directly. Build adjacency, then launch a DFS/BFS
+from every unvisited node; each launch discovers one whole component.</p>
+<pre><code>int countComponents(int n, int[][] edges) {
+    List&lt;List&lt;Integer&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt; n; i++) adj.add(new ArrayList&lt;&gt;());
+    for (int[] e : edges) { adj.get(e[0]).add(e[1]); adj.get(e[1]).add(e[0]); }
+
+    boolean[] visited = new boolean[n];
+    int components = 0;
+    for (int i = 0; i &lt; n; i++) {
+        if (!visited[i]) {
+            components++;          <span class="cmt">// found a new island → explore all of it</span>
+            dfs(i, adj, visited);  <span class="cmt">// (full DFS is Lesson 02)</span>
+        }
+    }
+    return components;
+}
+void dfs(int node, List&lt;List&lt;Integer&gt;&gt; adj, boolean[] visited) {
+    visited[node] = true;
+    for (int nei : adj.get(node))
+        if (!visited[nei]) dfs(nei, adj, visited);
+}</code></pre>
+<p><strong>Time</strong> O(V+E). <strong>Space</strong> O(V+E) adjacency + O(V) visited + O(V) recursion stack.</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: <code>n = 5</code>, <code>edges = {{0,1},{1,2},{3,4}}</code> (undirected). Build the adjacency
+list, then sweep nodes 0..4, launching a DFS from each unvisited one:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 320 190" role="img" aria-label="A graph with five nodes forming two connected components: 0-1-2 and 3-4">
+  <line class="edge" x1="55"  y1="55"  x2="150" y2="55"/>
+  <line class="edge" x1="150" y1="55"  x2="245" y2="55"/>
+  <line class="edge" x1="55"  y1="150" x2="150" y2="150"/>
+  <circle class="node done" cx="55"  cy="55"  r="20"/><text class="lbl" x="55"  y="55">0</text>
+  <circle class="node done" cx="150" cy="55"  r="20"/><text class="lbl" x="150" y="55">1</text>
+  <circle class="node done" cx="245" cy="55"  r="20"/><text class="lbl" x="245" y="55">2</text>
+  <circle class="node done" cx="55"  cy="150" r="20"/><text class="lbl" x="55"  y="150">3</text>
+  <circle class="node done" cx="150" cy="150" r="20"/><text class="lbl" x="150" y="150">4</text>
+</svg>
+<figcaption>Two connected components: {0,1,2} and {3,4}. Each DFS launch paints one whole component.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">i=0 unvisited → components=<span class="ptr">1</span>; dfs(0) walks 0→1→2, marks all three visited</span>
+<span class="step">i=1 already visited → skip</span>
+<span class="step">i=2 already visited → skip</span>
+<span class="step now">i=3 unvisited → components=<span class="ptr">2</span>; dfs(3) walks 3→4, marks both visited</span>
+<span class="step">i=4 already visited → skip</span>
+<span class="step">loop ends → return <span class="ptr">2</span></span>
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Undirected → add the edge both ways.</strong> Half your edges vanish otherwise.</li>
+  <li><strong>Seed one empty list per node</strong> before adding edges, or <code>adj.get(u)</code> crashes.</li>
+  <li><strong>Disconnected graph:</strong> a single DFS/BFS won't reach every node — loop over <em>all</em> nodes and launch from each unvisited one.</li>
+  <li><strong>Self-loops / duplicate edges:</strong> the visited check handles them, but know they can exist.</li>
+  <li><strong>Recursion depth:</strong> a path-graph of 10⁵ nodes can StackOverflow a recursive DFS → use an explicit stack (Lesson 02).</li>
+  <li><strong>0-indexed vs 1-indexed nodes:</strong> many problems label nodes 1..n — size your arrays <code>n+1</code> or subtract 1.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">You're given <code>edges</code> for an <strong>undirected</strong> graph. When building the adjacency list, you must:</div>
+  <button class="opt">Add <code>v</code> to <code>adj[u]</code> only, since one entry records the edge</button>
+  <button class="opt">Add <code>v</code> to <code>adj[u]</code> <em>and</em> <code>u</code> to <code>adj[v]</code> — both directions</button>
+  <button class="opt">Sort the edges first so each one appears exactly once</button>
+  <div class="fb" data-correct="Undirected means the edge is traversable both ways, so it must appear in both nodes' lists. Adding one side makes half your edges invisible to traversal." data-wrong="Undirected edges are bidirectional — record them in BOTH adjacency lists, or traversal silently misses half the connections."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A graph may be <strong>disconnected</strong>. To count its connected components you should:</div>
+  <button class="opt">Run one DFS from node 0 and count the nodes it reaches</button>
+  <button class="opt">Count the edges and subtract that from the node count</button>
+  <button class="opt">Loop over all nodes; launch a DFS/BFS from each <em>unvisited</em> node, counting launches</button>
+  <div class="fb" data-correct="One DFS only covers one component. Looping over every node and starting a fresh traversal on each unvisited one counts exactly the number of islands." data-wrong="A single DFS only reaches one component. You must loop all nodes and start a new traversal from each unvisited one — each start = one component."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">For a large <strong>sparse</strong> graph where you constantly ask "what are u's neighbors?", the best representation is:</div>
+  <button class="opt">Adjacency list — O(degree) neighbor lookup, O(V+E) space</button>
+  <button class="opt">Adjacency matrix — O(1) lookup, but O(V²) space always</button>
+  <button class="opt">Edge list — simplest to store and to iterate neighbors</button>
+  <div class="fb" data-correct="Sparse + frequent neighbor queries = adjacency list. The matrix wastes O(V²) space on a sparse graph and an edge list needs O(E) to find one node's neighbors." data-wrong="Adjacency list: neighbor queries are O(degree) and space is O(V+E). A matrix is O(V²) (wasteful when sparse); an edge list makes neighbor lookup O(E)."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/courses/dsa-for-beginners/13">NeetCode — Intro to Graphs</a> (representations + adjacency-list build). Backup: <a href="https://www.youtube.com/watch?v=M3_pLsDdeuU">Striver — Graph Series intro</a> (Java-friendly, India-standard).</li>
+  <li><strong>Drill the build until it's muscle memory:</strong> from a blank file, write <code>buildAdj</code> (undirected <em>and</em> directed) + <code>countComponents</code> three times. This is the part most people fumble live.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0002-dfs-traversal-and-cycles.html">Graph Lesson 02 — DFS</a>, starting with Number of Islands.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Confused why a grid is a graph, when to use a Map vs a List for adjacency, or want me to dry-run the
+  adjacency build on a sample edge list? Ask in the chat. When you can build an adjacency list and
+  count components from memory, say <strong>"next"</strong> and we go to DFS.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-dfs-traversal-and-cycles.html">DFS — Traversal &amp; Cycles →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

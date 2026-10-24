@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI/ML Lesson 01 – Mathematical Foundations & NumPy</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">AI & Machine Learning · Module A · Lesson 1 of 17 · Mathematical Foundations</div>
+  <h1>Mathematical Foundations & Vectorized NumPy</h1>
+  <p class="subtitle">Linear algebra, multivariable calculus, and probability theory implemented cleanly from scratch in Python.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module A – Foundations & Data Pipelines</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Every Machine Learning model—from simple linear regression to a 405-billion parameter Large Language Model—is fundamentally a mathematical function. Data (images, audio, text) is represented as multidimensional arrays of numbers (<strong>Tensors</strong>). Training a model means using <strong>Calculus</strong> (gradients) to adjust <strong>Linear Algebra</strong> weights until a <strong>Probability</strong> distribution over outcomes is optimized. Without mathematical intuition, ML feels like magic; with it, ML becomes pure engineering optimization.</p>
+
+  <div class="arch-flow">
+    <div class="box">Data as Vectors & Matrices</div>
+    <div class="arrow-right"></div>
+    <div class="box good">Linear Transformations (W·x + b)</div>
+    <div class="arrow-right"></div>
+    <div class="box db">Cost Function & Gradients (&nabla;L)</div>
+    <div class="arrow-right"></div>
+    <div class="box">Weight Update (Gradient Descent)</div>
+  </div>
+
+  <h2>2 · Core Mathematical Pillars</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>Linear Algebra</h3>
+      <p><strong>Scalars</strong> (0D), <strong>Vectors</strong> (1D: magnitude & direction), <strong>Matrices</strong> (2D: linear maps), and <strong>Tensors</strong> (N-D). Key operation: Matrix Multiplication (<code>C = A @ B</code> where <code>(m, k) @ (k, n) &rarr; (m, n)</code>) and Dot Product measuring geometric alignment.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>Multivariable Calculus</h3>
+      <p><strong>Partial Derivatives</strong> (&part;f/&part;x) calculate the rate of change along one variable. The <strong>Gradient Vector (&nabla;f)</strong> points in the direction of steepest ascent. Gradients guide optimization by stepping in the opposite direction (steepest descent).</p>
+    </div>
+    <div class="card">
+      <div class="card-num">3</div>
+      <h3>Probability & Statistics</h3>
+      <p><strong>Expectation</strong> (&mu;) and <strong>Variance</strong> (&sigma;<sup>2</sup>). <strong>Bayes' Theorem</strong> (<code>P(A|B) = P(B|A)P(A) / P(B)</code>). <strong>Maximum Likelihood Estimation (MLE)</strong> finds parameter weights that maximize the likelihood of observing the training data.</p>
+    </div>
+  </div>
+
+  <h2>3 · NumPy Vectorization vs Python For-Loops</h2>
+  <p>In Python, iterating over 1,000,000 elements with a <code>for</code> loop incurs interpreter overhead and dynamic type checking. NumPy executes operations in compiled C using SIMD (Single Instruction Multiple Data) CPU registers. Vectorization is 50x–100x faster.</p>
+
+  <pre><code>import numpy as np
+import time
+
+# Create two arrays of 1,000,000 floats
+a = np.random.randn(1_000_000)
+b = np.random.randn(1_000_000)
+
+# 1. Slow Python Loop
+start = time.time()
+dot_loop = 0.0
+for i in range(len(a)):
+    dot_loop += a[i] * b[i]
+loop_time = time.time() - start
+
+# 2. Fast Vectorized NumPy Dot Product
+start = time.time()
+dot_vec = np.dot(a, b)  # or a @ b
+vec_time = time.time() - start
+
+print(f"Loop time: {loop_time:.4f}s | Vectorized time: {vec_time:.6f}s")
+# Result: Vectorized is ~80x faster!</code></pre>
+
+  <h2>4 · NumPy Broadcasting Rules</h2>
+  <p>Broadcasting allows NumPy to perform arithmetic operations on arrays of different shapes without copying data in memory:</p>
+  <ol>
+    <li>Compare array shapes element-wise, starting from the <strong>trailing (rightmost) dimensions</strong>.</li>
+    <li>Two dimensions are compatible if:
+      <ul>
+        <li>They are equal, OR</li>
+        <li>One of them is <code>1</code> (which is automatically stretched along that axis).</li>
+      </ul>
+    </li>
+  </ol>
+  <pre><code># Shape (3, 4) + Shape (4,) -> Valid! (4 matches 4, stretches across 3 rows)
+A = np.ones((3, 4))
+b = np.array([10, 20, 30, 40])
+result = A + b  # Adds row b to each of the 3 rows in A</code></pre>
+
+  <h2>5 · Implementing Core Math Functions from Scratch</h2>
+  <pre><code># 1. Numerical Gradient Computation (Finite Differences)
+def numerical_gradient(f, x, h=1e-5):
+    grad = np.zeros_like(x)
+    for i in range(x.size):
+        idx = np.unravel_index(i, x.shape)
+        old_val = x[idx]
+        
+        x[idx] = old_val + h
+        fx_plus = f(x)
+        
+        x[idx] = old_val - h
+        fx_minus = f(x)
+        
+        grad[idx] = (fx_plus - fx_minus) / (2 * h)
+        x[idx] = old_val  # restore
+    return grad
+
+# 2. Softmax with Numerical Stability (subtracting max to prevent overflow)
+def stable_softmax(z):
+    shift_z = z - np.max(z, axis=-1, keepdims=True)
+    exps = np.exp(shift_z)
+    return exps / np.sum(exps, axis=-1, keepdims=True)</code></pre>
+
+  <nav class="bottom-nav">
+    <a href="../INDEX.md">← Course Index</a>
+    <a href="0002-data-preprocessing-and-feature-engineering.html">Lesson 02: Data Preprocessing & Feature Engineering →</a>
+  </nav>
+</body>
+</html>

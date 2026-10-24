@@ -1,0 +1,389 @@
+<title>Multilevel and Multiprocessor Scheduling</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit II &middot; Lesson 10 of 14</p>
+<h1>Multilevel Queue, Feedback Queue and Multiple-Processor Scheduling</h1>
+<p class="deck">Multilevel queue scheduling with a worked trace, multilevel feedback queues with their five parameters and a full three-level trace, and multiple-processor scheduling &mdash; asymmetric and symmetric, affinity, load balancing and multicore.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two things are asked here. <strong>&ldquo;Explain multilevel queue and multilevel feedback queue scheduling&rdquo;</strong> &mdash; the mark hinges on one distinction: <strong>in a multilevel queue a process never changes queue; in a feedback queue it does.</strong> Say that sentence first. <strong>&ldquo;Explain multiple-processor scheduling&rdquo;</strong> is a theory answer: asymmetric vs symmetric, processor affinity, load balancing, and the two multicore terms. The MLFQ trace below is the harder numerical, and it does appear.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Multilevel Feedback Queue (MLFQ) Priority Aging Pipeline</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:32rem;">
+      <strong>Queue 0 (Highest Priority): Round Robin with Quantum q = 8 ms</strong>
+      <span class="sub">New processes enter here &bull; If process uses entire 8 ms without finishing, demoted to Q1!</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Demotion on quantum exhaustion</div>
+    <div class="flow-box ok" style="max-width:32rem;">
+      <strong>Queue 1 (Medium Priority): Round Robin with Quantum q = 16 ms</strong>
+      <span class="sub">Executes only if Q0 is empty &bull; If process uses entire 16 ms, demoted to Q2!</span>
+    </div>
+    <div class="flow-arrow-down">&darr; Demotion</div>
+    <div class="flow-box warn" style="max-width:32rem;">
+      <strong>Queue 2 (Lowest Priority): First-Come, First-Served (FCFS)</strong>
+      <span class="sub">Executes only if Q0 and Q1 empty &bull; <strong>Aging Rule:</strong> Periodically boost old starving jobs back to Q0!</span>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">MLFQ Scheduling</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-2.10 & Lec-2.11: Multi Level Feedback Queue Scheduling</div>
+    <div class="v-desc">Comprehensive breakdown of how MLFQ approximates SJF without prior burst knowledge, penalizes CPU-bound jobs, and prevents starvation.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=hBPYP0ZEvS8" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>1. Multilevel queue scheduling</h2>
+
+<p>The idea: processes are <strong>easily classified into different groups</strong> with different response-time requirements, so give each group its <strong>own queue with its own scheduling algorithm</strong>.</p>
+
+<div class="formula">
+  <span class="name">A typical five-level arrangement, highest priority first</span>
+  <strong>1. System processes</strong> &mdash; scheduled by priority or FCFS<br>
+  <strong>2. Interactive processes</strong> (foreground) &mdash; Round Robin<br>
+  <strong>3. Interactive editing processes</strong> &mdash; Round Robin<br>
+  <strong>4. Batch processes</strong> (background) &mdash; FCFS<br>
+  <strong>5. Student processes</strong> &mdash; FCFS
+</div>
+
+<p><strong>A process is permanently assigned to one queue</strong>, based on some property fixed at entry &mdash; memory size, process priority or process type. <strong>It never moves between queues.</strong> That inflexibility is the algorithm's defining property, and it is what the exam tests.</p>
+
+<h3>Scheduling between the queues</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>How it works</th><th>Risk</th></tr></thead>
+<tbody>
+<tr><td><strong>Fixed-priority preemptive</strong></td><td>No process in a lower queue runs while any higher queue is non-empty. A process arriving in a higher queue <strong>preempts</strong> the running lower-queue process</td><td><strong>Starvation</strong> of the lower queues</td></tr>
+<tr><td><strong>Time slicing between queues</strong></td><td>Each queue gets a fixed share of CPU time &mdash; for example, foreground 80 % for Round Robin among its processes, background 20 % for FCFS</td><td>None &mdash; but a busy high queue is slowed by the guarantee to the low one</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+<tbody>
+<tr><td><strong>Low scheduling overhead</strong> &mdash; the queue is decided once, at entry</td><td><strong>Inflexible</strong> &mdash; a process misclassified at entry stays misclassified</td></tr>
+<tr><td>Different algorithms can suit different workloads at the same time</td><td><strong>Starvation</strong> of lower-priority queues under fixed-priority preemption</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; multilevel queue with two queues.</span>
+  <p><strong>Given:</strong> Queue 1 is the <strong>system/interactive</strong> queue, scheduled <strong>Round Robin with q = 2</strong>, and has higher priority. Queue 2 is the <strong>batch</strong> queue, scheduled <strong>FCFS</strong>. Scheduling between queues is fixed-priority preemptive.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th>Queue</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">4</td><td>Q1 (RR, q = 2)</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">3</td><td>Q1 (RR, q = 2)</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">5</td><td>Q2 (FCFS)</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">2</td><td>Q2 (FCFS)</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Trace.</strong> Q2 gets the CPU only when Q1 is empty.</p>
+  <ul>
+    <li><strong>0&ndash;2:</strong> P1 runs its quantum (2 left). P2 arrived at 1, so Q1 = [P2, P1].</li>
+    <li><strong>2&ndash;4:</strong> P2 runs its quantum (1 left). Q1 = [P1, P2].</li>
+    <li><strong>4&ndash;6:</strong> P1 runs its second quantum and <strong>finishes</strong>. Q1 = [P2].</li>
+    <li><strong>6&ndash;7:</strong> P2 runs its last unit and <strong>finishes</strong>. <strong>Q1 is now empty.</strong></li>
+    <li><strong>7&ndash;12:</strong> Q2 runs FCFS &mdash; P3 (arrived 2) first, and <strong>finishes</strong>.</li>
+    <li><strong>12&ndash;14:</strong> P4 runs and finishes.</li>
+  </ul>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">|P1|P2|P1|P2| &nbsp;&nbsp; P3 &nbsp;&nbsp; | P4 |<br>0 &nbsp; 2 &nbsp; 4 &nbsp; 6 &nbsp; 7 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 12 &nbsp;&nbsp;&nbsp;&nbsp; 14</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">4</td><td class="num">6</td><td class="num">6</td><td class="num">2</td></tr>
+  <tr><td>P2</td><td class="num">1</td><td class="num">3</td><td class="num">7</td><td class="num">6</td><td class="num">3</td></tr>
+  <tr><td>P3</td><td class="num">2</td><td class="num">5</td><td class="num">12</td><td class="num">10</td><td class="num">5</td></tr>
+  <tr><td>P4</td><td class="num">3</td><td class="num">2</td><td class="num">14</td><td class="num">11</td><td class="num">9</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 33/4 = 8.25</strong> &nbsp;&nbsp; <strong>Average WT = 19/4 = 4.75</strong></p>
+  <p><em>Sanity check:</em> total burst = 4 + 3 + 5 + 2 = 14, and the last completion is at 14 with the first arrival at 0, so the CPU never idled. <em>Note the starvation risk:</em> had a stream of Q1 processes kept arriving, P3 and P4 would never have run at all.</p>
+</div>
+
+<h2>2. Multilevel feedback queue scheduling</h2>
+
+<div class="box win">
+  <span class="lbl">The one distinction that carries the mark</span>
+  <p>In a <strong>multilevel queue</strong>, a process is permanently assigned to one queue. In a <strong>multilevel feedback queue</strong>, <strong>a process can move between queues</strong>. That movement is the &ldquo;feedback&rdquo;.</p>
+</div>
+
+<p>The idea: separate processes by <strong>the characteristics of their CPU bursts</strong>, which are not known in advance and can be learnt by observation.</p>
+
+<ul>
+<li>A process that <strong>uses too much CPU time</strong> is <strong>demoted</strong> to a lower-priority queue. This automatically pushes I/O-bound and interactive processes &mdash; which give up the CPU quickly &mdash; into the high-priority queues, exactly where they belong.</li>
+<li>A process that <strong>waits too long</strong> in a low-priority queue is <strong>promoted</strong> to a higher one. This is <strong>ageing</strong>, and it is what prevents starvation.</li>
+</ul>
+
+<div class="formula">
+  <span class="name">The five parameters that define a multilevel feedback queue</span>
+  <strong>1.</strong> The <strong>number of queues</strong>.<br>
+  <strong>2.</strong> The <strong>scheduling algorithm for each queue</strong>.<br>
+  <strong>3.</strong> The method used to determine <strong>when to upgrade</strong> a process to a higher-priority queue.<br>
+  <strong>4.</strong> The method used to determine <strong>when to demote</strong> a process to a lower-priority queue.<br>
+  <strong>5.</strong> The method used to determine <strong>which queue a process enters</strong> when it needs service.
+</div>
+
+<p>The multilevel feedback queue is <strong>the most general CPU-scheduling algorithm</strong> &mdash; it can be configured to behave like any of the others &mdash; and correspondingly <strong>the most complex</strong>, since those five parameters must all be tuned.</p>
+
+<div class="solve">
+  <span class="lbl">Numerical &mdash; three-level feedback queue.</span>
+  <p><strong>Configuration.</strong> Q0: Round Robin, q = 4 (highest priority). Q1: Round Robin, q = 8. Q2: FCFS (lowest). Every new process enters <strong>Q0</strong>. A process that does not finish within its quantum is <strong>demoted one level</strong>. A higher queue always preempts a lower one.</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">10</td></tr>
+  <tr><td>P2</td><td class="num">2</td><td class="num">6</td></tr>
+  <tr><td>P3</td><td class="num">4</td><td class="num">12</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Time</th><th>Runs</th><th>In queue</th><th>Result</th><th>Queues after</th></tr></thead>
+  <tbody>
+  <tr><td class="num">0&ndash;4</td><td>P1</td><td>Q0, q = 4</td><td>Used 4, <strong>6 left</strong> &rarr; demoted to Q1</td><td>Q0 = [P2, P3]&nbsp; Q1 = [P1]</td></tr>
+  <tr><td class="num">4&ndash;8</td><td>P2</td><td>Q0, q = 4</td><td>Used 4, <strong>2 left</strong> &rarr; demoted to Q1</td><td>Q0 = [P3]&nbsp; Q1 = [P1, P2]</td></tr>
+  <tr><td class="num">8&ndash;12</td><td>P3</td><td>Q0, q = 4</td><td>Used 4, <strong>8 left</strong> &rarr; demoted to Q1</td><td>Q0 = [ ]&nbsp; Q1 = [P1, P2, P3]</td></tr>
+  <tr><td class="num">12&ndash;18</td><td>P1</td><td>Q1, q = 8</td><td>Needed 6 &rarr; <strong>finishes at 18</strong></td><td>Q1 = [P2, P3]</td></tr>
+  <tr><td class="num">18&ndash;20</td><td>P2</td><td>Q1, q = 8</td><td>Needed 2 &rarr; <strong>finishes at 20</strong></td><td>Q1 = [P3]</td></tr>
+  <tr><td class="num">20&ndash;28</td><td>P3</td><td>Q1, q = 8</td><td>Needed 8 &rarr; <strong>finishes at 28</strong></td><td>empty</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p style="text-align:center; font-family:ui-monospace,monospace; font-size:.85rem">| P1 | P2 | P3 | &nbsp;&nbsp; P1 &nbsp;&nbsp; |P2| &nbsp;&nbsp;&nbsp; P3 &nbsp;&nbsp;&nbsp; |<br>0 &nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp; 8 &nbsp;&nbsp; 12 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 18 &nbsp; 20 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 28</p>
+  <div class="tw">
+  <table>
+  <thead><tr><th>P</th><th class="num">AT</th><th class="num">BT</th><th class="num">CT</th><th class="num">TAT</th><th class="num">WT</th></tr></thead>
+  <tbody>
+  <tr><td>P1</td><td class="num">0</td><td class="num">10</td><td class="num">18</td><td class="num">18</td><td class="num">8</td></tr>
+  <tr><td>P2</td><td class="num">2</td><td class="num">6</td><td class="num">20</td><td class="num">18</td><td class="num">12</td></tr>
+  <tr><td>P3</td><td class="num">4</td><td class="num">12</td><td class="num">28</td><td class="num">24</td><td class="num">12</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><strong>Average TAT = 60/3 = 20.00</strong> &nbsp;&nbsp; <strong>Average WT = 32/3 = 10.67</strong></p>
+  <p><em>Sanity check:</em> total burst = 10 + 6 + 12 = 28 and the last completion is at 28 with the first arrival at 0, so no CPU time was lost. <em>Note the behaviour:</em> every process got a fast first slice in Q0 &mdash; that is the <strong>good response time for short and interactive jobs</strong> the algorithm is designed for &mdash; and only the long ones sank to the lower queues.</p>
+</div>
+
+<h2>3. Multiple-processor scheduling</h2>
+
+<p>With more than one CPU, <strong>load sharing</strong> becomes possible &mdash; and scheduling becomes correspondingly more complex. The discussion below assumes <strong>homogeneous</strong> processors: identical in functionality, so any process can run on any of them.</p>
+
+<h3>The two approaches</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th><strong>Asymmetric multiprocessing (AMP)</strong></th><th><strong>Symmetric multiprocessing (SMP)</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Structure</strong></td><td>One processor &mdash; the <strong>master server</strong> &mdash; handles all scheduling decisions, I/O processing and other system activity. The others execute only user code</td><td><strong>Each processor is self-scheduling</strong>. Each examines the ready queue and selects a process to run</td></tr>
+<tr><td><strong>Data sharing</strong></td><td>Only one processor accesses the system data structures, so <strong>no sharing problem</strong></td><td>All processors share the queues, so the OS <strong>must be carefully programmed</strong> against races</td></tr>
+<tr><td><strong>Queues</strong></td><td>One, owned by the master</td><td>Either <strong>one common ready queue</strong>, or a <strong>private queue per processor</strong></td></tr>
+<tr><td><strong>Bottleneck</strong></td><td><strong>Yes</strong> &mdash; the master is a single point of contention and of failure</td><td>No single bottleneck</td></tr>
+<tr><td><strong>Complexity</strong></td><td>Simple</td><td>Complex</td></tr>
+<tr><td><strong>Used by</strong></td><td>Older and simpler systems</td><td><strong>Virtually all modern systems</strong> &mdash; Windows, Linux, macOS</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Processor affinity</h3>
+
+<p>When a process runs on a processor, that processor's <strong>cache fills with the process's data</strong>. If the process migrates to another processor, the first cache must be invalidated and the second re-populated &mdash; <strong>expensive</strong>. So systems try to keep a process running on the same processor: this is <strong>processor affinity</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Kind</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Soft affinity</strong></td><td>The OS <em>attempts</em> to keep a process on the same processor, but <strong>makes no guarantee</strong> &mdash; migration is still possible</td></tr>
+<tr><td><strong>Hard affinity</strong></td><td>The process <strong>specifies a subset of processors</strong> on which it may run, and the OS honours it absolutely. Linux provides both, through the <code>sched_setaffinity()</code> system call</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>NUMA and affinity interact:</strong> in a non-uniform memory access architecture, a CPU has faster access to some parts of main memory than to others. The scheduler and the memory-placement algorithm must cooperate &mdash; a process assigned to a CPU should have its memory allocated <em>near</em> that CPU.</p>
+
+<h3>Load balancing</h3>
+
+<p><strong>Load balancing</strong> keeps the workload evenly distributed across all processors. It is necessary only where each processor has its <strong>own private ready queue</strong> &mdash; with a single common queue, a processor that becomes idle simply takes the next process, so balancing is automatic.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Approach</th><th>Who acts</th><th>How</th></tr></thead>
+<tbody>
+<tr><td><strong>Push migration</strong></td><td>A specific task periodically checks the load on each processor</td><td>If it finds an imbalance, it <strong>pushes</strong> processes from an overloaded processor to an idle or less-busy one</td></tr>
+<tr><td><strong>Pull migration</strong></td><td>An <strong>idle</strong> processor acts for itself</td><td>It <strong>pulls</strong> a waiting task from a busy processor</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The tension to name</span>
+  <p><strong>Load balancing and processor affinity work against each other.</strong> Balancing wants to migrate processes; affinity wants to keep them put. Every real scheduler is a compromise between the two &mdash; saying so is worth a mark.</p>
+</div>
+
+<h3>Multicore processors</h3>
+
+<p>Placing multiple cores on one physical chip. Faster and lower-power than separate chips, but scheduling must account for a phenomenon called the <strong>memory stall</strong>: when a core accesses memory, it may spend <strong>up to half its time waiting</strong> for the data, because memory is far slower than the processor.</p>
+
+<p>The remedy is <strong>multithreaded multicore</strong> design &mdash; two or more hardware threads per core. When one thread stalls on memory, the core switches to the other. Intel calls this <strong>hyper-threading</strong>; the general term is <strong>chip multithreading (CMT)</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Level</th><th>Who schedules</th><th>What</th></tr></thead>
+<tbody>
+<tr><td><strong>Level 1</strong></td><td>The <strong>operating system</strong></td><td>Which software thread runs on each <strong>hardware thread</strong> (logical processor) &mdash; using any algorithm from Lesson 9</td></tr>
+<tr><td><strong>Level 2</strong></td><td>The <strong>hardware / core</strong></td><td>Which hardware thread actually executes on the physical core &mdash; typically a round-robin or a dynamic urgency-based policy</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Two hardware multithreading approaches: <strong>coarse-grained</strong>, where a thread runs until a long-latency event such as a memory stall and the switch costs a full pipeline flush; and <strong>fine-grained</strong> (interleaved), where switching happens at a much finer granularity, at instruction-cycle boundaries, with hardware designed to make the switch nearly free.</p>
+
+<h3>Real-time scheduling &mdash; the two algorithms to name</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Algorithm</th><th>Rule</th><th>Priority is</th></tr></thead>
+<tbody>
+<tr><td><strong>Rate-monotonic (RMS)</strong></td><td>Assign each periodic task a priority <strong>inversely proportional to its period</strong> &mdash; the shorter the period, the higher the priority</td><td><strong>Static</strong> &mdash; fixed once</td></tr>
+<tr><td><strong>Earliest deadline first (EDF)</strong></td><td>Assign priority according to the <strong>deadline</strong> &mdash; the earlier the deadline, the higher the priority</td><td><strong>Dynamic</strong> &mdash; recomputed as deadlines approach</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Two latencies must also be minimised in a real-time system: <strong>interrupt latency</strong>, the time from an interrupt arriving to the start of its service routine; and <strong>dispatch latency</strong>, the time to stop one process and start another.</p>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. The essential difference between a multilevel queue and a multilevel feedback queue is that in the latter:</p>
+  <div class="opts">
+    <button class="opt">There are more queues</button>
+    <button class="opt" data-ok="1">A process can move between queues</button>
+    <button class="opt">There is no priority between queues</button>
+    <button class="opt">Each queue uses Round Robin</button>
+  </div>
+  <p class="why">That movement is the &ldquo;feedback&rdquo;. Demotion punishes CPU hogs; promotion is ageing, which prevents starvation.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. In a multilevel feedback queue, a process that uses its entire time quantum is:</p>
+  <div class="opts">
+    <button class="opt">Kept in the same queue permanently</button>
+    <button class="opt">Terminated</button>
+    <button class="opt" data-ok="1">Demoted to a lower-priority queue</button>
+    <button class="opt">Promoted to a higher-priority queue</button>
+  </div>
+  <p class="why">Using the whole quantum marks it as CPU-bound. I/O-bound and interactive processes release the CPU early and so stay in the fast queues, which is exactly the intent.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. How many parameters define a multilevel feedback queue scheduler?</p>
+  <div class="opts">
+    <button class="opt">Two</button>
+    <button class="opt">Seven</button>
+    <button class="opt" data-ok="1">Five</button>
+    <button class="opt">Three</button>
+  </div>
+  <p class="why">Number of queues; algorithm for each; when to upgrade; when to demote; and which queue a process enters. It is the most general algorithm, and the most complex to tune.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. In asymmetric multiprocessing:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">One master processor handles all scheduling and system activity</button>
+    <button class="opt">There is no ready queue</button>
+    <button class="opt">Every processor is self-scheduling</button>
+    <button class="opt">Processors have different instruction sets</button>
+  </div>
+  <p class="why">Its advantage is simplicity — only one processor touches the system data structures, so there are no races. Its cost is that the master is a bottleneck.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Processor affinity exists because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Migrating a process invalidates one cache and forces another to be repopulated</button>
+    <button class="opt">Processes cannot physically run on more than one processor</button>
+    <button class="opt">The scheduler runs faster on one processor</button>
+    <button class="opt">Memory is uniformly accessible from every processor</button>
+  </div>
+  <p class="why">Soft affinity attempts to keep a process put but allows migration; hard affinity lets a process name the processors it may run on. Affinity pulls against load balancing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. Load balancing is generally unnecessary when:</p>
+  <div class="opts">
+    <button class="opt">The system uses hard affinity</button>
+    <button class="opt">The system is NUMA</button>
+    <button class="opt" data-ok="1">All processors share one common ready queue</button>
+    <button class="opt">Each processor has its own private queue</button>
+  </div>
+  <p class="why">With a common queue, an idle processor just takes the next process, so balance is automatic. Private queues need push migration, pull migration, or both.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. In rate-monotonic scheduling, priority is:</p>
+  <div class="opts">
+    <button class="opt">Equal for all tasks</button>
+    <button class="opt" data-ok="1">Static, and inversely proportional to the task's period</button>
+    <button class="opt">Dynamic, based on the nearest deadline</button>
+    <button class="opt">Assigned by the user at run time</button>
+  </div>
+  <p class="why">The dynamic, deadline-driven alternative is earliest-deadline-first (EDF). RMS is static; EDF recomputes priorities as deadlines approach.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Describe multilevel queue scheduling and its two inter-queue methods.</summary>
+    <p class="ans">Processes are classified into groups, each with its own queue and its own algorithm — for instance system, interactive, editing, batch and student queues. A process is permanently assigned to one queue and never moves. Between queues, either fixed-priority preemptive scheduling is used, which risks starving the lower queues, or each queue is given a time slice, such as 80 % foreground and 20 % background.</p></details>
+  <details class="card"><summary>State the difference between multilevel queue and multilevel feedback queue, and how each direction of movement helps.</summary>
+    <p class="ans">In a multilevel queue a process never changes queue; in a feedback queue it can. A process that uses too much CPU is demoted, which automatically separates CPU-bound from interactive work. A process that waits too long is promoted, which is ageing and prevents starvation.</p></details>
+  <details class="card"><summary>Name the five parameters of a multilevel feedback queue.</summary>
+    <p class="ans">The number of queues; the scheduling algorithm for each queue; the method for deciding when to upgrade a process; the method for deciding when to demote it; and the method for deciding which queue a process enters when it needs service.</p></details>
+  <details class="card"><summary>Compare asymmetric and symmetric multiprocessing.</summary>
+    <p class="ans">Asymmetric: one master processor makes all scheduling decisions and handles I/O and system activity while the others run user code — simple, no data-sharing races, but the master is a bottleneck. Symmetric: every processor is self-scheduling from a common or private ready queue — no bottleneck, but the OS must be written carefully against races. Almost all modern systems use SMP.</p></details>
+  <details class="card"><summary>Define processor affinity, its two kinds, and the tension it creates.</summary>
+    <p class="ans">Affinity is keeping a process on the same processor so its cache stays warm. Soft affinity attempts this without guarantee; hard affinity lets a process specify the processors it may use. It works against load balancing, which wants to migrate processes to even out the load — every real scheduler compromises between the two.</p></details>
+  <details class="card"><summary>Distinguish push and pull migration.</summary>
+    <p class="ans">Push migration: a periodic task checks the load and moves processes from an overloaded processor to a less busy one. Pull migration: an idle processor pulls a waiting task from a busy one. Both are needed only where each processor has a private ready queue.</p></details>
+  <details class="card"><summary>Explain the memory stall and how multithreaded multicore design answers it.</summary>
+    <p class="ans">A core accessing memory can spend up to half its time waiting, because memory is far slower than the processor. Giving each core two or more hardware threads lets the core switch to the other thread while one stalls. Intel calls this hyper-threading; the general term is chip multithreading. Scheduling then has two levels: the OS chooses which software thread runs on each hardware thread, and the hardware chooses which hardware thread executes on the core.</p></details>
+  <details class="card"><summary>Name the two real-time scheduling algorithms and the two latencies.</summary>
+    <p class="ans">Rate-monotonic scheduling assigns static priorities inversely proportional to task period. Earliest-deadline-first assigns dynamic priorities by nearest deadline. The two latencies to minimise are interrupt latency, from interrupt arrival to the start of its service routine, and dispatch latency, the time to stop one process and start another.</p></details>
+</div>
+
+<p class="ask">Next: the other half of Unit II &mdash; what goes wrong when concurrent processes share data, and the classic solutions.</p>
+
+<div class="nav">
+  <a href="0009-scheduling-algorithms-numericals.html">&larr; Scheduling Algorithms</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0011-critical-section-problem.html">Next: The Critical-Section Problem &rarr;</a>
+  <a href="../../reference/unit2-cheat-sheet.html">Unit II sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

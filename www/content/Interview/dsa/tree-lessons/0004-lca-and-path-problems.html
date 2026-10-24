@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree Lesson 04 — LCA &amp; Path Problems</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Tree Track · Lesson 4 of 6 · lowest common ancestor, max path sum, value-up vs answer-global</div>
+<h1>LCA &amp; Path Problems</h1>
+<p class="subtitle">Two of the most-asked medium/hard tree questions share one engine: a post-order pass where each node reports something useful upward while the real answer is assembled on the side.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> LCA (236) is a top-5 tree interview question at Meta/Amazon/Google, and Max Path Sum
+  (124) is the canonical "hard tree" screen. Both fall to Lesson 3's template plus one idiom. Lesson 4 of 6.
+  <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Both problems in this lesson are about <strong>paths that bend</strong>. The lowest common ancestor of p and q is
+the node where the path between them bends from "going up" to "going down". The maximum path sum is achieved at
+some node where two downward arms join. In both cases a single recursion answers a <em>simpler</em> question per
+subtree ("do you contain p or q?" / "what's your best downward arm?"), and the bend — the real answer — is detected
+at the node where the two child reports meet. That's the <strong>"value up, answer global"</strong> idiom from
+Diameter, now at full power.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Lowest/deepest common ancestor", "distance between two nodes", "longest/maximum path" where the path may
+  <strong>pass through</strong> a node (not root-to-leaf). Whenever a path could enter from one child and leave
+  through the other, you need: return the <em>one-arm</em> value up, combine <em>two arms</em> into a global answer
+  at the bend.
+</div>
+
+<h2>2 · Core template</h2>
+
+<h3>Core A — Lowest Common Ancestor (LC 236)</h3>
+<p>
+Naive approach: find the root-to-p path and root-to-q path as lists, then compare — works, O(n) but clunky and two
+passes. The one-pass insight: ask each subtree <em>"do you contain p or q (or an already-found LCA)?"</em> and let
+three tiny rules decide:
+</p>
+<pre><code><span class="cmt">// Returns: p or q if found in this subtree, the LCA if both were found</span>
+<span class="cmt">// below here, or null if this subtree contains neither.</span>
+<span class="cmt">// Time O(n), Space O(h).</span>
+TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+    if (root == null || root == p || root == q)
+        return root;                       <span class="cmt">// found a target (or ran out) → report it up</span>
+    TreeNode left  = lowestCommonAncestor(root.left,  p, q);
+    TreeNode right = lowestCommonAncestor(root.right, p, q);
+    if (left != null &amp;&amp; right != null)
+        return root;                       <span class="cmt">// p and q split here → I am the bend → LCA</span>
+    return left != null ? left : right;    <span class="cmt">// pass up whichever side found something</span>
+}</code></pre>
+<p>
+Why <code>root == p</code> returns immediately without searching below: if q is inside p's subtree, then p itself
+is the LCA — an ancestor of q <em>and</em> (by LeetCode's definition, a node is its own ancestor) of p. Either way,
+reporting p upward is correct.
+</p>
+
+<h3>Worked example — dry run</h3>
+<figure class="diagram">
+<svg viewBox="0 0 340 200" role="img" aria-label="Tree rooted at 3 with children 5 and 1; 5 has children 6 and 2; finding LCA of 6 and 2">
+  <line class="edge" x1="170" y1="40" x2="95"  y2="105"/>
+  <line class="edge" x1="170" y1="40" x2="245" y2="105"/>
+  <line class="edge hl" x1="95" y1="105" x2="55"  y2="170"/>
+  <line class="edge hl" x1="95" y1="105" x2="135" y2="170"/>
+  <circle class="node" cx="170" cy="40"  r="20"/><text class="lbl" x="170" y="40">3</text>
+  <circle class="node cur" cx="95"  cy="105" r="20"/><text class="lbl inv" x="95" y="105">5</text>
+  <circle class="node" cx="245" cy="105" r="20"/><text class="lbl" x="245" y="105">1</text>
+  <circle class="node done" cx="55"  cy="170" r="20"/><text class="lbl" x="55"  y="170">6</text>
+  <circle class="node done" cx="135" cy="170" r="20"/><text class="lbl" x="135" y="170">2</text>
+</svg>
+<figcaption>LCA(6, 2): both targets sit under node 5, one per side — 5 is where the reports meet.</figcaption>
+</figure>
+<div class="trace">
+<span class="step">lca(3): recurse left into 5</span>
+<span class="step now">lca(6) hits <code>root == p</code> → returns <span class="ptr">6</span></span>
+<span class="step now">lca(2) hits <code>root == q</code> → returns <span class="ptr">2</span></span>
+<span class="step now">at 5: left = 6, right = 2 — BOTH non-null → return <span class="ptr">5</span> (the bend)</span>
+<span class="step now">at 3: left = 5, right = null (subtree of 1 has neither) → pass <span class="ptr">5</span> up</span>
+<span class="step">answer: 5 ✓</span>
+</div>
+
+<h3>Core B — Binary Tree Maximum Path Sum (LC 124), post-order DP</h3>
+<p>
+A "path" here is any chain of connected nodes — it may start and end anywhere, and it bends at exactly one highest
+node. Think of it as DP on the tree: for each node compute <code>gain(n)</code> = the best sum of a path that
+<em>starts at n and goes straight down one side</em>. That's the value passed up. The candidate <em>answer</em> at n
+is <code>n.val + gain(left) + gain(right)</code> — both arms joined at the bend — which goes into a global max.
+</p>
+<pre><code><span class="cmt">// Time O(n), Space O(h). The classic "value up vs answer global" problem.</span>
+int best = Integer.MIN_VALUE;              <span class="cmt">// answer may be negative — don't init to 0</span>
+
+int maxPathSum(TreeNode root) {
+    gain(root);
+    return best;
+}
+int gain(TreeNode n) {                     <span class="cmt">// best DOWNWARD arm starting at n</span>
+    if (n == null) return 0;
+    int l = Math.max(gain(n.left),  0);    <span class="cmt">// a negative arm? drop it — take 0 instead</span>
+    int r = Math.max(gain(n.right), 0);
+    best = Math.max(best, n.val + l + r);  <span class="cmt">// ANSWER: path bending at n, both arms</span>
+    return n.val + Math.max(l, r);         <span class="cmt">// VALUE UP: parent can extend only one arm</span>
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">The "value up vs answer global" idiom — name it, own it</span>
+  When a path may bend, no single return value can carry it upward (the parent can't use a bent path). So split the
+  roles: <strong>return</strong> the extendable one-arm value; <strong>record</strong> the complete two-arm candidate
+  in a global. Diameter (543) = this with arm-length instead of arm-sum. Longest Univalue Path (687) = this with a
+  matching-value condition. Once you see the split, all three are the same problem.
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>LCA, general binary tree</td><td>LC 236</td><td>Core A: null/p/q base, both-sides-hit ⇒ bend.</td></tr>
+    <tr><td>LCA in a BST</td><td>LC 235</td><td>No search needed — compare values, walk one direction. O(h).</td></tr>
+    <tr><td>Max path sum</td><td>LC 124</td><td>Core B: clamp negative arms to 0, global best at the bend.</td></tr>
+    <tr><td>Diameter (revisit)</td><td>LC 543</td><td>Core B with arm = length, no clamping needed.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: LCA of a BST (LC 235) — use the ordering, skip the search</h3>
+<p>
+In a BST you don't need to <em>find</em> p and q — their values tell you where they are. If both are smaller than
+the current node, the LCA is in the left subtree; both bigger, right; otherwise the current node splits them
+(or equals one of them) and IS the LCA. No recursion needed at all.
+</p>
+<pre><code><span class="cmt">// Time O(h), Space O(1) — iterative walk, no stack.</span>
+TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+    TreeNode cur = root;
+    while (cur != null) {
+        if (p.val &lt; cur.val &amp;&amp; q.val &lt; cur.val)
+            cur = cur.left;                <span class="cmt">// both targets live left → descend left</span>
+        else if (p.val &gt; cur.val &amp;&amp; q.val &gt; cur.val)
+            cur = cur.right;               <span class="cmt">// both live right → descend right</span>
+        else
+            return cur;                    <span class="cmt">// split point (or equals p/q) → LCA</span>
+    }
+    return null;
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Interview contrast worth saying out loud</span>
+  "In a general tree I must search both sides — O(n). In a BST the ordering tells me which single direction to walk —
+  O(h), iterative, O(1) space." Stating this contrast unprompted is an easy signal of depth.
+</div>
+
+<h3>Case: Max Path Sum — why clamp at 0, why init best to −∞</h3>
+<p>Two lines of LC 124 carry all the difficulty; here they are isolated:</p>
+<pre><code>int l = Math.max(gain(n.left), 0);
+<span class="cmt">// A downward arm summing to -7 HURTS any path that includes it.</span>
+<span class="cmt">// "Take the arm or leave it" — max with 0 models leaving it.</span>
+
+int best = Integer.MIN_VALUE;
+<span class="cmt">// Tree = [-3] → answer is -3 (a path must contain ≥ 1 node).</span>
+<span class="cmt">// Initializing best = 0 would wrongly report an empty path's sum.</span></code></pre>
+<p>
+Note the asymmetry: arms may be dropped (clamped to 0), but the node <code>n.val</code> itself is <em>never</em>
+dropped from its own candidate — the path bending at n must include n. The all-negative tree still produces the
+correct "least bad single node" because every node's <code>n.val + 0 + 0</code> is offered to <code>best</code>.
+</p>
+
+<h3>Case: distance between two nodes (common follow-up)</h3>
+<p>
+Once you own LCA, "distance from p to q" is free:
+<code>dist(p, q) = depth(p) + depth(q) − 2 · depth(LCA)</code> — find the LCA, then measure each depth from it.
+Interviewers use this as the follow-up to check you understand <em>why</em> the LCA is the bend.
+</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>p is an ancestor of q</strong> — the LCA is p itself. Core A handles it via the early return at <code>root == p</code>; don't "fix" that line.</li>
+  <li><strong>Both problems guarantee p and q exist</strong> in the tree (LC 236's contract). If existence isn't guaranteed, you must verify — the early-return trick can report p without ever confirming q.</li>
+  <li><strong>LCA-BST: compare values, not references</strong> — and mind strict inequalities so the split case catches <code>cur == p</code>.</li>
+  <li><strong>Max path sum with all negatives</strong> — clamping arms is right, but <code>best</code> must start at <code>Integer.MIN_VALUE</code>, and the node's own value is never clamped.</li>
+  <li><strong>Single-node tree</strong> — LCA(p, p) = p; max path sum = that node's value.</li>
+  <li><strong>Don't return the bent value upward</strong> — <code>return n.val + l + r</code> instead of <code>n.val + max(l, r)</code> silently double-counts and is the most common 124 bug.</li>
+  <li><strong>Deep trees</strong> — both cores recurse to depth h; on 10⁵-node chains mention the iterative escape hatch.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 236, the recursion at some node gets <code>left = p</code> and <code>right = null</code>. What does this node return, and what does that mean?</div>
+  <button class="opt">null — without q confirmed on either side, nothing can be reported yet</button>
+  <button class="opt">this node — receiving any non-null child report makes it an ancestor, hence the LCA</button>
+  <button class="opt">p — the finding is passed upward unchanged; some ancestor higher up will see q's side and declare itself the LCA</button>
+  <div class="fb" data-correct="One-sided findings bubble up untouched. Only a node that receives non-null from BOTH sides is the split point. (If q is under p, p was already correctly returned as the LCA by the early-exit base case.)" data-wrong="A single non-null side is not a split — the node just relays the finding upward. The LCA declares itself only where left AND right are both non-null (or at the p/q early return)."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Max Path Sum, why is the upward return <code>n.val + Math.max(l, r)</code> rather than <code>n.val + l + r</code>?</div>
+  <button class="opt">A path continuing through n's parent enters n from above and can descend only one side — using both arms would make the path fork</button>
+  <button class="opt">Adding both arms would count n.val twice, once per arm</button>
+  <button class="opt">Only one arm can be positive at a time after clamping, so the max is equivalent</button>
+  <div class="fb" data-correct="The parent extends a straight chain: parent → n → ONE child arm. n.val + l + r describes a path already bent at n — that's the global-answer candidate, never the return value." data-wrong="n.val appears once either way, and both arms can be positive simultaneously. The real reason is geometry: paths don't fork, so the parent can extend only one arm. The two-arm sum is recorded globally instead."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">For LCA in a BST (LC 235) with p.val = 3, q.val = 9, you're at node 5. What next?</div>
+  <button class="opt">Descend left, since 3 &lt; 5 means at least one target is on the left</button>
+  <button class="opt">Stop — 3 and 9 straddle 5, so p and q are in different subtrees and 5 is the LCA</button>
+  <button class="opt">Descend right, since 9 &gt; 5 and the larger target determines the direction</button>
+  <div class="fb" data-correct="3 &lt; 5 &lt; 9: p must be left of 5 and q right of it. Their paths diverge exactly here, so 5 is the lowest node above both — the LCA, found with zero searching." data-wrong="You only descend while BOTH targets are on the same side. 3 &lt; 5 &lt; 9 straddles the node — the paths split here, so the current node is the LCA."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/lowest-common-ancestor-in-binary-search-tree">NeetCode — LCA of a BST</a>, then <a href="https://neetcode.io/problems/binary-tree-maximum-path-sum">NeetCode — Binary Tree Maximum Path Sum</a> for the value-up/answer-global split drawn on a whiteboard.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 235 (BST LCA, iterative) → LC 236 (general LCA) → LC 543 (re-solve diameter, now naming the idiom) → LC 124 (max path sum) → LC 687 (longest univalue path — same idiom, new condition) → LC 1123 (LCA of deepest leaves, stretch).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run LC 236 where p is an ancestor of q, or walk an all-negative Max Path Sum tree? Unsure when a
+  problem needs the global-variable split versus a plain return? Ask in the chat. When you can code both cores
+  from memory and explain the three LCA return rules in your own words, say <strong>"next"</strong> —
+  Binary Search Trees get their own lesson.
+</div>
+
+<div class="nav">
+  <span><a href="0003-recursion-patterns.html">← Recursion Patterns</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0005-bst.html">Binary Search Trees →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinkedList Foundations 02 — LRU &amp; LFU Cache Implementation</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">LinkedList Foundations Track · Lesson 2 of 2 · HashMap + DoublyLinkedList, O(1) Eviction</div>
+<h1>LRU &amp; LFU Cache from Scratch</h1>
+<p class="subtitle">Architecting O(1) get, put, and eviction caches combining linked lists and hash tables.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master foundational data structures from 0 level. This is Lesson 2 of 2 in LinkedList Foundations.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The One Idea</h2>
+<p>
+An <strong>LRU (Least Recently Used) Cache</strong> must support two operations in strictly <strong>O(1) time</strong>: <code>get(key)</code> and <code>put(key, value)</code>. If the cache exceeds capacity, it must evict the least recently used key. A HashMap alone gives $O(1)$ lookups but has no ordering. A LinkedList maintains order but takes $O(N)$ to find an element. By combining both (<strong>HashMap stores pointers to Doubly Linked List nodes</strong>), we get the superpower of $O(1)$ lookups combined with $O(1)$ node removals and head re-insertions!
+</p>
+
+<h2>2 · Complete Java Implementation of LRU Cache</h2>
+<pre><code>import java.util.HashMap;
+import java.util.Map;
+
+public class LRUCache {
+    private static class Node {
+        int key, value;
+        Node prev, next;
+        Node(int k, int v) { this.key = k; this.value = v; }
+    }
+
+    private final int capacity;
+    private final Map&lt;Integer, Node&gt; map = new HashMap&lt;&gt;();
+    private final Node head = new Node(0, 0); <span class="cmt">// Most recently used</span>
+    private final Node tail = new Node(0, 0); <span class="cmt">// Least recently used</span>
+
+    public LRUCache(int capacity) {
+        this.capacity = capacity;
+        head.next = tail;
+        tail.prev = head;
+    }
+
+    public int get(int key) {
+        if (!map.containsKey(key)) return -1;
+        Node node = map.get(key);
+        moveToHead(node); <span class="cmt">// Mark as recently used</span>
+        return node.value;
+    }
+
+    public void put(int key, int value) {
+        if (map.containsKey(key)) {
+            Node node = map.get(key);
+            node.value = value;
+            moveToHead(node);
+        } else {
+            if (map.size() == capacity) {
+                <span class="cmt">// Evict least recently used (node right before tail)</span>
+                Node lru = tail.prev;
+                removeNode(lru);
+                map.remove(lru.key);
+            }
+            Node newNode = new Node(key, value);
+            map.put(key, newNode);
+            addToHead(newNode);
+        }
+    }
+
+    private void addToHead(Node node) {
+        node.next = head.next;
+        node.prev = head;
+        head.next.prev = node;
+        head.next = node;
+    }
+
+    private void removeNode(Node node) {
+        node.prev.next = node.next;
+        node.next.prev = node.prev;
+    }
+
+    private void moveToHead(Node node) {
+        removeNode(node);
+        addToHead(node);
+    }
+}</code></pre>
+
+<h2>Do this next</h2>
+<ul>
+  <li>Next foundational track: Stacks, Queues, Circular Buffers &amp; MinStack from scratch!</li>
+</ul>
+
+<div class="nav">
+  <a href="0001-singly-and-doubly-linked-lists.html">← Previous: Singly &amp; Doubly Linked Lists</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="../stack-queue-foundations-lessons/0001-stack-foundations-and-applications.html">Next Track: Stack &amp; Queue Foundations →</a>
+</div>
+</body>
+</html>

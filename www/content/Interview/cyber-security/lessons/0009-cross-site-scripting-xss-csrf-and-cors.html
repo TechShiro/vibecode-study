@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSec Lesson 09 – XSS, CSRF & CORS</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  <div class="kicker">Cyber Security · Module D · Lesson 9 of 17 · Web Application Security</div>
+  <h1>Cross-Site Scripting (XSS), CSRF & CORS Misconfigurations</h1>
+  <p class="subtitle">Client-side web exploitation: browser security models, session hijacking, cross-site forgery, and Content Security Policy.</p>
+  <div class="ribbon"><a href="../INDEX.md">← Back to Course Index</a><span>Module D – Web Security (OWASP Top 10)</span></div>
+
+  <h2>1 · The One Idea</h2>
+  <p>The foundational security principle of modern web browsers is the <strong>Same-Origin Policy (SOP)</strong>: scripts running on <code>bank.com</code> cannot access cookies, DOM trees, or localStorage belonging to <code>malicious.com</code> (an origin is defined as <code>{protocol, domain, port}</code>). <strong>Cross-Site Scripting (XSS)</strong> tricks the victim's browser into executing attacker-supplied JavaScript inside the trusted origin of <code>bank.com</code>, completely nullifying the Same-Origin Policy.</p>
+
+  <h2>2 · The Three Flavors of XSS</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-num">1</div>
+      <h3>Stored XSS (Persistent)</h3>
+      <p>Malicious payload is permanently saved inside the application database (e.g. comment section, profile bio). Every user who visits the page has the malicious JavaScript executed in their browser session. Most dangerous!</p>
+    </div>
+    <div class="card">
+      <div class="card-num">2</div>
+      <h3>Reflected XSS (Non-Persistent)</h3>
+      <p>Payload is embedded in a malicious phishing link (e.g. <code>search.php?q=&lt;script&gt;...&lt;/script&gt;</code>) and immediately reflected back by the server in the HTTP response. Executes only when victim clicks the link.</p>
+    </div>
+    <div class="card">
+      <div class="card-num">3</div>
+      <h3>DOM-based XSS</h3>
+      <p>Vulnerability exists entirely on the client-side JavaScript without server involvement. Occurs when untrusted data from a <em>source</em> (<code>location.search</code>) reaches an execution <em>sink</em> (<code>innerHTML</code>, <code>eval()</code>, <code>document.write()</code>).</p>
+    </div>
+  </div>
+
+  <h2>3 · Cross-Site Request Forgery (CSRF)</h2>
+  <p>CSRF tricks an authenticated user's browser into transmitting an unauthorized command to a trusted web application. Because browsers automatically attach session cookies to cross-origin requests, a malicious website containing:</p>
+  <pre><code>&lt;img src="https://bank.com/transfer?to=attacker&amount=5000" /&gt;</code></pre>
+  <p>forces the victim's browser to execute the transfer with valid session cookies!</p>
+  <div class="callout info">
+    <h4>CSRF Defenses</h4>
+    <ul>
+      <li><strong>SameSite Cookie Attribute</strong>: Set <code>SameSite=Strict</code> or <code>SameSite=Lax</code> so cookies are NEVER sent on cross-origin requests.</li>
+      <li><strong>Anti-CSRF Tokens</strong>: Cryptographically random tokens generated per session, embedded as hidden form fields, and validated on every state-changing POST/PUT request.</li>
+    </ul>
+  </div>
+
+  <h2>4 · Cross-Origin Resource Sharing (CORS) Misconfigurations</h2>
+  <p>CORS relaxes SOP to allow legitimate cross-domain APIs. Dangerous misconfigurations occur when developers carelessly trust wildcards with credentials:</p>
+  <pre><code># VULNERABLE SERVER RESPONSE HEADERS:
+Access-Control-Allow-Origin: https://evil-attacker.com  (or dynamic reflection of Origin)
+Access-Control-Allow-Credentials: true
+# Result: Attacker's JS can read victim's private JSON data!</code></pre>
+
+  <h2>5 · Comprehensive Defense: CSP & Cookie Flags</h2>
+  <ul>
+    <li><strong>HttpOnly Flag</strong>: <code>Set-Cookie: session_id=abc; HttpOnly; Secure; SameSite=Strict</code>. Prohibits JavaScript from accessing the cookie via <code>document.cookie</code>, completely preventing cookie-theft via XSS!</li>
+    <li><strong>Content Security Policy (CSP)</strong>: HTTP response header restricting where scripts, styles, and images can load from:
+      <pre><code>Content-Security-Policy: default-src 'self'; script-src 'self' https://trustedscripts.com; object-src 'none';</code></pre>
+    </li>
+  </ul>
+
+  <nav class="bottom-nav">
+    <a href="0008-web-security-injection-attacks-and-sql-injection.html">← Lesson 08: SQL Injection</a>
+    <a href="0010-authentication-session-hijacking-and-oauth2.html">Lesson 10: Authentication, Sessions & OAuth2 →</a>
+  </nav>
+</body>
+</html>

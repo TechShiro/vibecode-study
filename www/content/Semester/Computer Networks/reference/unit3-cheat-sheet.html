@@ -1,0 +1,214 @@
+<title>CN Unit III Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Cheat sheet is denser than a lesson — tighten everything for print. */
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  h3{margin:1rem 0 .3rem; font-size:.98rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Reference &middot; print this one</p>
+<h1>Unit III &mdash; Exam Sheet</h1>
+<p class="deck">The network layer on one page. Addressing is the whole unit &mdash; if the mask table and the subnetting procedure are automatic, most of Unit III answers itself.</p>
+
+<div class="box exam">
+  <span class="lbl">Where the marks are</span>
+  <p><strong>Subnetting and VLSM first, by a distance.</strong> Then the <strong>IPv4 header</strong>, <strong>fragmentation</strong>, <strong>distance vector vs link state</strong>, and <strong>IPv4 vs IPv6</strong>. Subnetting alone is worth more than the rest of the unit combined in most papers.</p>
+</div>
+
+<hr class="rule">
+
+<h2>Network layer duties</h2>
+
+<p><strong>Packetizing</strong> (encapsulate / decapsulate; routers must not change addresses, and may decapsulate only to fragment) &middot; <strong>Routing</strong> (build the table &mdash; global, background, slow) &middot; <strong>Forwarding</strong> (use the table &mdash; local, per-packet, fast).</p>
+<p><strong>IP is unreliable, connectionless and best-effort.</strong> No flow control, no payload error control (<strong>header checksum only</strong>), no congestion control, no security in the original design.</p>
+<p><strong>Three deliveries:</strong> data link = hop to hop &middot; network = source to destination &middot; transport = process to process.</p>
+<p><strong>Forwarding:</strong> AND the destination with each row's mask; among matches, <strong>longest prefix wins</strong>. Default route 0.0.0.0/0 always loses.</p>
+
+<h2>Classful addressing <span class="tag">definitions</span></h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Class</th><th>Leading bits</th><th>First byte</th><th>Split</th><th>Default mask</th><th>Hosts</th></tr></thead>
+<tbody>
+<tr><td><strong>A</strong></td><td>0</td><td><strong>1&ndash;126</strong></td><td>8.24</td><td>255.0.0.0 (/8)</td><td class="num">2<sup>24</sup>&minus;2 = 16,777,214</td></tr>
+<tr><td><strong>B</strong></td><td>10</td><td><strong>128&ndash;191</strong></td><td>16.16</td><td>255.255.0.0 (/16)</td><td class="num">2<sup>16</sup>&minus;2 = 65,534</td></tr>
+<tr><td><strong>C</strong></td><td>110</td><td><strong>192&ndash;223</strong></td><td>24.8</td><td>255.255.255.0 (/24)</td><td class="num">2<sup>8</sup>&minus;2 = 254</td></tr>
+<tr><td><strong>D</strong></td><td>1110</td><td><strong>224&ndash;239</strong></td><td colspan="3">Multicast &mdash; no netid/hostid split</td></tr>
+<tr><td><strong>E</strong></td><td>1111</td><td><strong>240&ndash;255</strong></td><td colspan="3">Reserved</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>127 is loopback</strong>, which is why Class A stops at 126. <strong>Network address = host bits all 0. Broadcast = host bits all 1.</strong> Hence the &minus;2 in every host count.</p>
+<p><strong>Private blocks:</strong> <strong>10.0.0.0/8 &middot; 172.16.0.0/12 &middot; 192.168.0.0/16</strong>.</p>
+<p><strong>Special:</strong> 0.0.0.0 = this host (source only, DHCP boot) &middot; 255.255.255.255 = limited broadcast (routers block it) &middot; 127.0.0.0/8 = loopback.</p>
+<p><strong>An IP address defines a connection, not a device</strong> &mdash; a router has one per interface.</p>
+
+<h2>Classless addressing <span class="tag">every year</span></h2>
+
+<div class="formula">
+  <span class="name">The three formulas</span>
+  <strong>N = 2<sup>(32&minus;n)</sup></strong> &nbsp;&middot;&nbsp; First = address AND mask &nbsp;&middot;&nbsp; Last = first + N &minus; 1 &nbsp;&middot;&nbsp; Usable = N &minus; 2
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Prefix</th><th class="num">/24</th><th class="num">/25</th><th class="num">/26</th><th class="num">/27</th><th class="num">/28</th><th class="num">/29</th><th class="num">/30</th></tr></thead>
+<tbody>
+<tr><td><strong>Mask last byte</strong></td><td class="num">0</td><td class="num">128</td><td class="num">192</td><td class="num">224</td><td class="num">240</td><td class="num">248</td><td class="num">252</td></tr>
+<tr><td><strong>Addresses</strong></td><td class="num">256</td><td class="num">128</td><td class="num">64</td><td class="num">32</td><td class="num">16</td><td class="num">8</td><td class="num">4</td></tr>
+<tr><td><strong>Usable hosts</strong></td><td class="num">254</td><td class="num">126</td><td class="num">62</td><td class="num">30</td><td class="num">14</td><td class="num">6</td><td class="num"><strong>2</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Rebuild the table with: mask byte + block size = 256.</strong> <strong>/30 is the router-to-router link.</strong></p>
+<p><strong>Three block rules:</strong> contiguous &middot; a power of two &middot; <strong>first address divisible by the block size</strong>.</p>
+<p><strong>Fastest method:</strong> find the byte the prefix falls in, count up in steps of the block size (0, N, 2N&hellip;). Bytes before are copied; bytes after become 0 (first) or 255 (last).</p>
+<p><strong>Supernetting:</strong> combine contiguous blocks, prefix <em>shortens</em>. Four /24s &rarr; one <strong>/22</strong>.</p>
+
+<h2>Subnetting and VLSM <span class="tag">highest value</span></h2>
+
+<div class="formula">
+  <span class="name">The formulas</span>
+  Subnets = <strong>2<sup>s</sup></strong> (s = bits borrowed) &nbsp;&middot;&nbsp; Addresses per subnet = <strong>2<sup>h</sup></strong> &nbsp;&middot;&nbsp; Usable = 2<sup>h</sup> &minus; 2<br>
+  New prefix = old prefix + s
+</div>
+
+<p><strong>Procedure:</strong> 1. find s (or h) &rarr; 2. new prefix and mask &rarr; 3. block size = 256 &minus; last mask byte &rarr; 4. count up in block-size steps &rarr; 5. write network / first host / last host / broadcast for each.</p>
+
+<p><strong>Worked reference &mdash; 192.168.1.0/24 into 4 subnets:</strong> s = 2, <strong>/26</strong>, mask 255.255.255.192, block 64, 62 hosts each. Subnets at <strong>.0 &middot; .64 &middot; .128 &middot; .192</strong>, broadcasts at .63 &middot; .127 &middot; .191 &middot; .255.</p>
+
+<div class="box win">
+  <span class="lbl">Two sanity checks</span>
+  <p>Each subnet's <strong>broadcast is one less than the next subnet's network address</strong>. The <strong>last broadcast must equal the last address of the original block</strong>. And subnets &times; addresses per subnet must equal the original block size.</p>
+</div>
+
+<p><strong>VLSM &mdash; the one rule: allocate the LARGEST requirement first</strong>, then work down. Any other order breaks the divisibility rule.</p>
+
+<p><strong>Worked reference &mdash; 192.168.10.0/24</strong> for 100, 50, 25, 10, 2, 2 hosts:<br>
+100 &rarr; <strong>.0/25</strong> &middot; 50 &rarr; <strong>.128/26</strong> &middot; 25 &rarr; <strong>.192/27</strong> &middot; 10 &rarr; <strong>.224/28</strong> &middot; 2 &rarr; <strong>.240/30</strong> &middot; 2 &rarr; <strong>.244/30</strong> &middot; spare .248/29.<br>
+Check: 128+64+32+16+4+4+8 = <strong>256</strong>. &#10003;</p>
+
+<h2>IPv4 header and fragmentation</h2>
+
+<div class="formula">
+  <span class="name">Header &mdash; 20 to 60 bytes</span>
+  Version(4) | HLEN(4) | ToS(8) | Total Length(16)<br>
+  Identification(16) | Flags(3) | Fragment Offset(13)<br>
+  TTL(8) | Protocol(8) | Header Checksum(16)<br>
+  Source(32) &nbsp;&middot;&nbsp; Destination(32) &nbsp;&middot;&nbsp; Options + Padding (0&ndash;40)
+</div>
+
+<p><strong>HLEN counts 4-byte words</strong> (5 = 20 bytes, 15 = 60). <strong>Total Length includes the header</strong>, max 65,535. <strong>TTL is a hop count.</strong> <strong>Checksum covers the header only</strong> and is recomputed at every router. <strong>Protocol: ICMP 1, IGMP 2, TCP 6, UDP 17.</strong></p>
+<p><strong>Flags:</strong> reserved &middot; <strong>DF</strong> (discard + ICMP error if too big) &middot; <strong>MF</strong> (1 = more follow, 0 = last).</p>
+
+<div class="formula">
+  <span class="name">Fragmentation rules</span>
+  Data per fragment = MTU &minus; header, <strong>rounded DOWN to a multiple of 8</strong><br>
+  Offset = (preceding data bytes) &divide; 8 &nbsp;&middot;&nbsp; MF = 1 on all but the last &nbsp;&middot;&nbsp; <strong>identification is the same in all</strong>
+</div>
+
+<p><strong>Worked reference &mdash; 4000 bytes (20 + 3980), MTU 1500:</strong> three fragments &mdash; 1480 data / offset 0 / MF 1; 1480 / offset <strong>185</strong> / MF 1; 1020 / offset <strong>370</strong> / MF 0.</p>
+<p><strong>Only the destination reassembles</strong> (fragments may take different routes). <strong>One lost fragment loses the whole datagram.</strong></p>
+
+<h2>NAT, ARP and RARP</h2>
+
+<p><strong>NAT</strong> maps private addresses to public ones; the table records <strong>port numbers too (PAT / NAT overload)</strong>, because two internal hosts may contact the same server. Types: static, dynamic, PAT. Breaks end-to-end connectivity and protocols carrying addresses in the payload (FTP, SIP, IPsec).</p>
+
+<div class="formula">
+  <span class="name">Fix the direction first</span>
+  <strong>ARP: IP &rarr; MAC</strong> &nbsp;&nbsp;|&nbsp;&nbsp; <strong>RARP: MAC &rarr; IP</strong>
+</div>
+
+<p><strong>ARP: request is BROADCAST, reply is UNICAST.</strong> Mappings are held in the <strong>ARP cache</strong> with a timeout. When the destination is on <strong>another network, ARP resolves the router's address</strong>, not the destination's.</p>
+<p><strong>RARP is obsolete</strong> &mdash; its broadcasts cannot cross a router, so every segment needs a server. Replaced by BOOTP then DHCP.</p>
+
+<h2>ICMP and IGMP</h2>
+
+<p><strong>ICMP</strong> (protocol <strong>1</strong>) compensates for IP having no error reporting and no query mechanism. Error messages: <strong>destination unreachable (3), source quench (4, deprecated), redirection (5), time exceeded (11), parameter problem (12)</strong>. Queries: <strong>echo request/reply (8/0)</strong>, timestamp (13/14), router solicitation/advertisement (10/9).</p>
+<p><strong>Data section carries the original IP header + first 8 bytes of data</strong> (the ports and sequence number).</p>
+<p><strong>No ICMP error for:</strong> an ICMP error message &middot; a non-first fragment &middot; a multicast address &middot; a special address such as 127.0.0.0.</p>
+<p><strong>ping</strong> = echo request/reply. <strong>traceroute</strong> = increasing TTL, collecting time-exceeded replies.</p>
+<p><strong>IGMP</strong> (protocol <strong>2</strong>) manages <strong>multicast group membership</strong> between a host and its local router &mdash; it is <em>not</em> a routing protocol. Messages: <strong>membership query</strong> (router), <strong>membership report</strong> (host joins), <strong>leave report</strong> (host leaves). Efficiency: <strong>delayed response</strong> and <strong>report suppression</strong>.</p>
+
+<h2>Routing</h2>
+
+<div class="formula">
+  <span class="name">Bellman-Ford</span>
+  D<sub>x</sub>(y) = min over neighbours v of [ c(x,v) + D<sub>v</sub>(y) ]
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Distance Vector</th><th>Link State</th></tr></thead>
+<tbody>
+<tr><td>Algorithm</td><td><strong>Bellman-Ford</strong></td><td><strong>Dijkstra</strong></td></tr>
+<tr><td>Shares</td><td>The <strong>whole table</strong></td><td>Only its <strong>own link info</strong></td></tr>
+<tr><td>With</td><td><strong>Neighbours only</strong></td><td><strong>Everyone</strong> (flooding)</td></tr>
+<tr><td>Topology knowledge</td><td>None &mdash; "routing by rumour"</td><td><strong>Complete map</strong></td></tr>
+<tr><td>When</td><td>Every 30 s</td><td>On change only</td></tr>
+<tr><td>Convergence</td><td>Slow</td><td>Fast</td></tr>
+<tr><td>Count to infinity</td><td><strong>Suffers</strong></td><td><strong>Immune</strong></td></tr>
+<tr><td>Protocol</td><td><strong>RIP</strong></td><td><strong>OSPF</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Count to infinity fixes:</strong> infinity = 16 in RIP &middot; <strong>split horizon</strong> (do not advertise a route back where it came from) &middot; <strong>poison reverse</strong> (advertise it back as infinite) &middot; <strong>hold-down timers</strong>. Split horizon does <em>not</em> fix loops of three or more routers.</p>
+<p><strong>RIP</strong> = interior, distance vector, hop count, max 15. <strong>OSPF</strong> = interior, link state, cost by bandwidth, areas. <strong>BGP</strong> = exterior, <strong>path vector</strong> (carries the AS path, so loops are visible and policy is possible), the Internet backbone.</p>
+
+<h3>Multicast</h3>
+<p><strong>Source-based tree</strong> (one per source-group pair, optimal paths, high state &mdash; DVMRP, MOSPF, PIM-DM) vs <strong>group-shared tree</strong> (one per group at a core/RP, sub-optimal, low state &mdash; CBT, PIM-SM).</p>
+<p><strong>RPF</strong> stops loops (forward only if it arrived on the shortest path back to the source) &rarr; <strong>RPB</strong> stops duplicates (one parent router per network) &rarr; <strong>RPM</strong> stops waste (pruning and grafting). Learn the progression in that order.</p>
+<p><strong>Dense mode</strong> floods then prunes; <strong>sparse mode</strong> sends nothing until a router joins. <strong>PIM-SM is what is deployed.</strong></p>
+
+<h2>IPv6</h2>
+
+<p><strong>128 bits</strong>, eight groups of four hex digits. <strong>Drop leading zeros; collapse one run of zero groups with <code>::</code>, only ONCE.</strong></p>
+<p><strong>Header: fixed 40 bytes, 8 fields</strong> &mdash; Version(4), Traffic Class(8), Flow Label(20), Payload Length(16), Next Header(8), Hop Limit(8), Source(128), Destination(128).</p>
+<p><strong>Removed from IPv4:</strong> header checksum (redundant) &middot; identification/flags/offset (<strong>routers never fragment</strong>) &middot; HLEN (fixed size) &middot; options (moved to <strong>extension headers</strong>).</p>
+<p><strong>Address types: unicast, multicast, anycast &mdash; NO broadcast.</strong> Anycast = delivered to the <strong>nearest</strong> member.</p>
+<p><strong>Extension headers:</strong> hop-by-hop (the only one every router reads), routing, fragmentation, authentication, ESP, destination option.</p>
+<p><strong>Transition:</strong> <strong>dual stack</strong> (run both) &middot; <strong>tunnelling</strong> (wrap IPv6 inside IPv4 to cross an IPv4 region) &middot; <strong>header translation</strong> (rewrite the header outright). Tunnelling keeps the packet; translation destroys the original header.</p>
+
+<hr class="rule">
+
+<h2>Final scan &mdash; ten minutes before you go in</h2>
+
+<ol>
+<li>First byte: 1–126 A, 128–191 B, 192–223 C, 224–239 D, 240–255 E. 127 is loopback.</li>
+<li>N = 2^(32−n). Usable = N − 2. Mask byte + block size = 256.</li>
+<li>Subnetting: bits borrowed → new prefix → block size → count up → four columns per subnet.</li>
+<li>VLSM: largest first, always. Check the allocations sum to the block size.</li>
+<li>/30 = router-to-router link, 2 usable addresses.</li>
+<li>IPv4 header 20–60 bytes; HLEN in 4-byte words; TTL is hops; checksum covers the header only.</li>
+<li>Fragment data = MTU − 20, rounded DOWN to a multiple of 8. Offset = bytes before ÷ 8. MF = 0 on the last.</li>
+<li>ARP is IP → MAC; request broadcast, reply unicast; resolves the <em>router</em> if the destination is remote.</li>
+<li>Distance vector = Bellman-Ford, whole table to neighbours. Link state = Dijkstra, own links to everyone.</li>
+<li>IPv6: 128 bits, 40-byte header, no broadcast, no router fragmentation, no checksum, :: only once.</li>
+</ol>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="numericals-method-handbook.html">How to solve numericals</a>
+  <a href="../lessons/unit-3/0019-network-layer-services.html">Start Unit III</a>
+  <a href="unit1-cheat-sheet.html">Unit I sheet</a>
+  <a href="unit2-cheat-sheet.html">Unit II sheet</a>
+  <a href="unit4-cheat-sheet.html">Unit IV sheet</a>
+  <a href="unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>

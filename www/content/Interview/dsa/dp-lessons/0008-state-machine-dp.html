@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 08 — State-machine DP</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 08 of 12 · draw the machine, then the code writes itself</div>
+<h1>State-machine DP</h1>
+<p class="subtitle">Every stock problem — and paint, fence, and wiggle problems too — is a tiny automaton: a handful of <em>named states</em> and the legal moves between them. Draw it first; the recurrence is just the arrows.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 8 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+At each index you are in one of a <strong>few named states</strong> — <em>holding a stock</em>,
+<em>free to buy</em>, <em>in cooldown</em>, <em>last house painted red</em>. The rules of the problem
+are edges between states, forming a small automaton. Then
+<code>dp[i][state] = best value at index i while in that state</code>, and each transition reads
+straight off an arrow. When the state count is constant, the whole table rolls into a few
+variables: <strong>O(n) time, O(1) space</strong>. The entire six-problem stock series is one
+automaton with edges added or removed.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  Buy/sell with rules ("cooldown", "transaction fee", "at most k transactions"), alternating
+  constraints ("no two adjacent same color", "up then down"), or any scan where the legal move
+  <em>today</em> depends on which mode you were in <em>yesterday</em> — not on the whole history.
+  If you can name yesterday's modes on your fingers, it's state-machine DP.
+</div>
+
+<h2>2 · State · Recurrence · Base case</h2>
+<table>
+  <thead><tr><th>Part</th><th>For the stock family (2-state core)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>State</strong></td><td><code>hold[i]</code> = max profit after day i while <em>holding</em> a share; <code>free[i]</code> = max profit after day i holding <em>nothing</em>.</td></tr>
+    <tr><td><strong>Recurrence</strong></td><td><code>free[i] = max(free[i-1], hold[i-1] + p)</code> (rest, or sell); <code>hold[i] = max(hold[i-1], free[i-1] − p)</code> (rest, or buy). Variants only rewire which state a buy may come from, or add a fee/counter.</td></tr>
+    <tr><td><strong>Base case</strong></td><td><code>free = 0</code> (no trades yet), <code>hold = −∞</code> (holding before any buy is impossible — mark unreachable).</td></tr>
+    <tr><td><strong>Order</strong></td><td>One left→right pass over prices; day i reads only day i−1 → roll the table into scalars.</td></tr>
+    <tr><td><strong>Answer</strong></td><td>Best value over the states where you hold nothing at the end (you never finish rich while still holding).</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · Core template</h2>
+<h3>The general stock automaton — LC 122 (unlimited transactions)</h3>
+<pre><code>int maxProfit(int[] prices) {
+    int hold = Integer.MIN_VALUE / 2;         <span class="cmt">// -∞: holding before buying is unreachable. /2 avoids overflow on +p</span>
+    int free = 0;                             <span class="cmt">// profit 0, holding nothing</span>
+    for (int p : prices) {
+        int prevFree = free;                  <span class="cmt">// snapshot: both updates must read YESTERDAY's values</span>
+        free = Math.max(free, hold + p);      <span class="cmt">// rest, or sell today</span>
+        hold = Math.max(hold, prevFree - p);  <span class="cmt">// rest, or buy today</span>
+    }
+    return free;                              <span class="cmt">// finish holding nothing</span>
+}</code></pre>
+<p><strong>Time</strong> O(n). <strong>Space</strong> O(1) — the 2-state table rolled into two ints.
+Every problem below is this template with edges rewired: cooldown inserts a forced third state,
+fee taxes the sell edge, "at most k" clones the machine k times, paint problems rename the states
+to colors.</p>
+
+<div class="callout tip">
+  <span class="label">The method: draw before you code</span>
+  On paper, in 30 seconds: circles for states, arrows for legal moves, each arrow labeled with its
+  profit/cost. One <code>max</code> per <em>incoming</em> arrow set — that is the entire recurrence.
+  Interviewers at Google explicitly reward this: narrating the automaton is the explanation.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 122 · Best Time to Buy and Sell Stock II</strong> (Medium) — the template verbatim; then re-derive the one-line greedy (sum of positive deltas) and convince yourself it's the same machine.</li>
+  <li><strong>LC 3259 · Maximum Energy Boost From Two Drinks</strong> (Medium) — two states = which drink you're on; switching costs a skipped hour instead of money, but the snapshot rule is identical.</li>
+  <li><strong>LC 1911 · Maximum Alternating Subsequence Sum</strong> (Medium) — stocks in disguise: "even picks add, odd picks subtract" is exactly hold/free with a free share.</li>
+</ul>
+
+<h2>4 · All the cases</h2>
+<table>
+  <thead><tr><th>Problem</th><th>LC #</th><th>What changes in the machine</th></tr></thead>
+  <tbody>
+    <tr><td>Best Time to Buy &amp; Sell Stock</td><td>121</td><td>One transaction: buy must come from profit 0 — <code>hold = max(hold, −p)</code>. (Also solvable as a running-min one-pass; same thing.)</td></tr>
+    <tr><td>… II — unlimited</td><td>122</td><td>The core template above; buy comes from <code>free</code>.</td></tr>
+    <tr><td>… with Cooldown</td><td>309 <em>(the classic)</em></td><td>Third state: after selling you sit out one day. Buy may only come from <code>rest</code>, never straight from <code>sold</code>.</td></tr>
+    <tr><td>… with Transaction Fee</td><td>714</td><td>Same 2 states; subtract <code>fee</code> on the sell edge.</td></tr>
+    <tr><td>… III — at most 2</td><td>123</td><td>Two chained copies of the machine (buy1/sell1/buy2/sell2), i.e. 188 with k=2.</td></tr>
+    <tr><td>… IV — at most k</td><td>188</td><td><code>dp[k][state]</code>: k copies of the machine. Collapse to LC 122 when <code>k ≥ n/2</code>.</td></tr>
+    <tr><td>Min Falling Path Sum / II</td><td>931 / 1289</td><td>State = column picked in the last row. 931: next pick must be adjacent; 1289: must <em>differ</em> — 1289 is "Paint House" with n colors.</td></tr>
+    <tr><td>Paint N×3 Grid</td><td>1411</td><td>States: last row uses two colors (aba) vs three colors (abc) — a counting automaton.</td></tr>
+    <tr><td>Wiggle Subsequence</td><td>376</td><td>States: longest wiggle ending on an <em>up</em> vs a <em>down</em> step.</td></tr>
+  </tbody>
+</table>
+
+<h3>One transaction (121) — delete the re-buy arrow</h3>
+<p>Same two states as the core machine, one arrow changed: with a single transaction allowed, a buy
+must come from <em>profit 0</em> (you've never traded), so the buy edge reads a constant instead of
+<code>free</code>: <code>hold = max(hold, −p)</code>. Base case and answer are unchanged
+(<code>hold = −∞</code>, <code>free = 0</code>, return <code>free</code>). Squint and
+<code>hold</code> is just "minus the running minimum price" — the famous one-pass solution and the
+automaton are the same algorithm wearing different clothes.</p>
+<pre><code>int maxProfit(int[] prices) {
+    int hold = Integer.MIN_VALUE / 2;         <span class="cmt">// best profit while holding the ONE share = −(min price so far)</span>
+    int free = 0;                             <span class="cmt">// best profit after selling it (or never trading)</span>
+    for (int p : prices) {
+        free = Math.max(free, hold + p);      <span class="cmt">// sell today</span>
+        hold = Math.max(hold, -p);            <span class="cmt">// buy today — funded by 0, NOT by free (no snapshot needed: −p is a constant)</span>
+    }
+    return free;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1).</p>
+<div class="callout trap">
+  <span class="label">Trap</span>
+  Writing <code>hold = max(hold, free − p)</code> out of habit silently re-enables unlimited
+  transactions — you've built LC 122. On <code>[1,2,1,2]</code> that returns 2 instead of 1.
+  The entire difference between 121 and 122 is which state funds the buy.
+</div>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 121 · Best Time to Buy and Sell Stock</strong> (Easy) — likely already solved — re-solve as an automaton with this lesson's states, narrating hold/free instead of running-min.</li>
+  <li><strong>LC 2016 · Maximum Difference Between Increasing Elements</strong> (Easy) — the same skeleton on raw differences; a fresh array to prove the machine transfers off stocks.</li>
+</ul>
+
+<h3>Cooldown (309) — the three-state machine</h3>
+<pre><code>int maxProfit(int[] prices) {
+    int hold = Integer.MIN_VALUE / 2;         <span class="cmt">// holding a share</span>
+    int sold = Integer.MIN_VALUE / 2;         <span class="cmt">// sold TODAY → tomorrow is a forced cooldown</span>
+    int rest = 0;                             <span class="cmt">// free to buy (≥1 day since selling)</span>
+    for (int p : prices) {
+        int prevSold = sold;
+        sold = hold + p;                      <span class="cmt">// sell today (only exit from hold)</span>
+        hold = Math.max(hold, rest - p);      <span class="cmt">// keep holding, or buy — ONLY from rest, never from sold</span>
+        rest = Math.max(rest, prevSold);      <span class="cmt">// stay free, or finish yesterday's cooldown</span>
+    }
+    return Math.max(sold, rest);              <span class="cmt">// end holding nothing (either just-sold or free)</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) — the 3-state table rolled into three ints.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 309 · Best Time to Buy and Sell Stock with Cooldown</strong> (Medium) — the classic; draw the three circles from memory before typing, it's the interview answer.</li>
+  <li><strong>LC 790 · Domino and Tromino Tiling</strong> (Medium) — a three-state <em>column</em> automaton (flush / top juts out / bottom juts out), counting tilings instead of maximizing profit.</li>
+  <li><strong>LC 2140 · Solving Questions With Brainpower</strong> (Medium) — cooldown generalized: taking index i locks out the next <code>brainpower[i]</code> indices; solve as a suffix dp.</li>
+</ul>
+
+<h3>Fee (714) — tax one edge</h3>
+<pre><code>int maxProfit(int[] prices, int fee) {
+    int hold = Integer.MIN_VALUE / 2, free = 0;
+    for (int p : prices) {
+        int prevFree = free;
+        free = Math.max(free, hold + p - fee);  <span class="cmt">// the ONLY change vs LC 122: fee on the sell arrow</span>
+        hold = Math.max(hold, prevFree - p);
+    }
+    return free;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Note the snapshot is load-bearing here:
+without <code>prevFree</code>, a same-day buy-after-sell dodges half the fee.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 714 · Best Time to Buy and Sell Stock with Transaction Fee</strong> (Medium) — the template; then move the fee to the <em>buy</em> edge and verify it still passes (each round-trip pays exactly once either way).</li>
+  <li><strong>LC 2786 · Visit Array Positions to Make Arrangement</strong> (Medium) — two parity states; the "fee" <code>x</code> is charged on every parity-switch arrow.</li>
+</ul>
+
+<h3>At most 2 transactions (123) — chain two machines in series</h3>
+<p>Two copies of the one-transaction machine, wired end to end: machine #2's buy is funded by
+machine #1's sell. State = four scalars <code>hold1 / sell1 / hold2 / sell2</code>; recurrence is
+each machine's usual pair of arrows, except <code>hold2</code> reads <code>sell1</code>. Base case:
+both holds <code>−∞</code>, both sells 0. Answer: <code>sell2</code> — it dominates
+<code>sell1</code> because a same-price buy-and-sell is a free no-op, so "at most 2" includes
+"exactly 1" and "zero" automatically.</p>
+<pre><code>int maxProfit(int[] prices) {
+    int hold1 = Integer.MIN_VALUE / 2, sell1 = 0;  <span class="cmt">// machine #1: first buy / first sell</span>
+    int hold2 = Integer.MIN_VALUE / 2, sell2 = 0;  <span class="cmt">// machine #2: may only buy out of sell1</span>
+    for (int p : prices) {
+        sell2 = Math.max(sell2, hold2 + p);        <span class="cmt">// update last stage first ⇒ every line reads yesterday's values</span>
+        hold2 = Math.max(hold2, sell1 - p);        <span class="cmt">// second buy spends the first sale's profit</span>
+        sell1 = Math.max(sell1, hold1 + p);
+        hold1 = Math.max(hold1, -p);               <span class="cmt">// first buy funded by 0 — this line IS LC 121</span>
+    }
+    return sell2;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) — four ints instead of a <code>dp[n][4]</code> table.</p>
+<div class="callout trap">
+  <span class="label">Trap</span>
+  Forward order (<code>hold1</code> first) also happens to pass here, because a same-day chained
+  trade earns exactly 0 and never beats the max. Don't learn that habit — the identical sloppiness
+  is a <em>wrong answer</em> in 309 and 714. Update last stage first, always.
+</div>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 123 · Best Time to Buy and Sell Stock III</strong> (Hard) — the four-variable chain; afterwards, re-derive it by setting k=2 in the 188 template below.</li>
+  <li><strong>LC 1031 · Maximum Sum of Two Non-Overlapping Subarrays</strong> (Medium) — the same "two chained picks" shape: best-first-piece-so-far feeds the second pick.</li>
+</ul>
+
+<h3>At most k transactions (188) — clone the machine k times</h3>
+<pre><code>int maxProfit(int k, int[] prices) {
+    int n = prices.length;
+    if (k &gt;= n / 2) {                          <span class="cmt">// a transaction needs ≥2 days ⇒ cap never binds:</span>
+        int profit = 0;                         <span class="cmt">// collapse to unlimited (LC 122 greedy form)</span>
+        for (int i = 1; i &lt; n; i++) profit += Math.max(0, prices[i] - prices[i - 1]);
+        return profit;
+    }
+    int[] hold = new int[k + 1], free = new int[k + 1];
+    Arrays.fill(hold, Integer.MIN_VALUE / 2);  <span class="cmt">// free[j]=0: zero profit with ≤j transactions used</span>
+    for (int p : prices)
+        for (int j = k; j &gt;= 1; j--) {         <span class="cmt">// j = transactions used so far (counted at buy)</span>
+            free[j] = Math.max(free[j], hold[j] + p);
+            hold[j] = Math.max(hold[j], free[j - 1] - p);  <span class="cmt">// buying starts transaction j</span>
+        }
+    return free[k];
+}</code></pre>
+<p><strong>Time</strong> O(nk), <strong>Space</strong> O(k). Without the <code>k ≥ n/2</code> collapse,
+huge k values TLE you for no reason — a favorite hidden test.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 188 · Best Time to Buy and Sell Stock IV</strong> (Hard) — the k-copy template; before submitting, dry-run <code>k = 1_000_000_000</code> in your head and confirm the collapse branch fires.</li>
+  <li><strong>LC 1473 · Paint House III</strong> (Hard) — the stretch: <code>dp[house][color][groups]</code> is a paint machine with a transaction-style counter riding along, exactly like the <code>j</code> index here.</li>
+</ul>
+
+<h3>Minimum Falling Path Sum (931) — states are columns, moves are adjacent</h3>
+<p>First non-stock rename. Walking down the matrix, the only thing tomorrow cares about is
+<em>which column you stand in</em> — so the states are the m columns. State:
+<code>dp[c]</code> = min path sum reaching column c of the current row. Recurrence: entering
+column c is allowed from c−1, c, or c+1 of the previous row, so take the min of those (≤ 3
+incoming arrows per state). Base case: the first row itself; answer: min over the last row.</p>
+<pre><code>int minFallingPathSum(int[][] matrix) {
+    int n = matrix.length;
+    int[] dp = matrix[0].clone();              <span class="cmt">// dp[c] = min cost so far, standing in column c</span>
+    for (int r = 1; r &lt; n; r++) {
+        int[] ndp = new int[n];
+        for (int c = 0; c &lt; n; c++) {
+            int best = dp[c];                              <span class="cmt">// straight down</span>
+            if (c &gt; 0)     best = Math.min(best, dp[c - 1]); <span class="cmt">// from upper-left</span>
+            if (c + 1 &lt; n) best = Math.min(best, dp[c + 1]); <span class="cmt">// from upper-right</span>
+            ndp[c] = matrix[r][c] + best;
+        }
+        dp = ndp;                              <span class="cmt">// commit the row from the previous row's snapshot</span>
+    }
+    int ans = Integer.MAX_VALUE;
+    for (int v : dp) ans = Math.min(ans, v);
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(n·m) — each of the n·m cells looks at ≤ 3 arrows. <strong>Space</strong> O(m).</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 931 · Minimum Falling Path Sum</strong> (Medium) — the template; narrate it as "m states, ≤ 3 incoming arrows each" rather than as a grid walk.</li>
+  <li><strong>LC 2304 · Minimum Path Cost in a Grid</strong> (Medium) — same column-state machine, but <em>every arrow carries its own explicit cost</em> from a moveCost table; any column may follow any column.</li>
+</ul>
+
+<h3>Minimum Falling Path Sum II (1289) — states are columns, not trades</h3>
+<p>This is the classic "Paint House" machine with n colors: each row you pick one column, and the
+next row must pick a <em>different</em> one. State = the column your last pick used.</p>
+<pre><code>int minFallingPathSum(int[][] grid) {
+    int m = grid[0].length;
+    int[] dp = new int[m];                     <span class="cmt">// dp[c] = min cost so far, given the LAST row picked column c</span>
+    for (int[] row : grid) {
+        int[] ndp = new int[m];
+        for (int c = 0; c &lt; m; c++) {
+            int best = Integer.MAX_VALUE;      <span class="cmt">// pick column c ⇒ previous row used any OTHER column</span>
+            for (int pc = 0; pc &lt; m; pc++)
+                if (pc != c) best = Math.min(best, dp[pc]);
+            ndp[c] = row[c] + best;
+        }
+        dp = ndp;                              <span class="cmt">// commit the whole row together (same snapshot rule)</span>
+    }
+    int ans = Integer.MAX_VALUE;
+    for (int v : dp) ans = Math.min(ans, v);
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(n·m²), <strong>Space</strong> O(m). Interview upgrade: carry only the previous
+row's <em>smallest and second-smallest</em> values (use the second when the columns collide) → O(n·m).
+That min-over-others trick is the follow-up interviewers are fishing for.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1289 · Minimum Falling Path Sum II</strong> (Hard) — first pass the O(n·m²) loop above, then redo it carrying (min, second-min) of the previous row for O(n·m).</li>
+  <li><strong>LC 1937 · Maximum Number of Points with Cost</strong> (Medium) — the trick escalates: "different column" becomes "any column, minus the distance"; carry running left/right maxes instead of two minima.</li>
+</ul>
+
+<h3>Paint the N×3 grid (1411) — a counting automaton</h3>
+<p>There are exactly 12 valid single rows, and they split into two <em>classes</em>: two-colored
+<code>aba</code> (6 of them) and three-colored <code>abc</code> (6 of them). The class alone
+determines how many compatible rows can come next — list them once by hand: after an
+<code>aba</code> row you can place 3 <code>aba</code> rows and 2 <code>abc</code> rows; after an
+<code>abc</code> row, 2 of each. So the state is just the class of the last row, the recurrence
+multiplies counts along the arrows, the base case is row 1 (<code>aba = abc = 6</code>), and the
+answer is <code>aba + abc</code>. Same machine as the stocks — but the arrows <em>multiply and
+add counts</em> instead of maximizing profit.</p>
+<pre><code>int numOfWays(int n) {
+    final int MOD = 1_000_000_007;
+    long aba = 6, abc = 6;                     <span class="cmt">// row 1: 6 two-color patterns, 6 three-color patterns</span>
+    for (int i = 2; i &lt;= n; i++) {
+        long nAba = (3 * aba + 2 * abc) % MOD; <span class="cmt">// each aba row admits 3 aba successors; each abc admits 2</span>
+        long nAbc = (2 * aba + 2 * abc) % MOD; <span class="cmt">// both classes admit 2 abc successors</span>
+        aba = nAba;                            <span class="cmt">// same snapshot rule: both lines read the OLD pair</span>
+        abc = nAbc;
+    }
+    return (int) ((aba + abc) % MOD);
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1) — two longs.</p>
+<div class="callout trap">
+  <span class="label">Trap</span>
+  Counting DPs overflow where profit DPs don't: with <code>int</code> and no <code>% MOD</code>
+  each step, the counts wrap within a few dozen rows. Keep <code>long</code>s and reduce
+  <em>every</em> iteration — not just at the end.
+</div>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1411 · Number of Ways to Paint N × 3 Grid</strong> (Hard) — the two-long template; derive the 3/2/2/2 coefficients yourself by listing compatible rows once.</li>
+  <li><strong>LC 1220 · Count Vowels Permutation</strong> (Medium) — five states (a e i o u) with a fixed arrow list; the identical multiply-and-mod loop.</li>
+  <li><strong>LC 935 · Knight Dialer</strong> (Medium) — ten states = keypad digits, arrows = knight moves; count length-n paths through the automaton.</li>
+</ul>
+
+<h3>Wiggle Subsequence (376) — up/down states</h3>
+<pre><code>int wiggleMaxLength(int[] nums) {
+    int up = 1, down = 1;                      <span class="cmt">// longest wiggle ending on a rise / a fall</span>
+    for (int i = 1; i &lt; nums.length; i++) {
+        if (nums[i] &gt; nums[i - 1]) up = down + 1;    <span class="cmt">// a rise must follow a fall</span>
+        else if (nums[i] &lt; nums[i - 1]) down = up + 1;
+    }                                          <span class="cmt">// equal ⇒ neither state moves</span>
+    return Math.max(up, down);
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). This greedy-looking two-liner <em>is</em>
+<code>dp[i][up/down]</code> rolled flat: <code>up</code> = longest wiggle so far ending on a rise,
+and a rise can only extend a sequence that last fell — that's the whole automaton.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 376 · Wiggle Subsequence</strong> (Medium) — the up/down pair; be ready to explain aloud why equal neighbors advance neither state.</li>
+  <li><strong>LC 978 · Longest Turbulent Subarray</strong> (Medium) — same two states but <em>contiguous</em>: a broken pattern resets the run to 1 instead of carrying the old best along.</li>
+  <li><strong>LC 1567 · Maximum Length of Subarray With Positive Product</strong> (Medium) — rename the states to pos/neg run lengths; a sign flip swaps them and a zero resets the machine.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>LC 309 with <code>prices = [1, 2, 3, 0, 2]</code>. First the automaton — this drawing <em>is</em> the solution:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 420 278" role="img" aria-label="Three-state cooldown automaton: HOLD with a self-loop, an arrow labeled sell to SOLD, a forced cooldown arrow from SOLD to REST, a buy arrow from REST back to HOLD, and a wait self-loop on REST">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path class="arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+    </marker>
+  </defs>
+  <path class="edge" d="M 68 50 C 45 8, 125 8, 102 50" marker-end="url(#ah)"/>
+  <text class="wt" x="85" y="14">hold</text>
+  <line class="edge hl" x1="116" y1="75" x2="301" y2="75" marker-end="url(#ah)"/>
+  <text class="wt" x="209" y="63">sell · +p</text>
+  <line class="edge hl" x1="312" y1="95" x2="238" y2="160" marker-end="url(#ah)"/>
+  <text class="wt" x="320" y="140">cooldown (forced)</text>
+  <line class="edge hl" x1="187" y1="165" x2="110" y2="98" marker-end="url(#ah)"/>
+  <text class="wt" x="106" y="145">buy · −p</text>
+  <path class="edge" d="M 193 213 C 170 255, 250 255, 227 213" marker-end="url(#ah)"/>
+  <text class="wt" x="210" y="264">wait</text>
+  <circle class="node cur" cx="85"  cy="75"  r="31"/><text class="lbl inv" x="85"  y="75">HOLD</text>
+  <circle class="node" cx="335" cy="75"  r="31"/><text class="lbl" x="335" y="75">SOLD</text>
+  <circle class="node done" cx="210" cy="185" r="31"/><text class="lbl" x="210" y="185">REST</text>
+</svg>
+<figcaption>The cooldown machine. Buying is an arrow from REST only — SOLD has exactly one exit (the forced cooldown), which is the whole problem in one picture.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">init      hold=−∞   sold=−∞   rest=0</span>
+<span class="step">p=1  →   hold=<span class="ptr">−1</span> (buy from rest)   sold=−∞           rest=0</span>
+<span class="step">p=2  →   hold=−1                    sold=<span class="ptr">1</span> (−1+2)     rest=0</span>
+<span class="step">p=3  →   hold=−1                    sold=<span class="ptr">2</span> (−1+3)     rest=1 (yesterday's sold)</span>
+<span class="step now">p=0  →   hold=<span class="ptr">1</span> (rest 1 − 0: rebuy after cooldown!)   sold=−1   rest=2</span>
+<span class="step now">p=2  →   hold=1                     sold=<span class="ptr">3</span> (1+2)      rest=2</span>
+<span class="step">answer = max(sold, rest) = <span class="ptr">3</span>   (buy@1 sell@3, cooldown, buy@0 sell@2)</span>
+</div>
+<p>The interesting day is <code>p=0</code>: selling at 3 happened on day 2, day 3 would be the cooldown —
+but because <code>rest</code> already banked profit 1 from the <em>day-1</em> sale, buying at 0 from
+<code>rest</code> is legal and sets up the final sell at 2.</p>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Snapshot before updating.</strong> All states must read <em>yesterday's</em> values; updating <code>free</code> then reading it for <code>hold</code> in the same iteration silently allows buy-and-sell on the same day. (In LC 122 that happens to be harmless; in 714 and 309 it's a wrong answer.)</li>
+  <li><strong>Initialize unreachable states to −∞</strong> — and use <code>Integer.MIN_VALUE / 2</code>, because <code>MIN_VALUE + p</code> overflows to a huge positive number.</li>
+  <li><strong>Finish holding nothing:</strong> the answer is over sell-side states; returning <code>hold</code> means you paid for a share you never sold.</li>
+  <li><strong>LC 188:</strong> collapse <code>k ≥ n/2</code> to unlimited, or a test with k = 10⁹ TLEs / blows memory.</li>
+  <li><strong>Empty or 1-element prices:</strong> answer 0 — the loops handle it if <code>free</code> starts at 0.</li>
+  <li><strong>Wiggle equal neighbors:</strong> <code>nums[i] == nums[i-1]</code> advances neither state — an <code>else</code> instead of <code>else if</code> breaks it.</li>
+  <li><strong>Falling Path II (1289):</strong> compute the whole next row from the previous row's snapshot; updating in place lets a row "see" itself.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In the cooldown machine (309), why is the buy transition <code>hold = max(hold, rest − p)</code> and never <code>sold − p</code>?</div>
+  <button class="opt">Because <code>sold</code> is usually negative early on, which would corrupt <code>hold</code></button>
+  <button class="opt">Because reading <code>sold</code> would double-count the sale price already added to it</button>
+  <button class="opt">Because <code>sold</code> means "sold today", and the rules force a full day in <code>rest</code> before you may buy again</button>
+  <div class="fb" data-correct="Exactly — SOLD's only outgoing arrow is the forced cooldown into REST. Buying is an edge out of REST alone; that's the entire constraint, encoded as a missing arrow." data-wrong="Look at the automaton: SOLD has exactly one exit — the forced cooldown into REST. The buy arrow leaves from REST only. The recurrence just transcribes which arrows exist."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">LC 188 gives <code>k = 1_000_000_000</code> and <code>n = 50</code> prices. Your first move?</div>
+  <button class="opt">Treat it as unlimited transactions (LC 122), since a transaction spans ≥ 2 days so at most n/2 ever fit</button>
+  <button class="opt">Allocate the <code>dp[k+1][2]</code> table anyway — O(nk) is fine because n is tiny</button>
+  <button class="opt">Binary-search the largest k′ ≤ k for which the profit still increases</button>
+  <div class="fb" data-correct="Right — with n days you can complete at most n/2 transactions, so k ≥ n/2 means the cap never binds: run the unlimited-machine and skip the k-indexed table entirely." data-wrong="A buy+sell needs at least 2 distinct days, so at most n/2 = 25 transactions are even possible. Once k ≥ n/2 the cap is meaningless — collapse to LC 122 instead of allocating a billion-row table."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why initialize <code>hold</code> to <code>Integer.MIN_VALUE / 2</code> rather than 0 or <code>Integer.MIN_VALUE</code>?</div>
+  <button class="opt">0 would work too; the division by 2 is only a stylistic convention</button>
+  <button class="opt">−∞ marks "holding before any buy" as unreachable, and halving prevents <code>hold + p</code> from overflowing past MIN_VALUE</button>
+  <button class="opt">MIN_VALUE / 2 approximates the largest loss a single transaction can produce</button>
+  <div class="fb" data-correct="Both halves matter: hold=0 would pretend you own a free share on day 0 (wrong answers when all prices are high), and raw MIN_VALUE + p wraps around to a large positive — the classic sentinel-overflow bug." data-wrong="hold = 0 claims you already own a share that cost nothing — provably wrong when every price is positive. And MIN_VALUE + p overflows to positive. MIN_VALUE/2 keeps 'unreachable' unreachable and addition safe."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://www.youtube.com/watch?v=WBzZCm46mPo">Striver DP-36→40 — the full stock series</a> (Java, builds 121→188 exactly as machines). Backup: <a href="https://neetcode.io/problems/buy-and-sell-crypto-with-cooldown">NeetCode — Stock with Cooldown</a> for the 309 automaton drawing.</li>
+  <li><strong>Practice ladder (Java), easiest → hardest:</strong> LC 121 → 122 → 714 → 309 <em>(Google-reported)</em> → 123 → 188 → then the non-stock renames: 931 → 1289 → 1411 → 376 to prove the pattern transfers.</li>
+  <li><strong>Drill:</strong> for 309 and 714, draw the automaton from memory on paper <em>before</em> typing — circles, arrows, edge labels — then transcribe. That narration is the interview answer.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0009-interval-dp.html">DP Lesson 09 — Interval DP</a>, where the state becomes a whole subarray.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the 309 trace re-run on your own prices, the 123 four-variable version derived from 188, or a
+  proof that the snapshot rule matters in 714? Ask in the chat. When you can draw the cooldown machine
+  and read its recurrence off the arrows, say <strong>"next"</strong> and we move to interval DP.
+</div>
+
+<div class="nav">
+  <span><a href="0007-lis-family.html">← LIS &amp; friends</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0009-interval-dp.html">Interval DP →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

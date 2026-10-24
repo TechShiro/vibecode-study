@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binary Search Lesson 02 — Rotated &amp; Modified</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Binary Search Track · Lesson 2 of 3 · when sortedness is bent, not broken</div>
+<h1>Rotated &amp; Modified Binary Search</h1>
+<p class="subtitle">Rotated arrays, peaks, and 2D matrices aren't sorted — but at every midpoint you can still answer "which side is the target on?" in O(1). That question is all binary search ever needed.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Search in Rotated Sorted Array (LC 33) is a top-20 all-time interview question at
+  Meta/Amazon/Google — this lesson is that question plus its whole family. Lesson 2 of the 3-lesson binary search
+  track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 1 needed a monotonic predicate. These arrays aren't monotonic — a rotated array goes up, cliffs down, goes
+up again. But binary search never needed <em>sorted</em>; it needed: <strong>at each mid, decide in O(1) which
+half can't contain the answer, and throw it away.</strong> In a rotated array, one half of any split is always
+perfectly sorted — check its endpoints to decide if the target is inside it. For finding the rotation point or a
+peak, comparing <code>nums[mid]</code> against a fixed anchor (<code>nums[hi]</code>, or its neighbor
+<code>nums[mid+1]</code>) recovers a genuine F…FT…T predicate, and Lesson 1's template applies verbatim.
+</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 460 120" role="img" aria-label="A rotated sorted array 4 5 6 7 0 1 2: the left segment rises, then drops to a second rising segment; the minimum is highlighted">
+  <polyline class="edge" points="20,70 80,55 140,40 200,25"/>
+  <polyline class="edge hl" points="200,25 260,95"/>
+  <polyline class="edge" points="260,95 320,80 380,65 440,50"/>
+  <circle class="node done" cx="20"  cy="70" r="14"/><text class="lbl" x="20"  y="70">4</text>
+  <circle class="node done" cx="140" cy="40" r="14"/><text class="lbl" x="140" y="40">6</text>
+  <circle class="node done" cx="200" cy="25" r="14"/><text class="lbl" x="200" y="25">7</text>
+  <circle class="node cur"  cx="260" cy="95" r="14"/><text class="lbl inv" x="260" y="95">0</text>
+  <circle class="node done" cx="380" cy="65" r="14"/><text class="lbl" x="380" y="65">1</text>
+  <circle class="node done" cx="440" cy="50" r="14"/><text class="lbl" x="440" y="50">2</text>
+</svg>
+<figcaption>[4,5,6,7,0,1,2]: two sorted runs with one cliff. Split anywhere — at least one half is fully sorted, and the minimum (0) is the boundary of the predicate nums[i] ≤ nums[hi].</figcaption>
+</figure>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Rotated sorted array," "find the pivot/minimum," "find <em>a</em> peak," "search a sorted 2D matrix," or any
+  array that is <strong>piecewise sorted</strong> with O(log n) demanded. The interview move: don't hunt for a
+  global order — ask "standing at mid, what O(1) comparison tells me which half to discard?" If duplicates are
+  allowed (LC 81/154), expect the follow-up "what happens to your complexity?" (answer: worst-case O(n)).
+</div>
+
+<h2>2 · Core template — find the rotation point (LC 153)</h2>
+<p>
+Find Minimum in Rotated Sorted Array is the family's core because it IS Lesson 1's template with predicate
+<code>p(i) = nums[i] &lt;= nums[hi]</code> ("i is in the right-hand sorted run"). Elements in the left run are all
+&gt; the last element; elements in the right run are all ≤ it — F…FT…T, and the first T is the minimum.
+</p>
+<pre><code><span class="cmt">// LC 153: min of a rotated sorted array with DISTINCT values.</span>
+int findMin(int[] nums) {
+    int lo = 0, hi = nums.length - 1;    <span class="cmt">// nums[hi] is the anchor; answer guaranteed in [lo, hi]</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (nums[mid] &lt;= nums[hi]) hi = mid; <span class="cmt">// mid is in the right sorted run → min is mid or left of it</span>
+        else lo = mid + 1;               <span class="cmt">// mid in left run (&gt; nums[hi]) → min is strictly right</span>
+    }
+    return nums[lo];                     <span class="cmt">// lo = first index of the right run = the minimum</span>
+}</code></pre>
+<p><strong>Time</strong> O(log n). <strong>Space</strong> O(1). Note the anchor is <code>nums[hi]</code>, not <code>nums[lo]</code> — comparing to <code>nums[lo]</code> breaks when the array isn't rotated at all (fully sorted input), because then everything is ≥ <code>nums[lo]</code> and the predicate isn't F…FT…T.</p>
+
+<h3>Worked example — dry run</h3>
+<p><code>findMin([4,5,6,7,0,1,2])</code>. Anchor <code>nums[6] = 2</code>. Predicate <code>nums[i] ≤ 2</code>: <code>F F F F T T T</code>.</p>
+<div class="trace">
+<span class="step">lo=0, hi=6 — anchor nums[6]=2</span>
+<span class="step now">mid=3 → nums[3]=7 ≤ 2? <span class="ptr">F</span> → min is right of the cliff → lo=4</span>
+<span class="step now">lo=4, hi=6 → mid=5 → nums[5]=1 ≤ 2? <span class="ptr">T</span> → hi=5 (mid could be the min)</span>
+<span class="step now">lo=4, hi=5 → mid=4 → nums[4]=0 ≤ 2? <span class="ptr">T</span> → hi=4</span>
+<span class="step">lo=4 == hi=4 → nums[4] = <span class="ptr">0</span> ✓</span>
+</div>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Find the minimum / pivot</td><td>LC 153</td><td>The core above: predicate <code>nums[mid] &lt;= nums[hi]</code>.</td></tr>
+    <tr><td>Minimum with duplicates</td><td>LC 154</td><td>Equal to anchor → can't decide → <code>hi--</code>. Worst case O(n).</td></tr>
+    <tr><td>Search a target, rotated</td><td>LC 33 <span class="cmt">★classic</span></td><td>No single predicate — per step, find the sorted half, test membership.</td></tr>
+    <tr><td>Search with duplicates</td><td>LC 81</td><td>When <code>nums[lo]==nums[mid]==nums[hi]</code>, shrink both ends. Worst O(n).</td></tr>
+    <tr><td>Find a peak</td><td>LC 162</td><td>Predicate from slope: <code>nums[mid] &gt; nums[mid+1]</code> — climb toward a peak.</td></tr>
+    <tr><td>Sorted 2D matrix</td><td>LC 74</td><td>Pure re-indexing: treat the matrix as one sorted array of length m·n.</td></tr>
+    <tr><td>Two sorted arrays' median</td><td>LC 4 <span class="cmt">★boss</span></td><td>Binary search a <em>partition size</em>, not an index. Sketched below.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Search in Rotated Sorted Array (LC 33)</h3>
+<p>
+Target search has no single monotonic predicate over the whole array, so this one keeps the classic
+<code>lo &lt;= hi</code> loop and decides per step: whichever half of <code>[lo, hi]</code> is sorted (at least
+one always is), check if the target lies between its endpoints. If yes, search it; otherwise the target — if it
+exists — must be in the messy half.
+</p>
+<pre><code>int search(int[] nums, int target) {
+    int lo = 0, hi = nums.length - 1;
+    while (lo &lt;= hi) {                   <span class="cmt">// classic loop: we may find target AT mid and return early</span>
+        int mid = lo + (hi - lo) / 2;
+        if (nums[mid] == target) return mid;
+        if (nums[lo] &lt;= nums[mid]) {     <span class="cmt">// left half [lo..mid] is sorted (note &lt;= : 1-element half)</span>
+            if (nums[lo] &lt;= target &amp;&amp; target &lt; nums[mid])
+                hi = mid - 1;            <span class="cmt">// target inside the sorted left half</span>
+            else lo = mid + 1;           <span class="cmt">// else it can only be in the right half</span>
+        } else {                         <span class="cmt">// otherwise the right half [mid..hi] is sorted</span>
+            if (nums[mid] &lt; target &amp;&amp; target &lt;= nums[hi])
+                lo = mid + 1;            <span class="cmt">// target inside the sorted right half</span>
+            else hi = mid - 1;
+        }
+    }
+    return -1;
+}</code></pre>
+<div class="callout trap">
+  <span class="label">The <code>&lt;=</code> in <code>nums[lo] &lt;= nums[mid]</code> is load-bearing</span>
+  When <code>lo == mid</code> (a two-element range), the "half" [lo..mid] is a single element — sorted by
+  definition. Writing strict <code>&lt;</code> misclassifies it as the unsorted side and sends the search the
+  wrong way. This is the #1 wrong-answer on LC 33.
+</div>
+
+<h3>Case: … with duplicates (LC 81)</h3>
+<p>Duplicates can make <code>nums[lo] == nums[mid] == nums[hi]</code> (e.g. <code>[1,1,1,0,1]</code>) — then <em>neither</em> half is provably sorted. The only safe move: shed one known-useless element from each end and retry. That single degenerate branch drops the worst case to O(n); everything else is LC 33.</p>
+<pre><code>boolean search(int[] nums, int target) {
+    int lo = 0, hi = nums.length - 1;
+    while (lo &lt;= hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (nums[mid] == target) return true;
+        if (nums[lo] == nums[mid] &amp;&amp; nums[mid] == nums[hi]) {
+            lo++; hi--;                  <span class="cmt">// can't tell which side is sorted → shrink both ends</span>
+        } else if (nums[lo] &lt;= nums[mid]) {
+            if (nums[lo] &lt;= target &amp;&amp; target &lt; nums[mid]) hi = mid - 1;
+            else lo = mid + 1;
+        } else {
+            if (nums[mid] &lt; target &amp;&amp; target &lt;= nums[hi]) lo = mid + 1;
+            else hi = mid - 1;
+        }
+    }
+    return false;
+}</code></pre>
+<p>Same idea fixes LC 154 (min with duplicates): in the core template, when <code>nums[mid] == nums[hi]</code> you can't place mid in either run, but <code>nums[hi]</code> has a duplicate surviving at mid, so <code>hi--</code> is safe. Average O(log n), worst O(n) — say that unprompted in the interview.</p>
+
+<h3>Case: Find Peak Element (LC 162)</h3>
+<p>Not sorted at all — yet <code>nums[mid] &gt; nums[mid+1]</code> is a valid firstTrue predicate. If the slope at mid is downhill, a peak exists at mid or to the left; if uphill, the climb must top out somewhere to the right (the array's edges are −∞, so an ascent can't run off the end). The first "downhill" index is a peak.</p>
+<pre><code>int findPeakElement(int[] nums) {
+    int lo = 0, hi = nums.length - 1;    <span class="cmt">// hi = n-1: mid+1 must stay in bounds; a peak always exists</span>
+    while (lo &lt; hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (nums[mid] &gt; nums[mid + 1]) hi = mid; <span class="cmt">// downhill → a peak is at mid or before</span>
+        else lo = mid + 1;               <span class="cmt">// uphill → strictly bigger value ahead → peak is right</span>
+    }
+    return lo;                           <span class="cmt">// first downhill index = a peak</span>
+}</code></pre>
+<p>This generalizes: whenever you can point in a direction that <em>must</em> contain an answer, you can binary search — sortedness is optional.</p>
+
+<h3>Case: Search a 2D Matrix (LC 74)</h3>
+<p>Each row sorted, and each row's first element &gt; previous row's last: reading row-by-row gives one sorted list of length m·n. Don't flatten it — index into it. Cell <code>k</code> lives at <code>matrix[k / cols][k % cols]</code>. Then it's literally LC 704.</p>
+<pre><code>boolean searchMatrix(int[][] matrix, int target) {
+    int rows = matrix.length, cols = matrix[0].length;
+    int lo = 0, hi = rows * cols;        <span class="cmt">// virtual sorted array of length rows·cols</span>
+    while (lo &lt; hi) {                    <span class="cmt">// firstTrue: nums[k] &gt;= target</span>
+        int mid = lo + (hi - lo) / 2;
+        if (matrix[mid / cols][mid % cols] &gt;= target) hi = mid;
+        else lo = mid + 1;
+    }
+    return lo &lt; rows * cols &amp;&amp; matrix[lo / cols][lo % cols] == target;
+}</code></pre>
+<p><strong>Time</strong> O(log (m·n)). Don't confuse with LC 240 (rows and columns sorted independently, no row-to-row guarantee) — that one is the staircase walk from the top-right corner, not binary search.</p>
+
+<h3>Boss problem: Median of Two Sorted Arrays (LC 4) — the partition sketch</h3>
+<p>
+Stretch goal; know the idea even if you never code it live. You don't search for a value — you search for
+<strong>how many elements the smaller array contributes to the left half</strong> of the merged order. Take
+<code>i</code> elements from A and <code>j = (m+n+1)/2 − i</code> from B, so left and right halves have equal size
+by construction. The partition is <em>correct</em> when the left half's maxima don't exceed the right half's
+minima: <code>A[i−1] ≤ B[j]</code> and <code>B[j−1] ≤ A[i]</code>. And here's the monotonic predicate: as
+<code>i</code> grows, <code>A[i−1]</code> rises while <code>B[j]</code> falls, so "<code>A[i−1] &gt; B[j]</code>
+(i too big)" flips exactly once. Binary search <code>i</code> over <code>[0, m]</code> on the smaller array:
+<strong>O(log min(m, n))</strong>.
+</p>
+<pre><code><span class="cmt">// The decision inside the loop — the rest is Lesson 1 plumbing + edge sentinels:</span>
+int i = lo + (hi - lo) / 2, j = (m + n + 1) / 2 - i;
+<span class="cmt">// use -∞ for A[-1]/B[-1] and +∞ for A[m]/B[n]</span>
+if (A[i - 1] &gt; B[j])      hi = i - 1;  <span class="cmt">// A gave too many → shrink i</span>
+else if (B[j - 1] &gt; A[i]) lo = i + 1;  <span class="cmt">// A gave too few → grow i</span>
+else { <span class="cmt">/* found: median = max(left maxes), or avg with min(right mins) if m+n even */</span> }</code></pre>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Not-rotated input</strong> (rotation by 0 or by n): [1,2,3,4,5] must still work. This is exactly why LC 153 anchors on <code>nums[hi]</code>, and why LC 33 must handle "whole range already sorted."</li>
+  <li><strong>Two-element ranges.</strong> mid == lo there; any <code>&lt;</code> vs <code>&lt;=</code> slip (sorted-half test, membership test) shows up only on these. Hand-trace <code>[3,1]</code> before submitting.</li>
+  <li><strong>Duplicates change the contract.</strong> LC 81/154 are average O(log n), worst O(n) — the equal-ends shrink is unavoidable (adversarial input: all 1s with one 0 hidden anywhere).</li>
+  <li><strong>LC 162 needs <code>hi = n − 1</code>, not n</strong> — the predicate reads <code>nums[mid + 1]</code>. Off-the-end reads are the classic peak-finding crash.</li>
+  <li><strong>Membership tests are half-open:</strong> in LC 33, <code>nums[lo] &lt;= target &lt; nums[mid]</code> — mid itself was already checked, so keep it out of both halves or you'll bounce between them.</li>
+  <li><strong>LC 74 vs LC 240:</strong> confirm the "row starts after previous row ends" guarantee before flattening. Without it the virtual array isn't sorted and the answer is a different algorithm.</li>
+  <li><strong>Single-element array</strong>: loops with <code>lo &lt; hi</code> return it untouched; loops with <code>lo &lt;= hi</code> must check it. Both templates handle n = 1 — but only if <code>hi</code> was initialized consistently with the loop style.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In LC 153 (find minimum), why compare <code>nums[mid]</code> against <code>nums[hi]</code> rather than <code>nums[lo]</code>?</div>
+  <button class="opt">Because <code>nums[hi]</code> is cached by the CPU after the previous iteration, so it's faster</button>
+  <button class="opt">Because comparing with <code>nums[lo]</code> would need <code>hi = mid - 1</code>, which skips the answer</button>
+  <button class="opt">Because against <code>nums[hi]</code> the predicate stays F…FT…T even when the array isn't rotated at all</button>
+  <div class="fb" data-correct="Right. With anchor nums[hi], 'nums[i] ≤ nums[hi]' is false on the left run and true on the right run — and on a fully sorted array it's true everywhere, correctly returning index 0. Anchoring on nums[lo] makes the sorted case all-true-except-nothing-useful: the predicate stops being a boundary." data-wrong="Speed is irrelevant and the hi = mid - 1 claim isn't the issue. Test both anchors on a NOT-rotated array like [1,2,3]: which one still produces a clean false…true split?"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">LC 81 (rotated search with duplicates): what is the worst-case time, and why?</div>
+  <button class="opt">O(n) — when <code>nums[lo] == nums[mid] == nums[hi]</code> you can only shrink the range by 2</button>
+  <button class="opt">O(log n) — duplicates never affect which half is sorted, only the equality check at mid</button>
+  <button class="opt">O(n log n) — each duplicate forces a full restart of the binary search</button>
+  <div class="fb" data-correct="Yes. On input like [1,1,1,1,0,1,1] every probe can hit the all-equal case, forcing lo++/hi-- one step at a time — linear. Say 'average O(log n), worst O(n)' before the interviewer asks." data-wrong="Consider [1,1,1,0,1,1,1]: lo, mid, and hi all read 1. Can any comparison tell you which side hides the 0? If not, how much of the range can you safely discard per step?"></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Find Peak Element (LC 162) has no sorted order anywhere. What makes binary search valid anyway?</div>
+  <button class="opt">The array is guaranteed to first strictly increase and then strictly decrease, like a mountain</button>
+  <button class="opt">At every mid, the slope tells you a direction that must contain some peak, so half the range is always discardable</button>
+  <button class="opt">It isn't truly O(log n) — the algorithm falls back to a linear scan between local plateaus</button>
+  <div class="fb" data-correct="Exactly. Uphill at mid ⇒ a bigger element lies ahead, and since the edges are −∞ that ascent must eventually top out ⇒ a peak exists on the right. You never know WHERE the peak is, only that a half certainly contains one — and that's sufficient." data-wrong="LC 162 is not bitonic — it can wiggle arbitrarily (LC 852 is the mountain version). The guarantee is directional: whichever way is uphill from mid must lead to some peak before the −∞ edge."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/find-minimum-in-rotated-sorted-array">NeetCode — Find Minimum in Rotated Sorted Array</a>, then <a href="https://neetcode.io/problems/search-in-rotated-sorted-array">NeetCode — Search in Rotated Sorted Array</a>. When you're ready for the boss: <a href="https://neetcode.io/problems/median-of-two-sorted-arrays">NeetCode — Median of Two Sorted Arrays</a>.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 153 (core) → LC 33 (sorted-half decision) → LC 81 (duplicates shrink) → LC 154 (duplicates min) → LC 162 (slope predicate) → LC 74 (virtual flatten) → LC 852 (Peak Index in Mountain Array, easy consolidation) → LC 4 (boss — attempt the partition, then study the editorial without guilt).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a dry run of LC 33 on <code>[4,5,6,7,0,1,2], target 0</code>, a deeper proof of the peak argument, or the
+  full LC 4 partition code with the ±∞ sentinels spelled out? Ask in the chat. When you can decide "which half
+  survives" at any mid without hesitating, say <strong>"next"</strong> for the biggest OA pattern of all: binary
+  search on the answer.
+</div>
+
+<div class="nav">
+  <span><a href="0001-boundary-template.html">← Boundary Template</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-binary-search-on-answer.html">Search on Answer →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

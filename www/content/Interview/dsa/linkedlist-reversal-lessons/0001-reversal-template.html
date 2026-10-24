@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinkedList Reversal Lesson 01 — The Reversal Template</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">LinkedList Reversal Track · Lesson 1 of 2 · prev/cur/next in your sleep</div>
+<h1>LinkedList In-place Reversal</h1>
+<p class="subtitle">Flip the arrows of a linked list one node at a time, using three pointers and zero extra memory — the single most-asked linked-list move in big-tech screens.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> reversal is the atom inside a dozen linked-list interview questions (k-group, palindrome, reorder).
+  This is Lesson 1 of the 2-lesson LinkedList Reversal track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A singly linked list is just nodes with one-way arrows. To reverse it <strong>in place</strong>, you walk the
+list once and flip each arrow to point backwards. The catch: the moment you flip <code>cur.next</code>, you lose
+your road forward. So you carry <strong>three pointers</strong> — <code>prev</code> (already-reversed part),
+<code>cur</code> (the node being flipped), and <code>next</code> (a saved copy of the road ahead). Save, flip,
+slide. That's the whole pattern.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Reverse a list / sublist / every k nodes," "swap adjacent nodes," "reorder," or any linked-list problem that
+  says <strong>in place</strong> or <strong>O(1) space</strong>. If your first instinct is "copy values into an
+  ArrayList," the interviewer wants this pattern instead. Pointer-rewiring is the test.
+</div>
+
+<h2>2 · Core template — three pointers</h2>
+<p>Reverse Linked List (LC 206). Memorize this loop body as one chant: <em>save next, flip, slide prev, slide cur.</em></p>
+<pre><code>ListNode reverseList(ListNode head) {
+    ListNode prev = null;            <span class="cmt">// reversed part so far (starts empty)</span>
+    ListNode cur  = head;            <span class="cmt">// node whose arrow we're flipping now</span>
+    while (cur != null) {
+        ListNode next = cur.next;    <span class="cmt">// 1. SAVE the road ahead before we cut it</span>
+        cur.next = prev;             <span class="cmt">// 2. FLIP the arrow backwards</span>
+        prev = cur;                  <span class="cmt">// 3. SLIDE prev up</span>
+        cur  = next;                 <span class="cmt">// 4. SLIDE cur up</span>
+    }
+    return prev;                     <span class="cmt">// cur fell off the end; prev is the new head</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) — one pass, four pointer writes per node. <strong>Space</strong> O(1) — three local pointers, no matter how long the list.</p>
+
+<h3>Dry run on 1 → 2 → 3 → null</h3>
+<div class="trace">
+<span class="step">start: prev=<span class="ptr">null</span>, cur=<span class="ptr">1</span> &nbsp;&nbsp; list: 1→2→3→∅</span>
+<span class="step now">iter 1: next=2; 1.next=null; prev=1, cur=2 &nbsp;&nbsp; null←1&nbsp;&nbsp;2→3→∅</span>
+<span class="step now">iter 2: next=3; 2.next=1; prev=2, cur=3 &nbsp;&nbsp; null←1←2&nbsp;&nbsp;3→∅</span>
+<span class="step now">iter 3: next=null; 3.next=2; prev=3, cur=null &nbsp;&nbsp; null←1←2←3</span>
+<span class="step">cur == null → stop. return prev = <span class="ptr">3</span> &nbsp;&nbsp; result: 3→2→1→∅</span>
+</div>
+
+<div class="callout trap">
+  <span class="label">The one bug everyone writes</span>
+  Flipping before saving: <code>cur.next = prev;</code> then <code>cur = cur.next;</code> walks you
+  <em>backwards</em> into the reversed part — infinite loop or instant termination. The save
+  (<code>next = cur.next</code>) must be the <strong>first</strong> line of the loop body. Always.
+</div>
+
+<h3>Recursive version (know it, prefer iterative)</h3>
+<p>
+Recurse to the tail, then rewire on the way back up: for each node, make its <em>child point back at it</em> and
+sever its own forward arrow. The reversed head is the old tail, found at the recursion's bottom and passed up unchanged.
+</p>
+<pre><code>ListNode reverseRec(ListNode head) {
+    if (head == null || head.next == null) return head; <span class="cmt">// empty or tail → new head</span>
+    ListNode newHead = reverseRec(head.next);  <span class="cmt">// reverse everything after me</span>
+    head.next.next = head;           <span class="cmt">// my child now points back at me</span>
+    head.next = null;                <span class="cmt">// sever my old forward arrow (I may be the new tail)</span>
+    return newHead;                  <span class="cmt">// old tail bubbles up untouched</span>
+}</code></pre>
+<p><strong>Time</strong> O(n). <strong>Space</strong> O(n) recursion stack — say this out loud in an interview; on a 10⁵-node list it can StackOverflow, which is why iterative wins.</p>
+
+<h3>The dummy-node idiom</h3>
+<p>
+Whenever the <strong>head itself might change or be deleted</strong> (partial reversal, pair swaps, deletions),
+prepend a throwaway node: <code>ListNode dummy = new ListNode(0); dummy.next = head;</code>. Now every real node —
+including the old head — has a predecessor, so there are no special cases. Return <code>dummy.next</code> at the end.
+You'll use this in both cases below and constantly in Lesson 2.
+</p>
+
+<h2>3 · All the cases</h2>
+<p>Same flip-loop every time; what changes is <em>which slice</em> you reverse and <em>how you stitch it back</em>.</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Reverse the whole list</td><td>LC 206</td><td>The bare template. Return <code>prev</code>.</td></tr>
+    <tr><td>Reverse a sublist [left, right]</td><td>LC 92</td><td>Walk to the node <em>before</em> <code>left</code>, reverse exactly <code>right−left+1</code> nodes, stitch both ends. Dummy node mandatory.</td></tr>
+    <tr><td>Swap adjacent pairs</td><td>LC 24</td><td>Reversal in groups of 2 — rewire three arrows per pair, advance two nodes. Mini-preview of k-group (Lesson 2).</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Reverse Linked List II — sublist only (LC 92)</h3>
+<p>
+Reverse positions <code>left..right</code> (1-indexed) in one pass. Three phases: <strong>walk</strong> to the anchor
+before the window, <strong>flip</strong> inside the window with the standard loop, <strong>stitch</strong> the two
+seams. After the flip, <code>prev</code> is the window's new front and <code>cur</code> is the first node after it;
+the old window-start (saved as <code>tail</code>) is now the window's back.
+</p>
+<pre><code>ListNode reverseBetween(ListNode head, int left, int right) {
+    ListNode dummy = new ListNode(0);
+    dummy.next = head;
+    ListNode before = dummy;             <span class="cmt">// will end at the node just BEFORE position left</span>
+    for (int i = 1; i &lt; left; i++) before = before.next;
+
+    ListNode prev = null, cur = before.next;
+    ListNode tail = cur;                 <span class="cmt">// window's first node → becomes its LAST after flip</span>
+    for (int i = 0; i &lt; right - left + 1; i++) {  <span class="cmt">// standard flip, exactly window-size times</span>
+        ListNode next = cur.next;
+        cur.next = prev;
+        prev = cur;
+        cur  = next;
+    }
+    before.next = prev;                  <span class="cmt">// stitch front seam: anchor → new window head</span>
+    tail.next   = cur;                   <span class="cmt">// stitch back seam: new window tail → rest of list</span>
+    return dummy.next;                   <span class="cmt">// dummy absorbed the left == 1 case for free</span>
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). Without the dummy, <code>left == 1</code> (window includes the head) needs its own branch — with it, nothing special happens.</p>
+
+<h3>Case: Swap Nodes in Pairs (LC 24)</h3>
+<p>
+Groups of two: for each pair <code>(a, b)</code> hanging off anchor <code>p</code>, rewire
+<code>p → b → a → rest</code>, then advance the anchor to <code>a</code> (now the pair's second node).
+Draw the three arrows before coding — it's a stitching exercise, not a loop exercise.
+</p>
+<pre><code>ListNode swapPairs(ListNode head) {
+    ListNode dummy = new ListNode(0);
+    dummy.next = head;
+    ListNode p = dummy;                  <span class="cmt">// anchor sitting just before the current pair</span>
+    while (p.next != null &amp;&amp; p.next.next != null) { <span class="cmt">// a full pair exists</span>
+        ListNode a = p.next;             <span class="cmt">// first of the pair</span>
+        ListNode b = a.next;             <span class="cmt">// second of the pair</span>
+        a.next = b.next;                 <span class="cmt">// a → rest</span>
+        b.next = a;                      <span class="cmt">// b → a</span>
+        p.next = b;                      <span class="cmt">// anchor → b (pair now swapped)</span>
+        p = a;                           <span class="cmt">// a is the pair's new tail → next anchor</span>
+    }
+    return dummy.next;
+}</code></pre>
+<p><strong>Time</strong> O(n), <strong>Space</strong> O(1). An odd leftover node fails the <code>while</code> guard and stays put — exactly what the problem wants.</p>
+
+<h2>4 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Empty list and single node.</strong> The template handles both (loop body never runs / runs once) — but say it out loud: <code>head == null</code> and <code>head.next == null</code>.</li>
+  <li><strong>Save before you flip.</strong> <code>next = cur.next</code> is line 1 of the loop body, non-negotiable.</li>
+  <li><strong>Return <code>prev</code>, not <code>cur</code>.</strong> At loop exit <code>cur</code> is <code>null</code>; the new head lives in <code>prev</code>.</li>
+  <li><strong>Head might move → dummy node.</strong> LC 92 with <code>left == 1</code>, LC 24 always (head becomes the second node). Return <code>dummy.next</code>.</li>
+  <li><strong>Sever the seam.</strong> In partial reversals the old sub-head becomes a sub-tail — if you forget to point it at the remainder (or at <code>null</code> in the recursive version), you create a cycle. Test by printing the result list.</li>
+  <li><strong>Recursion depth.</strong> Recursive reversal is O(n) stack; mention it and default to iterative.</li>
+  <li><strong>Count, don't null-check, inside a window</strong> (LC 92): the flip loop runs exactly <code>right − left + 1</code> times; the list doesn't end there.</li>
+</ul>
+
+<h2>5 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In the iterative template, the loop just ended (<code>cur == null</code>). Where is the new head of the reversed list?</div>
+  <button class="opt">In <code>cur</code> — it walked the whole list, so it holds the last node</button>
+  <button class="opt">In <code>prev</code> — it holds the last real node processed, whose arrow now points at the rest</button>
+  <button class="opt">Still in <code>head</code> — reversal is in place, so the head variable updates itself</button>
+  <div class="fb" data-correct="cur exits the loop as null (it walked off the end). prev is one step behind, sitting on the old tail — which is exactly the new head." data-wrong="Trace the last iteration: cur slides onto null, and prev slides onto the old tail. The old tail is the new head, so return prev."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">You swap <code>cur.next = prev</code> and <code>ListNode next = cur.next</code> — flipping the arrow first, then "saving." What happens?</div>
+  <button class="opt">Nothing — the two lines are independent, so order doesn't matter</button>
+  <button class="opt">A NullPointerException on the first iteration, because <code>prev</code> starts as null</button>
+  <button class="opt"><code>next</code> captures the already-flipped arrow, so you walk backwards instead of forward</button>
+  <div class="fb" data-correct="After the flip, cur.next points at prev — so 'saving' it saves the backwards arrow. You re-walk the reversed part (or stop instantly on iteration 1). Save must come first." data-wrong="Assigning null to cur.next is legal, so no exception. The real damage: next now holds the flipped (backwards) pointer, and your forward road is gone."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does Reverse Linked List II (LC 92) use a dummy node in front of the head?</div>
+  <button class="opt">So the node before the window always exists, even when the window starts at position 1</button>
+  <button class="opt">To make the algorithm O(1) space instead of O(n)</button>
+  <button class="opt">Because Java lists cannot be modified without a sentinel object</button>
+  <div class="fb" data-correct="The stitch step needs before.next = newWindowHead. If left == 1 there is no node before the head — unless dummy provides one. One sentinel deletes a whole special-case branch." data-wrong="Space is already O(1) either way, and Java has no such rule. The dummy exists so the front-seam stitch works even when the window includes the head (left == 1)."></div>
+</div>
+
+<h2>6 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/reverse-a-linked-list">NeetCode — Reverse Linked List</a>, then <a href="https://neetcode.io/problems/reverse-nodes-in-k-group">NeetCode — Reverse Nodes in k-Group</a> to preview Lesson 2's boss problem.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 206 (bare template — write it 3 times from blank, iterative then recursive) → LC 92 (sublist: walk, flip, stitch) → LC 24 (pair swap: draw the 3 arrows first) → then move on; LC 25 waits in Lesson 2. If a stitch goes wrong, print the list after every rewiring line.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want me to dry-run LC 92 on a concrete list, redraw the pair-swap arrows, or explain why the recursive
+  version's <code>head.next.next = head</code> works? Ask in the chat. When you can write the three-pointer loop
+  from memory and stitch a sublist without notes, say <strong>"next"</strong> and we take on the boss: Reverse
+  Nodes in k-Group.
+</div>
+
+<div class="nav">
+  <span><a href="../utils/MISSION.md">← Mission</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-k-group-and-applications.html">k-Group &amp; Applications →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

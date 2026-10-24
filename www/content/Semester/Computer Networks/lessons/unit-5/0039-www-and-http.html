@@ -1,0 +1,338 @@
+<title>WWW and HTTP</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit V &middot; Lesson 39 of 42</p>
+<h1>WWW and HTTP</h1>
+<p class="deck">URLs, the three kinds of web document, the HTTP request and response formats, the methods and status codes, persistent versus non-persistent connections with a worked timing comparison, and cookies and caching.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two questions. (1) <strong>"Explain HTTP with its message format"</strong> &mdash; draw the request and response formats as labelled blocks, then the methods and status-code classes. (2) <strong>"Differentiate persistent and non-persistent HTTP"</strong> &mdash; a short comparison, and the marks are in the <strong>RTT count</strong>, so learn the two formulas. Cookies are a standard 3-mark add-on: <strong>HTTP is stateless, cookies are how state is added on top.</strong></p>
+</div>
+
+<h2>The World Wide Web</h2>
+
+<p>The <strong>WWW</strong> is a repository of linked information spread over the Internet. It is a <strong>distributed client-server service</strong>: the client (browser) requests, the server supplies, and documents are linked to one another by <strong>hyperlinks</strong>. The web is <em>not</em> the Internet &mdash; it is one application running on it, a distinction worth a sentence.</p>
+
+<h3>The URL</h3>
+
+<div class="formula">
+  <span class="name">Uniform Resource Locator &mdash; four parts</span>
+  <strong>protocol</strong> :// <strong>host</strong> : <strong>port</strong> / <strong>path</strong><br>
+  <code>http://www.example.com:80/images/logo.png</code>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Part</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><strong>Protocol</strong></td><td>The client-server program used &mdash; <code>http</code>, <code>https</code>, <code>ftp</code></td></tr>
+<tr><td><strong>Host</strong></td><td>The computer holding the document, as a domain name or IP address</td></tr>
+<tr><td><strong>Port</strong></td><td>Optional; defaults to 80 for HTTP and 443 for HTTPS</td></tr>
+<tr><td><strong>Path</strong></td><td>The location of the file within the server</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The three kinds of web document</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Created</th><th>Runs where</th><th>Examples</th></tr></thead>
+<tbody>
+<tr><td><strong>Static</strong></td><td>Fixed content, stored on the server</td><td>Nowhere &mdash; simply retrieved</td><td>Plain HTML, XML, images</td></tr>
+<tr><td><strong>Dynamic</strong></td><td>Created by the <strong>server</strong> when the request arrives</td><td><strong>Server side</strong></td><td>CGI scripts, PHP, JSP, ASP &mdash; e.g. a page showing the current time</td></tr>
+<tr><td><strong>Active</strong></td><td>A <strong>program sent to the client</strong> and run there</td><td><strong>Client side</strong></td><td>JavaScript, Java applets &mdash; e.g. an animation or an interactive form</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The distinction that gets tested</span>
+  <p><strong>Dynamic documents run on the server; active documents run on the client.</strong> Both change, but the <em>location of the computation</em> differs, and that is the whole point of the classification. Dynamic content is created fresh for each request; active content is a program shipped to the browser to execute.</p>
+</div>
+
+<h2>HTTP</h2>
+
+<p><strong>HTTP</strong> is the protocol used to access data on the World Wide Web. It runs over <strong>TCP port 80</strong>, and it borrows deliberately from two ancestors: it is <strong>like FTP</strong> in transferring files, and <strong>like SMTP</strong> in its message format &mdash; but unlike FTP it uses <strong>only one connection</strong>, with the commands travelling on the same connection as the data.</p>
+
+<div class="box exam">
+  <span class="lbl">HTTP is stateless &mdash; state this early in any HTTP answer</span>
+  <p><strong>The server retains no information about previous requests.</strong> Every request is treated as entirely independent. This makes servers simple and enormously scalable &mdash; but it means the protocol cannot by itself remember a logged-in user or a shopping basket. <strong>Cookies exist precisely to add state on top of a stateless protocol.</strong></p>
+</div>
+
+<h3>The request message</h3>
+
+<div class="formula">
+  <span class="name">HTTP request format</span>
+  <strong>Request line:</strong> &nbsp; method &nbsp; URL &nbsp; HTTP-version<br>
+  <strong>Header lines:</strong> &nbsp; name: value &nbsp;(one per line)<br>
+  <strong>Blank line</strong> &nbsp;&larr; <em>separates header from body; always present</em><br>
+  <strong>Body</strong> &nbsp;(optional &mdash; present for POST and PUT, absent for GET)
+</div>
+
+<h3>The response message</h3>
+
+<div class="formula">
+  <span class="name">HTTP response format</span>
+  <strong>Status line:</strong> &nbsp; HTTP-version &nbsp; status-code &nbsp; status-phrase<br>
+  <strong>Header lines:</strong> &nbsp; name: value<br>
+  <strong>Blank line</strong><br>
+  <strong>Body</strong> &nbsp;(the document itself)
+</div>
+
+<p>The only structural difference between the two is the first line: a <strong>request line</strong> versus a <strong>status line</strong>. Saying so makes the pair easy to remember and easy to draw.</p>
+
+<h3>The methods</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>Purpose</th><th>Body?</th></tr></thead>
+<tbody>
+<tr><td><strong>GET</strong></td><td>Retrieve a document. The commonest by far.</td><td>No</td></tr>
+<tr><td><strong>POST</strong></td><td><strong>Send data to the server</strong> &mdash; a form submission, for example.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>HEAD</strong></td><td>Request the <strong>header only</strong>, not the document. Used to test whether a document exists or has changed, without downloading it.</td><td>No</td></tr>
+<tr><td><strong>PUT</strong></td><td>Store a document on the server at the given URL.</td><td>Yes</td></tr>
+<tr><td><strong>DELETE</strong></td><td>Remove the document at the given URL.</td><td>No</td></tr>
+<tr><td><strong>TRACE</strong></td><td>Echo the request back, for diagnostics.</td><td>No</td></tr>
+<tr><td><strong>OPTIONS</strong></td><td>Ask which methods the server supports for this URL.</td><td>No</td></tr>
+<tr><td><strong>CONNECT</strong></td><td>Reserved for use with a tunnelling proxy.</td><td>&mdash;</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Status code classes</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Class</th><th>Meaning</th><th>Examples</th></tr></thead>
+<tbody>
+<tr><td><strong>1xx</strong></td><td><strong>Informational</strong> &mdash; request received, continuing</td><td>100 Continue</td></tr>
+<tr><td><strong>2xx</strong></td><td><strong>Success</strong></td><td><strong>200 OK</strong>, 201 Created, 204 No Content</td></tr>
+<tr><td><strong>3xx</strong></td><td><strong>Redirection</strong> &mdash; the document has moved</td><td>301 Moved Permanently, <strong>304 Not Modified</strong></td></tr>
+<tr><td><strong>4xx</strong></td><td><strong>Client error</strong> &mdash; the request was faulty</td><td>400 Bad Request, 401 Unauthorized, 403 Forbidden, <strong>404 Not Found</strong></td></tr>
+<tr><td><strong>5xx</strong></td><td><strong>Server error</strong> &mdash; the request was fine, the server failed</td><td><strong>500 Internal Server Error</strong>, 503 Service Unavailable</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Learn the <strong>five classes</strong> rather than a long list of individual codes. Knowing that 4xx means the client's fault and 5xx the server's answers most questions, and 200, 301, 304, 404 and 500 cover the specific ones that are asked.</p>
+
+<h2>Persistent vs non-persistent connections</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Basis</th><th>Non-persistent (HTTP/1.0)</th><th>Persistent (HTTP/1.1 default)</th></tr></thead>
+<tbody>
+<tr><td><strong>Connections</strong></td><td><strong>One TCP connection per object</strong>, closed after each</td><td><strong>One connection for many objects</strong>, kept open</td></tr>
+<tr><td><strong>Closed by</strong></td><td>The server, after sending each response</td><td>The server, after a timeout or on request</td></tr>
+<tr><td><strong>Overhead</strong></td><td>High &mdash; a handshake and a slow start for every object</td><td>Low &mdash; paid once</td></tr>
+<tr><td><strong>Length known by</strong></td><td>The connection closing</td><td>The <strong>Content-Length header</strong>, which becomes necessary</td></tr>
+<tr><td><strong>Default in</strong></td><td>HTTP/1.0</td><td><strong>HTTP/1.1</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="formula">
+  <span class="name">The RTT formulas</span>
+  <strong>Non-persistent:</strong> &nbsp; total &asymp; <strong>2 &times; RTT per object</strong> &nbsp;(one RTT for the TCP handshake, one for the request and response)<br>
+  <strong>Persistent:</strong> &nbsp; total &asymp; <strong>1 RTT for the connection + 1 RTT per object</strong>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical &mdash; loading a page</span>
+  <p><strong>Q.</strong> A web page consists of a base HTML file plus <strong>10 images</strong>. The round-trip time is <strong>100 ms</strong>. Ignoring transmission time, compare the load time using non-persistent and persistent HTTP.</p>
+
+  <p><strong>Non-persistent.</strong> Each of the 11 objects needs its own connection: 1 RTT to set it up, 1 RTT to request and receive.</p>
+  <p>Total = 11 objects &times; 2 RTT = 22 &times; 100 ms = <strong>2200 ms = 2.2 s</strong></p>
+
+  <p><strong>Persistent.</strong> One connection set up once, then each object costs 1 RTT.</p>
+  <p>Total = 1 RTT (setup) + 11 &times; 1 RTT = 12 &times; 100 ms = <strong>1200 ms = 1.2 s</strong></p>
+
+  <p><strong>Saving = 1000 ms, or about 45%.</strong></p>
+
+  <p><em>The follow-up examiners add:</em> with <strong>non-persistent HTTP over 5 parallel connections</strong>, the 10 images are fetched in 2 batches of 5. Time = 2 RTT (base file) + 2 batches &times; 2 RTT = <strong>6 RTT = 600 ms</strong>. <em>Parallelism helps more than persistence here</em> &mdash; which is exactly why HTTP/1.0 browsers opened multiple connections, and why the comparison is worth making.</p>
+
+  <p><em>Sanity check:</em> persistent must always beat non-persistent for the <em>same</em> number of parallel connections. If your persistent figure is larger, you have double-counted the setup.</p>
+</div>
+
+<h3>Pipelining</h3>
+
+<p>A refinement of persistent connections: the client sends the <strong>next request before the previous response has arrived</strong>, rather than waiting. This removes most of the per-object round trips. Worth one line as the natural extension of persistence.</p>
+
+<h2>Cookies</h2>
+
+<p>HTTP is stateless, but many applications need to remember a user. <strong>Cookies</strong> supply that memory.</p>
+
+<div class="formula">
+  <span class="name">How a cookie works &mdash; four steps</span>
+  1. The server creates a cookie: an identifier, a domain, a path and an expiry.<br>
+  2. It sends it to the client in a <strong>Set-Cookie</strong> header of the response.<br>
+  3. The client <strong>stores</strong> it, filed under that server's domain.<br>
+  4. On every later request to that domain, the client <strong>returns it in a Cookie header</strong>, and the server recognises the user.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Used for</th><th>Concern</th></tr></thead>
+<tbody>
+<tr><td>Session management &mdash; keeping a user logged in</td><td><strong>Privacy</strong> &mdash; third-party cookies let advertisers track a user across many sites</td></tr>
+<tr><td>Shopping baskets</td><td><strong>Security</strong> &mdash; a stolen session cookie can impersonate the user</td></tr>
+<tr><td>Personalisation and preferences</td><td>Cookies are stored in plain text on the client, so nothing sensitive should be put in them</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Proxy servers and caching</h2>
+
+<p>A <strong>proxy server</strong> sits between clients and the origin server and <strong>keeps copies of recent responses</strong>. If a requested document is in its cache and still fresh, it answers directly.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Benefit</th><th>How</th></tr></thead>
+<tbody>
+<tr><td><strong>Reduces latency</strong></td><td>The proxy is nearer than the origin server</td></tr>
+<tr><td><strong>Reduces external traffic</strong></td><td>Repeated requests never leave the organisation</td></tr>
+<tr><td><strong>Reduces load on the origin server</strong></td><td>It sees only cache misses</td></tr>
+<tr><td><strong>Enables filtering and logging</strong></td><td>All web traffic passes one controllable point</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Keeping the cache fresh</strong> uses <strong>conditional GET</strong>: the proxy sends a request with an <strong>If-Modified-Since</strong> header. If the document has not changed, the server replies <strong>304 Not Modified</strong> with <em>no body</em> &mdash; confirming the cached copy is still good at almost no bandwidth cost. That is what status code 304 is for, and it is a neat 2-mark answer.</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">HTTP Request-Response Pipeline & Version Evolution</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:34rem;">
+      <strong>HTTP Transaction: Request Line & Headers &bull; Status Line & Payload</strong>
+      <span class="sub">Client GET /index.html HTTP/1.1 &rarr; Server HTTP/1.1 200 OK (Content-Type: text/html)</span>
+    </div>
+  </div>
+  <div class="flow-row" style="margin-top:0.6rem;">
+    <div class="flow-box warn"><strong>HTTP 1.0 (Non-Persistent)</strong><span class="sub">1 TCP connection per object &bull; High latency overhead (2 RTTs per image/file)</span></div>
+    <div class="flow-box highlight"><strong>HTTP 1.1 (Persistent & Pipelined)</strong><span class="sub">Connection: keep-alive &bull; Reuses single TCP socket for multiple sequential requests</span></div>
+    <div class="flow-box ok"><strong>HTTP/2 (Binary Framing)</strong><span class="sub">Multiplexes multiple streams over single TCP link with header compression (HPACK)</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">HTTP Protocol</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">HyperText Transfer Protocol (HTTP) in Computer Networks</div>
+    <div class="v-desc">Clear explanation of HTTP methods (GET, POST, PUT, DELETE), status code classes (1xx to 5xx), cookies, web caches, and persistent connections.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=_szgZM1sDiM" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. A document created by a program running on the client machine is called:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">An active document</button>
+    <button class="opt">A cached document</button>
+    <button class="opt">A static document</button>
+    <button class="opt">A dynamic document</button>
+  </div>
+  <p class="why">Active runs on the client (JavaScript, applets); dynamic runs on the server (PHP, CGI, JSP). Both change per request — what distinguishes them is where the computation happens.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. HTTP is described as stateless, meaning:</p>
+  <div class="opts">
+    <button class="opt">Requests may arrive at the server out of order</button>
+    <button class="opt">The protocol cannot transfer binary documents</button>
+    <button class="opt" data-ok="1">The server keeps no information about previous requests</button>
+    <button class="opt">The connection is closed after every single request</button>
+  </div>
+  <p class="why">Statelessness is about server memory, not connection lifetime — a persistent connection is still stateless. It makes servers simple and scalable, and it is exactly why cookies had to be invented to remember a logged-in user.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A page with a base file plus 4 images, RTT 50 ms, loaded over persistent HTTP takes about:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">300 ms &mdash; 1 RTT setup plus 5 objects × 1 RTT</button>
+    <button class="opt">250 ms &mdash; 5 objects × 1 RTT, with no setup</button>
+    <button class="opt">500 ms &mdash; 5 objects × 2 RTT each</button>
+    <button class="opt">100 ms &mdash; one setup and one request in total</button>
+  </div>
+  <p class="why">Persistent = 1 RTT to establish + 1 RTT per object = 6 × 50 = 300 ms. The 500 ms figure is the non-persistent case, where every object pays for its own handshake.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which method requests only the header of a document?</p>
+  <div class="opts">
+    <button class="opt">TRACE</button>
+    <button class="opt" data-ok="1">HEAD</button>
+    <button class="opt">OPTIONS</button>
+    <button class="opt">GET</button>
+  </div>
+  <p class="why">HEAD returns the headers with no body — useful for testing whether a document exists or has changed without downloading it. OPTIONS asks which methods are supported; TRACE echoes the request back for diagnostics.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. A status code of 503 indicates:</p>
+  <div class="opts">
+    <button class="opt">A client error &mdash; the request itself was malformed</button>
+    <button class="opt">A redirection &mdash; the document has moved elsewhere</button>
+    <button class="opt">Success &mdash; the document was returned normally</button>
+    <button class="opt" data-ok="1">A server error &mdash; the request was valid but the server failed</button>
+  </div>
+  <p class="why">5xx is the server's fault, 4xx the client's. Learning the five classes rather than a long list of codes answers most questions of this shape.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A proxy sends If-Modified-Since and receives 304 Not Modified. This means:</p>
+  <div class="opts">
+    <button class="opt">The proxy is not permitted to cache that document</button>
+    <button class="opt" data-ok="1">The cached copy is still valid, and no body was transferred</button>
+    <button class="opt">The document changed and the new version follows</button>
+    <button class="opt">The document was deleted and the cache must discard it</button>
+  </div>
+  <p class="why">Conditional GET is how a cache checks freshness cheaply: 304 confirms the copy is current and carries no body at all, so the check costs almost no bandwidth. That is precisely what the 304 code exists for.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Give the four parts of a URL.</summary>
+    <p class="ans">Protocol (http, https, ftp), host (domain name or IP address), port (optional; 80 for HTTP, 443 for HTTPS), and path (the file's location within the server).</p></details>
+  <details class="card"><summary>Distinguish static, dynamic and active documents.</summary>
+    <p class="ans">Static — fixed content stored on the server and simply retrieved. Dynamic — created by the server when the request arrives (CGI, PHP, JSP). Active — a program sent to the client and run there (JavaScript, applets). The classification is by where the computation happens.</p></details>
+  <details class="card"><summary>Draw the HTTP request and response message formats.</summary>
+    <p class="ans">Request: request line (method, URL, version), header lines, blank line, optional body. Response: status line (version, status code, status phrase), header lines, blank line, body. The only structural difference is the first line.</p></details>
+  <details class="card"><summary>Name six HTTP methods.</summary>
+    <p class="ans">GET (retrieve), POST (send data), HEAD (header only), PUT (store), DELETE (remove), TRACE (echo for diagnostics), OPTIONS (which methods are supported), CONNECT (tunnelling proxy).</p></details>
+  <details class="card"><summary>Give the five status code classes with an example of each.</summary>
+    <p class="ans">1xx informational (100 Continue); 2xx success (200 OK); 3xx redirection (301 Moved Permanently, 304 Not Modified); 4xx client error (404 Not Found); 5xx server error (500 Internal Server Error).</p></details>
+  <details class="card"><summary>Compare persistent and non-persistent HTTP, with the timing formulas.</summary>
+    <p class="ans">Non-persistent (HTTP/1.0): one TCP connection per object, closed after each; about 2 RTT per object. Persistent (HTTP/1.1 default): one connection for many objects; about 1 RTT for setup plus 1 RTT per object. Persistence also makes the Content-Length header necessary, since the connection closing no longer marks the end.</p></details>
+  <details class="card"><summary>Explain how cookies work and why they exist.</summary>
+    <p class="ans">HTTP is stateless, so cookies add state. The server creates a cookie with an identifier, domain, path and expiry, sends it in a Set-Cookie header, the client stores it under that domain, and returns it in a Cookie header on every later request. Used for sessions, baskets and personalisation; the concerns are privacy (third-party tracking) and security (a stolen session cookie impersonates the user).</p></details>
+  <details class="card"><summary>What is a proxy server, and how does it check freshness?</summary>
+    <p class="ans">A server between clients and the origin server that caches recent responses, reducing latency, external traffic and origin load, and providing a point for filtering and logging. It checks freshness with a conditional GET carrying If-Modified-Since; an unchanged document returns 304 Not Modified with no body.</p></details>
+</div>
+
+<p class="ask">Next: electronic mail &mdash; the last application-layer topic before the security half.</p>
+
+<div class="nav">
+  <a href="0038-ftp-telnet-and-ssh.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0040-electronic-mail.html">Next: Electronic Mail &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit5-cheat-sheet.html">Unit V sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

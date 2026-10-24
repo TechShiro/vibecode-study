@@ -1,0 +1,266 @@
+<title>System Calls</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit I &middot; Lesson 4 of 14</p>
+<h1>System Calls</h1>
+<p class="deck">What a system call is, how it differs from an API, the three ways parameters are passed, the six categories with their UNIX and Windows names, and the standard <code>cp</code> trace that examiners love.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Three question shapes. <strong>&ldquo;What is a system call? Explain its types&rdquo;</strong> &mdash; 10 marks, and the mark is on the <strong>six categories with two or three examples each</strong>; learn the UNIX/Windows table. <strong>&ldquo;Explain the methods of passing parameters to the OS&rdquo;</strong> &mdash; exactly three methods, always. <strong>&ldquo;Describe the sequence of system calls to copy one file to another&rdquo;</strong> &mdash; a stock question with a stock answer, given in full below. Also learn <strong>system call vs API vs function call</strong>, which appears in every objective section.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">System Call Invocation & Parameter Passing Architecture</div>
+  <div class="flow-col">
+    <div class="flow-box highlight" style="max-width:34rem;">
+      <strong>1. User Application: Invokes read(fd, buf, count) wrapper</strong>
+      <span class="sub">Loads syscall number into register (e.g., %rax = 0) &bull; Executes software interrupt: <strong>syscall / int 0x80</strong></span>
+    </div>
+    <div class="flow-arrow-down">&darr; CPU switches to Kernel Mode (Ring 0)</div>
+    <div class="flow-box ok" style="max-width:34rem;">
+      <strong>2. Kernel Syscall Table: sys_call_table[sys_number]</strong>
+      <span class="sub">Validates pointers & retrieves parameters passed via (1) CPU Registers, (2) Memory Block/Table, or (3) User Stack</span>
+    </div>
+    <div class="flow-arrow-down">&darr;</div>
+    <div class="flow-box" style="max-width:34rem;">
+      <strong>3. Kernel Handler Executes & Returns Result Code &bull; iret switches back to User Mode</strong>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">System Calls</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">L-1.7: System Calls in Operating System and its Types</div>
+    <div class="v-desc">Detailed classification of system calls (process control, file, device, info, comms) and parameter passing mechanisms.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=tWPa-rZiGM8" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>What a system call is</h2>
+
+<div class="formula">
+  <span class="name">Definition to write</span>
+  A <strong>system call</strong> is the programmatic way in which a computer program <strong>requests a service from the kernel</strong> of the operating system. It is the <strong>only legal entry point into the kernel</strong>, and it provides the interface between a running process and the operating system.
+</div>
+
+<p>The mechanism is the trap from Lesson 1: the system call is a <strong>software interrupt</strong>. It switches the mode bit from user (1) to kernel (0), transfers control to a fixed location in the kernel, and switches the bit back on return. Every system call is therefore a <strong>mode switch</strong> &mdash; but note carefully, <strong>not a context switch</strong>: the same process continues running, only in a different mode.</p>
+
+<h3>System call vs API vs library function</h3>
+
+<p>Programmers almost never write system calls directly; they call an <strong>Application Programming Interface</strong>, and the API's library function issues the system call for them.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>&nbsp;</th><th>Ordinary function call</th><th>API / library function</th><th>System call</th></tr></thead>
+<tbody>
+<tr><td><strong>Runs in</strong></td><td>User mode</td><td>User mode</td><td><strong>Kernel mode</strong></td></tr>
+<tr><td><strong>Mode switch</strong></td><td>No</td><td>No, until it calls one</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Cost</strong></td><td>Cheapest</td><td>Cheap</td><td>Expensive</td></tr>
+<tr><td><strong>Example</strong></td><td>Your own <code>add()</code></td><td><code>printf()</code>, <code>fopen()</code>, <code>malloc()</code></td><td><code>write()</code>, <code>open()</code>, <code>fork()</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The three most common APIs are <strong>Win32 API</strong> for Windows, <strong>POSIX API</strong> for UNIX, Linux and macOS, and the <strong>Java API</strong> for the JVM.</p>
+
+<div class="box win">
+  <span class="lbl">Why call the API rather than the system call?</span>
+  <p><strong>Portability</strong> &mdash; a program written to the API compiles and runs on any system supporting that API. And <strong>simplicity</strong> &mdash; the API hides the messy detail of the trap. <code>printf()</code> in the C library ultimately invokes the <code>write()</code> system call, but your source code never says so.</p>
+</div>
+
+<h3>How the call is identified</h3>
+
+<p>Each system call has a <strong>number</strong>. The kernel maintains a table indexed by these numbers &mdash; the <strong>system call table</strong> &mdash; whose entries point to the routine implementing each call. The <strong>system call interface</strong> intercepts the call, looks up the number, invokes the routine, and returns the status and any return values. The caller need know nothing about how the call is implemented.</p>
+
+<h2>Passing parameters to the operating system</h2>
+
+<p>There are exactly <strong>three methods</strong>. This is a standing 3&ndash;5 mark question, so learn all three <em>with their trade-offs</em>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Method</th><th>How</th><th>Limitation / advantage</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Registers</strong></td><td>Pass the parameters in CPU registers</td><td><strong>Simplest and fastest</strong>, but there may be <strong>more parameters than registers</strong> &mdash; then it fails</td></tr>
+<tr><td><strong>2. Block or table in memory</strong></td><td>Store the parameters in a block of memory and pass the <strong>address of that block</strong> in a register</td><td><strong>No limit on the number or length</strong> of parameters. Used by Linux and Solaris</td></tr>
+<tr><td><strong>3. Stack</strong></td><td>The program <strong>pushes</strong> the parameters onto the stack; the OS <strong>pops</strong> them off</td><td>Also imposes <strong>no limit</strong>; the natural fit for languages that already use a stack for calls</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Methods 2 and 3 are preferred</strong> exactly because they do not cap the number of parameters.</p>
+
+<h2>Types of system call &mdash; the six categories</h2>
+
+<p>This is the table to reproduce. Learn the <strong>category names</strong> first, then two examples each; the UNIX and Windows columns are a bonus that reliably lifts a good answer to a full one.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Category</th><th>Typical calls</th><th>UNIX / Linux</th><th>Windows</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Process control</strong></td><td>create and terminate a process; load, execute; get and set process attributes; wait for time or for an event; allocate and free memory; abort</td><td><code>fork()</code>, <code>exit()</code>, <code>wait()</code>, <code>exec()</code>, <code>kill()</code></td><td><code>CreateProcess()</code>, <code>ExitProcess()</code>, <code>WaitForSingleObject()</code></td></tr>
+<tr><td><strong>2. File management</strong></td><td>create and delete a file; open, close; read, write, reposition; get and set file attributes</td><td><code>open()</code>, <code>read()</code>, <code>write()</code>, <code>close()</code>, <code>lseek()</code></td><td><code>CreateFile()</code>, <code>ReadFile()</code>, <code>WriteFile()</code>, <code>CloseHandle()</code></td></tr>
+<tr><td><strong>3. Device management</strong></td><td>request a device, release it; read, write, reposition; get and set device attributes; logically attach or detach devices</td><td><code>ioctl()</code>, <code>read()</code>, <code>write()</code></td><td><code>SetConsoleMode()</code>, <code>ReadConsole()</code>, <code>WriteConsole()</code></td></tr>
+<tr><td><strong>4. Information maintenance</strong></td><td>get and set time or date; get and set system data; get and set process, file or device attributes</td><td><code>getpid()</code>, <code>alarm()</code>, <code>sleep()</code>, <code>time()</code></td><td><code>GetCurrentProcessID()</code>, <code>SetTimer()</code>, <code>Sleep()</code></td></tr>
+<tr><td><strong>5. Communication</strong></td><td>create and delete a connection; send and receive messages; transfer status; attach and detach remote devices</td><td><code>pipe()</code>, <code>shm_open()</code>, <code>mmap()</code>, <code>socket()</code></td><td><code>CreatePipe()</code>, <code>CreateFileMapping()</code>, <code>MapViewOfFile()</code></td></tr>
+<tr><td><strong>6. Protection</strong></td><td>get and set file permissions; allow and deny user access</td><td><code>chmod()</code>, <code>umask()</code>, <code>chown()</code></td><td><code>SetFileSecurity()</code>, <code>InitializeSecurityDescriptor()</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">If the question says &ldquo;five types&rdquo;</span>
+  <p>Some textbooks fold <strong>protection</strong> into information maintenance and list only five. Write six and mention that protection is sometimes counted with information maintenance &mdash; you cannot lose a mark that way.</p>
+</div>
+
+<h3>Two variants worth naming under process control</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Question</th><th>Two answers</th></tr></thead>
+<tbody>
+<tr><td>What happens to the parent when a child is created?</td><td><strong>Wait</strong> &mdash; the parent blocks until the child finishes; or <strong>continue concurrently</strong> &mdash; both run</td></tr>
+<tr><td>Does the child share the parent's program?</td><td><strong>Duplicate</strong> &mdash; the child is a copy of the parent (<code>fork()</code>); or <strong>load a new program</strong> into the child (<code>exec()</code>)</td></tr>
+<tr><td>Single-tasking vs multi-tasking</td><td>MS-DOS loads the new program <em>over</em> the interpreter, which is reloaded on exit &mdash; only one program at a time. UNIX <code>fork()</code>s a new process, so both exist</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The standard trace &mdash; copying one file to another</h2>
+
+<p>&ldquo;List the sequence of system calls needed to copy the contents of one file to another.&rdquo; Answer it as a numbered list; the marks come from including the <strong>error handling at every step</strong>, which most students omit.</p>
+
+<div class="solve">
+  <span class="lbl">Q. Sequence of system calls for <code>cp source.txt dest.txt</code></span>
+  <ol>
+    <li><strong>Acquire the input file name.</strong> Either the OS writes a prompt (<em>write</em> to screen) and reads the name from the keyboard (<em>read</em>), or the name comes on the command line.</li>
+    <li><strong>Acquire the output file name</strong> the same way.</li>
+    <li><strong>Open the input file</strong> &mdash; <code>open()</code>. If it does not exist, or access is denied, <strong>print a message</strong> (<em>write</em> to screen) and <strong>abort</strong>.</li>
+    <li><strong>Create the output file</strong> &mdash; <code>create()</code>. If a file of that name already exists, either <strong>abort</strong> or ask the user whether to <strong>delete</strong> the existing file and continue.</li>
+    <li><strong>Loop:</strong> <code>read()</code> from the input file, then <code>write()</code> to the output file. Each iteration must check for <strong>read errors</strong> (hardware failure, bad block) and <strong>write errors</strong> (disk full, physical write error), and act accordingly.</li>
+    <li><strong>Detect end of file</strong> on the read and exit the loop.</li>
+    <li><strong>Close both files</strong> &mdash; <code>close()</code>.</li>
+    <li><strong>Write a completion message</strong> to the console, and <strong>terminate normally</strong> &mdash; <code>exit()</code>.</li>
+  </ol>
+  <p><em>Categories used:</em> file management (open, create, read, write, close), device management (read from keyboard, write to screen), and process control (abort, exit). Say that sentence at the end &mdash; it ties the answer back to the six types and reads as understanding.</p>
+</div>
+
+<h2>Numerical &mdash; the cost of a system call</h2>
+
+<div class="solve">
+  <span class="lbl">Q. A program writes 4 KB of data one byte at a time. A <code>write()</code> system call costs 1 &micro;s of mode-switch and kernel overhead plus 0.01 &micro;s per byte transferred. Compare the total cost of 4096 one-byte calls with one 4096-byte call.</span>
+  <p><strong>Case A &mdash; one byte per call.</strong> Number of calls = 4096.</p>
+  <p>Cost per call = 1 &micro;s overhead + 0.01 &micro;s &times; 1 byte = <strong>1.01 &micro;s</strong></p>
+  <p>Total = 4096 &times; 1.01 = <strong>4136.96 &micro;s &asymp; 4.14 ms</strong></p>
+  <p><strong>Case B &mdash; one call for the whole buffer.</strong> Number of calls = 1.</p>
+  <p>Cost = 1 &micro;s overhead + 0.01 &micro;s &times; 4096 bytes = 1 + 40.96 = <strong>41.96 &micro;s &asymp; 0.042 ms</strong></p>
+  <p><strong>Speed-up = 4136.96 / 41.96 &asymp; 98.6&times;</strong></p>
+  <p><em>Reading:</em> in Case A the machine spends 4096 &micro;s on overhead and only 41 &micro;s on real work &mdash; <strong>99 % of the time is mode switching</strong>. This is precisely why the C library <strong>buffers</strong>: <code>printf()</code> accumulates output and issues one <code>write()</code>, instead of one per character.</p>
+  <p><em>Sanity check:</em> the transfer component (0.01 &times; 4096 = 40.96 &micro;s) is identical in both cases, as it must be &mdash; the same bytes move either way. Only the overhead term changes, from 4096 &micro;s to 1 &micro;s.</p>
+</div>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. A system call causes:</p>
+  <div class="opts">
+    <button class="opt">A hardware interrupt from a device</button>
+    <button class="opt">A context switch to a different process</button>
+    <button class="opt">Neither a mode switch nor a context switch</button>
+    <button class="opt" data-ok="1">A mode switch from user mode to kernel mode, within the same process</button>
+  </div>
+  <p class="why">Mode switch, not context switch — the same process keeps the CPU, only its privilege level changes. Mixing these two up is the single most common error on this topic.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which parameter-passing method has a hard limit on the number of parameters?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Passing them in registers</button>
+    <button class="opt">Pushing them onto the stack</button>
+    <button class="opt">All three are limited equally</button>
+    <button class="opt">Passing a pointer to a block in memory</button>
+  </div>
+  <p class="why">Registers are the fastest but there are only so many of them. Block and stack methods are preferred precisely because they impose no limit.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. <code>chmod()</code> belongs to which category of system call?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Protection</button>
+    <button class="opt">Device management</button>
+    <button class="opt">Information maintenance</button>
+    <button class="opt">File management</button>
+  </div>
+  <p class="why">It sets file permissions, which is access control. Some books fold protection into information maintenance and list five categories — say six and note the alternative.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. <code>printf()</code> is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">A library function of the C API that eventually invokes the write() system call</button>
+    <button class="opt">A device driver entry point</button>
+    <button class="opt">A kernel routine executed in kernel mode</button>
+    <button class="opt">A system call itself</button>
+  </div>
+  <p class="why">The API layer exists for portability and simplicity. Your source calls printf(); the library buffers and eventually issues write().</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. The kernel identifies which service was requested by:</p>
+  <div class="opts">
+    <button class="opt">The process ID of the caller</button>
+    <button class="opt" data-ok="1">A system call number used to index the system call table</button>
+    <button class="opt">The name of the calling function</button>
+    <button class="opt">The contents of the program counter</button>
+  </div>
+  <p class="why">Each system call has a number; the table's entries point at the implementing routines. The system call interface hides all of this from the programmer.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. In MS-DOS, running a program:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Loads it over the command interpreter, which is reloaded when the program exits</button>
+    <button class="opt">Requires a microkernel message</button>
+    <button class="opt">Creates a new process with fork()</button>
+    <button class="opt">Runs it concurrently with the interpreter</button>
+  </div>
+  <p class="why">MS-DOS is single-tasking, so there is only ever one program in memory. UNIX forks a child and can run both concurrently — that contrast is the exam point.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define a system call and say what mechanism implements it.</summary>
+    <p class="ans">A system call is the programmatic way a program requests a service from the kernel, and it is the only legal entry point into the kernel. It is implemented as a trap — a software interrupt — that switches the mode bit to kernel mode, transfers control to a fixed kernel location, and switches back on return. It is a mode switch, not a context switch.</p></details>
+  <details class="card"><summary>Distinguish system call, API and ordinary function call.</summary>
+    <p class="ans">A function call runs entirely in user mode with no mode switch. An API library function also runs in user mode but issues system calls on the programmer's behalf; it is used for portability and simplicity. A system call executes in kernel mode and is the expensive one. printf() is API, write() is a system call.</p></details>
+  <details class="card"><summary>Give the three methods of passing parameters to the OS.</summary>
+    <p class="ans">In registers — simplest and fastest, but limited by the number of registers. In a block or table in memory, passing its address in a register — no limit, used by Linux and Solaris. On the stack, pushed by the program and popped by the OS — also no limit. The latter two are preferred.</p></details>
+  <details class="card"><summary>Name the six categories of system call with two examples each.</summary>
+    <p class="ans">Process control (fork, exit, wait, exec), file management (open, read, write, close), device management (ioctl, read, write), information maintenance (getpid, time, sleep), communication (pipe, socket, shm_open, mmap), and protection (chmod, umask, chown).</p></details>
+  <details class="card"><summary>Give the sequence of system calls to copy one file to another.</summary>
+    <p class="ans">Acquire input and output file names; open the input file, aborting with a message on failure; create the output file, aborting or asking to overwrite if it exists; loop reading from input and writing to output, checking read and write errors each time; detect end of file; close both files; print a completion message and exit. It uses file management, device management and process control calls.</p></details>
+  <details class="card"><summary>Why does the C library buffer output rather than issuing one system call per character?</summary>
+    <p class="ans">Because the per-call overhead dwarfs the per-byte cost. Writing 4 KB one byte at a time with 1 &micro;s overhead per call costs about 4137 &micro;s, of which 4096 &micro;s is pure overhead; one 4096-byte call costs about 42 &micro;s — roughly 99 times faster.</p></details>
+</div>
+
+<p class="ask">Next: the central abstraction of the whole subject &mdash; the process. Its states, its control block, the three schedulers, and the fork numericals.</p>
+
+<div class="nav">
+  <a href="0003-os-services-and-interfaces.html">&larr; Services and Interfaces</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0005-process-concept-and-scheduling.html">Next: Process Concept and Scheduling &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

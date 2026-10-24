@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sliding Window Lesson 03 — Counting Windows &amp; the Monotonic Deque</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Sliding Window Track · Lesson 3 of 3 · counting subarrays + windowed max</div>
+<h1>Counting Windows &amp; the Monotonic Deque</h1>
+<p class="subtitle">Two power-ups: count how many subarrays satisfy a condition (not just the longest one), and answer "max of every window" without rescanning.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Sliding Window Maximum (LC 239) and "count the subarrays with…" questions are
+  hard-round differentiators — the atMost trick in particular separates template-memorizers from pattern-thinkers.
+  This is Lesson 3 of the 3-lesson sliding-window track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Lesson 2 found the <em>best</em> window. Now two new asks. <strong>First: counting.</strong> "How many subarrays
+have at most K distinct?" has a lovely closed form: after each expand-and-shrink, the window <code>[l..r]</code>
+is the <em>largest</em> valid window ending at <code>r</code> — so every suffix of it
+(<code>[l..r], [l+1..r], …, [r..r]</code>) is also valid (shrinking can't break an "at most" condition). That's
+<code>r − l + 1</code> new subarrays per step; sum them. And "<strong>exactly</strong> K" — which isn't monotone
+and breaks the shrink logic — factors as <code>atMost(K) − atMost(K−1)</code>. <strong>Second: windowed max.</strong>
+A running sum updates in O(1), but a running <em>max</em> doesn't — when the max leaves, what's next? Keep a
+<strong>monotonic deque</strong> of indices whose values decrease front-to-back: the front is always the current
+max, and each element is pushed and popped at most once → O(n).
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  <strong>Counting:</strong> "how many / count the subarrays such that…" — especially with "exactly K",
+  "less than K", "at most K". <strong>Deque:</strong> the window's summary is a max or min (not a sum/count):
+  "maximum of each window of size k", "longest subarray where max − min ≤ limit". If evicting an element can
+  invalidate your cached aggregate, you need the deque, not a single variable.
+</div>
+
+<h2>2 · Core template — count with atMost, subtract for exactly</h2>
+<pre><code><span class="cmt">// Subarrays with K Different Integers (LC 992):</span>
+<span class="cmt">// exactly-K is not monotone → count it as atMost(K) − atMost(K−1).</span>
+int subarraysWithKDistinct(int[] nums, int k) {
+    return atMost(nums, k) - atMost(nums, k - 1);
+}
+
+<span class="cmt">// #subarrays with AT MOST k distinct values — Lesson 2's shrink loop + one counting line.</span>
+int atMost(int[] nums, int k) {
+    int[] count = new int[nums.length + 1];  <span class="cmt">// values are 1..n per constraints</span>
+    int distinct = 0, l = 0, total = 0;
+    for (int r = 0; r &lt; nums.length; r++) {
+        if (count[nums[r]]++ == 0) distinct++;
+        while (distinct &gt; k) {               <span class="cmt">// same shrink as LC 340</span>
+            if (--count[nums[l]] == 0) distinct--;
+            l++;
+        }
+        total += r - l + 1;                  <span class="cmt">// every valid window ENDING at r: [l..r],[l+1..r],…,[r..r]</span>
+    }
+    return total;
+}</code></pre>
+<p><strong>Time</strong> O(n) per atMost pass — two passes for exactly-K. <strong>Space</strong> O(n) for the count array (O(Σ) in general).</p>
+
+<h3>Why <code>r − l + 1</code> counts correctly</h3>
+<div class="trace">
+<span class="step">nums = [1,2,1,2,3], k = 2 (atMost pass)</span>
+<span class="step">r=0: window [1] → +1 window ending at 0</span>
+<span class="step">r=1: [1,2] → +2 ([1,2],[2])</span>
+<span class="step">r=2: [1,2,1] → +3</span>
+<span class="step">r=3: [1,2,1,2] → +4</span>
+<span class="step now">r=4: '3' makes 3 distinct → shrink to l=3 ([2,3]) → +<span class="ptr">2</span> ([2,3],[3])</span>
+<span class="step">atMost(2)=12, atMost(1)=5 → exactly-2 = <span class="ptr">7</span></span>
+</div>
+<p>
+Each end-index <code>r</code> is counted once, and no window is counted twice — every subarray has exactly one
+right end. The subtraction then peels off the windows with ≤ K−1 distinct, leaving exactly K.
+</p>
+
+<h2>3 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Count: exactly K distinct</td><td>LC 992</td><td>atMost(K) − atMost(K−1); each pass is LC 340's loop + <code>total += r−l+1</code>.</td></tr>
+    <tr><td>Count: product &lt; K</td><td>LC 713</td><td>Condition is already "at most"-shaped → one pass, no subtraction. Positives only.</td></tr>
+    <tr><td>Max of every size-k window</td><td>LC 239</td><td>Fixed window (Lesson 1) + monotonic decreasing deque of indices.</td></tr>
+    <tr><td>Count: exactly-goal sums</td><td>LC 930</td><td>Same subtraction, binary array: atMost(goal) − atMost(goal−1). Free rep.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Subarray Product Less Than K (LC 713)</h3>
+<p>
+"Product of all elements &lt; k" is already monotone (all values ≥ 1, so shrinking only reduces the product) and
+already an "at most"-style condition — so it's a single counting pass, no subtraction. This is the purest
+possible rep of the counting line.
+</p>
+<pre><code>int numSubarrayProductLessThanK(int[] nums, int k) {
+    if (k &lt;= 1) return 0;                    <span class="cmt">// product ≥ 1 always, so nothing beats k ≤ 1</span>
+    long prod = 1;
+    int l = 0, total = 0;
+    for (int r = 0; r &lt; nums.length; r++) {
+        prod *= nums[r];                     <span class="cmt">// expand</span>
+        while (prod &gt;= k) {                  <span class="cmt">// shrink until product &lt; k again</span>
+            prod /= nums[l];                 <span class="cmt">// exact: we multiplied these very factors in</span>
+            l++;
+        }
+        total += r - l + 1;                  <span class="cmt">// windows ending at r with product &lt; k</span>
+    }
+    return total;
+}</code></pre>
+<div class="callout trap">
+  <span class="label">Two 713 traps</span>
+  (1) <code>k ≤ 1</code>: every element is ≥ 1, so no window qualifies, but without the guard the shrink loop can
+  push <code>l</code> past <code>r</code> and divide out elements that aren't there. (2) Products overflow int
+  fast — up to 1000<sup>…</sup> — use <code>long</code> (safe here because the window shrinks before the product
+  exceeds k·1000).
+</div>
+
+<h3>Case: Sliding Window Maximum (LC 239) — the monotonic deque</h3>
+<p>
+Report the max of every window of size k. The pain point: when the current max slides out of the window, a plain
+variable can't tell you the runner-up. Fix: keep a deque of <strong>indices</strong> whose values are
+<strong>strictly decreasing</strong> front-to-back. Invariants: the front is the max of the current window;
+anything smaller than an entering element is popped from the back, because an element that is both
+<em>older</em> and <em>smaller</em> than the newcomer can never be a future window's max — the newcomer
+dominates it for its entire remaining lifetime.
+</p>
+<pre><code>int[] maxSlidingWindow(int[] nums, int k) {
+    int n = nums.length;
+    int[] res = new int[n - k + 1];
+    Deque&lt;Integer&gt; dq = new ArrayDeque&lt;&gt;();  <span class="cmt">// indices; values decrease front → back</span>
+    for (int r = 0; r &lt; n; r++) {
+        if (!dq.isEmpty() &amp;&amp; dq.peekFirst() &lt;= r - k)
+            dq.pollFirst();                  <span class="cmt">// front left the window [r-k+1 .. r] → evict by INDEX</span>
+        while (!dq.isEmpty() &amp;&amp; nums[dq.peekLast()] &lt;= nums[r])
+            dq.pollLast();                   <span class="cmt">// older AND ≤ newcomer → never a max again</span>
+        dq.offerLast(r);                     <span class="cmt">// newcomer takes its place at the back</span>
+        if (r &gt;= k - 1)
+            res[r - k + 1] = nums[dq.peekFirst()]; <span class="cmt">// front = max of the full window</span>
+    }
+    return res;
+}</code></pre>
+<p><strong>Time</strong> O(n) — each index enters and leaves the deque at most once. <strong>Space</strong> O(k) for the deque.</p>
+
+<h3>Dry run — nums = [1, 3, -1, -3, 5], k = 3</h3>
+<div class="trace">
+<span class="step">r=0: push 0 → dq=[0(1)]</span>
+<span class="step now">r=1: 3 ≥ 1 → pop 0, push 1 → dq=[1(<span class="ptr">3</span>)]</span>
+<span class="step">r=2: -1 &lt; 3 → push → dq=[1(3), 2(-1)] → window full: max <span class="ptr">3</span></span>
+<span class="step">r=3: -3 &lt; -1 → push → dq=[1(3), 2(-1), 3(-3)] → max <span class="ptr">3</span></span>
+<span class="step now">r=4: front index 1 ≤ 4−3 → evict; 5 beats -3, -1 → pop both; push 4 → dq=[4(<span class="ptr">5</span>)] → max 5</span>
+<span class="step">result [3, 3, 5] — the deque held the max AND the line of succession</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Why indices, and why ≤ on the back-pop</span>
+  Store <strong>indices</strong> — you need them to detect the front expiring (<code>dq.peekFirst() ≤ r−k</code>);
+  values alone can't tell age, and duplicates would be ambiguous. Popping on <code>≤</code> (not just
+  <code>&lt;</code>) keeps only the newest copy of equal values, which is fine (same max) and keeps the deque
+  lean. Flip every comparison and the same structure gives sliding-window <strong>minimum</strong> — the pair of
+  a max-deque + min-deque solves LC 1438 (max − min ≤ limit).
+</div>
+
+<h2>4 · Fixed vs variable — the decision guide</h2>
+<table>
+  <thead><tr><th>Question in the problem</th><th>Window type</th><th>Loop shape</th></tr></thead>
+  <tbody>
+    <tr><td>"…of size / length k" (k given)</td><td>Fixed</td><td>Build first k, then <code>add nums[r], drop nums[r−k]</code>.</td></tr>
+    <tr><td>"Longest … such that ⟨condition⟩"</td><td>Variable</td><td>Expand r; <code>while invalid</code> shrink l; record after.</td></tr>
+    <tr><td>"Shortest … such that ⟨condition⟩"</td><td>Variable (flipped)</td><td>Expand r; <code>while valid</code> record then shrink l.</td></tr>
+    <tr><td>"Count subarrays with at most / less than K"</td><td>Variable + counting</td><td>Shrink loop + <code>total += r − l + 1</code>.</td></tr>
+    <tr><td>"Count subarrays with exactly K"</td><td>Two variable passes</td><td><code>atMost(K) − atMost(K−1)</code>.</td></tr>
+    <tr><td>Window summary is a max/min</td><td>Either + deque</td><td>Monotonic deque of indices replaces the running variable.</td></tr>
+    <tr><td>Condition not monotone (negatives, exactly-X sums)</td><td>Not a plain window</td><td>Reach for prefix sums + HashMap (LC 560) or a deque (LC 862).</td></tr>
+  </tbody>
+</table>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>atMost(0) and k−1 = 0.</strong> The subtraction calls <code>atMost(k−1)</code>; make sure it returns 0 gracefully for k−1 = 0 (an empty-window count), not a crash or negative.</li>
+  <li><strong>Overflow in counts.</strong> n = 10⁵ gives up to n(n+1)/2 ≈ 5·10⁹ subarrays — if constraints allow that, <code>total</code> must be <code>long</code>. (992/713 fit in int; say why out loud.)</li>
+  <li><strong>Deque stores indices, evicts by index.</strong> Evicting the front by comparing <em>values</em> is the classic 239 bug — duplicates make it wrong.</li>
+  <li><strong>Emit only from r ≥ k−1</strong> in 239: the first k−1 iterations are still building the first window.</li>
+  <li><strong>713's k ≤ 1 guard</strong> and exact division on shrink — division is only safe because you divide out exactly the factors you multiplied in, in order.</li>
+  <li><strong>Monotonicity audit before counting.</strong> The <code>r − l + 1</code> line assumes every sub-window of a valid window (same right end) is valid. True for "at most K distinct" and "product &lt; K with positives"; false for "sum = K with negatives" — that's prefix-sum territory.</li>
+  <li><strong>ArrayDeque, not LinkedList/Stack</strong> — idiomatic and faster in Java; and remember <code>peekFirst/pollFirst</code> vs <code>peekLast/pollLast</code> — mixing ends corrupts the invariant silently.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why can't "exactly K distinct" be handled directly by the expand/shrink template, forcing the atMost(K) − atMost(K−1) trick?</div>
+  <button class="opt">Because counting problems always require two passes to avoid double-counting subarrays</button>
+  <button class="opt">Because the number of distinct values can jump by more than one per step, breaking the shrink loop</button>
+  <button class="opt">Because "exactly K" isn't monotone — shrinking a valid window can leave it valid, invalid, or valid again, so there's no single boundary for l</button>
+  <div class="fb" data-correct="Right — with 'at most K', validity is monotone in the window: once you shrink into validity you stay valid. 'Exactly K' can flip from true to false to true as l advances, so no unique leftmost boundary exists — but it factors as a difference of two monotone counts." data-wrong="Distinct count changes by at most 1 per step, and plenty of counting problems are one-pass (LC 713). The real issue is monotonicity: 'exactly K' windows aren't closed under shrinking, so the greedy left boundary is ill-defined."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">After the shrink loop, why does adding <code>r − l + 1</code> count exactly the valid subarrays ending at r?</div>
+  <button class="opt">[l..r] is the widest valid window ending at r, and every narrower suffix [l+1..r] … [r..r] is also valid under an "at most" condition</button>
+  <button class="opt">It counts the windows starting at l, which are the only ones the loop hasn't seen yet</button>
+  <button class="opt">It equals the number of times the left pointer moved during this iteration</button>
+  <div class="fb" data-correct="Exactly — the shrink loop leaves l at the smallest value making [l..r] valid, and 'at most' conditions survive further shrinking, so all r−l+1 suffixes are valid. Summing over each right end r counts every valid subarray exactly once." data-wrong="The count is anchored to the RIGHT end r, not the start l, and it's the window width, not the pointer's travel: [l..r] plus all its suffixes, each valid because shrinking can't violate an 'at most' condition."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Sliding Window Maximum, an entering element pops all smaller elements off the back of the deque. Why is discarding them safe?</div>
+  <button class="opt">Smaller elements would make the deque exceed its O(k) space bound</button>
+  <button class="opt">They're older than the newcomer and no larger, so in every future window containing them the newcomer is also present and at least as big</button>
+  <button class="opt">They've already been reported as a window maximum, so they're no longer needed</button>
+  <div class="fb" data-correct="That's the whole trick: the newcomer outlives them (it entered later) and dominates them (it's ≥). Any window where a popped element could have been max also contains the newcomer — so the popped element can never be the answer again." data-wrong="Space is a consequence, not the reason, and popped elements may never have been a max at all. The argument is dominance: the newcomer is both newer and ≥, so it beats them in every remaining window."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/sliding-window-maximum">NeetCode — Sliding Window Maximum</a> for the deque, and LeetCode's official editorial on <a href="https://leetcode.com/problems/subarrays-with-k-different-integers/">LC 992</a> for the atMost derivation.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 713 (pure counting pass) → LC 930 (binary subarrays with sum — subtraction rep) → LC 992 (exactly K distinct) → LC 239 (deque) → LC 1438 (max−min ≤ limit, two deques) → LC 862 (shortest subarray sum ≥ k with negatives — see why the plain window fails, then fix with prefix sums + deque). That last one is a genuine hard; attempting it cements the monotonicity lesson.</li>
+</ul>
+
+<h2>8 · Sliding Window cheat sheet</h2>
+<p>The whole track on one card — print it, tape it to the monitor, rebuild each template from its one-liner.</p>
+<table>
+  <thead><tr><th>Case</th><th>Trigger</th><th>Template one-liner</th><th>Big-O</th><th>Canonical LC#</th></tr></thead>
+  <tbody>
+    <tr><td>Fixed window, sum/avg</td><td>"subarray of size k"</td><td>build first k; <code>sum += a[r] − a[r−k]</code>; take best</td><td>O(n) / O(1)</td><td>643</td></tr>
+    <tr><td>Inverted fixed window</td><td>"take k from either end"</td><td>answer = total − min window of size n−k over the complement</td><td>O(n) / O(1)</td><td>1423</td></tr>
+    <tr><td>Fixed window, frequency match</td><td>"contains a permutation / anagram"</td><td>need[] vs win[] counts + <code>matches</code> of 26; slide updates 2 letters</td><td>O(n) / O(26)</td><td>567, 438</td></tr>
+    <tr><td>Longest valid window</td><td>"longest … such that ⟨at most⟩"</td><td>expand r; <code>while invalid</code> shrink l; record after</td><td>O(n) / O(Σ)</td><td>3, 340, 904</td></tr>
+    <tr><td>Longest with budget k</td><td>"≤ k replacements/flips"</td><td>invalid when <code>len − maxFreq &gt; k</code>; historical maxFreq, if-shrink</td><td>O(n) / O(26)</td><td>424</td></tr>
+    <tr><td>Shortest valid window</td><td>"minimum window containing…"</td><td>expand r; <code>while valid</code> record then shrink l; formed/required</td><td>O(n) / O(Σ)</td><td>76</td></tr>
+    <tr><td>Count, at-most condition</td><td>"how many subarrays with ≤ / &lt; K"</td><td>shrink loop + <code>total += r − l + 1</code> each step</td><td>O(n) / O(Σ)</td><td>713</td></tr>
+    <tr><td>Count, exactly K</td><td>"how many subarrays with exactly K"</td><td><code>atMost(K) − atMost(K−1)</code>, two counting passes</td><td>O(n) / O(n)</td><td>992</td></tr>
+    <tr><td>Windowed max/min</td><td>"max of each window", "max − min ≤ limit"</td><td>monotonic deque of indices; pop back while dominated; front = answer</td><td>O(n) / O(k)</td><td>239, 1438</td></tr>
+    <tr><td>NOT a window</td><td>negatives + exact sums</td><td>prefix sums + HashMap (560) or prefix + deque (862)</td><td>O(n) / O(n)</td><td>560, 862</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want the atMost subtraction dry-run on your own example, a re-derivation of the deque's dominance argument, or
+  a drill on the fixed-vs-variable decision table? Ask in the chat. When you can rebuild every row of the cheat
+  sheet from its one-liner, say <strong>"next"</strong> — the Two Pointers track is up, starting with
+  opposite-ends pointers, sliding window's closest cousin.
+</div>
+
+<div class="nav">
+  <span><a href="0002-variable-size-windows.html">← Variable-Size Windows</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="../two-pointers-lessons/0001-opposite-ends.html">Two Pointers: Opposite Ends →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

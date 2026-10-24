@@ -1,0 +1,302 @@
+<title>IP Addresses and Classful Addressing</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Computer Networks &middot; Unit III &middot; Lesson 20 of 27</p>
+<h1>IP Addresses and Classful Addressing</h1>
+<p class="deck">The 32-bit IPv4 address, the five classes and how to recognise them instantly, the default masks, the special addresses, and the arithmetic for network address, broadcast address and host count. Everything in the next two lessons is built on this.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two questions, both mechanical. (1) <strong>"Explain classful addressing"</strong> &mdash; the five-class table with ranges, masks and host counts, 5 marks. (2) <strong>"Given the address X, find its class, network address, broadcast address and number of hosts"</strong> &mdash; pure arithmetic, and free marks once drilled. <strong>Memorise the first-byte ranges</strong> (1&ndash;126, 128&ndash;191, 192&ndash;223, 224&ndash;239, 240&ndash;255); with them, the class is identified in one second.</p>
+</div>
+
+<h2>The IPv4 address</h2>
+
+<div class="formula">
+  <span class="name">Definition</span>
+  An IPv4 address is a <strong>32-bit</strong> address that <strong>uniquely and universally</strong> defines the connection of a device to the Internet.<br>
+  Address space = 2<sup>32</sup> = <strong>4,294,967,296</strong> addresses (about 4.3 billion)
+</div>
+
+<p>Two words in that definition carry marks. <strong>Unique</strong>: each address defines one and only one connection. <strong>Universal</strong>: the addressing system must be accepted by every host on the Internet.</p>
+
+<p>Note also that an IP address defines a <strong>connection</strong>, not a device. A router with three interfaces has <strong>three IP addresses</strong>, one per interface &mdash; a favourite one-mark trap.</p>
+
+<h3>Three notations</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Notation</th><th>Example</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><strong>Binary</strong></td><td><code>10000000 00001011 00000011 00011111</code></td><td>Four <strong>bytes / octets</strong> of 8 bits</td></tr>
+<tr><td><strong>Dotted decimal</strong></td><td><code>128.11.3.31</code></td><td>Each byte as a decimal number, so <strong>each value is 0&ndash;255</strong></td></tr>
+<tr><td><strong>Hexadecimal</strong></td><td><code>800B031F</code></td><td>Eight hex digits; used mainly in network programming</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The five classes</h2>
+
+<p>In <strong>classful addressing</strong>, the address space is divided into five classes, identified by the <strong>leading bits</strong> of the first byte.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Class</th><th>Leading bits</th><th>First byte range</th><th>Split (net.host)</th><th>Default mask</th><th>Networks</th><th>Hosts per network</th></tr></thead>
+<tbody>
+<tr><td><strong>A</strong></td><td><code>0</code></td><td><strong>1 &ndash; 126</strong></td><td>8 . 24</td><td>255.0.0.0 (/8)</td><td class="num">2<sup>7</sup> = 128 (126 usable)</td><td class="num"><strong>2<sup>24</sup> &minus; 2 = 16,777,214</strong></td></tr>
+<tr><td><strong>B</strong></td><td><code>10</code></td><td><strong>128 &ndash; 191</strong></td><td>16 . 16</td><td>255.255.0.0 (/16)</td><td class="num">2<sup>14</sup> = 16,384</td><td class="num"><strong>2<sup>16</sup> &minus; 2 = 65,534</strong></td></tr>
+<tr><td><strong>C</strong></td><td><code>110</code></td><td><strong>192 &ndash; 223</strong></td><td>24 . 8</td><td>255.255.255.0 (/24)</td><td class="num">2<sup>21</sup> = 2,097,152</td><td class="num"><strong>2<sup>8</sup> &minus; 2 = 254</strong></td></tr>
+<tr><td><strong>D</strong></td><td><code>1110</code></td><td><strong>224 &ndash; 239</strong></td><td colspan="2">No netid/hostid split &mdash; <strong>multicast</strong></td><td colspan="2">Reserved for multicast groups</td></tr>
+<tr><td><strong>E</strong></td><td><code>1111</code></td><td><strong>240 &ndash; 255</strong></td><td colspan="2">No split &mdash; <strong>reserved</strong></td><td colspan="2">Reserved for research and future use</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">Recognising the class in one second</span>
+  <p>Look only at the <strong>first byte</strong>. <strong>1&ndash;126 = A &middot; 128&ndash;191 = B &middot; 192&ndash;223 = C &middot; 224&ndash;239 = D &middot; 240&ndash;255 = E.</strong> The gap at <strong>127</strong> is not an oversight &mdash; the whole 127.0.0.0/8 block is reserved for <strong>loopback</strong>. And 0 is reserved for "this network", which is why Class A starts at 1 and has 126 usable networks rather than 128.</p>
+</div>
+
+<h3>Why the "&minus; 2" in the host counts</h3>
+
+<p>Two host addresses in every block are unusable:</p>
+<ul>
+<li><strong>Hostid all 0s</strong> = the <strong>network address</strong>, which identifies the network itself and cannot be assigned to a host.</li>
+<li><strong>Hostid all 1s</strong> = the <strong>directed broadcast address</strong> for that network.</li>
+</ul>
+
+<p>Hence a Class C network has 2<sup>8</sup> = 256 addresses but only <strong>254 assignable hosts</strong>. This subtraction is asked constantly and forgetting it is the commonest arithmetic slip in Unit III.</p>
+
+<h2>Netid and hostid</h2>
+
+<div class="formula">
+  <span class="name">The classful split</span>
+  Class A: &nbsp;<strong>N</strong>.H.H.H &nbsp;&nbsp;&rarr;&nbsp; 8-bit netid, 24-bit hostid<br>
+  Class B: &nbsp;<strong>N.N</strong>.H.H &nbsp;&nbsp;&rarr;&nbsp; 16-bit netid, 16-bit hostid<br>
+  Class C: &nbsp;<strong>N.N.N</strong>.H &nbsp;&nbsp;&rarr;&nbsp; 24-bit netid, 8-bit hostid
+</div>
+
+<div class="formula">
+  <span class="name">The three operations</span>
+  <strong>Network address</strong> = address <strong>AND</strong> mask &nbsp;(equivalently: set all host bits to 0)<br>
+  <strong>Broadcast address</strong> = set all host bits to <strong>1</strong><br>
+  <strong>Number of usable hosts</strong> = 2<sup>(host bits)</sup> &minus; 2
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 1 &mdash; the standard question</span>
+  <p><strong>Q.</strong> For the address <code>132.6.17.85</code>, find the class, the network address, the broadcast address, the range of host addresses, and the number of usable hosts.</p>
+
+  <p><strong>Class:</strong> first byte is 132, which lies in 128&ndash;191 &rarr; <strong>Class B</strong></p>
+  <p><strong>Default mask:</strong> 255.255.0.0, i.e. <strong>/16</strong> &mdash; netid is the first two bytes, hostid the last two.</p>
+
+  <p><strong>Network address</strong> &mdash; set the host bytes to 0:<br>
+  <strong>132.6.0.0</strong></p>
+
+  <p><strong>Broadcast address</strong> &mdash; set the host bytes to 255:<br>
+  <strong>132.6.255.255</strong></p>
+
+  <p><strong>Range of assignable hosts:</strong> <strong>132.6.0.1</strong> to <strong>132.6.255.254</strong></p>
+
+  <p><strong>Number of usable hosts</strong> = 2<sup>16</sup> &minus; 2 = 65,536 &minus; 2 = <strong>65,534</strong></p>
+
+  <p><em>Sanity check:</em> the first assignable host is always <strong>network address + 1</strong> and the last is always <strong>broadcast address &minus; 1</strong>. If your range does not satisfy both, you have made an error.</p>
+</div>
+
+<div class="solve">
+  <span class="lbl">Worked numerical 2 &mdash; Class C, and the AND operation shown</span>
+  <p><strong>Q.</strong> For <code>200.34.22.156</code>, find the class, network address (using the AND operation explicitly), broadcast address and host count.</p>
+
+  <p><strong>Class:</strong> first byte 200 lies in 192&ndash;223 &rarr; <strong>Class C</strong>, default mask 255.255.255.0 (/24)</p>
+
+  <p><strong>Network address by ANDing:</strong></p>
+  <p>Address: &nbsp;<code>11001000 00100010 00010110 10011100</code> &nbsp;(200.34.22.156)<br>
+  Mask: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>11111111 11111111 11111111 00000000</code> &nbsp;(255.255.255.0)<br>
+  AND: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>11001000 00100010 00010110 00000000</code> &nbsp;= <strong>200.34.22.0</strong></p>
+
+  <p><strong>Broadcast address:</strong> <strong>200.34.22.255</strong></p>
+  <p><strong>Host range:</strong> 200.34.22.1 to 200.34.22.254</p>
+  <p><strong>Usable hosts</strong> = 2<sup>8</sup> &minus; 2 = <strong>254</strong></p>
+
+  <p><em>Shortcut worth using in the exam:</em> with a default mask you never need binary at all &mdash; just replace the host bytes with 0 for the network address and with 255 for the broadcast address. Show the AND once to demonstrate you know the mechanism, then use the shortcut.</p>
+</div>
+
+<h2>Special addresses</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Address</th><th>Meaning</th><th>Used as</th></tr></thead>
+<tbody>
+<tr><td><strong>Network address</strong> (hostid all 0s)</td><td>Identifies the network itself</td><td>Destination only, in routing tables &mdash; never assigned to a host</td></tr>
+<tr><td><strong>Directed broadcast</strong> (hostid all 1s)</td><td>All hosts on <em>that specific</em> network</td><td>Destination only</td></tr>
+<tr><td><strong>Limited broadcast</strong> <code>255.255.255.255</code></td><td>All hosts on <em>this</em> network. <strong>Routers block it</strong>, so it never leaves the local network.</td><td>Destination only</td></tr>
+<tr><td><strong>This host on this network</strong> <code>0.0.0.0</code></td><td>Used by a host that does not yet know its own address</td><td><strong>Source only</strong> &mdash; e.g. in a DHCP request at boot</td></tr>
+<tr><td><strong>Specific host on this network</strong> (netid all 0s)</td><td>A host on the local network, addressed without knowing the network number</td><td>Destination only</td></tr>
+<tr><td><strong>Loopback</strong> <code>127.0.0.0/8</code></td><td>Testing the local machine's own TCP/IP stack &mdash; the packet never reaches the wire. <code>127.0.0.1</code> is the familiar one.</td><td>Destination only</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Private addresses</h3>
+
+<p>Three blocks are reserved for <strong>private networks</strong> and are never routed on the public Internet. They are the input to <strong>NAT</strong> (Lesson 24), so learn them here:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Class</th><th>Block</th><th>Range</th></tr></thead>
+<tbody>
+<tr><td>A</td><td><strong>10.0.0.0/8</strong></td><td>10.0.0.0 &ndash; 10.255.255.255</td></tr>
+<tr><td>B</td><td><strong>172.16.0.0/12</strong></td><td>172.16.0.0 &ndash; 172.31.255.255</td></tr>
+<tr><td>C</td><td><strong>192.168.0.0/16</strong></td><td>192.168.0.0 &ndash; 192.168.255.255</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Why classful addressing failed</h2>
+
+<p>A standard 5-mark question: <strong>"What are the disadvantages of classful addressing?"</strong></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Problem</th><th>Explanation</th></tr></thead>
+<tbody>
+<tr><td><strong>Massive waste in Class A</strong></td><td>16.7 million addresses per network. Almost no organisation needs that, so most of every Class A block sat unused &mdash; and there were only 126 of them.</td></tr>
+<tr><td><strong>Massive waste in Class B</strong></td><td>65,534 addresses per network. An organisation with 1000 hosts still consumed a whole Class B and wasted 98% of it.</td></tr>
+<tr><td><strong>Class C too small</strong></td><td>Only 254 hosts &mdash; too few for most medium organisations, forcing them up to a wasteful Class B.</td></tr>
+<tr><td><strong>Only three usable sizes</strong></td><td>The block size could only be 2<sup>24</sup>, 2<sup>16</sup> or 2<sup>8</sup>. There was <strong>no way to allocate a block that fitted the actual need</strong>.</td></tr>
+<tr><td><strong>Address depletion</strong></td><td>The combined effect: the 4.3 billion address space was exhausted far faster than the number of connected hosts justified.</td></tr>
+<tr><td><strong>Routing table growth</strong></td><td>Millions of small Class C blocks meant enormous routing tables at backbone routers.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>The fix</strong> was <strong>classless addressing (CIDR)</strong>, which allows a block of <em>any</em> power-of-two size &mdash; the subject of the next lesson. Subnetting and supernetting were the intermediate patches applied to classful addressing before CIDR replaced it outright.</p>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Classful IPv4 Address Structure & Ranges</div>
+  <div class="flow-col">
+    <div class="flow-box" style="max-width:32rem;"><strong>Class A: 0... (1.0.0.0 &ndash; 127.255.255.255)</strong><span class="sub">8 NetID bits | 24 HostID bits | Default Mask: 255.0.0.0 | 16M hosts/net</span></div>
+    <div class="flow-box highlight" style="max-width:32rem;"><strong>Class B: 10... (128.0.0.0 &ndash; 191.255.255.255)</strong><span class="sub">16 NetID bits | 16 HostID bits | Default Mask: 255.255.0.0 | 65,534 hosts/net</span></div>
+    <div class="flow-box ok" style="max-width:32rem;"><strong>Class C: 110... (192.0.0.0 &ndash; 223.255.255.255)</strong><span class="sub">24 NetID bits | 8 HostID bits | Default Mask: 255.255.255.0 | 254 hosts/net</span></div>
+    <div class="flow-box warn" style="max-width:32rem;"><strong>Class D: 1110... (224.0.0.0 &ndash; 239.255.255.255) &bull; Multicast</strong><span class="sub">Class E: 1111... (240.0.0.0 &ndash; 255.255.255.255) &bull; Reserved / Experimental</span></div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 18 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Classful Addressing</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Lec-42: IPv4 Classful Addressing & Class Identification</div>
+    <div class="v-desc">Masterclass on identifying address classes from leading bits, first-octet boundaries, NetID/HostID splits, and reserved network addresses.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=iurle2xZrBQ" target="_blank" rel="noopener">Watch on YouTube &rarr; (Gate Smashers)</a>
+  </div>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz">
+<h3>Retrieval practice</h3>
+
+<div class="q">
+  <p class="stem">1. The address 191.243.1.1 belongs to which class?</p>
+  <div class="opts">
+    <button class="opt">Class C &mdash; the first byte 191 lies in 192 to 223</button>
+    <button class="opt" data-ok="1">Class B &mdash; the first byte 191 lies in 128 to 191</button>
+    <button class="opt">Class A &mdash; the first byte 191 lies in 1 to 126</button>
+    <button class="opt">Class D &mdash; the first byte 191 lies in 224 to 239</button>
+  </div>
+  <p class="why">191 is the last address of Class B; 192 is the first of Class C. The boundary between 191 and 192 is the one worth double-checking, because it is where careless answers land.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. A Class C network has 256 addresses but only 254 assignable to hosts because:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Hostid all 0s is the network address and all 1s is the broadcast address</button>
+    <button class="opt">The first and last addresses are reserved for loopback testing</button>
+    <button class="opt">Two addresses are reserved for the router's two interfaces</button>
+    <button class="opt">Two addresses are always held back for future expansion</button>
+  </div>
+  <p class="why">Hostid all zeros identifies the network itself; hostid all ones is the directed broadcast. Neither can be given to a host, hence 2^n − 2 in every host-count formula.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. For 132.6.17.85, the broadcast address is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">132.6.255.255</button>
+    <button class="opt">255.255.255.255</button>
+    <button class="opt">132.255.255.255</button>
+    <button class="opt">132.6.17.255</button>
+  </div>
+  <p class="why">Class B, so the netid is the first two bytes and the hostid the last two. Setting both host bytes to 255 gives 132.6.255.255. Setting only the final byte would be right for Class C, and 255.255.255.255 is the limited broadcast, a different thing.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. The block 127.0.0.0/8 is reserved for:</p>
+  <div class="opts">
+    <button class="opt">Limited broadcast within the local network only</button>
+    <button class="opt">Multicast group addressing across the whole Internet</button>
+    <button class="opt" data-ok="1">Loopback &mdash; testing the local machine's own TCP/IP stack</button>
+    <button class="opt">Private networks that are never routed publicly</button>
+  </div>
+  <p class="why">Loopback packets never reach the wire — 127.0.0.1 is the familiar case. This reservation is why Class A stops at 126 rather than 127, a detail examiners like to test.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. Which is a private address block?</p>
+  <div class="opts">
+    <button class="opt">10.0.0.0/16</button>
+    <button class="opt">192.0.0.0/16</button>
+    <button class="opt" data-ok="1">172.16.0.0/12</button>
+    <button class="opt">172.0.0.0/8</button>
+  </div>
+  <p class="why">The three blocks are 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16 — note the exact prefix lengths, because the wrong ones (172.0.0.0/8, 192.0.0.0/16, 10.0.0.0/16) look plausible and are all incorrect.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. A router with four network interfaces has how many IP addresses?</p>
+  <div class="opts">
+    <button class="opt">None &mdash; routers use MAC addresses only</button>
+    <button class="opt">Two &mdash; one for input and one for output</button>
+    <button class="opt">One &mdash; a device has exactly one IP address</button>
+    <button class="opt" data-ok="1">Four &mdash; an IP address defines a connection, not a device</button>
+  </div>
+  <p class="why">The definition is "uniquely and universally defines the <em>connection</em> of a device to the Internet". Each interface is a separate connection to a separate network, so each needs its own address — which is exactly how a router joins networks together.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Define an IPv4 address and state the address space.</summary>
+    <p class="ans">A 32-bit address that uniquely and universally defines the connection of a device to the Internet. Address space = 2³² = 4,294,967,296. It defines a connection, not a device — a router has one address per interface.</p></details>
+  <details class="card"><summary>Give the five classes with their first-byte ranges and default masks.</summary>
+    <p class="ans">A: 1–126, /8, 255.0.0.0. B: 128–191, /16, 255.255.0.0. C: 192–223, /24, 255.255.255.0. D: 224–239, multicast, no split. E: 240–255, reserved. 127 is loopback, which is why A stops at 126.</p></details>
+  <details class="card"><summary>Give the netid/hostid split and host count for classes A, B and C.</summary>
+    <p class="ans">A: 8-bit netid, 24-bit hostid, 2²⁴ − 2 = 16,777,214 hosts, 126 usable networks. B: 16/16, 2¹⁶ − 2 = 65,534 hosts, 16,384 networks. C: 24/8, 2⁸ − 2 = 254 hosts, 2,097,152 networks.</p></details>
+  <details class="card"><summary>How do you find the network and broadcast addresses?</summary>
+    <p class="ans">Network address = address AND mask, i.e. set all host bits to 0. Broadcast address = set all host bits to 1. First assignable host = network address + 1; last = broadcast address − 1. Usable hosts = 2^(host bits) − 2.</p></details>
+  <details class="card"><summary>Name five special addresses and their meanings.</summary>
+    <p class="ans">Network address (hostid all 0s) — the network itself. Directed broadcast (hostid all 1s) — all hosts on that network. Limited broadcast 255.255.255.255 — all hosts on this network; routers block it. 0.0.0.0 — this host on this network, source only, used in DHCP at boot. 127.0.0.0/8 — loopback.</p></details>
+  <details class="card"><summary>List the three private address blocks.</summary>
+    <p class="ans">10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16. They are never routed on the public Internet and are the input to NAT.</p></details>
+  <details class="card"><summary>Give four disadvantages of classful addressing.</summary>
+    <p class="ans">Class A and B blocks are far larger than any organisation needs, so most addresses are wasted; Class C at 254 hosts is too small for medium organisations; only three block sizes exist, so no block ever fits the actual need; the result was rapid address depletion and huge routing tables. Fixed by classless addressing (CIDR).</p></details>
+</div>
+
+<p class="ask">Want twenty "find the class, network, broadcast and host range" drills? Ask &mdash; ten minutes of these makes the whole of Unit III faster.</p>
+
+<div class="nav">
+  <a href="0019-network-layer-services.html">&larr; Previous</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0021-classless-addressing.html">Next: Classless Addressing (CIDR) &rarr;</a>
+  <a href="../../reference/numericals-method-handbook.html">How to solve it</a>
+  <a href="../../reference/unit3-cheat-sheet.html">Unit III sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

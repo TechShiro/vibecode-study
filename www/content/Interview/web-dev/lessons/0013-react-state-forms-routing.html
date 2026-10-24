@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 13 — React: State Patterns, Forms &amp; Routing</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 13 of 24 · lifting state, forms, Redux, routing</div>
+<h1>React: State Patterns, Forms &amp; Routing</h1>
+<p class="subtitle">Components you can build — now learn where state should live, how real forms work, and how one HTML page pretends to be a whole website.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 13 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Lifting state up</h2>
+<p>
+Data flows down; so when two <em>sibling</em> components need the same data, neither can own it — a sibling can't
+pass props sideways. The rule: <strong>state lives in the closest common ancestor</strong> of everyone who needs it.
+The ancestor passes the value down to readers and a setter function down to writers.
+</p>
+<p>Worked example — a search box and a results list, siblings under <code>App</code>:</p>
+
+<pre><code>function SearchBar({ query, onQueryChange }) {      <span class="cmt">// WRITER: gets value + setter</span>
+  return &lt;input value={query} onChange={e =&gt; onQueryChange(e.target.value)} /&gt;;
+}
+
+function ResultsList({ products, query }) {         <span class="cmt">// READER: gets what it needs</span>
+  const visible = products.filter(p =&gt;
+    p.name.toLowerCase().includes(query.toLowerCase()));
+  return &lt;ul&gt;{visible.map(p =&gt; &lt;li key={p.id}&gt;{p.name}&lt;/li&gt;)}&lt;/ul&gt;;
+}
+
+function App() {
+  const [query, setQuery] = useState('');           <span class="cmt">// state at the COMMON ANCESTOR</span>
+  return (
+    &lt;&gt;
+      &lt;SearchBar query={query} onQueryChange={setQuery} /&gt;
+      &lt;ResultsList products={PRODUCTS} query={query} /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<p>
+Typing flows: input event → <code>onQueryChange</code> → <code>setQuery</code> in App → App re-renders → both
+children get the new <code>query</code>. One source of truth, two views of it. Reverse question is just as useful:
+if only <code>SearchBar</code> needed the text, push the state <em>down</em> into it — state as low as possible,
+as high as necessary.
+</p>
+
+<h2>2 · Derived state — compute, don't store</h2>
+<p>
+Notice <code>visible</code> above is a plain <code>const</code> computed during render — <em>not</em> state. If a
+value can be calculated from existing props/state, calculating it is always correct; storing a second copy invites
+the two copies to disagree. The classic anti-pattern is mirroring a prop into state:
+</p>
+
+<pre><code><span class="cmt">// ✘ ANTI-PATTERN: copying a prop into state</span>
+function Profile({ user }) {
+  const [name, setName] = useState(user.name);   <span class="cmt">// initializer runs ONCE (mount)</span>
+  <span class="cmt">// parent later passes a new user → this state keeps the OLD name forever</span>
+}
+
+<span class="cmt">// ✔ Just use the prop; derive during render</span>
+function Profile({ user }) {
+  const displayName = user.name.toUpperCase();   <span class="cmt">// recomputed each render — always fresh</span>
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "State should hold the <em>minimal source of truth</em>; everything computable from it is derived during render.
+  Mirroring props into state is a bug because <code>useState</code>'s initializer runs only on mount — later prop
+  changes never reach the copy. If it's expensive to compute, wrap it in <code>useMemo</code>, don't promote it to state."
+</div>
+
+<h2>3 · Controlled vs uncontrolled inputs</h2>
+<p>
+An <code>&lt;input&gt;</code> has its own internal value in the DOM (that's how plain HTML forms work). React gives
+you a choice about who owns that value:
+</p>
+<ul>
+  <li><strong>Uncontrolled:</strong> the DOM owns it; you peek when needed via a ref. Less code, less power.</li>
+  <li><strong>Controlled:</strong> React state owns it. You set <code>value={state}</code> and update state
+  <code>onChange</code> — the input displays state and <em>only</em> state. Now the current text is available every
+  render: live validation, disabling submit, character counters, formatting-as-you-type.</li>
+</ul>
+
+<pre><code><span class="cmt">// UNCONTROLLED — DOM owns the value; read it at submit time</span>
+function Uncontrolled() {
+  const nameRef = useRef(null);
+  const submit = e =&gt; { e.preventDefault(); console.log(nameRef.current.value); };
+  return &lt;form onSubmit={submit}&gt;&lt;input ref={nameRef} defaultValue="Krish" /&gt;&lt;/form&gt;;
+}
+
+<span class="cmt">// CONTROLLED — state owns the value; every keystroke round-trips through React</span>
+function Controlled() {
+  const [name, setName] = useState('');
+  return &lt;input value={name} onChange={e =&gt; setName(e.target.value)} /&gt;;
+}</code></pre>
+
+<p>Each input type has its controlled wiring — note which prop carries the value:</p>
+
+<pre><code>&lt;input value={text} onChange={e =&gt; setText(e.target.value)} /&gt;
+
+&lt;textarea value={bio} onChange={e =&gt; setBio(e.target.value)} /&gt;
+                     <span class="cmt">// value prop, NOT children like in HTML</span>
+
+&lt;select value={branch} onChange={e =&gt; setBranch(e.target.value)}&gt;
+  &lt;option value="cse"&gt;CSE&lt;/option&gt;
+  &lt;option value="it"&gt;IT&lt;/option&gt;
+&lt;/select&gt;            <span class="cmt">// value on the SELECT, not `selected` on an option</span>
+
+&lt;input type="checkbox" checked={agree}   <span class="cmt">// checkboxes use CHECKED (boolean)</span>
+       onChange={e =&gt; setAgree(e.target.checked)} /&gt;
+
+&lt;input type="radio" name="mode" value="dark"
+       checked={mode === 'dark'}         <span class="cmt">// radio: checked = comparison</span>
+       onChange={e =&gt; setMode(e.target.value)} /&gt;</code></pre>
+
+<table>
+  <thead><tr><th></th><th>Controlled</th><th>Uncontrolled</th></tr></thead>
+  <tbody>
+    <tr><td>Value owned by</td><td>React state</td><td>The DOM node</td></tr>
+    <tr><td>Read via</td><td>The state variable, any time</td><td><code>ref.current.value</code>, on demand</td></tr>
+    <tr><td>Initial value</td><td><code>value={state}</code> (initial state)</td><td><code>defaultValue</code> / <code>defaultChecked</code></td></tr>
+    <tr><td>Live validation / disable submit</td><td>Trivial</td><td>Awkward</td></tr>
+    <tr><td>Cost</td><td>Re-render per keystroke, more wiring</td><td>Minimal</td></tr>
+    <tr><td>Choose when</td><td>UI reacts to the value as it changes (default choice)</td><td>Fire-and-forget fields, file inputs (always uncontrolled)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">Gotcha: the frozen input</span>
+  <code>&lt;input value={name} /&gt;</code> with no <code>onChange</code> = an input you cannot type into. React
+  re-renders it back to <code>name</code> after every keystroke. That's not a bug — it's the controlled contract:
+  the DOM shows state and only state. React warns in the console and suggests <code>defaultValue</code> or
+  <code>readOnly</code> if that's what you meant.
+</div>
+
+<h2>4 · A real form: multi-field state, validation, submit</h2>
+<p>
+Ten fields should not mean ten <code>useState</code> calls. Use one state object plus one handler keyed by the
+input's <code>name</code> attribute — computed property names from lesson 3 doing real work:
+</p>
+
+<pre><code>function SignupForm() {
+  const [form, setForm] = useState({ email: '', password: '', branch: 'cse', agree: false });
+  const [errors, setErrors]       = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleChange(e) {
+    const { name, type, value, checked } = e.target;
+    setForm(f =&gt; ({
+      ...f,                                          <span class="cmt">// keep the other fields (immutable update)</span>
+      [name]: type === 'checkbox' ? checked : value  <span class="cmt">// computed key = input's name</span>
+    }));
+  }
+
+  function validate(f) {
+    const errs = {};
+    if (!/^\S+@\S+\.\S+$/.test(f.email)) errs.email    = 'Enter a valid email';
+    if (f.password.length &lt; 8)           errs.password = 'Minimum 8 characters';
+    if (!f.agree)                        errs.agree    = 'You must accept the terms';
+    return errs;
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();                    <span class="cmt">// SPA: no full-page POST reload</span>
+    const errs = validate(form);
+    setErrors(errs);
+    if (Object.keys(errs).length &gt; 0) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error('Signup failed');
+    } catch (err) {
+      setErrors({ submit: err.message });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    &lt;form onSubmit={handleSubmit} noValidate&gt;
+      &lt;input name="email" type="email" value={form.email} onChange={handleChange} /&gt;
+      {errors.email &amp;&amp; &lt;p className="error"&gt;{errors.email}&lt;/p&gt;}
+
+      &lt;input name="password" type="password" value={form.password} onChange={handleChange} /&gt;
+      {errors.password &amp;&amp; &lt;p className="error"&gt;{errors.password}&lt;/p&gt;}
+
+      &lt;select name="branch" value={form.branch} onChange={handleChange}&gt;
+        &lt;option value="cse"&gt;CSE&lt;/option&gt;&lt;option value="it"&gt;IT&lt;/option&gt;
+      &lt;/select&gt;
+
+      &lt;label&gt;
+        &lt;input name="agree" type="checkbox" checked={form.agree} onChange={handleChange} /&gt;
+        I accept the terms
+      &lt;/label&gt;
+      {errors.agree &amp;&amp; &lt;p className="error"&gt;{errors.agree}&lt;/p&gt;}
+
+      &lt;button disabled={submitting}&gt;{submitting ? 'Creating…' : 'Sign up'}&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<p>
+One handler serves every field; adding a field is one input plus one initial value. (In production apps you'll meet
+<code>react-hook-form</code> + <code>zod</code>, which package these patterns — but interviewers ask for exactly
+this hand-rolled version.)
+</p>
+
+<h2>5 · Prop drilling → Context, and its performance tax</h2>
+<p>
+From lesson 12: Context solves <em>prop drilling</em> — relay components passing props they never use. But it has a
+cost worth knowing precisely: <strong>when the provider's <code>value</code> changes, every consumer under it
+re-renders</strong>, whether it cares about the changed part or not. Two standard mitigations:
+</p>
+
+<pre><code><span class="cmt">// ✘ SMELL 1: one mega-context — theme change re-renders cart consumers too</span>
+&lt;AppContext.Provider value={{ theme, user, cart, setTheme, setCart }}&gt;
+
+<span class="cmt">// ✔ FIX 1: split by change-frequency — consumers subscribe to what they need</span>
+&lt;ThemeContext.Provider value={theme}&gt;
+  &lt;UserContext.Provider value={user}&gt;
+    &lt;CartContext.Provider value={cart}&gt;…
+
+<span class="cmt">// ✘ SMELL 2: fresh object literal as value — NEW reference every render of App,</span>
+<span class="cmt">// so ALL consumers re-render whenever App re-renders for ANY reason</span>
+&lt;UserContext.Provider value={{ user, logout }}&gt;
+
+<span class="cmt">// ✔ FIX 2: memoize the value object (lesson 12's referential equality)</span>
+const userValue = useMemo(() =&gt; ({ user, logout }), [user, logout]);
+&lt;UserContext.Provider value={userValue}&gt;</code></pre>
+
+<p>
+Context is a <em>transport</em> for low-churn data (theme, auth, locale) — it is not a state <em>manager</em>. For
+frequently-changing shared state with many consumers, reach for a store:
+</p>
+
+<h2>6 · Global state — Redux Toolkit and Zustand</h2>
+<p>
+The idea both share: move state <em>out of the component tree</em> into a store; components subscribe to just the
+slice they read, and re-render only when that slice changes — the precision Context lacks.
+</p>
+<p>
+<strong>Redux</strong> is lesson 12's reducer pattern made global: one store, pure reducers, dispatched actions,
+plus dev-tools that time-travel through every action. Modern Redux is written with <strong>Redux Toolkit</strong>
+(RTK) — the old hand-written action-type constants and switch statements are legacy:
+</p>
+
+<pre><code>npm i @reduxjs/toolkit react-redux</code></pre>
+
+<pre><code><span class="cmt">// store.js</span>
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState: { items: [] },
+  reducers: {                              <span class="cmt">// "mutating" style is SAFE here:</span>
+    added(state, action) {                 <span class="cmt">// RTK's Immer records these mutations</span>
+      state.items.push(action.payload);    <span class="cmt">// and produces an immutable copy</span>
+    },
+    removed(state, action) {
+      state.items = state.items.filter(i =&gt; i.id !== action.payload);
+    },
+  },
+});
+
+export const { added, removed } = cartSlice.actions;  <span class="cmt">// auto-generated creators</span>
+export const store = configureStore({ reducer: { cart: cartSlice.reducer } });
+
+<span class="cmt">// main.jsx — provide the store like a context</span>
+&lt;Provider store={store}&gt;&lt;App /&gt;&lt;/Provider&gt;
+
+<span class="cmt">// Any component, any depth:</span>
+import { useSelector, useDispatch } from 'react-redux';
+function CartButton({ product }) {
+  const count    = useSelector(s =&gt; s.cart.items.length);  <span class="cmt">// re-renders ONLY if this changes</span>
+  const dispatch = useDispatch();
+  return &lt;button onClick={() =&gt; dispatch(added(product))}&gt;Add ({count})&lt;/button&gt;;
+}</code></pre>
+
+<p>
+<strong>Zustand</strong> gets you the same subscription precision with a fraction of the ceremony — a store is one
+function call, no provider needed:
+</p>
+
+<pre><code>npm i zustand</code></pre>
+
+<pre><code>import { create } from 'zustand';
+
+const useCart = create((set) =&gt; ({
+  items: [],
+  add:    (p)  =&gt; set(s =&gt; ({ items: [...s.items, p] })),
+  remove: (id) =&gt; set(s =&gt; ({ items: s.items.filter(i =&gt; i.id !== id) })),
+}));
+
+function CartButton({ product }) {
+  const count = useCart(s =&gt; s.items.length);   <span class="cmt">// selector = subscribe to a slice</span>
+  const add   = useCart(s =&gt; s.add);
+  return &lt;button onClick={() =&gt; add(product)}&gt;Add ({count})&lt;/button&gt;;
+}</code></pre>
+
+<table>
+  <thead><tr><th></th><th>Context</th><th>Redux Toolkit</th><th>Zustand</th></tr></thead>
+  <tbody>
+    <tr><td>Really is</td><td>A transport for values down the tree</td><td>Full state architecture: store + reducers + actions</td><td>Minimal external store with hooks</td></tr>
+    <tr><td>Re-render precision</td><td>Every consumer on any value change</td><td>Per-selector — only affected components</td><td>Per-selector — only affected components</td></tr>
+    <tr><td>Boilerplate</td><td>Low</td><td>Moderate (RTK cut it hugely)</td><td>Tiny</td></tr>
+    <tr><td>DevTools / middleware / time travel</td><td>No</td><td>Best in class</td><td>Basic (devtools middleware)</td></tr>
+    <tr><td>Reach for it when</td><td>Theme, auth user, locale — low churn</td><td>Large app, complex update flows, team wants strict conventions + auditability</td><td>Small/medium app needing shared fast-changing state</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">Honest answer for interviews</span>
+  "Do you need Redux?" — often no. Start with local state; lift it when shared; context for low-churn globals; a
+  store (Zustand, or RTK for big teams) when many components share fast-changing state. Saying the escalation ladder
+  out loud beats name-dropping libraries.
+</div>
+
+<h2>7 · Server state vs client state — TanStack Query</h2>
+<p>
+Everything so far is <strong>client state</strong> — data your app owns (form text, open modal, cart). Data that
+lives on a server is different in kind: it can be stale the moment it arrives, others can change it, and you must
+handle caching, refetching, deduplication, and loading/error states. Your lesson-12 <code>useFetch</code> handles
+almost none of that. <strong>TanStack Query</strong> (React Query) is the standard tool for server state:
+</p>
+
+<pre><code>npm i @tanstack/react-query</code></pre>
+
+<pre><code>import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+
+const qc = new QueryClient();
+<span class="cmt">// main.jsx: &lt;QueryClientProvider client={qc}&gt;&lt;App /&gt;&lt;/QueryClientProvider&gt;</span>
+
+function Todos() {
+  const { data, isPending, error } = useQuery({
+    queryKey: ['todos'],                                   <span class="cmt">// cache key (like a Map key)</span>
+    queryFn: () =&gt; fetch('/api/todos').then(r =&gt; r.json()),
+  });
+
+  if (isPending) return &lt;p&gt;Loading…&lt;/p&gt;;
+  if (error)     return &lt;p&gt;Error: {error.message}&lt;/p&gt;;
+  return &lt;ul&gt;{data.map(t =&gt; &lt;li key={t.id}&gt;{t.title}&lt;/li&gt;)}&lt;/ul&gt;;
+}</code></pre>
+
+<p>
+What you get over useEffect-fetch: a <strong>cache</strong> keyed by <code>queryKey</code> (two components asking
+for <code>['todos']</code> = one request, shared result); instant cached data on revisit with background refetch
+(stale-while-revalidate); automatic retries, deduplication, and refetch-on-window-focus; and <code>useMutation</code>
+with cache invalidation for writes. Rule of thumb worth quoting: <em>server data belongs in a query cache, not in
+useState/Redux</em>.
+</p>
+
+<h2>8 · React Router — many "pages", one page</h2>
+<p>
+An SPA never reloads, but users still expect URLs: bookmarkable, shareable, back-button-friendly. A router maps the
+URL to components, using the browser's History API to change the address bar <em>without</em> a page load. React
+Router v6+:
+</p>
+
+<pre><code>npm i react-router-dom</code></pre>
+
+<pre><code>import { createBrowserRouter, RouterProvider, Link, NavLink,
+         Outlet, useParams, useNavigate } from 'react-router-dom';
+
+function Layout() {                    <span class="cmt">// shared shell for all child routes</span>
+  return (
+    &lt;&gt;
+      &lt;nav&gt;
+        &lt;NavLink to="/"&gt;Home&lt;/NavLink&gt;          {<span class="cmt">/* NavLink knows when it's active */</span>}
+        &lt;NavLink to="/products"&gt;Products&lt;/NavLink&gt;
+      &lt;/nav&gt;
+      &lt;Outlet /&gt;                       {<span class="cmt">/* ← the matched child route renders HERE */</span>}
+    &lt;/&gt;
+  );
+}
+
+function ProductPage() {
+  const { id } = useParams();          <span class="cmt">// "/products/42" → id = "42" (a STRING)</span>
+  const navigate = useNavigate();      <span class="cmt">// imperative nav (after submit/login)</span>
+  const del = async () =&gt; { await api.remove(id); navigate('/products'); };
+  return &lt;&gt;&lt;h1&gt;Product {id}&lt;/h1&gt;&lt;button onClick={del}&gt;Delete&lt;/button&gt;&lt;/&gt;;
+}
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: &lt;Layout /&gt;,
+    children: [                                    <span class="cmt">// NESTED routes → render in Outlet</span>
+      { index: true,           element: &lt;Home /&gt; },        <span class="cmt">// matches "/" exactly</span>
+      { path: 'products',      element: &lt;ProductList /&gt; },
+      { path: 'products/:id',  element: &lt;ProductPage /&gt; }, <span class="cmt">// :id = dynamic segment</span>
+      { path: '*',             element: &lt;NotFound /&gt; },    <span class="cmt">// 404 catch-all</span>
+    ],
+  },
+]);
+
+export default function App() {
+  return &lt;RouterProvider router={router} /&gt;;
+}</code></pre>
+
+<p>
+(The older JSX style — <code>&lt;BrowserRouter&gt;&lt;Routes&gt;&lt;Route path="/" element={...} /&gt;</code> — still
+works and appears in many codebases; <code>createBrowserRouter</code> is the recommended v6.4+ API and unlocks
+loaders/actions.) Key pieces: <strong><code>Link</code>/<code>NavLink</code></strong> instead of
+<code>&lt;a href&gt;</code> — they call <code>preventDefault()</code> and push History state instead of reloading;
+<strong><code>useParams</code></strong> reads dynamic segments; <strong><code>useNavigate</code></strong> navigates
+from code; <strong>nested routes + <code>Outlet</code></strong> give persistent layouts (nav stays mounted while the
+page below swaps); <strong><code>path: '*'</code></strong> is your 404.
+</p>
+
+<div class="callout trap">
+  <span class="label">Gotcha: SPA routing vs real page loads</span>
+  A plain <code>&lt;a href="/products"&gt;</code> inside an SPA triggers a full page load — the entire JS bundle
+  re-downloads, and all in-memory state (Redux store, form fields, everything) is wiped. <code>Link</code> only
+  rewrites the URL and re-renders. Related deploy gotcha: refreshing the browser at <code>/products/42</code> asks
+  the <em>server</em> for that path — the server must be configured to return <code>index.html</code> for every
+  route, or refreshes 404.
+</div>
+
+<h2>9 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>"Two sibling components need the same data — what do you do?"</strong><br>
+  Lift the state to their closest common ancestor; pass the value down to readers and a callback down to writers.
+  State should live as low as possible but as high as necessary.</li>
+  <li><strong>"Controlled vs uncontrolled components?"</strong><br>
+  Controlled: React state is the single source of truth — <code>value</code> + <code>onChange</code>; enables live
+  validation and dependent UI. Uncontrolled: the DOM owns the value; read via ref (<code>defaultValue</code> for
+  initials). Default to controlled; file inputs are always uncontrolled.</li>
+  <li><strong>"Why is copying props into state an anti-pattern?"</strong><br>
+  The useState initializer runs only on mount, so later prop updates never reach the copy — two diverging sources of
+  truth. Derive during render instead (useMemo if expensive).</li>
+  <li><strong>"Context vs Redux?"</strong><br>
+  Context is a transport, not a manager: any value change re-renders all consumers, and there's no update protocol or
+  tooling. Stores (RTK/Zustand) hold state outside the tree with per-selector subscriptions, middleware, and devtools.
+  Use context for low-churn globals; a store for shared fast-changing state.</li>
+  <li><strong>"Why TanStack Query over fetching in useEffect?"</strong><br>
+  Server state needs caching, deduplication, background refresh, retries, and invalidation-on-mutation — Query
+  provides them keyed by queryKey. useEffect-fetch re-downloads on every mount and shares nothing between components.</li>
+  <li><strong>"How does client-side routing work without reloads?"</strong><br>
+  The router intercepts navigation, uses the History API (<code>pushState</code>) to change the URL, and swaps
+  matched components. The server must serve index.html for all routes so deep links and refreshes work.</li>
+</ul>
+
+<h2>10 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A filtered list is shown from <code>todos</code> + a <code>filter</code> string. Where should the filtered array live?</div>
+  <button class="opt">In its own useState, updated whenever todos or filter changes</button>
+  <button class="opt">Nowhere — compute it during render from todos and filter</button>
+  <button class="opt">In a useRef so it persists between renders</button>
+  <div class="fb" data-correct="It's derived data: computable from existing state, so storing it duplicates truth and risks drift (and needs an effect to sync — a smell). Compute in render; useMemo only if profiling says it's expensive." data-wrong="Storing a computed value creates two sources of truth that can disagree, plus sync code to keep them aligned. Derived data is computed during render — a plain const — with useMemo as the optimization, not useState."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does <code>&lt;UserContext.Provider value={{ user, logout }}&gt;</code> re-render all consumers every time App renders, even when <code>user</code> hasn't changed?</div>
+  <button class="opt">The object literal is a new reference each render, and context compares value by Object.is</button>
+  <button class="opt">Providers always re-render every consumer on every parent render, no matter the value</button>
+  <button class="opt">Because logout is a function, and functions can't be compared</button>
+  <div class="fb" data-correct="{{ user, logout }} is rebuilt every render — new reference — so the Object.is check says the value changed and all consumers re-render. Fix: useMemo(() => ({ user, logout }), [user, logout])." data-wrong="Consumers re-render only when the VALUE changes by Object.is — but a fresh object literal each render IS a change by reference. Memoize the value object to keep it stable."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In an SPA, what's the practical difference between <code>&lt;a href="/cart"&gt;</code> and <code>&lt;Link to="/cart"&gt;</code>?</div>
+  <button class="opt">None — Link is just an accessible wrapper around the anchor tag</button>
+  <button class="opt">Link works offline while anchors require the network</button>
+  <button class="opt">The anchor triggers a full page load that wipes in-memory state; Link uses the History API and just re-renders</button>
+  <div class="fb" data-correct="An anchor makes the browser request a new document — the bundle reloads and all client state (store, forms) is lost. Link prevents the default, pushes the URL via History API, and the router swaps components in place." data-wrong="Link renders a real anchor for accessibility, but intercepts the click: pushState updates the URL and React swaps components — no document reload, state preserved. A raw anchor reloads everything."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Your typed text keeps vanishing: <code>&lt;input value={query} /&gt;</code> with no onChange. What's happening?</div>
+  <button class="opt">The input is uncontrolled, so React clears it on each render</button>
+  <button class="opt">It's controlled: React re-renders the input back to the unchanging <code>query</code> state after every keystroke</button>
+  <button class="opt">A missing name attribute prevents the browser from storing the value</button>
+  <div class="fb" data-correct="Setting value makes it controlled — the DOM must always display state. With no onChange updating that state, every keystroke is immediately overwritten by the old value. Add onChange, or use defaultValue for an uncontrolled input." data-wrong="value (not defaultValue) makes the input controlled: it displays state and only state. Since no onChange updates query, React resets the DOM to the stale state after each keystroke."></div>
+</div>
+
+<h2>11 · Do this next</h2>
+<ul>
+  <li>Build the SignupForm from section 4 without peeking, then extend it: show each field's error only after that
+  field has been visited (track a <code>touched</code> object updated <code>onBlur</code> — same name-keyed pattern),
+  and disable the submit button while any error exists (derived, not state!).</li>
+  <li>Take your lesson-11 todo app and give it routes: <code>/</code> (list), <code>/todo/:id</code> (detail page via
+  <code>useParams</code>), and a <code>*</code> 404 — with a <code>Layout</code> + <code>Outlet</code> nav that stays
+  mounted. Then move the todos array into a Zustand store so both routes read the same data with no prop passing.</li>
+  <li>Install TanStack Query and rebuild lesson 12's product search with <code>useQuery</code> (key
+  <code>['search', debouncedQuery]</code>). Navigate away and back: watch cached results appear instantly while a
+  background refetch runs in the Network tab.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Not sure where a given piece of state should live, or when Context stops being enough, or why file inputs can't be
+  controlled? Ask in the chat — "where does state live" is the most common React design question in interviews. When
+  the routed, store-backed todo app works, say <strong>"next"</strong> for Lesson 14: React Performance &amp;
+  Internals — the final React lesson.
+</div>
+
+<div class="nav">
+  <span><a href="0012-react-hooks-deep-dive.html">← Hooks Deep Dive</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0014-react-performance-internals.html">Performance &amp; Internals →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

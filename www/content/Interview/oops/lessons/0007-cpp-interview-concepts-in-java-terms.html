@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 07 — C++ Interview Concepts in Java Terms</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 7 of 8</div>
+<h1>C++ Interview Concepts, in Java Terms</h1>
+<p class="subtitle">Indian interviewers often ask OOPS in a C++ accent — virtual, friend, slicing, diamond. You code Java. This lesson is your translation dictionary.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero.
+  This is Lesson 7 of 8. <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Your senior's study material — and many interviewers' question banks — are written in C++. That's fine.
+<strong>You don't need to write C++ — you need to answer these questions in words and show the Java equivalent.</strong>
+Every C++ OOPS concept has a clean Java answer: either Java does it automatically, does it differently, or
+deliberately removed it. Saying <em>which of the three</em> and <em>why</em> is a stronger answer than any
+memorized C++ definition. Start with the whole dictionary (each C++ idea described in plain words), then we go
+concept by concept — all code from here on is Java.
+</p>
+<table>
+  <thead><tr><th>C++ concept</th><th>What it means (in words)</th><th>Java answer</th></tr></thead>
+  <tbody>
+    <tr><td>Virtual function</td><td>A method marked so the object's <em>real</em> type picks the version at runtime</td><td>Automatic — every non-static, non-final, non-private method is already "virtual"</td></tr>
+    <tr><td>Pure virtual function</td><td>A virtual method declared with <em>no body at all</em>; subclasses must implement it</td><td><code>abstract</code> method (Lesson 5)</td></tr>
+    <tr><td>Destructor / virtual destructor</td><td>A method that runs when an object is destroyed, to free what it owned</td><td>Removed — garbage collector; use try-with-resources for cleanup</td></tr>
+    <tr><td>Virtual constructor</td><td>A trick question — "constructing by the object's runtime type"</td><td>Doesn't exist in <em>either</em> language — know why (Section 4)</td></tr>
+    <tr><td>Friend class/function</td><td>Naming another class or function as trusted, so it may read your privates</td><td>Removed — nearest: package-private access, nested classes</td></tr>
+    <tr><td>Operator overloading</td><td>Redefining what symbols like plus mean for your own types</td><td>Removed by design — write named methods like <code>add()</code></td></tr>
+    <tr><td>Multiple inheritance / diamond</td><td>One class with two parent classes; a shared grandparent creates ambiguity</td><td>Removed for classes — interfaces (+ default-method rules) instead</td></tr>
+    <tr><td>Object slicing</td><td>Copying a child object <em>by value</em> into a parent-sized variable chops the child part off</td><td>Impossible — Java variables hold references, never object values</td></tr>
+    <tr><td>Pointers / manual delete</td><td>Variables hold raw memory addresses; every object must be freed by hand</td><td>References instead of pointers (<code>this</code> works the same); GC frees memory for you</td></tr>
+  </tbody>
+</table>
+
+<h2>2 · Virtual functions — and why every Java method already is one</h2>
+<p>
+Recall from Lesson 4: when a parent-type variable holds a child object, <em>which</em> method runs?
+C++ makes you choose the behavior per method. Java chose one behavior for the whole language.
+</p>
+<ul>
+  <li><strong>C++ default:</strong> the <em>variable's type</em> decides, at compile time (static binding). You must write <code>virtual</code> to make the <em>object's real type</em> decide at runtime.</li>
+  <li><strong>Java:</strong> the object's real type <em>always</em> decides. Every instance method behaves like a C++ virtual function, no keyword needed.</li>
+</ul>
+<p>
+MCQ 8 from your senior's set is the classic C++ trap: a base class and a derived class both define
+<code>show()</code>, but the method is <em>not</em> marked virtual. A base-typed pointer holding a derived object
+calls <code>show()</code> — and C++ prints <strong>"Base"</strong>, because without the virtual marker the
+pointer's declared type wins at compile time. That trap <em>doesn't translate</em> to Java, which is exactly the point:
+</p>
+<pre><code><span class="cmt">// The same shape in Java — no keyword needed anywhere:</span>
+class Base    { void show() { System.out.println("Base"); } }
+class Derived extends Base { @Override void show() { System.out.println("Derived"); } }
+
+Base b = new Derived();
+b.show();                           <span class="cmt">// prints "Derived" — object's real type ALWAYS wins</span>
+<span class="cmt">// (in C++ this exact code shape would print "Base" unless show() were marked virtual)</span></code></pre>
+<p>
+Exceptions — the three Java method kinds that are <em>not</em> dynamically dispatched:
+<code>static</code> (belongs to the class; hidden, not overridden), <code>final</code> (overriding banned),
+and <code>private</code> (invisible to subclasses). Everything else: virtual.
+</p>
+
+<h3>How dynamic dispatch works inside (the vtable)</h3>
+<p>
+Interviewers follow up with "but <em>how</em> does the runtime know?" Analogy: a franchise restaurant chain.
+Head office publishes a menu format ("item #3: Today's Special"), and <strong>each branch keeps its own menu card</strong>
+with its own recipe at slot #3. You order "item #3"; whichever branch you're standing in, <em>their</em> card decides the dish.
+</p>
+<ul>
+  <li>Each class gets a hidden table of method addresses — the <strong>vtable</strong> (Java: part of the class metadata; the JVM does the same job).</li>
+  <li>Every object carries a hidden pointer to <em>its own class's</em> table.</li>
+  <li>A call like <code>b.show()</code> compiles to: "follow the object's table pointer, jump to the <code>show</code> slot." An overriding class simply put a different address in that slot.</li>
+</ul>
+<div class="callout tip">
+  <span class="label">Q13 model answer</span>
+  "Each class has a virtual table mapping method slots to implementations; each object holds a pointer to its class's table.
+  A virtual call is resolved by looking up the slot at runtime through the object's table — so the object's actual type,
+  not the reference type, picks the method. Java's JVM does this for all instance methods by default (and JIT-optimizes it)."
+</div>
+
+<h2>3 · Virtual destructor — the C++ question with a one-line Java answer</h2>
+<p>
+The C++ problem (senior's MCQ 25), in words: in C++ you destroy objects by hand, and each class can have a
+destructor — cleanup code that runs at that moment. If you destroy a derived object <em>through a base-class
+pointer</em> and the base destructor is not marked virtual, only the <em>base</em> half gets cleaned up — the
+derived class's destructor never runs, leaking whatever it owned. Marking the base destructor virtual makes the
+destruction dispatch to the real type, so the derived cleanup runs first, then the base's.
+</p>
+<pre><code><span class="cmt">// Java: the question dissolves — there are no destructors and no manual delete.</span>
+Base b = new Derived();
+b = null;   <span class="cmt">// GC always knows the object's REAL type — the whole Derived is freed. Always.</span>
+
+<span class="cmt">// For non-memory cleanup (files, sockets), Java's answer is try-with-resources:</span>
+try (FileReader fr = new FileReader("data.txt")) {
+    <span class="cmt">// use fr ...</span>
+}   <span class="cmt">// fr.close() runs HERE, guaranteed — predictable cleanup without any destructor</span></code></pre>
+<p>
+<strong>Interview answer:</strong> "A virtual destructor ensures that deleting a derived object through a base pointer runs the
+derived destructor too. Java has no destructors at all — the garbage collector frees the entire object knowing its
+real type, so this whole class of bug can't happen. For non-memory resources, Java uses try-with-resources."
+</p>
+
+<h2>4 · Why can't a constructor be virtual?</h2>
+<p>
+This one is asked constantly (Q8, and MCQ 12: "virtual constructor" is the fake option among constructor types).
+The reasoning is a chicken-and-egg problem:
+</p>
+<ul>
+  <li>Virtual dispatch needs an <strong>existing object</strong> — the lookup goes <em>through the object's</em> hidden table pointer.</li>
+  <li>A constructor's job is to <strong>create</strong> that object. Before it runs, there is no object, no table pointer — nothing to dispatch through.</li>
+  <li>Also, to construct anything you must name the <em>exact</em> class (<code>new Derived()</code>). "Pick the constructor by the object's runtime type" is circular — the runtime type is what you're creating.</li>
+</ul>
+<p>
+Analogy: virtual dispatch is asking a person "which branch's menu do you follow?" — you can't ask that question to a person
+who hasn't been born yet.
+</p>
+<div class="callout trap">
+  <span class="label">The related Java trap — overridable calls in constructors</span>
+  Java constructors aren't virtual either (they're not inherited, not overridden). But a constructor <em>can call</em> a
+  virtual method — and that call DOES dispatch to the child's override, <em>before the child's fields are initialized</em>:
+  <pre><code>class Base  { Base() { greet(); }  void greet() { } }
+class Child extends Base {
+    String name = "Krish";
+    @Override void greet() { System.out.println(name.length()); } <span class="cmt">// NPE! name is still null</span>
+}
+new Child();  <span class="cmt">// Base() runs first (MCQ 26/27: base constructs before derived) → boom</span></code></pre>
+  Rule of thumb: never call overridable methods from a constructor. If you need polymorphic creation, use a
+  <strong>factory method</strong> — that's the standard "workaround" answer.
+</div>
+
+<h2>5 · friend class / friend function — and Java's nearest equivalents</h2>
+<p>
+In C++, class A can declare class B as its <em>friend</em> — "B is my trusted friend; it may read my <code>private</code> members."
+Both a class and a standalone function can be named as friends (senior's MCQ 14: "both a and b").
+Use case: two tightly coupled classes, e.g. a <code>LinkedList</code> and its <code>Iterator</code>, where the iterator
+must walk private node pointers without exposing them to the world.
+</p>
+<p>Java deliberately has no <code>friend</code>. Its two nearest tools:</p>
+<pre><code><span class="cmt">// 1. PACKAGE-PRIVATE (no modifier): visible to every class in the SAME package.</span>
+<span class="cmt">//    "Friendship" at folder level — put the trusted classes together.</span>
+class Engine {
+    int rpm;                            <span class="cmt">// no modifier → package-private</span>
+}
+class Dashboard {                       <span class="cmt">// same package → can read engine.rpm directly</span>
+    void show(Engine e) { System.out.println(e.rpm); }
+}
+
+<span class="cmt">// 2. NESTED CLASS: an inner class sees the outer class's privates — friendship by containment.</span>
+class LinkedList {
+    private Node head;
+    private static class Node { int val; Node next; }
+
+    class Iterator {                    <span class="cmt">// inner class: full access to private head</span>
+        Node cur = head;
+    }
+}</code></pre>
+<p>
+<strong>Interview answer:</strong> "friend grants another class or function access to my privates — useful for tightly
+coupled pairs like a container and its iterator. Java dropped it as a hole in encapsulation; instead you use
+package-private access for same-package trust, or nested classes — exactly how <code>java.util</code> collections
+implement their iterators."
+</p>
+
+<h2>6 · Operator overloading — how C++ does it, why Java said no</h2>
+<p>
+C++ lets you redefine what operators mean for <em>your</em> types, using its <em>operator</em> keyword (MCQ 28):
+you write a specially named method for a symbol, and after that, putting a plus sign between two of your objects
+runs <em>your</em> code. You can only re-teach existing operators for user-defined types — you cannot invent
+brand-new operators or change precedence (MCQ 20).
+</p>
+<pre><code><span class="cmt">// Java — no operator overloading. You write a named method instead:</span>
+class Complex {
+    final double re, im;
+    Complex(double re, double im) { this.re = re; this.im = im; }
+
+    Complex add(Complex o) {            <span class="cmt">// the honest name for what '+' would hide</span>
+        return new Complex(re + o.re, im + o.im);
+    }
+}
+Complex c = a.add(b);                   <span class="cmt">// same power, explicit name</span>
+
+<span class="cmt">// Real JDK example: BigInteger x = a.add(b).multiply(two);</span></code></pre>
+<p>
+Why did Java remove it? <strong>Readability and predictability.</strong> When <code>a + b</code> can run arbitrary
+hidden code, every plus sign becomes a puzzle — does it add, concatenate, merge, or fire a network call?
+Java's designers decided <code>a.add(b)</code> says what it does. The <em>one</em> built-in exception: <code>+</code>
+is overloaded by the language for String concatenation (<code>"age: " + 21</code>) — the language may, you may not.
+</p>
+
+<h2>7 · The diamond problem — two solutions, one diagram</h2>
+<p>
+Multiple inheritance's famous failure. <code>B</code> and <code>C</code> both extend <code>A</code>; <code>D</code> extends both
+<code>B</code> and <code>C</code>. Now <code>D</code> asks for something from <code>A</code> — <em>via which side?</em>
+And does <code>D</code> contain one copy of A's fields, or two?
+</p>
+<figure class="diagram">
+<svg viewBox="0 0 300 190" role="img" aria-label="Diamond inheritance: A at top, B and C in the middle both inherit from A, D at the bottom inherits from both B and C">
+  <line class="edge" x1="150" y1="45" x2="75"  y2="95"/>
+  <line class="edge" x1="150" y1="45" x2="225" y2="95"/>
+  <line class="edge hl" x1="75"  y1="95" x2="150" y2="150"/>
+  <line class="edge hl" x1="225" y1="95" x2="150" y2="150"/>
+  <circle class="node done" cx="150" cy="35"  r="20"/><text class="lbl" x="150" y="35">A</text>
+  <circle class="node" cx="75"  cy="105" r="20"/><text class="lbl" x="75"  y="105">B</text>
+  <circle class="node" cx="225" cy="105" r="20"/><text class="lbl" x="225" y="105">C</text>
+  <circle class="node cur" cx="150" cy="160" r="20"/><text class="lbl inv" x="150" y="160">D</text>
+</svg>
+<figcaption>D inherits A twice — once through B, once through C. Which path wins? That ambiguity is the diamond problem.</figcaption>
+</figure>
+<p><strong>How C++ solves it:</strong> <em>virtual inheritance</em>. B and C each mark their inheritance from A as virtual,
+which tells the compiler "share ONE copy of A" instead of duplicating it. It works, but it's fiddly and easy to forget.</p>
+<p><strong>How Java solves it:</strong> in two layers.</p>
+<ul>
+  <li><strong>Layer 1 — ban it for classes.</strong> A Java class extends exactly one class. No two paths to a field, ever. Multiple inheritance of <em>state</em> is simply illegal (this is also why "hybrid inheritance" via classes doesn't exist in Java).</li>
+  <li><strong>Layer 2 — tame it for interfaces.</strong> Interfaces have no fields, so only <em>behavior</em> can clash — via <code>default</code> methods. When it does, Java refuses to guess:</li>
+</ul>
+<pre><code>interface B { default String hello() { return "from B"; } }
+interface C { default String hello() { return "from C"; } }
+
+class D implements B, C {
+    <span class="cmt">// Without this override: COMPILE ERROR —</span>
+    <span class="cmt">// "class D inherits unrelated defaults for hello() from types B and C"</span>
+    @Override
+    public String hello() {
+        return B.super.hello();         <span class="cmt">// explicitly choose a side (or write your own)</span>
+    }
+}</code></pre>
+<div class="callout tip">
+  <span class="label">Q12 model answer</span>
+  "In the diamond, D inherits A through two paths — ambiguous methods and possibly duplicated fields. C++ fixes it with
+  virtual inheritance so only one shared A subobject exists. Java prevents it: single inheritance for classes, and if two
+  interface default methods collide, the compiler forces the class to override and pick explicitly with
+  <code>InterfaceName.super.method()</code>."
+</div>
+
+<h2>8 · Object slicing — and why Java can't have it</h2>
+<p>
+The C++ setup (Q16), in words: C++ variables can hold objects <em>by value</em> — the variable IS the object's bytes.
+Assign a derived object into a base-typed variable there, and the assignment <em>copies</em> the object into a
+base-sized box: only the base part fits, and the derived-specific fields are <strong>sliced off</strong> and lost —
+the copy then behaves as a plain base object. Like forwarding a 5-page report through a
+1-page fax machine: pages 2–5 silently gone.
+</p>
+<pre><code><span class="cmt">// Java — the same assignment copies an ADDRESS, never the object's bytes:</span>
+Derived d = new Derived();
+Base b = d;                 <span class="cmt">// copies the REFERENCE (the address), never the object</span>
+                            <span class="cmt">// one whole Derived object on the heap; b just points at it</span>
+b.show();                   <span class="cmt">// still prints "Derived" — nothing was lost</span></code></pre>
+<p>
+<strong>Interview answer:</strong> "Slicing happens when a derived object is copied by value into a base-typed variable —
+the derived part is cut off. Java variables never hold objects by value, only references; assignment copies the
+reference and the full object stays intact on the heap. So object slicing is impossible in Java."
+</p>
+
+<h2>9 · Rapid checklist from the MCQ set</h2>
+<p>Quick answers to the remaining C++ MCQ topics an interviewer might poke, each with its Java mapping:</p>
+<table>
+  <thead><tr><th>MCQ topic</th><th>C++ answer</th><th>Java mapping</th></tr></thead>
+  <tbody>
+    <tr><td>Default member access</td><td><code>private</code> for <code>class</code></td><td>Package-private (visible in same package) — different! Don't mix them up</td></tr>
+    <tr><td>Constructor order in inheritance</td><td>Base first, then Derived ("BaseDerived")</td><td>Same — <code>super()</code> runs first, always, even if you don't write it</td></tr>
+    <tr><td>Destructor order</td><td>Reverse: Derived first, then Base</td><td>No destructors — GC frees the whole object at once</td></tr>
+    <tr><td><code>this</code> pointer</td><td>Pointer to the current object inside methods</td><td><code>this</code> reference — same idea, used identically</td></tr>
+    <tr><td>Copy constructor</td><td>Builds a new object from an existing one; it must take the source by <em>reference</em>, else infinite recursion</td><td>No automatic one; write <code>A(A other)</code> yourself (preferred over <code>clone()</code>) — see Lesson 6's deep-copy rules</td></tr>
+    <tr><td><code>delete</code> operator</td><td>Frees a <code>new</code>-allocated object; you must call it</td><td>Doesn't exist — GC reclaims unreachable objects automatically</td></tr>
+    <tr><td><code>protected</code> meaning</td><td>Same class + derived classes</td><td>Same class + subclasses <em>+ same package</em> (Java's protected is slightly wider)</td></tr>
+    <tr><td>Inheriting private members</td><td>Present in the child object but not accessible; <code>protected</code> is accessible</td><td>Identical — private fields exist inside the child but only parent's methods touch them</td></tr>
+  </tbody>
+</table>
+
+<h2>10 · Interview questions this lesson answers</h2>
+<p>Quoted from your senior's Top-25 list, with 2-line model answers.</p>
+<ul>
+  <li>
+    <strong>Q8. "Can a constructor be virtual? Why or why not?"</strong><br>
+    No. Virtual dispatch works through an existing object's vtable pointer, but the constructor runs <em>before</em> the object
+    fully exists — and creation must name an exact class anyway. Use a factory method for polymorphic creation.
+  </li>
+  <li>
+    <strong>Q12. "What is the diamond problem in multiple inheritance and how is it solved?"</strong><br>
+    D inherits A via both B and C — ambiguity plus duplicated state. C++: virtual inheritance shares one A.
+    Java: single class inheritance, and clashing interface defaults are a compile error until you override and choose.
+  </li>
+  <li>
+    <strong>Q13. "How does dynamic dispatch (virtual functions) work internally?"</strong><br>
+    Each class has a table of method addresses (vtable); each object points to its class's table. Calls look up the method
+    slot at runtime, so the object's real type wins. Java does this for all instance methods automatically.
+  </li>
+  <li>
+    <strong>Q16. "What is object slicing?"</strong><br>
+    Copying a derived object by value into a base variable chops off the derived part (C++).
+    Impossible in Java: assignment copies references, never object contents.
+  </li>
+  <li>
+    <strong>Q18. "Can you explain friend class/function (in C++) and its use case?"</strong><br>
+    A friend may access a class's private members — used for tightly coupled pairs like container + iterator.
+    Java's substitutes: package-private access and nested classes.
+  </li>
+  <li>
+    <strong>Q24. "What is operator overloading? Give an example."</strong><br>
+    C++: redefine operators for your own types — after writing the special method for plus, adding two Complex objects runs your code.
+    Java omits it for readability (methods like <code>BigInteger.add()</code>); only the language itself overloads <code>+</code> for Strings.
+  </li>
+</ul>
+
+<h2>11 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">In Java: <code>Base b = new Derived();</code> and both classes define <code>void show()</code> (an override, non-static). What does <code>b.show()</code> print, and why?</div>
+  <button class="opt">"Base" — the reference type <code>Base</code> decides which method binds at compile time</button>
+  <button class="opt">"Derived" — every Java instance method dispatches on the object's real runtime type</button>
+  <button class="opt">Compile error — a Base reference cannot invoke a method that Derived redefined</button>
+  <div class="fb" data-correct="Java instance methods are all 'virtual': the call goes through the object's class at runtime, so Derived's override runs. In C++ you'd need the virtual keyword to get this — without it, 'Base' would print." data-wrong="That's the C++ non-virtual behavior (the senior's MCQ trap). Java always dispatches instance methods on the runtime type — only static, final, and private methods skip dynamic dispatch."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Class <code>D</code> implements interfaces <code>B</code> and <code>C</code>, which both provide a <code>default hello()</code>. How does Java handle this diamond?</div>
+  <button class="opt">Runtime exception the first time <code>hello()</code> is invoked ambiguously</button>
+  <button class="opt">The interface declared first in the <code>implements</code> clause wins the conflict</button>
+  <button class="opt">Compile error until <code>D</code> overrides <code>hello()</code>, optionally delegating via <code>B.super.hello()</code></button>
+  <div class="fb" data-correct="Java never guesses and never waits for runtime: the compiler rejects D until it overrides hello() and resolves the ambiguity itself — InterfaceName.super.method() picks a side explicitly." data-wrong="Declaration order carries no meaning and nothing is deferred to runtime. The compiler stops D immediately; the fix is an explicit override, optionally calling B.super.hello() or C.super.hello()."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">An interviewer asks why object slicing can't happen in Java. The best one-line answer:</div>
+  <button class="opt">Java variables hold references to heap objects, so assignment copies an address, never the object's data</button>
+  <button class="opt">The JVM detects slicing at runtime and throws a ClassCastException to protect the object</button>
+  <button class="opt">Java's <code>final</code> keyword on classes prevents derived data from being discarded during copies</button>
+  <div class="fb" data-correct="Slicing needs by-value object copies into a smaller base-sized box. Java has no by-value objects — Base b = derived just repoints a reference at the same intact heap object." data-wrong="No runtime detection and no keyword is involved. The reason is structural: Java assignment copies references (addresses), so the full object always survives intact on the heap."></div>
+</div>
+
+<h2>12 · Do this next</h2>
+<ul>
+  <li><strong>Drill the dictionary:</strong> cover the right column of the Section 1 table and reproduce it from memory. This table IS the lesson.</li>
+  <li><strong>Run the trap:</strong> type the constructor-calls-overridable-method example (Section 4) and watch the NullPointerException. Explain to yourself why <code>name</code> was null.</li>
+  <li><strong>Redo the senior's MCQs 7, 8, 12, 14, 15, 25, and 30</strong> from OOPS.txt — but answer each one twice: once as C++ intends, once as "and in Java, ...".</li>
+  <li><strong>Say the diamond answer aloud</strong> with the diagram in your head: problem → C++ fix → Java's two layers.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want a deeper vtable walkthrough, more friend-vs-package-private examples, or to dry-run any of the senior's C++ snippets
+  line by line? Ask in the chat. When you can answer Q8, Q12, Q16, Q18, and Q24 with both the C++ story and the Java mapping,
+  say <strong>"next"</strong> and we finish with Lesson 8: SOLID and the full interview drill.
+</div>
+
+<div class="nav">
+  <span><a href="0006-object-class-composition-and-copies.html">← Object Class, Composition &amp; Copies</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0008-solid-and-interview-drill.html">SOLID &amp; Interview Drill →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

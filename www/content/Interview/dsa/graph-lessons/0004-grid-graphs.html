@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 04 — Grid Graphs</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 04 of 09 · a 2-D grid is just a graph</div>
+<h1>Grid Graphs (Matrix as a Graph)</h1>
+<p class="subtitle">Stop seeing a matrix. See a graph whose nodes are cells and whose edges are the four cells next door — then DFS and BFS from Lessons 02 &amp; 03 solve the entire island family unchanged.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> grid problems are the most common graph questions in a Google intern OA, and the whole island family is reported live. Recognize them in &lt; 60s and code every case in Java bug-free.
+  This is Lesson 4 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+A grid <code>int[][] g</code> with <code>R</code> rows and <code>C</code> columns <em>is</em> a graph — you just never get handed an adjacency list.
+Each cell <code>(r,c)</code> is a <strong>node</strong>; its <strong>edges</strong> are the in-bounds cells immediately around it: 4 (up/down/left/right)
+or, when diagonals count, 8. There is no <code>buildAdj</code> step because the neighbors are computed on the fly from an
+<code>int[][] dirs</code> offset array. Once you accept that, every island/region problem is the DFS/BFS you already know,
+with two decisions to make: <strong>which traversal</strong> (DFS for connectivity/area, BFS for shortest/multi-source) and
+<strong>how to mark visited</strong> (mutate the grid in place, or carry a <code>boolean[][]</code>).
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  A 2-D grid plus <strong>"islands / regions / connected land"</strong>, <strong>"area / largest blob"</strong>,
+  <strong>"flood fill"</strong>, <strong>"surrounded / enclosed / closed"</strong>, or <strong>"nearest / distance to the closest X"</strong>.
+  Relationships between adjacent cells → grid graph. "Connected / how many groups / how big" → DFS. "Shortest / nearest / spread from many sources" → multi-source BFS (Lesson 03).
+</div>
+
+<h2>2 · Core template — 4-directional neighbor iteration</h2>
+<p>
+The spine of every grid graph is a <code>dirs</code> array plus one bounds check. Memorize it; everything below is this loop with a different rule for what counts as "land" and what you do when you arrive.
+</p>
+
+<pre><code>static final int[][] DIRS = {{-1,0},{1,0},{0,-1},{0,1}}; <span class="cmt">// up, down, left, right</span>
+
+<span class="cmt">// flood one connected blob of '1's, marking visited IN PLACE</span>
+void dfs(char[][] g, int r, int c) {
+    int R = g.length, C = g[0].length;
+    if (r &lt; 0 || r &gt;= R || c &lt; 0 || c &gt;= C) return; <span class="cmt">// bounds guard FIRST — Java won't wrap</span>
+    if (g[r][c] != '1') return;                       <span class="cmt">// water or already-visited → stop</span>
+    g[r][c] = '0';                                    <span class="cmt">// MARK BEFORE recursing (sink the cell)</span>
+    for (int[] d : DIRS)
+        dfs(g, r + d[0], c + d[1]);                   <span class="cmt">// recurse into all 4 neighbors</span>
+}</code></pre>
+<p>
+<strong>Time</strong> O(R·C) — each cell is entered a constant number of times. <strong>Space</strong> O(R·C) worst case for the
+recursion stack (a grid that is one giant blob is a path of length R·C). The <code>dirs</code>-array form is shorter and
+less bug-prone than four hand-written <code>if</code> branches, and extends to 8 directions by one line.
+</p>
+
+<div class="callout tip">
+  <span class="label">Two equivalent guard styles — pick one and be consistent</span>
+  You can bounds-check <em>before</em> the recursive call (push the guard into the callee, as above) or bounds-check the
+  <em>neighbor</em> before you recurse (guard in the caller, as the BFS cases do). Both are correct. The in-callee style is
+  shorter for DFS; the in-caller style reads cleaner for BFS where you only enqueue valid neighbors. Don't mix them in one function.
+</div>
+
+<div class="callout trap">
+  <span class="label">The #1 grid-graph bug — mark BEFORE you recurse / enqueue</span>
+  Mark a cell visited <em>at the moment you commit to it</em>, not after exploring. In DFS, set <code>g[r][c]='0'</code> on the
+  way <em>in</em>; in BFS, mark the neighbor in the same breath as <code>q.offer(...)</code>. Mark late and the same cell is
+  visited from several directions — exponential blowup, wrong counts, or a stack overflow. (Same sin as the BFS enqueue/dequeue
+  bug from Lesson 03.)
+</div>
+
+<h2>3 · In-place marking vs a visited[][] array</h2>
+<p>Two ways to remember "I've been here." Know the trade-off cold — interviewers ask.</p>
+<table>
+  <thead><tr><th>&nbsp;</th><th>Mutate the grid in place</th><th>Separate <code>boolean[][] seen</code></th></tr></thead>
+  <tbody>
+    <tr><td>Extra space</td><td>O(1)</td><td>O(R·C)</td></tr>
+    <tr><td>Preserves input</td><td>No — destroys the grid</td><td>Yes</td></tr>
+    <tr><td>How</td><td>Overwrite land with water (<code>'1'→'0'</code>), or a sentinel like <code>2</code></td><td><code>if (!seen[nr][nc]) { seen[nr][nc]=true; ... }</code></td></tr>
+    <tr><td>Use when</td><td>You're allowed to mutate and want O(1) space (the usual interview win)</td><td>The grid must survive, or values are unbounded so no safe sentinel exists</td></tr>
+  </tbody>
+</table>
+<div class="callout tip">
+  <span class="label">Default to in-place when allowed</span>
+  Sinking land to water is the canonical island idiom and earns the O(1)-space line on your complexity analysis. If the
+  interviewer says "don't modify the input," restore it afterward or switch to <code>boolean[][]</code> — and say so out loud.
+</div>
+
+<h2>4 · All the cases (this is why the pattern matters)</h2>
+<p>
+Every row below is the same neighbor loop. What changes is the <em>seed</em> (where you start), the <em>marker</em>, and the
+<em>bookkeeping</em> you do per cell. The whole island family is heavily reported in Google intern interviews — drill it.
+</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Count islands</td><td>LC 200 <span class="cmt">⚑ Google</span></td><td>Scan all cells; each unvisited land cell launches one DFS that sinks its blob.</td></tr>
+    <tr><td>Largest island area</td><td>LC 695 <span class="cmt">⚑ Google</span></td><td>DFS returns a count; take the max over all launches.</td></tr>
+    <tr><td>Flood fill</td><td>LC 733</td><td>One seed; recolor the connected same-color region. Guard new==old.</td></tr>
+    <tr><td>Surrounded regions</td><td>LC 130</td><td>DFS from the <em>borders</em> first to immunize edge-connected cells, then flip the rest.</td></tr>
+    <tr><td>Walls and gates</td><td>LC 286</td><td>Multi-source BFS seeded from every gate; first arrival = nearest distance.</td></tr>
+    <tr><td>Closed islands</td><td>LC 1254 <span class="cmt">⚑ Google</span></td><td>Sink border-touching land first, then count what remains.</td></tr>
+    <tr><td>Sub-islands</td><td>LC 1905</td><td>Two grids; a grid2 island counts only if every cell is land in grid1.</td></tr>
+    <tr><td>8-direction variant</td><td>e.g. LC 1254 diag / 1091</td><td>Extend <code>DIRS</code> with the four diagonals; everything else identical.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Number of Islands (LC 200) — scan + sink</h3>
+<pre><code>int numIslands(char[][] g) {
+    int R = g.length, C = g[0].length, count = 0;
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++)
+            if (g[r][c] == '1') {   <span class="cmt">// a cell not yet sunk → new island</span>
+                count++;
+                dfs(g, r, c);       <span class="cmt">// sink its entire blob to '0'</span>
+            }
+    return count;
+}
+<span class="cmt">// dfs is the core template from §2</span></code></pre>
+<p><strong>Time</strong> O(R·C). <strong>Space</strong> O(R·C) recursion worst case — swap the DFS for a queue-based BFS if a 10⁶-cell single blob risks a stack overflow.</p>
+
+<h3>Worked example — dry run</h3>
+<p>Grid <code>3×4</code> (<code>'1'</code> = land, <code>'0'</code> = water). Scan cells row-major; each unvisited
+land cell bumps the counter and launches a DFS that sinks its whole blob to <code>'0'</code>:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 200 150" role="img" aria-label="A 3 by 4 grid. Row 0 is land, land, water, water. Row 1 is land, water, water, land. Row 2 is water, water, land, land. The land cells form two connected islands.">
+  <rect class="cell done" x="20"  y="15"  width="40" height="40" rx="4"/><text class="lbl inv" x="40"  y="35">1</text>
+  <rect class="cell done" x="60"  y="15"  width="40" height="40" rx="4"/><text class="lbl inv" x="80"  y="35">1</text>
+  <rect class="cell"      x="100" y="15"  width="40" height="40" rx="4"/><text class="lbl"     x="120" y="35">0</text>
+  <rect class="cell"      x="140" y="15"  width="40" height="40" rx="4"/><text class="lbl"     x="160" y="35">0</text>
+  <rect class="cell done" x="20"  y="55"  width="40" height="40" rx="4"/><text class="lbl inv" x="40"  y="75">1</text>
+  <rect class="cell"      x="60"  y="55"  width="40" height="40" rx="4"/><text class="lbl"     x="80"  y="75">0</text>
+  <rect class="cell"      x="100" y="55"  width="40" height="40" rx="4"/><text class="lbl"     x="120" y="75">0</text>
+  <rect class="cell done" x="140" y="55"  width="40" height="40" rx="4"/><text class="lbl inv" x="160" y="75">1</text>
+  <rect class="cell"      x="20"  y="95"  width="40" height="40" rx="4"/><text class="lbl"     x="40"  y="115">0</text>
+  <rect class="cell"      x="60"  y="95"  width="40" height="40" rx="4"/><text class="lbl"     x="80"  y="115">0</text>
+  <rect class="cell done" x="100" y="95"  width="40" height="40" rx="4"/><text class="lbl inv" x="120" y="115">1</text>
+  <rect class="cell done" x="140" y="95"  width="40" height="40" rx="4"/><text class="lbl inv" x="160" y="115">1</text>
+</svg>
+<figcaption>4-directional adjacency gives <strong>2</strong> islands: {(0,0),(0,1),(1,0)} is an L-shape, and the lone-looking 1 at (1,3) connects down to (2,3) which links left to (2,2) → {(1,3),(2,2),(2,3)}.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">first unvisited land at (0,0) → islands=<span class="ptr">1</span>; dfs sinks {(0,0),(0,1),(1,0)} to '0'</span>
+<span class="step">scan continues past (0,1),(1,0) — already sunk → skip; (0,2),(0,3),(1,1),(1,2) are water → skip</span>
+<span class="step now">next unvisited land at (1,3) → islands=<span class="ptr">2</span>; dfs sinks {(1,3),(2,3),(2,2)} to '0'</span>
+<span class="step">scan finishes the last row — all land already sunk → skip</span>
+<span class="step">scan completes → return <span class="ptr">2</span></span>
+</div>
+
+<h3>Case: Max Area of Island (LC 695) — DFS that returns a count</h3>
+<pre><code>int maxAreaOfIsland(int[][] g) {
+    int R = g.length, C = g[0].length, best = 0;
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++)
+            if (g[r][c] == 1) best = Math.max(best, area(g, r, c));
+    return best;
+}
+int area(int[][] g, int r, int c) {
+    if (r &lt; 0 || r &gt;= g.length || c &lt; 0 || c &gt;= g[0].length || g[r][c] != 1)
+        return 0;                       <span class="cmt">// out of bounds or not land → contributes 0</span>
+    g[r][c] = 0;                        <span class="cmt">// mark BEFORE recursing</span>
+    int sum = 1;                        <span class="cmt">// this cell</span>
+    for (int[] d : DIRS) sum += area(g, r + d[0], c + d[1]);
+    return sum;                         <span class="cmt">// 1 + areas of the four sub-explorations</span>
+}</code></pre>
+<div class="callout tip">
+  <span class="label">The reusable idiom: a DFS that returns a value</span>
+  Counting area, perimeter, or "does this blob touch the border?" are all the same shape — the DFS returns a number/flag and
+  the parent aggregates it. <strong>Mark visited first, then add 1 + the four recursive results.</strong> This pattern carries
+  straight into LC 1254 and 1905 below.
+</div>
+
+<h3>Case: Flood Fill (LC 733) — guard the no-op recolor</h3>
+<pre><code>int[][] floodFill(int[][] img, int sr, int sc, int color) {
+    if (img[sr][sc] != color) fill(img, sr, sc, color, img[sr][sc]);
+    return img;                         <span class="cmt">// else new==old → recolor is a no-op, skip to avoid infinite recursion</span>
+}
+void fill(int[][] img, int r, int c, int color, int start) {
+    int R = img.length, C = img[0].length;
+    if (r &lt; 0 || r &gt;= R || c &lt; 0 || c &gt;= C || img[r][c] != start) return;
+    img[r][c] = color;                  <span class="cmt">// recolor = mark visited (changes what the guard checks)</span>
+    for (int[] d : DIRS) fill(img, r + d[0], c + d[1], color, start);
+}</code></pre>
+<div class="callout trap">
+  <span class="label">Marking must change what the guard tests</span>
+  If <code>color == start</code>, recoloring doesn't change <code>img[r][c]</code>, so the <code>!= start</code> guard never
+  fires and the recursion loops forever. The outer <code>if (img[sr][sc] != color)</code> guard kills it. Generalize:
+  <strong>the visited mark must alter a value your stop-condition reads.</strong>
+</div>
+
+<h3>Case: Surrounded Regions (LC 130) — DFS from the borders inward</h3>
+<p>
+Flip every <code>'O'</code> region <em>not</em> touching an edge to <code>'X'</code>. Inverting the question is the trick:
+instead of testing each region for border contact, <strong>DFS from the borders first</strong> to mark all edge-connected
+<code>'O'</code>s as safe (temporary <code>'#'</code>), then sweep once — surviving <code>'O'</code>s are enclosed, <code>'#'</code>s revert.
+</p>
+<pre><code>void solve(char[][] b) {
+    int R = b.length, C = b[0].length;
+    for (int r = 0; r &lt; R; r++) { guard(b, r, 0); guard(b, r, C - 1); }   <span class="cmt">// left &amp; right edges</span>
+    for (int c = 0; c &lt; C; c++) { guard(b, 0, c); guard(b, R - 1, c); }   <span class="cmt">// top &amp; bottom edges</span>
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++) {
+            if (b[r][c] == 'O') b[r][c] = 'X';   <span class="cmt">// enclosed → flip</span>
+            else if (b[r][c] == '#') b[r][c] = 'O'; <span class="cmt">// border-connected → restore</span>
+        }
+}
+void guard(char[][] b, int r, int c) {           <span class="cmt">// mark this 'O' region as edge-safe</span>
+    if (r &lt; 0 || r &gt;= b.length || c &lt; 0 || c &gt;= b[0].length || b[r][c] != 'O') return;
+    b[r][c] = '#';
+    for (int[] d : DIRS) guard(b, r + d[0], c + d[1]);
+}</code></pre>
+<div class="callout tip">
+  <span class="label">"Anything touching the border is special" → seed from the border</span>
+  This border-first move is its own mini-pattern (Pacific-Atlantic LC 417 is the same idea). When edge contact decides the
+  answer, traverse from the edges <em>first</em> and invert the question. The next case reuses it directly.
+</div>
+
+<h3>Case: Number of Closed Islands (LC 1254) — sink border land, then count</h3>
+<pre><code><span class="cmt">// here 0 = land, 1 = water (LC 1254's convention)</span>
+int closedIsland(int[][] g) {
+    int R = g.length, C = g[0].length;
+    for (int r = 0; r &lt; R; r++) { sink(g, r, 0); sink(g, r, C - 1); }     <span class="cmt">// drown edge-touching land</span>
+    for (int c = 0; c &lt; C; c++) { sink(g, 0, c); sink(g, R - 1, c); }
+    int count = 0;
+    for (int r = 1; r &lt; R - 1; r++)
+        for (int c = 1; c &lt; C - 1; c++)
+            if (g[r][c] == 0) { count++; sink(g, r, c); } <span class="cmt">// only interior land survives → closed</span>
+    return count;
+}
+void sink(int[][] g, int r, int c) {
+    if (r &lt; 0 || r &gt;= g.length || c &lt; 0 || c &gt;= g[0].length || g[r][c] != 0) return;
+    g[r][c] = 1;                        <span class="cmt">// turn land to water = mark visited</span>
+    for (int[] d : DIRS) sink(g, r + d[0], c + d[1]);
+}</code></pre>
+<div class="callout">
+  <span class="label">Closed = "Number of Islands after removing border-touching ones"</span>
+  Same scan-and-sink as LC 200; the only addition is the border pre-pass that eliminates open islands. <strong>Count Sub
+  Islands (LC 1905)</strong> is the sibling: explore each island of <code>grid2</code> and AND together "is the matching
+  <code>grid1</code> cell also land?" across the whole blob — if any cell fails, the sub-island doesn't count.
+</div>
+
+<h3>Case: Walls and Gates (LC 286) — multi-source BFS from every gate</h3>
+<p>
+Fill each empty room with its distance to the <em>nearest</em> gate. Don't BFS from each empty cell (O((R·C)²)). Instead seed
+<strong>all gates at once</strong> and BFS outward — the first time the frontier reaches a room is, by BFS's level guarantee,
+its nearest-gate distance. (Multi-source BFS from Lesson 03; LC 542 "01 Matrix" is the same move.)
+</p>
+<pre><code>static final int INF = Integer.MAX_VALUE;     <span class="cmt">// LC 286: -1 = wall, 0 = gate, INF = empty room</span>
+void wallsAndGates(int[][] rooms) {
+    int R = rooms.length, C = rooms[0].length;
+    Queue&lt;int[]&gt; q = new ArrayDeque&lt;&gt;();
+    for (int r = 0; r &lt; R; r++)
+        for (int c = 0; c &lt; C; c++)
+            if (rooms[r][c] == 0) q.offer(new int[]{r, c});  <span class="cmt">// seed EVERY gate</span>
+    while (!q.isEmpty()) {
+        int[] cell = q.poll();
+        int r = cell[0], c = cell[1];
+        for (int[] d : DIRS) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr &lt; 0 || nr &gt;= R || nc &lt; 0 || nc &gt;= C || rooms[nr][nc] != INF)
+                continue;                          <span class="cmt">// out of bounds, wall, or already filled</span>
+            rooms[nr][nc] = rooms[r][c] + 1;        <span class="cmt">// MARK + set distance at enqueue time</span>
+            q.offer(new int[]{nr, nc});
+        }
+    }
+}</code></pre>
+<p><strong>Time</strong> O(R·C) — each room is filled exactly once (the <code>!= INF</code> test is the visited check). <strong>Space</strong> O(R·C) for the queue.</p>
+<div class="callout tip">
+  <span class="label">Why DFS would be wrong here</span>
+  DFS's first arrival at a room can be via a long detour, so it would record a non-minimal distance. BFS expands by distance,
+  so first arrival = shortest. <strong>"Nearest / shortest / spread" on a grid → BFS, every time</strong> (Lesson 03's rule, applied here).
+</div>
+
+<h3>The 8-directional variant — one extra line</h3>
+<p>
+When diagonals are neighbors (e.g. LC 1091 Shortest Path in Binary Matrix, or counting islands with diagonal adjacency), only
+the <code>dirs</code> array changes. The bounds check, marking, and traversal are identical.
+</p>
+<pre><code>static final int[][] DIRS8 = {
+    {-1,-1},{-1,0},{-1,1},
+    { 0,-1},       { 0,1},
+    { 1,-1},{ 1,0},{ 1,1}    <span class="cmt">// the 4 orthogonal + 4 diagonal offsets</span>
+};
+<span class="cmt">// swap DIRS → DIRS8 in any template above; nothing else moves</span></code></pre>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Bounds order in the <code>if</code></strong> → test <code>nr,nc</code> in range <em>before</em> reading <code>g[nr][nc]</code>. Java throws <code>ArrayIndexOutOfBounds</code>; it does not wrap negatives. Short-circuit <code>||</code> makes the order load-bearing.</li>
+  <li><strong>Mark BEFORE recursing / enqueuing</strong> → mark on the way in (DFS) or at offer time (BFS), never after. Late marking = re-visits, blow-ups, wrong counts.</li>
+  <li><strong>In-place mutation vs <code>visited[][]</code></strong> → in-place is O(1) space but destroys input; restore it or use a boolean grid when the input must survive or values are unbounded.</li>
+  <li><strong>Flood fill same start/target color</strong> → the no-op recolor never marks anything → infinite recursion. Guard <code>color != start</code>.</li>
+  <li><strong>4 vs 8 directions</strong> → re-read the problem: "horizontally or vertically" = 4; "including diagonally" = 8. Wrong <code>dirs</code> silently merges or splits islands.</li>
+  <li><strong>Empty grid</strong> → guard <code>g.length == 0 || g[0].length == 0</code> before reading <code>g[0].length</code>, or you crash on the dimension read itself.</li>
+  <li><strong>Recursion depth</strong> → a single component covering a 10⁶-cell grid can overflow the call stack; switch the DFS for an explicit stack or BFS queue.</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In the 4-directional DFS template, why must the bounds check come <em>before</em> reading <code>g[nr][nc]</code>?</div>
+  <button class="opt">Because the dirs array is evaluated lazily inside the for-each loop</button>
+  <button class="opt">Because Java wraps a negative index around to the opposite edge otherwise</button>
+  <button class="opt">Because an out-of-range index throws ArrayIndexOutOfBounds — there is no sentinel to read</button>
+  <div class="fb" data-correct="Java arrays neither wrap nor return a sentinel: touching g[-1][c] throws immediately, so the in-range test must short-circuit first." data-wrong="Java arrays don't wrap and have no sentinel value — an out-of-range read throws, so the bounds test has to run before the access."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">You must fill every empty room with the distance to its <strong>nearest</strong> gate, and there are many gates. The right tool is:</div>
+  <button class="opt">Multi-source BFS — seed all gates into the queue at once, first arrival is the nearest distance</button>
+  <button class="opt">A separate DFS launched from each empty room, taking the minimum depth reached</button>
+  <button class="opt">A single DFS from the first gate, since DFS explores the whole connected grid</button>
+  <div class="fb" data-correct="Seeding every gate and expanding by levels means the first time BFS reaches a room is its shortest distance to any gate — one O(R·C) pass. DFS gives no shortest-path guarantee." data-wrong="Nearest/shortest on a grid is BFS. Seed all gates simultaneously; the level guarantee makes first arrival the minimum distance in one pass."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">To count <strong>closed</strong> islands (land not touching any border), the cleanest first step is to:</div>
+  <button class="opt">Count all islands with LC 200, then subtract the four corner cells</button>
+  <button class="opt">DFS/sink from the border cells first to remove every border-touching island, then count what's left</button>
+  <button class="opt">Switch to an 8-directional dirs array so diagonal land is included</button>
+  <div class="fb" data-correct="Border-touching land can never be closed, so eliminate it up front by flooding from the edges; the remaining interior islands are exactly the closed ones." data-wrong="Invert the question: flood from the borders to drown every open island first, then a normal scan-and-count yields only the closed ones."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/count-number-of-islands">NeetCode — Number of Islands</a>, then <a href="https://neetcode.io/problems/max-area-of-island">Max Area of Island</a>. Cleanest scan-and-sink walk-throughs; both are reported Google interview questions.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 733 → LC 200 → LC 695 → LC 130 → LC 1254 → LC 286 → LC 1905. Code each from a blank file; if you stall, fall back to the <code>dirs</code> template in §2 and ask "DFS for connectivity, or BFS for nearest?"</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Stuck on the border-first inversion for LC 130/1254, unsure whether a problem wants 4 or 8 directions, or want me to dry-run
+  multi-source BFS on a small rooms grid? Ask in the chat. When you can code LC 200, LC 695, and LC 286 from memory, say
+  <strong>"next"</strong> and we move to Lesson 05: Topological Sort.
+</div>
+
+<div class="nav">
+  <span><a href="0003-bfs-and-shortest-paths.html">← BFS &amp; Shortest Paths</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0005-topological-sort.html">Topological Sort →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

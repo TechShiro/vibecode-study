@@ -1,0 +1,466 @@
+<title>Structure of a Compiler</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Unit I &middot; Lesson 2 of 10</p>
+<h1>The Structure of a Compiler &mdash; the Six Phases</h1>
+<p class="deck">Every phase with its input, output and the errors it catches, the whole sequence traced on one real statement, the symbol table and error handler that run alongside, and the difference between a phase and a pass.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p><strong>&ldquo;Explain the phases of a compiler with a diagram, showing the translation of a statement&rdquo; is the most-asked question in this entire paper.</strong> It is worth 10 marks and it is the same question every year. The answer has a fixed shape: <strong>draw the vertical phase diagram with the symbol table and error handler beside it</strong>, then trace <code>position = initial + rate * 60</code> through all six phases, <strong>writing the output of each phase</strong>. Learn that trace by heart &mdash; the token stream, the syntax tree, the three-address code, the optimised code and the assembly. Also learn <strong>phase vs pass</strong>, a standard 2-marker.</p>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Curated Video Masterclass (1 Best Video Per Core Concept)</span>
+  
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Concept 1 &middot; Six Phases &amp; Statement Trace</span>
+      <span class="best-tag">Top Hindi Lecture</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=PT9iWM80PDU" target="_blank">Lec-2: Phases of Compiler with examples</a>
+    <span class="v-meta">Gate Smashers &middot; 14:33</span>
+    <div class="v-why">The definitive exam-oriented explanation of the six phases, tracing <code>position = initial + rate * 60</code> with crystal-clear symbol table indexing and inttofloat coercion.</div>
+  </div>
+
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">Alternative &middot; Six Phases Theory &amp; Passes</span>
+      <span class="best-tag">Top English Reference</span>
+    </div>
+    <a class="v-title" href="https://www.youtube.com/watch?v=TApMNhQPaCM" target="_blank">Different Phases of Compiler</a>
+    <span class="v-meta">Neso Academy &middot; 19:12</span>
+    <div class="v-why">Methodical English lecture detailing the formal inputs and outputs of each phase, symbol table interactions, and phase vs pass grouping.</div>
+  </div>
+</div>
+
+<h2>1. The Phases of a Compiler Diagram</h2>
+
+<p>Every university answer must begin with this exact structural architecture. The <strong>Symbol Table</strong> and <strong>Error Handler</strong> are shown flanking all six phases because they interact with every stage of the pipeline.</p>
+
+<!-- FLOWCHART: SIX PHASES WITH SIDE PILLARS -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Master Diagram: The Six Phases of a Compiler</span>
+  
+  <div class="phase-layout">
+    <!-- Left Pillar: Symbol Table -->
+    <div class="side-pillar">
+      <strong>SYMBOL TABLE<br>MANAGER</strong>
+      <span class="sub">Shared repository storing variable names, data types, scope, and memory offsets. Consulted and updated by all phases.</span>
+      <div style="font-family:ui-monospace,monospace; font-size:.72rem; background:var(--paper); padding:.25rem .4rem; border:1px solid var(--rule); border-radius:4px; margin-top:.4rem;">
+        Hash Table<br>O(1) Access
+      </div>
+    </div>
+
+    <!-- Center Flow: 6 Phases -->
+    <div class="flow-col">
+      <div style="text-align:center; font-size:.74rem; font-weight:700; color:var(--accent); text-transform:uppercase; margin-bottom:.3rem; letter-spacing:.08em;">
+        &mdash; Front End (Analysis &middot; Machine Independent) &mdash;
+      </div>
+      
+      <div class="flow-label">&darr; Source Code Character Stream</div>
+      
+      <!-- Phase 1 -->
+      <div class="flow-box highlight">
+        <strong>1. LEXICAL ANALYSER (Scanner)</strong>
+        <span class="sub">Groups characters into lexemes; strips blanks &amp; comments</span>
+      </div>
+      
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">&darr; Token Stream &lang;token_name, attribute_val&rang;</div>
+      
+      <!-- Phase 2 -->
+      <div class="flow-box highlight">
+        <strong>2. SYNTAX ANALYSER (Parser)</strong>
+        <span class="sub">Validates token structure against CFG grammar</span>
+      </div>
+      
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">&darr; Hierarchical Parse / Syntax Tree</div>
+      
+      <!-- Phase 3 -->
+      <div class="flow-box highlight">
+        <strong>3. SEMANTIC ANALYSER</strong>
+        <span class="sub">Type checking &amp; widening type conversions (coercions)</span>
+      </div>
+      
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">&darr; Annotated Syntax Tree</div>
+      
+      <!-- Phase 4 -->
+      <div class="flow-box highlight">
+        <strong>4. INTERMEDIATE CODE GENERATOR</strong>
+        <span class="sub">Generates linear, machine-independent 3-address code</span>
+      </div>
+      
+      <div style="text-align:center; font-size:.74rem; font-weight:700; color:var(--accent); text-transform:uppercase; margin:.7rem 0 .2rem; letter-spacing:.08em;">
+        &mdash; Back End (Synthesis &middot; Machine Dependent) &mdash;
+      </div>
+      
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">&darr; Intermediate Representation (TAC)</div>
+      
+      <!-- Phase 5 -->
+      <div class="flow-box warn">
+        <strong>5. CODE OPTIMISER <span style="font-size:.72rem; color:var(--warn); font-weight:700;">[OPTIONAL]</span></strong>
+        <span class="sub">Eliminates dead code, folds constants, optimizes loops</span>
+      </div>
+      
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">&darr; Optimised Intermediate Code</div>
+      
+      <!-- Phase 6 -->
+      <div class="flow-box ok">
+        <strong>6. CODE GENERATOR</strong>
+        <span class="sub">Instruction selection, register allocation, memory assignment</span>
+      </div>
+      
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">&darr; Target Assembly / Machine Instructions</div>
+    </div>
+
+    <!-- Right Pillar: Error Handler -->
+    <div class="side-pillar">
+      <strong>ERROR<br>HANDLER</strong>
+      <span class="sub">Detects, reports, and recovers from errors encountered during translation without crashing the compiler.</span>
+      <div style="font-family:ui-monospace,monospace; font-size:.72rem; background:var(--paper); padding:.25rem .4rem; border:1px solid var(--rule); border-radius:4px; margin-top:.4rem;">
+        Catches: Phase 1, 2, 3
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>2. The Six Phases in Detail</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Phase Name</th><th>Input &rarr; Output</th><th>Core Responsibility</th><th>Errors Caught</th></tr></thead>
+<tbody>
+<tr>
+  <td class="num"><strong>1</strong></td>
+  <td><strong>Lexical Analysis</strong><br>(Scanning)</td>
+  <td>Source characters &rarr; <strong>Token stream</strong></td>
+  <td>Scans source text from left to right, groups characters into meaningful character sequences called <strong>lexemes</strong>, produces a <strong>token</strong> for each, strips spaces/comments, and inserts identifier names into the Symbol Table.</td>
+  <td><strong>Lexical errors:</strong> Illegal characters (e.g. <code>@</code>, <code>$</code> in C), unterminated string literals or block comments, ill-formed numeric constants (e.g. <code>123a4</code>).</td>
+</tr>
+<tr>
+  <td class="num"><strong>2</strong></td>
+  <td><strong>Syntax Analysis</strong><br>(Parsing)</td>
+  <td>Token stream &rarr; <strong>Syntax tree</strong></td>
+  <td>Imposes a hierarchical grammatical structure on the token stream according to the <strong>Context-Free Grammar (CFG)</strong> of the language. Constructs an abstract syntax tree where interior nodes represent operators and leaves represent operands.</td>
+  <td><strong>Syntax errors:</strong> Missing semicolons, unmatched parentheses or brackets, misplaced keywords (e.g. <code>int x</code> written as <code>x int</code>), syntax rule violations.</td>
+</tr>
+<tr>
+  <td class="num"><strong>3</strong></td>
+  <td><strong>Semantic Analysis</strong></td>
+  <td>Syntax tree &rarr; <strong>Annotated syntax tree</strong></td>
+  <td>Checks semantic consistency with language rules. Verifies that variable types match their operations (<strong>type checking</strong>), ensures variables are declared before use, checks function call arity, and inserts <strong>type conversions (coercions)</strong> when allowable.</td>
+  <td><strong>Semantic errors:</strong> Type mismatch (e.g. assigning string to integer), undeclared variable access, multiple declarations of the same identifier in the same scope, passing wrong number/type of arguments.</td>
+</tr>
+<tr>
+  <td class="num"><strong>4</strong></td>
+  <td><strong>Intermediate Code Generation (ICG)</strong></td>
+  <td>Annotated tree &rarr; <strong>Three-Address Code (TAC)</strong></td>
+  <td>Translates the parse tree into an explicit, low-level, machine-independent intermediate representation &mdash; typically <strong>Three-Address Code</strong>. Each instruction contains at most one operator on the right-hand side.</td>
+  <td><em>None</em> &mdash; program is structurally and semantically valid; transformations are purely mechanical.</td>
+</tr>
+<tr>
+  <td class="num"><strong>5</strong></td>
+  <td><strong>Code Optimisation</strong><br><em>(Optional Phase)</em></td>
+  <td>Intermediate code &rarr; <strong>Optimised Intermediate code</strong></td>
+  <td>Transforms intermediate code to make the target program execute faster, occupy less memory, or consume less power. Involves constant folding, dead code elimination, loop unrolling, and common subexpression elimination.</td>
+  <td><em>None</em></td>
+</tr>
+<tr>
+  <td class="num"><strong>6</strong></td>
+  <td><strong>Code Generation</strong></td>
+  <td>Optimised IR &rarr; <strong>Target Machine Code</strong></td>
+  <td>Maps intermediate instructions into target assembly/machine code. Resolves memory layout, performs <strong>instruction selection</strong>, and executes <strong>register allocation and assignment</strong> (mapping variables to high-speed CPU registers).</td>
+  <td><em>None</em></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The Two Fundamental Insights Every Examiner Looks For</span>
+  <p><strong>1. Error Detection Stops After Phase 3:</strong> Compile-time errors are detected exclusively in phases 1, 2, and 3. By the time intermediate code generation begins, the source program is verified to be grammatically and semantically sound. Phases 4, 5, and 6 only translate and optimise.</p>
+  <p><strong>2. The Code Optimiser is the Only Optional Phase:</strong> If the optimiser is removed entirely, the compiler still produces a completely correct and functional executable &mdash; it simply runs slightly slower. This is why compiler flags like <code>gcc -O0</code> exist (disabling optimisation to maximize compilation speed during debugging).</p>
+</div>
+
+<h2>3. The Guaranteed 10-Mark Trace: <code>position = initial + rate * 60</code></h2>
+
+<div class="solve">
+  <span class="lbl">University Problem &middot; Trace the statement through all six phases of the compiler</span>
+
+  <h3>Phase 1 &mdash; Lexical Analysis</h3>
+  <p>The scanner isolates lexemes, discards blanks, and emits a stream of tokens. Identifiers are assigned indices pointing to their Symbol Table records:</p>
+  
+  <div class="tw">
+  <table>
+  <thead><tr><th>Lexeme</th><th class="num">position</th><th class="num">=</th><th class="num">initial</th><th class="num">+</th><th class="num">rate</th><th class="num">*</th><th class="num">60</th></tr></thead>
+  <tbody>
+  <tr><td><strong>Token Emitted</strong></td><td class="num">&lang;<strong>id</strong>, 1&rang;</td><td class="num">&lang;<strong>=</strong>&rang;</td><td class="num">&lang;<strong>id</strong>, 2&rang;</td><td class="num">&lang;<strong>+</strong>&rang;</td><td class="num">&lang;<strong>id</strong>, 3&rang;</td><td class="num">&lang;<strong>*</strong>&rang;</td><td class="num">&lang;<strong>number</strong>, 60&rang;</td></tr>
+  </tbody>
+  </table>
+  </div>
+  
+  <p style="text-align:center; font-weight:700;">Output: &lang;id, 1&rang; &lang;=&rang; &lang;id, 2&rang; &lang;+&rang; &lang;id, 3&rang; &lang;*&rang; &lang;60&rang;</p>
+  
+  <p><strong>Symbol Table Entries Created:</strong></p>
+  <div class="tw">
+  <table>
+  <thead><tr><th class="num">Index</th><th>Variable Name</th><th>Data Type</th><th>Memory Offset / Attributes</th></tr></thead>
+  <tbody>
+  <tr><td class="num">1</td><td><code>position</code></td><td><code>float</code></td><td>offset 0</td></tr>
+  <tr><td class="num">2</td><td><code>initial</code></td><td><code>float</code></td><td>offset 4</td></tr>
+  <tr><td class="num">3</td><td><code>rate</code></td><td><code>float</code></td><td>offset 8</td></tr>
+  </tbody>
+  </table>
+  </div>
+
+  <h3>Phase 2 &mdash; Syntax Analysis</h3>
+  <p>The parser builds a syntax tree respecting operator precedence: <strong>multiplication (<code>*</code>) has higher precedence than addition (<code>+</code>)</strong>, so the multiplication sub-tree is located deeper in the hierarchy.</p>
+  
+  <!-- VISUAL SYNTAX TREE -->
+  <div class="diagram-wrap" style="text-align:center;">
+    <span class="diagram-title">Syntax Tree (Operator Precedence Tree)</span>
+    <div style="display:inline-block; font-family:ui-monospace,Consolas,monospace; font-size:.9rem; line-height:1.6; text-align:left; background:var(--panel); padding:1rem 1.6rem; border-radius:6px; border:1px solid var(--rule);">
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--accent); font-weight:700; font-size:1.1rem;">=</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<strong>&lang;id, 1&rang;</strong>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--accent); font-weight:700; font-size:1.1rem;">+</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&lang;id, 2&rang;</strong>&nbsp;&nbsp;&nbsp;<span style="color:var(--accent); font-weight:700; font-size:1.1rem;">*</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&lang;id, 3&rang;</strong>&nbsp;&nbsp;<strong>&lang;60&rang;</strong>
+    </div>
+  </div>
+
+  <h3>Phase 3 &mdash; Semantic Analysis</h3>
+  <p>The semantic analyser consults the symbol table and notes that <code>position</code>, <code>initial</code>, and <code>rate</code> are of type <code>float</code>, but <code>60</code> is an <code>integer</code> constant. A floating-point multiplication operator requires both operands to be <code>float</code>. The compiler inserts an <strong>implicit type coercion node: <code>inttofloat</code></strong>.</p>
+  
+  <!-- VISUAL ANNOTATED SYNTAX TREE -->
+  <div class="diagram-wrap" style="text-align:center;">
+    <span class="diagram-title">Annotated Syntax Tree with Type Coercion</span>
+    <div style="display:inline-block; font-family:ui-monospace,Consolas,monospace; font-size:.9rem; line-height:1.6; text-align:left; background:var(--panel); padding:1rem 1.6rem; border-radius:6px; border:1px solid var(--rule);">
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--accent); font-weight:700; font-size:1.1rem;">=</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<strong>&lang;id, 1&rang;</strong>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--accent); font-weight:700; font-size:1.1rem;">+</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;\<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&lang;id, 2&rang;</strong>&nbsp;&nbsp;&nbsp;<span style="color:var(--accent); font-weight:700; font-size:1.1rem;">*</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&lang;id, 3&rang;</strong>&nbsp;&nbsp;&nbsp;<span style="background:var(--warn-bg); border:1px solid var(--warn); padding:.1rem .35rem; border-radius:4px; font-weight:700; color:var(--warn);">inttofloat</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>&lang;60&rang;</strong>
+    </div>
+  </div>
+  <p><em>Exam Note:</em> The <code>inttofloat</code> node is mandatory on your exam sheet. It proves that the semantic analysis phase verified types and modified the tree.</p>
+
+  <h3>Phase 4 &mdash; Intermediate Code Generation</h3>
+  <p>The compiler evaluates the annotated tree from the bottom up, emitting linear <strong>Three-Address Code (TAC)</strong> with compiler-generated temporaries (<code>t1</code>, <code>t2</code>, <code>t3</code>):</p>
+  <div class="formula" style="text-align:left;">
+    <span class="name">Three-Address Code (4 instructions)</span>
+    <code>t1 = inttofloat(60)</code><br>
+    <code>t2 = id3 * t1</code><br>
+    <code>t3 = id2 + t2</code><br>
+    <code>id1 = t3</code>
+  </div>
+
+  <h3>Phase 5 &mdash; Code Optimisation</h3>
+  <p>The code optimiser performs two standard optimisations:</p>
+  <ul>
+    <li><strong>Constant Folding:</strong> The compiler evaluates <code>inttofloat(60)</code> at compile time, replacing the operation with the immediate constant <code>60.0</code>.</li>
+    <li><strong>Dead Code &amp; Copy Propagation:</strong> Eliminates temporary <code>t3</code>, storing the result of addition directly into <code>id1</code>.</li>
+  </ul>
+  <div class="formula" style="text-align:left;">
+    <span class="name">Optimised Three-Address Code (Reduced to 2 instructions)</span>
+    <code>t1 = id3 * 60.0</code><br>
+    <code>id1 = id2 + t1</code>
+  </div>
+  <p><strong>Result:</strong> 4 intermediate instructions are reduced to 2, eliminating CPU execution overhead.</p>
+
+  <h3>Phase 6 &mdash; Code Generation</h3>
+  <p>The code generator assigns CPU registers (<code>R1</code>, <code>R2</code>) and selects assembly instructions. Floating-point operations are designated by an <code>F</code> suffix (<code>LDF</code>, <code>MULF</code>, <code>ADDF</code>, <code>STF</code>); literal constants are preceded by <code>#</code>:</p>
+  <div class="formula" style="text-align:left;">
+    <span class="name">Target Machine Code (Assembly for a Register Architecture)</span>
+    <code>LDF&nbsp;&nbsp; R2, id3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ; Load rate into float register R2</code><br>
+    <code>MULF&nbsp; R2, R2, #60.0&nbsp;&nbsp; ; Multiply R2 by constant 60.0</code><br>
+    <code>LDF&nbsp;&nbsp; R1, id2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ; Load initial into register R1</code><br>
+    <code>ADDF&nbsp; R1, R1, R2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ; Add R2 to R1</code><br>
+    <code>STF&nbsp;&nbsp; id1, R1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ; Store R1 into position</code>
+  </div>
+  <p>Notice that <strong>two CPU registers suffice</strong> for the entire expression. Resolving register allocation without spilling variables into memory is the central challenge of code generation.</p>
+</div>
+
+<h2>4. The Two Cross-Cutting Components</h2>
+
+<h3>The Symbol Table Manager</h3>
+<div class="formula">
+  <span class="name">Formal Definition</span>
+  The <strong>Symbol Table</strong> is a high-speed data structure maintained by the compiler containing a <strong>record for each identifier</strong> encountered in the source code, storing attributes such as data type, storage size, scope level, line number of declaration, and memory location.
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Attribute Tracked</th><th>Primary Consuming Phase</th><th>Practical Use</th></tr></thead>
+<tbody>
+<tr><td>Lexeme name</td><td>Lexical &amp; Syntax Analysis</td><td>Identifier identification and uniqueness validation</td></tr>
+<tr><td>Data Type (int, float, struct)</td><td><strong>Semantic Analysis</strong></td><td>Type checking, determining operand coercion, struct member access</td></tr>
+<tr><td>Scope level &amp; Nesting depth</td><td>Semantic Analysis</td><td>Distinguishing local variables from global variables</td></tr>
+<tr><td>Memory offset / Base address</td><td><strong>Code Generation</strong></td><td>Allocating relative displacement in activation records (stack frames)</td></tr>
+<tr><td>Function Signature</td><td>Semantic Analysis</td><td>Checking argument count, parameter types, and return values</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Implementation:</strong> Typically implemented using a <strong>Hash Table with chaining or bucket trees</strong> to guarantee average $O(1)$ search and insertion time.</p>
+
+<h3>The Error Handler</h3>
+<div class="tw">
+<table>
+<thead><tr><th>Error Category</th><th>Detection Phase</th><th>Classic Examples</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Lexical Error</strong></td><td>Phase 1 (Scanner)</td><td>Invalid character (<code>@</code>, <code>`</code>), ill-formed numbers (<code>3.14.15</code>), unterminated quotes. <em>Note:</em> Misspelling <code>whille</code> is <strong>not</strong> a lexical error &mdash; the scanner treats it as a valid identifier!</td></tr>
+<tr><td><strong>2. Syntactic Error</strong></td><td>Phase 2 (Parser)</td><td>Missing semicolon, unbalanced parentheses <code>(a + b</code>, unexpected tokens, misplaced control keywords.</td></tr>
+<tr><td><strong>3. Semantic Error</strong></td><td>Phase 3 (Semantic)</td><td>Type mismatch (e.g. <code>float * ptr = "string";</code>), undeclared variable access, multiple conflicting declarations.</td></tr>
+<tr><td><strong>4. Logical Error</strong></td><td><strong>None (Undetectable by compiler)</strong></td><td>Infinite loop <code>while(1)</code>, writing <code>if (x = 5)</code> instead of <code>==</code>, incorrect algorithmic logic. The compiler cannot deduce program intent!</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">Error Recovery Goals</span>
+  <p>A production compiler error handler must fulfill three primary goals:</p>
+  <ol>
+    <li><strong>Clear &amp; accurate reporting:</strong> Specify exact file, line number, column, and diagnostic reason.</li>
+    <li><strong>Rapid recovery:</strong> Recover from the current error state quickly to detect remaining errors in the same compilation run without cascading false errors.</li>
+    <li><strong>Zero overhead:</strong> Incur negligible performance cost on syntactically and semantically correct programs.</li>
+  </ol>
+</div>
+
+<h2>5. Phase versus Pass</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Criterion</th><th><strong>Phase</strong></th><th><strong>Pass</strong></th></tr></thead>
+<tbody>
+<tr><td><strong>Definition</strong></td><td>A <strong>logically cohesive operation</strong> that transforms one representation of the source code into another.</td><td>A <strong>physical traversal</strong> over the entire source text or intermediate file on disk/RAM.</td></tr>
+<tr><td><strong>Total Count</strong></td><td>Classical count is strictly <strong>six</strong>.</td><td>Depends on compiler architecture (can be 1-pass, 2-pass, 3-pass, or multi-pass).</td></tr>
+<tr><td><strong>Grouping</strong></td><td>Phases are logical abstractions.</td><td><strong>Multiple phases are routinely grouped into a single physical pass.</strong></td></tr>
+<tr><td><strong>Memory Requirement</strong></td><td>Independent of hardware constraints.</td><td>Fewer passes require keeping entire abstract trees in RAM; multi-pass uses disk streams.</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- FLOWCHART: SINGLE PASS VS MULTI PASS -->
+<div class="diagram-wrap">
+  <span class="diagram-title">Architecture Comparison: Single-Pass vs Multi-Pass Compilers</span>
+  
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.2rem;">
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <strong style="color:var(--accent); display:block; text-align:center; margin-bottom:.5rem;">Single-Pass Compiler</strong>
+      <p style="font-size:.82rem; color:var(--ink-soft); line-height:1.45;">Reads source code <strong>once from beginning to end</strong> and generates machine code on the fly without intermediate files.</p>
+      <ul style="font-size:.8rem; margin:.5rem 0 0 1rem; color:var(--ink-soft);">
+        <li><strong>Advantage:</strong> Very fast compilation, minimal memory footprint.</li>
+        <li><strong>Limitation:</strong> Cannot perform global optimisations; cannot handle forward references without backpatching.</li>
+        <li><strong>Example:</strong> Original Pascal compilers, Turbo Pascal.</li>
+      </ul>
+    </div>
+
+    <div style="border:1px solid var(--rule); border-radius:6px; padding:1rem; background:var(--panel);">
+      <strong style="color:var(--ok); display:block; text-align:center; margin-bottom:.5rem;">Modern 3-Pass Compiler</strong>
+      <p style="font-size:.82rem; color:var(--ink-soft); line-height:1.45;">Groups the six logical phases into three dedicated physical passes:</p>
+      <div style="font-size:.8rem; line-height:1.5; margin-top:.4rem; color:var(--ink);">
+        <strong>Pass 1:</strong> Lexical + Syntax + Semantic + ICG (Front End &rarr; IR)<br>
+        <strong>Pass 2:</strong> Data-flow analysis &amp; Code Optimiser (IR &rarr; Optimised IR)<br>
+        <strong>Pass 3:</strong> Code Generator &amp; Register Allocator (Target Code)
+      </div>
+      <p style="font-size:.8rem; color:var(--ink-soft); margin:.5rem 0 0;"><strong>Example:</strong> GCC, LLVM, Clang.</p>
+    </div>
+  </div>
+</div>
+
+<div class="quiz">
+<h3>Check Yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In the statement <code>position = initial + rate * 60</code>, the output of the lexical analyser is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">&lang;id, 1&rang; &lang;=&rang; &lang;id, 2&rang; &lang;+&rang; &lang;id, 3&rang; &lang;*&rang; &lang;60&rang;</button>
+    <button class="opt">A binary parse tree with multiplication at the root</button>
+    <button class="opt">Three-address code statements with temporaries</button>
+    <button class="opt">Target machine instructions with CPU registers</button>
+  </div>
+  <p class="why">The scanner produces a linear stream of tokens where numbers 1, 2, and 3 are Symbol Table indices, not numerical literals.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. Which phase of the compiler is responsible for inserting the <code>inttofloat</code> conversion node?</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Semantic Analysis</button>
+    <button class="opt">Syntax Analysis</button>
+    <button class="opt">Code Optimisation</button>
+    <button class="opt">Lexical Analysis</button>
+  </div>
+  <p class="why">Semantic analysis performs type checking and inserts coercion nodes when mixed-type expressions occur.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. A missing semicolon in a C program is detected by:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">The Syntax Analyser (Parser)</button>
+    <button class="opt">The Lexical Analyser</button>
+    <button class="opt">The Code Generator</button>
+    <button class="opt">The Semantic Analyser</button>
+  </div>
+  <p class="why">The token stream itself contains valid tokens; it is the structural grammar rule of the language that is violated.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Which of the following compiler phases is strictly optional?</p>
+  <div class="opts">
+    <button class="opt">Semantic Analysis</button>
+    <button class="opt">Code Generation</button>
+    <button class="opt">Intermediate Code Generation</button>
+    <button class="opt" data-ok="1">Code Optimisation</button>
+  </div>
+  <p class="why">Omitting the optimiser yields a completely correct executable that simply runs less efficiently (as seen in debug builds like gcc -O0).</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. An infinite loop caused by writing <code>while (1)</code> or <code>if (x = 5)</code> instead of <code>==</code> is:</p>
+  <div class="opts">
+    <button class="opt">A syntax error caught by Phase 2</button>
+    <button class="opt">A lexical error caught by Phase 1</button>
+    <button class="opt" data-ok="1">A logical error &mdash; undetectable by any compiler phase</button>
+    <button class="opt">A semantic error caught by Phase 3</button>
+  </div>
+  <p class="why">The program is lexically, syntactically, and semantically valid C code. Compilers cannot deduce the intended algorithmic objective of the programmer.</p>
+</div>
+
+</div>
+
+<h2>Recall Without Looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name all six phases with their exact input and output representations.</summary>
+    <p class="ans">1. Lexical Analysis: Characters &rarr; Token stream. 2. Syntax Analysis: Token stream &rarr; Syntax tree. 3. Semantic Analysis: Syntax tree &rarr; Annotated syntax tree. 4. Intermediate Code Generation: Annotated tree &rarr; Three-Address Code. 5. Code Optimisation (Optional): IR &rarr; Optimised IR. 6. Code Generation: Optimised IR &rarr; Target Machine Code.</p></details>
+  <details class="card"><summary>Trace <code>position = initial + rate * 60</code> through all six phases from memory.</summary>
+    <p class="ans">Phase 1: &lang;id,1&rang; &lang;=&rang; &lang;id,2&rang; &lang;+&rang; &lang;id,3&rang; &lang;*&rang; &lang;60&rang;. Phase 2: Syntax tree with = at root, id1 left, + right over id2 and (* over id3 and 60). Phase 3: Annotated tree with inttofloat inserted above 60. Phase 4: TAC (t1 = inttofloat(60); t2 = id3 * t1; t3 = id2 + t2; id1 = t3). Phase 5: Optimised TAC (t1 = id3 * 60.0; id1 = id2 + t1). Phase 6: Assembly (LDF R2, id3; MULF R2, R2, #60.0; LDF R1, id2; ADDF R1, R1, R2; STF id1, R1).</p></details>
+  <details class="card"><summary>What is the Symbol Table, what fields does it store, and who interacts with it?</summary>
+    <p class="ans">A hash table data structure storing variable names, data types, scope depth, memory offsets, and procedure signatures. It is populated by the lexical analyser, populated and read heavily by the semantic analyser, and read by the code generator for register and memory allocation.</p></details>
+  <details class="card"><summary>Contrast a compiler Phase with a compiler Pass.</summary>
+    <p class="ans">A phase is a logical operation transforming one intermediate representation into another (always 6 phases). A pass is one physical traversal over the source code or intermediate representation file. Real compilers commonly group 6 phases into 3 passes (Pass 1: Front End, Pass 2: Optimiser, Pass 3: Back End).</p></details>
+</div>
+
+<p class="ask">Next: The tools that generate compiler phases, language evolution, and real-world applications of compiler technology.</p>
+
+<div class="nav">
+  <a href="0001-language-processors.html">&larr; Language Processors</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0003-tools-evolution-and-applications.html">Next: Tools, Evolution and Applications &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

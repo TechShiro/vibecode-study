@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 08 - In-Memory Databases | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 08 of 66 · In-Memory DBs, Redis, Memcached</div>
+  
+  <h1>In-Memory Databases</h1>
+  <p class="subtitle">Lightning-fast data access when disk I/O is too slow.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module B — Databases</span>
+  </div>
+
+  <h2>The one idea</h2>
+  <p>An in-memory database keeps the entire dataset in RAM rather than relying on slower spinning disks or SSDs for primary storage. By bypassing disk I/O, it delivers sub-millisecond read and write latency, making it the perfect choice for caching, session management, leaderboards, and real-time analytics.</p>
+
+  <h2>Why do we need them?</h2>
+  <p>Traditional RDBMS (like PostgreSQL) or NoSQL databases (like Cassandra) store data on disk to ensure it survives a power loss. However, disk access—even on fast NVMe SSDs—is orders of magnitude slower than RAM (microseconds vs. nanoseconds). When an application needs to serve millions of reads per second, or needs to calculate real-time metrics without delay, hitting the disk for every request creates a massive bottleneck.</p>
+
+  <div class="callout tip">
+    <strong>Interview Tip:</strong> When designing a system, use an in-memory database whenever you hear "low latency," "leaderboard," "user sessions," or "caching."
+  </div>
+
+  <h2>Redis vs Memcached</h2>
+  <p>When we talk about in-memory databases, two giants dominate the conversation: <strong>Redis</strong> and <strong>Memcached</strong>.</p>
+  
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Memcached</th>
+        <th>Redis</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Data Structures</strong></td>
+        <td>Strings only (Key-Value)</td>
+        <td>Strings, Hashes, Lists, Sets, Sorted Sets, Bitmaps, HyperLogLog, Geospatial</td>
+      </tr>
+      <tr>
+        <td><strong>Architecture</strong></td>
+        <td>Multi-threaded (uses multiple cores well)</td>
+        <td>Single-threaded (event loop, very fast but bound to 1 core per instance)</td>
+      </tr>
+      <tr>
+        <td><strong>Persistence</strong></td>
+        <td>None. Data is lost on restart.</td>
+        <td>Yes. RDB (snapshots) and AOF (append-only file).</td>
+      </tr>
+      <tr>
+        <td><strong>Replication</strong></td>
+        <td>No built-in replication.</td>
+        <td>Yes. Supports Master-Slave replication, Sentinel for HA, and Cluster mode.</td>
+      </tr>
+      <tr>
+        <td><strong>Use Case</strong></td>
+        <td>Simple, raw object caching (e.g., HTML fragments).</td>
+        <td>Advanced caching, session store, pub/sub, queues, counters.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Data Structures in Redis</h2>
+  <p>Unlike Memcached, Redis is a "data structure server." This means you can offload computational complexity from your application servers directly into Redis.</p>
+  <ul>
+    <li><strong>Strings:</strong> Standard key-value cache (e.g., caching a serialized JSON object).</li>
+    <li><strong>Hashes:</strong> Perfect for storing objects like user profiles (field-value pairs).</li>
+    <li><strong>Lists:</strong> Linked lists. Great for simple message queues or "latest N items" feeds.</li>
+    <li><strong>Sets:</strong> Unordered collections of unique elements. Good for "who voted for this" or tag clouds.</li>
+    <li><strong>Sorted Sets (ZSET):</strong> Sets ordered by a score. The undisputed king of building <strong>Leaderboards</strong> and rate limiters.</li>
+    <li><strong>Bitmaps:</strong> Bit-level operations. Ideal for tracking daily active users (DAU) across millions of users in very little memory.</li>
+    <li><strong>HyperLogLog:</strong> Probabilistic data structure for counting unique items (e.g., unique IP visits) with a tiny memory footprint.</li>
+  </ul>
+
+  <h2>How does Redis survive crashes? (Persistence)</h2>
+  <p>RAM is volatile. If the server loses power, RAM is wiped. Redis solves this by asynchronously syncing data to disk using two main methods:</p>
+
+  <div class="tradeoff">
+    <div class="pro">
+      <h3>RDB (Redis Database)</h3>
+      <p>Takes point-in-time snapshots of your dataset at specified intervals (e.g., every 5 minutes). </p>
+      <p><strong>Pros:</strong> Compact file, fast restarts, minimal performance impact on the main thread (forks a child process).</p>
+      <p><strong>Cons:</strong> You will lose data modified since the last snapshot if a crash occurs.</p>
+    </div>
+    <div class="con">
+      <h3>AOF (Append Only File)</h3>
+      <p>Logs every write operation received by the server. These operations are replayed on startup.</p>
+      <p><strong>Pros:</strong> Much higher durability. Can be configured to sync to disk every second (losing max 1 sec of data).</p>
+      <p><strong>Cons:</strong> Larger file size than RDB, slightly slower writes depending on sync policy.</p>
+    </div>
+  </div>
+  <p><em>Note: Most production systems use a combination of both for optimal durability and backup capability.</em></p>
+
+  <div class="real-world">
+    <h3>Real-World Examples</h3>
+    <ul>
+      <li><strong>Twitter/X:</strong> Uses Redis heavily for delivering the home timeline. When a user tweets, it is fanned out to the Redis list (timeline) of all their followers.</li>
+      <li><strong>Gaming Leaderboards:</strong> Almost all live-service games use Redis Sorted Sets (ZADD, ZREVRANGE) to maintain global leaderboards in real-time.</li>
+      <li><strong>E-commerce (Amazon):</strong> Shopping carts and user session data are kept in an in-memory DB so that even if an app server dies, the user's cart is not lost and is retrieved instantly.</li>
+    </ul>
+  </div>
+
+  <h2>Trade-offs & Constraints</h2>
+  <ul>
+    <li><strong>Cost:</strong> RAM is expensive. You cannot store terabytes of cold data in Redis without astronomical AWS/GCP bills.</li>
+    <li><strong>Dataset Size:</strong> In Redis, the entire dataset <em>must</em> fit in memory. If you run out of memory, Redis either stops accepting writes or starts evicting older keys (based on your eviction policy, like LRU).</li>
+    <li><strong>Single-Threaded Bottleneck (Redis):</strong> Since Redis is single-threaded, a slow command (like <code>KEYS *</code> on a huge dataset) will block all other clients. Always use <code>SCAN</code> instead.</li>
+  </ul>
+
+  <h2>Check yourself</h2>
+  <div class="quiz" data-answer="1">
+    <div class="q">You are designing a gaming leaderboard that requires millions of real-time rank updates per second. Which technology and data structure should you use?</div>
+    <button class="opt">PostgreSQL with B-Tree indexes</button>
+    <button class="opt">Redis using Sorted Sets (ZSET)</button>
+    <button class="opt">Memcached using Strings</button>
+    <button class="opt">MongoDB using Document Collections</button>
+    <div class="fb" data-correct="Correct! Redis Sorted Sets are purpose-built for fast, real-time ranking." data-wrong="Look for the in-memory solution that natively supports sorting/ranking."></div>
+  </div>
+
+  <div class="quiz" data-answer="0">
+    <div class="q">What is the primary risk of using RDB persistence in Redis without AOF?</div>
+    <button class="opt">Data loss between the last snapshot and the crash.</button>
+    <button class="opt">Excessive disk space consumption due to a growing log file.</button>
+    <button class="opt">The main thread gets permanently blocked during the snapshot.</button>
+    <button class="opt">Redis cannot be used as a cache anymore.</button>
+    <div class="fb" data-correct="Correct! RDB only snapshots periodically, so any writes after the last snapshot are lost if it crashes." data-wrong="Think about the timing of when RDB saves data to disk."></div>
+  </div>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Read the official <a href="https://redis.io/topics/data-types-intro" target="_blank">Redis Data Types Intro</a>.</li>
+    <li>Practice: Think about how you would implement a Rate Limiter using Redis. Which commands would you use? (Hint: INCR and EXPIRE).</li>
+  </ul>
+
+  <div class="callout">
+    Say "next" to advance to <strong>Lesson 09: Data Replication & Schema Migration</strong>, where we'll look at how to copy data across multiple servers for reliability.
+  </div>
+
+  <div class="nav">
+    <a href="0007-sql-vs-nosql.html">← Previous: SQL vs NoSQL</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0009-data-replication-schema-migration.html">Next: Data Replication →</a>
+  </div>
+
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

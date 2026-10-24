@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 46 - API Gateway &amp; Service Discovery | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 46 of 66 · Service Registry, Eureka, Consul, Envoy</div>
+  
+  <h1>API Gateway &amp; Service Discovery Architecture</h1>
+  <p class="subtitle">How dynamic cloud instances find and communicate with each other automatically.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Bonus HLD Fundamentals</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In modern cloud environments (Kubernetes, AWS Auto Scaling), servers are ephemeral: containers crash, autoscalers spin up 50 new instances during traffic surges, and IP addresses change every 10 minutes. Microservice A cannot hardcode an IP address like <code>192.168.1.50</code> to talk to Microservice B. <strong>Service Discovery</strong> is the dynamic phonebook (Service Registry) that keeps track of active IPs, ports, and health statuses of every service in the cluster.</p>
+
+  <h2>2 · Client-Side vs Server-Side Discovery</h2>
+  <table class="vs-table">
+    <thead>
+      <tr>
+        <th>Pattern</th>
+        <th>How It Works</th>
+        <th>Pros &amp; Cons</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Client-Side Discovery</strong><br>(Netflix Eureka / Ribbon)</td>
+        <td>Client queries the Service Registry (Eureka) directly, caches the list of live server IPs, and runs an internal load balancing algorithm in client code.</td>
+        <td><strong>Pros:</strong> Zero intermediate network hops; fast.<br><strong>Cons:</strong> Couples discovery library to application language (needs Java/Go/Node SDKs).</td>
+      </tr>
+      <tr>
+        <td><strong>Server-Side Discovery</strong><br>(Kubernetes DNS / AWS ALB)</td>
+        <td>Client simply sends a request to a fixed DNS name (e.g. <code>http://payment-service</code>). A proxy/load balancer queries the registry and forwards the request.</td>
+        <td><strong>Pros:</strong> Language agnostic; 100% transparent to developer.<br><strong>Cons:</strong> One extra network hop through the proxy.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3 · The API Gateway as Central Entrypoint</h2>
+  <p>The API Gateway acts as the unified reverse proxy front door for all public traffic, performing SSL termination, authentication token checks, rate limiting, and service discovery routing before forwarding requests to internal private microservices.</p>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How do distributed nodes agree on a single source of truth when leaders crash? Lesson 47: Distributed Systems Fundamentals (Raft &amp; Consensus).</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0045-accuracy-vs-latency.html">← Previous: Accuracy vs Latency</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0047-distributed-systems-fundamentals.html">Next: Distributed Systems Fundamentals →</a>
+  </div>
+</body>
+</html>

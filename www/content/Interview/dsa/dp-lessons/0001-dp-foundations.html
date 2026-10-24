@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DP Lesson 01 — DP Foundations</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">DP Track · Lesson 01 of 12 · from brute force to O(n)</div>
+<h1>DP Foundations</h1>
+<p class="subtitle">Dynamic programming is not a topic — it's one trick: <em>never solve the same subproblem twice</em>. Learn the 5-step framework here; every later lesson is that framework with a different state.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> DP is ~15% of Google intern questions and your self-identified gap.
+  This is Lesson 1 of the 12-lesson DP track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<div class="callout tip">
+  <span class="label">Prerequisite</span>
+  You should be comfortable writing plain recursion (you are — the graph track's DFS was all recursion).
+  DP adds exactly one ingredient on top: a cache. No new Java machinery until the later lessons.
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+DP = <strong>recursion + never solving the same subproblem twice</strong>. A problem is DP-shaped when
+it has <strong>overlapping subproblems</strong> (the naive recursion recomputes identical calls —
+<code>fib(3)</code> gets computed twice inside <code>fib(5)</code>) and <strong>optimal
+substructure</strong> (the best answer to the whole is built from best answers to the parts).
+When both hold, cache each subproblem's answer the first time and every repeat becomes an O(1) lookup:
+exponential collapses to polynomial.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Count the <em>ways</em>…", "<em>max/min</em> over a sequence of choices…", "<em>can you reach</em>…",
+  and — the deep tell — the future depends only on a <strong>compact summary of the past</strong>
+  (which step you're on, not how you got there). If brute force enumerates choice-trees and the same
+  situations keep reappearing, you are in DP territory.
+</div>
+
+<h2>2 · State · Recurrence · Base case — the 5-step framework</h2>
+<p>Every DP solution in this track — 1D, grids, knapsack, strings, trees, bitmasks — is these five
+answers written down. Memorize the questions, not the solutions:</p>
+<table>
+  <thead><tr><th>Step</th><th>Question</th><th>For Climbing Stairs (LC 70)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1 · State</strong></td><td>What does <code>dp[i]</code> <em>mean</em>, in one sentence?</td><td><code>dp[i]</code> = number of distinct ways to stand on step <code>i</code></td></tr>
+    <tr><td><strong>2 · Recurrence</strong></td><td>How does a state combine <em>smaller</em> states?</td><td><code>dp[i] = dp[i-1] + dp[i-2]</code> — arrive via a 1-step or a 2-step</td></tr>
+    <tr><td><strong>3 · Base cases</strong></td><td>Which states are known without the recurrence?</td><td><code>dp[0] = 1, dp[1] = 1</code></td></tr>
+    <tr><td><strong>4 · Order</strong></td><td>Iterate small→large, or memoize and let recursion sort it out?</td><td><code>i</code> ascending (or top-down memo — both work)</td></tr>
+    <tr><td><strong>5 · Answer</strong></td><td>Where does the final answer live?</td><td><code>dp[n]</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout trap">
+  <span class="label">Why not greedy?</span>
+  Greedy commits to the locally best choice and never looks back. Coins <code>{1,3,4}</code>, amount 6:
+  greedy grabs the biggest coin → <code>4+1+1</code> = 3 coins, but the optimum is <code>3+3</code> = 2.
+  The recurrence <code>dp[a] = 1 + min(dp[a-1], dp[a-3], dp[a-4])</code> compares <em>every</em> choice
+  at every amount, so a locally-worse pick still gets credit for the better future it enables. Greedy
+  only works when a locally best choice is <em>provably</em> never wrong — rare, and you must prove it.
+</div>
+
+<h2>3 · Core template — Fibonacci, four ways</h2>
+<p><code>fib(n)</code> / Climbing Stairs is the smallest problem where all four implementations are
+visible. The <em>recurrence never changes</em> — only the bookkeeping does.</p>
+
+<h3>Way 1 — naive recursion: O(2ⁿ)</h3>
+<pre><code><span class="cmt">// The recursion tree doubles every level. fib(50) ≈ 10^10 calls — hangs forever.</span>
+int fib(int n) {
+    if (n &lt;= 1) return n;
+    return fib(n - 1) + fib(n - 2);   <span class="cmt">// fib(n-2) recomputes everything fib(n-1) already did</span>
+}</code></pre>
+<p><strong>Time</strong> O(2ⁿ) · <strong>Space</strong> O(n) stack. Draw this tree once (see the dry run below) — the repeated nodes ARE the motivation for DP.</p>
+
+<h3>Way 2 — top-down memoization: O(n)</h3>
+<pre><code>Integer[] memo;                                  <span class="cmt">// null = "not computed yet" — safer than 0 as a sentinel</span>
+int fib(int n) { memo = new Integer[n + 1]; return solve(n); }
+
+int solve(int n) {
+    if (n &lt;= 1) return n;                        <span class="cmt">// base cases (step 3)</span>
+    if (memo[n] != null) return memo[n];         <span class="cmt">// cache hit — the entire trick</span>
+    return memo[n] = solve(n - 1) + solve(n - 2);<span class="cmt">// recurrence (step 2), stored on the way out</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) — each state computed once. <strong>Space</strong> O(n) memo + O(n) recursion stack.</p>
+
+<h3>Way 3 — bottom-up table: O(n)</h3>
+<pre><code>int fib(int n) {
+    if (n &lt;= 1) return n;
+    int[] dp = new int[n + 1];                   <span class="cmt">// dp[i] = fib(i) — the state (step 1)</span>
+    dp[0] = 0; dp[1] = 1;                        <span class="cmt">// base cases</span>
+    for (int i = 2; i &lt;= n; i++)
+        dp[i] = dp[i - 1] + dp[i - 2];           <span class="cmt">// iterate small → large (step 4)</span>
+    return dp[n];                                <span class="cmt">// answer location (step 5)</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(n), no recursion stack.</p>
+
+<h3>Way 4 — rolling variables: O(1) space</h3>
+<pre><code><span class="cmt">// dp[i] only reads dp[i-1] and dp[i-2] → keep just those two. This move recurs all track long.</span>
+int fib(int n) {
+    if (n &lt;= 1) return n;
+    int prev2 = 0, prev1 = 1;                    <span class="cmt">// dp[i-2], dp[i-1]</span>
+    for (int i = 2; i &lt;= n; i++) {
+        int cur = prev1 + prev2;
+        prev2 = prev1; prev1 = cur;              <span class="cmt">// slide the window</span>
+    }
+    return prev1;
+}</code></pre>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(1). This is the interview-final form for any recurrence that looks back a constant distance.</p>
+
+<h2>4 · Memoization vs tabulation — when each wins</h2>
+<table>
+  <thead><tr><th></th><th>Top-down memo</th><th>Bottom-up table</th></tr></thead>
+  <tbody>
+    <tr><td>How</td><td>Recurse, cache on the way out</td><td>Loop from base cases upward</td></tr>
+    <tr><td>Wins when</td><td>State space is <strong>sparse</strong> (only some states reachable) or a valid fill order is hard to see</td><td>You'd fill the whole table anyway; enables <strong>space optimization</strong> (rolling)</td></tr>
+    <tr><td>Order of evaluation</td><td>Automatic — recursion topologically sorts for you</td><td>You must choose it correctly yourself</td></tr>
+    <tr><td>Hidden cost</td><td>Recursion stack — n ≈ 10⁵ deep can <code>StackOverflowError</code> in Java</td><td>May compute states the answer never needed</td></tr>
+    <tr><td>Rule of thumb</td><td>First correct solution / hard iteration order</td><td>Final polished solution + O(1)/O(n) space</td></tr>
+  </tbody>
+</table>
+
+<h2>5 · All the cases</h2>
+<table>
+  <thead><tr><th>Case</th><th>LC #</th><th>What changes in state / transition</th></tr></thead>
+  <tbody>
+    <tr><td>Fibonacci Number</td><td>509</td><td>The literal template above — nothing changes</td></tr>
+    <tr><td>Climbing Stairs</td><td>70</td><td>Same recurrence, different story: <code>dp[i]</code> = ways to reach step <code>i</code>; base <code>dp[0]=dp[1]=1</code></td></tr>
+    <tr><td>Min Cost Climbing Stairs</td><td>746</td><td>Sum → <strong>min</strong>, plus a cost term; answer at the <em>top</em> (index <code>n</code>), start free from step 0 or 1</td></tr>
+    <tr><td>N-th Tribonacci</td><td>1137</td><td>Looks back <strong>three</strong> states instead of two → three rolling variables</td></tr>
+  </tbody>
+</table>
+
+<h3>Fibonacci Number (509)</h3>
+<p>The state is <code>dp[i]</code> = the i-th Fibonacci number, the recurrence is
+<code>dp[i] = dp[i-1] + dp[i-2]</code>, and the bases are <code>dp[0] = 0, dp[1] = 1</code> —
+which means every snippet in §3 <em>is</em> the accepted submission, verbatim. Submit Way 4
+(rolling variables); write the other three from a blank file anyway, because reproducing all
+four on demand is the drill that makes lessons 2–12 easy.</p>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(1) in the rolling form.</p>
+
+<div class="callout trap">
+  <span class="label">The off-by-one that bites everyone</span>
+  LC 509 and LC 70 share a recurrence but <strong>not</strong> base cases: Fibonacci starts
+  <code>0, 1</code> (a <em>value</em> sequence), Climbing Stairs starts <code>1, 1</code>
+  (a <em>count</em> — there is exactly one way to stand still at the bottom). Copy-pasting one
+  into the other shifts every answer by one index. Re-derive step 3 of the framework each time;
+  never trust muscle memory on bases.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 509 · Fibonacci Number</strong> (Easy) — the literal §3 template; do naive → memo → table → rolling, reciting the 5 steps out loud.</li>
+  <li><strong>LC 1646 · Get Maximum in Generated Array</strong> (Easy) — fresh: same "fill an array from earlier entries" move, but the recurrence reads <code>dp[i/2]</code> instead of <code>dp[i-1]</code> — proof the framework survives a weirder lookback.</li>
+</ul>
+
+<h3>Climbing Stairs (70)</h3>
+<p>Same recurrence as Fibonacci, different <em>meaning</em>: <code>dp[i]</code> = number of ways
+to reach step <code>i</code>, and the last move was a 1-step (from <code>i-1</code>) or a 2-step
+(from <code>i-2</code>), so <code>dp[i] = dp[i-1] + dp[i-2]</code> with bases
+<code>dp[0] = dp[1] = 1</code>. All four §3 ways translate line-for-line — only the bases change.
+Here is Way 2 (top-down memo) for contrast; the rolling Way 4 follows.</p>
+<pre><code>Integer[] memo;                                  <span class="cmt">// Way 2 — top-down memo for LC 70</span>
+int climbStairs(int n) { memo = new Integer[n + 1]; return ways(n); }
+
+int ways(int n) {
+    if (n &lt;= 1) return 1;                        <span class="cmt">// dp[0]=1, dp[1]=1 — NOT fib's 0,1</span>
+    if (memo[n] != null) return memo[n];         <span class="cmt">// cache hit</span>
+    return memo[n] = ways(n - 1) + ways(n - 2);
+}</code></pre>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(n) memo + stack. And the interview-final Way 4:</p>
+<pre><code>int climbStairs(int n) {
+    int prev2 = 1, prev1 = 1;                    <span class="cmt">// dp[0]=1 (stand at bottom), dp[1]=1</span>
+    for (int i = 2; i &lt;= n; i++) {
+        int cur = prev1 + prev2;                 <span class="cmt">// last move was a 1-step or a 2-step</span>
+        prev2 = prev1; prev1 = cur;
+    }
+    return prev1;
+}</code></pre>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(1).</p>
+
+<div class="callout trap">
+  <span class="label">Counting DP + mod 10⁹+7</span>
+  Bigger counting problems (like LC 2466 below) overflow <code>int</code> long before <code>n</code>
+  gets interesting, and a single mod at the end is a bug — by then the value has already overflowed.
+  Take the mod <strong>inside</strong> the recurrence, at every addition:
+</div>
+<pre><code>final int MOD = 1_000_000_007;
+int cur = (prev1 + prev2) % MOD;                 <span class="cmt">// mod EVERY addition, not just the return value</span>
+<span class="cmt">// products must widen first: int p = (int)((long)a * b % MOD);</span></code></pre>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 70 · Climbing Stairs</strong> (Easy) — likely already solved — re-solve from a blank file using this lesson's framework: state the 5 steps out loud, then write all four ways without looking.</li>
+  <li><strong>LC 2466 · Count Ways To Build Good Strings</strong> (Medium) — fresh: Climbing Stairs in disguise — the "steps" are appending <code>zero</code> or <code>one</code> characters, and you sum <code>dp[i]</code> over a length range, mod 10⁹+7 (use the trap above).</li>
+  <li><strong>LC 2400 · Number of Ways to Reach a Position After Exactly k Steps</strong> (Medium) — fresh: "count the ways" where the state needs <em>two</em> numbers, (position, steps left) — your first taste of memoizing on a pair; top-down memo wins here because the state space is sparse.</li>
+</ul>
+
+<h3>Min Cost Climbing Stairs (746)</h3>
+<p>First mutation of the family: the <strong>sum becomes a min, plus a cost term</strong>.
+State: <code>dp[i]</code> = cheapest total cost to <em>stand on</em> step <code>i</code>.
+Recurrence: <code>dp[i] = min(dp[i-1] + cost[i-1], dp[i-2] + cost[i-2])</code> — you pay a stair's
+cost when you <em>leave</em> it. Bases: <code>dp[0] = dp[1] = 0</code>, because you may start on
+step 0 or 1 for free. The answer lives at index <code>n</code> — the "top", one past the last stair.</p>
+<pre><code>int minCostClimbingStairs(int[] cost) {
+    int n = cost.length;
+    int prev2 = 0, prev1 = 0;                    <span class="cmt">// free to START on step 0 or step 1</span>
+    for (int i = 2; i &lt;= n; i++) {               <span class="cmt">// "step n" = the top, past the last stair</span>
+        int cur = Math.min(prev1 + cost[i - 1],  <span class="cmt">// pay to leave step i-1</span>
+                           prev2 + cost[i - 2]); <span class="cmt">// or pay to leave step i-2</span>
+        prev2 = prev1; prev1 = cur;
+    }
+    return prev1;                                <span class="cmt">// min cost to stand on the top</span>
+}</code></pre>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(1).</p>
+
+<div class="callout trap">
+  <span class="label">Where's the answer?</span>
+  The two classic 746 bugs are both step-5 mistakes: returning <code>dp[n-1]</code> (that's the cost
+  to stand on the <em>last stair</em>, not the top) and forgetting the free start (seeding
+  <code>dp[1] = cost[1]</code>). If your answer is off by exactly one stair's cost, you've hit one of these.
+</div>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 746 · Min Cost Climbing Stairs</strong> (Easy) — the canonical min-mutation; do rolling variables, then re-derive where the answer lives before submitting.</li>
+  <li><strong>LC 983 · Minimum Cost For Tickets</strong> (Medium) — fresh: same "min over ways to arrive + cost" recurrence, but the lookback is 1, 7, or 30 days — the window widens, the framework doesn't change.</li>
+  <li><strong>LC 2140 · Solving Questions With Brainpower</strong> (Medium) — fresh: min/max choice per index with a <em>forward</em> jump (<code>dp[i]</code> depends on <code>dp[i + points + 1]</code>) — fill right-to-left, and use <code>long</code>.</li>
+</ul>
+
+<h3>N-th Tribonacci (1137)</h3>
+<p>Same story, <strong>wider window</strong>: the state looks back <em>three</em> steps instead of two —
+<code>dp[i] = dp[i-1] + dp[i-2] + dp[i-3]</code>, bases <code>T0 = 0, T1 = T2 = 1</code> — so the
+rolling form keeps three variables instead of two. This is the general rule: a recurrence looking
+back a constant <code>k</code> rolls down to <code>k</code> variables.</p>
+<pre><code>int tribonacci(int n) {
+    if (n == 0) return 0;
+    if (n &lt;= 2) return 1;
+    int a = 0, b = 1, c = 1;                     <span class="cmt">// T0, T1, T2 — three-wide window</span>
+    for (int i = 3; i &lt;= n; i++) {
+        int d = a + b + c;
+        a = b; b = c; c = d;
+    }
+    return c;
+}</code></pre>
+<p><strong>Time</strong> O(n) · <strong>Space</strong> O(1).</p>
+
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1137 · N-th Tribonacci Number</strong> (Easy) — three rolling variables; also write the memo version to feel how little changes.</li>
+  <li><strong>LC 790 · Domino and Tromino Tiling</strong> (Medium) — fresh: a lookback-three recurrence (<code>dp[i] = 2·dp[i-1] + dp[i-3]</code>) you have to <em>discover</em> by drawing small cases, plus mod 10⁹+7 — the full lesson in one problem.</li>
+  <li><strong>LC 1155 · Number of Dice Rolls With Target Sum</strong> (Medium, stretch) — fresh: the lookback becomes a loop over <code>k</code> faces per die — a variable-width window, counting mod 10⁹+7.</li>
+</ul>
+
+<h3>Worked example — dry run</h3>
+<p>Compute <code>fib(5)</code> top-down <em>with</em> the memo. Naive recursion would expand
+<strong>15</strong> calls; memoization expands 9, and two of those (shaded) return instantly from the cache —
+their entire subtrees never exist. That pruning is the whole subject.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 540 365" role="img" aria-label="Recursion tree of fib(5) under memoization: nine calls, with fib(3) and fib(2) answered from the cache so their subtrees are never expanded">
+  <line class="edge" x1="310" y1="35"  x2="170" y2="110"/>
+  <line class="edge" x1="310" y1="35"  x2="440" y2="110"/>
+  <line class="edge" x1="170" y1="110" x2="95"  y2="185"/>
+  <line class="edge" x1="170" y1="110" x2="255" y2="185"/>
+  <line class="edge" x1="95"  y1="185" x2="50"  y2="260"/>
+  <line class="edge" x1="95"  y1="185" x2="165" y2="260"/>
+  <line class="edge" x1="50"  y1="260" x2="28"  y2="335"/>
+  <line class="edge" x1="50"  y1="260" x2="105" y2="335"/>
+  <circle class="node cur"  cx="310" cy="35"  r="21"/><text class="lbl inv" x="310" y="35">f(5)</text>
+  <circle class="node"      cx="170" cy="110" r="21"/><text class="lbl" x="170" y="110">f(4)</text>
+  <circle class="node done" cx="440" cy="110" r="21"/><text class="lbl" x="440" y="110">f(3)</text>
+  <circle class="node"      cx="95"  cy="185" r="21"/><text class="lbl" x="95"  y="185">f(3)</text>
+  <circle class="node done" cx="255" cy="185" r="21"/><text class="lbl" x="255" y="185">f(2)</text>
+  <circle class="node"      cx="50"  cy="260" r="21"/><text class="lbl" x="50"  y="260">f(2)</text>
+  <circle class="node"      cx="165" cy="260" r="21"/><text class="lbl" x="165" y="260">f(1)</text>
+  <circle class="node"      cx="28"  cy="335" r="21"/><text class="lbl" x="28"  y="335">f(1)</text>
+  <circle class="node"      cx="105" cy="335" r="21"/><text class="lbl" x="105" y="335">f(0)</text>
+  <text class="wt" x="440" y="148">memo hit</text>
+  <text class="wt" x="255" y="223">memo hit</text>
+</svg>
+<figcaption>fib(5) under memoization: 9 calls instead of 15. Shaded nodes are cache hits — the subtrees below them (5 more nodes in the naive tree) are never expanded.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step now">call f(5) → not cached → needs f(4), then f(3)</span>
+<span class="step">f(4) → f(3) → f(2) → f(1)=1, f(0)=0 → <span class="ptr">memo[2]=1</span></span>
+<span class="step">f(3)'s right child f(1)=1 → <span class="ptr">memo[3]=2</span></span>
+<span class="step now">f(4)'s right child f(2): <span class="ptr">memo hit → 1</span>, no recursion → <span class="ptr">memo[4]=3</span></span>
+<span class="step now">f(5)'s right child f(3): <span class="ptr">memo hit → 2</span>, no recursion</span>
+<span class="step">f(5) = 3 + 2 → <span class="ptr">memo[5]=5</span>, return 5. Every state computed exactly once.</span>
+</div>
+
+<h2>6 · Edge-case checklist</h2>
+<ul>
+  <li><strong>n = 0 / n = 1:</strong> return before touching the dp array, or size it <code>n+1</code> and seed both bases — <code>new int[n+1]</code> with <code>n=0</code> can't hold <code>dp[1]</code>.</li>
+  <li><strong>Memo sentinel:</strong> <code>int[]</code> initialized to 0 is a bug when 0 is a legitimate answer — use <code>Integer[]</code> + <code>null</code>, or fill with <code>-1</code> only if answers are never negative.</li>
+  <li><strong>Overflow:</strong> fib grows exponentially — <code>fib(47)</code> already overflows <code>int</code>. Counting problems usually ask for the answer mod 10⁹+7: take the mod <em>inside</em> the recurrence, every addition.</li>
+  <li><strong>Recursion depth:</strong> top-down with n ≈ 10⁵ risks <code>StackOverflowError</code> in Java — switch to bottom-up.</li>
+  <li><strong>Memo size:</strong> <code>new Integer[n + 1]</code>, not <code>[n]</code> — you will index <code>memo[n]</code>.</li>
+  <li><strong>Base cases before cache check</strong> (or size the memo to include them) — <code>solve(1)</code> must not read <code>memo[1]</code> if it was never written.</li>
+</ul>
+
+<h2>7 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">A problem is a <strong>DP</strong> problem (not just plain recursion) when it has:</div>
+  <button class="opt">A sorted input and a monotonic predicate you can binary-search on</button>
+  <button class="opt">Overlapping subproblems and optimal substructure — identical subcalls recur, and optimal parts compose</button>
+  <button class="opt">A small state space and a greedy exchange argument proving local choices are safe</button>
+  <div class="fb" data-correct="Exactly. Overlap makes caching pay off (repeats become O(1) lookups); optimal substructure makes cached sub-answers safe to combine into the whole." data-wrong="The two DP preconditions: OVERLAPPING subproblems (the naive tree recomputes identical calls) and OPTIMAL SUBSTRUCTURE (best whole = combination of best parts)."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Climbing Stairs with <code>n = 10⁵</code> (answer mod 10⁹+7). Which implementation do you reach for?</div>
+  <button class="opt">Naive recursion — n is small enough that branch pruning keeps it fast</button>
+  <button class="opt">Top-down memoization — it's O(n), and recursion depth is never a concern in Java</button>
+  <button class="opt">Bottom-up rolling variables — O(n) time, O(1) space, and no 10⁵-deep call stack to overflow</button>
+  <div class="fb" data-correct="Right. Memoization is also O(n) time, but its recursion goes 10⁵ frames deep — a real StackOverflowError risk in Java. Bottom-up rolling is a flat loop with two ints." data-wrong="Naive is O(2ⁿ) — dead at n=50. Memoization is O(n) time but recurses 10⁵ frames deep, which can StackOverflow in Java. The flat bottom-up loop has neither problem."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Coins <code>{1,3,4}</code>, amount 6. Greedy "largest coin first" gives 4+1+1 = 3 coins; the optimum is 3+3 = 2. What does DP do differently?</div>
+  <button class="opt">At every amount it compares ALL coin choices via the recurrence, so a locally-worse pick still wins on its better future</button>
+  <button class="opt">It sorts the coins descending first, which repairs the greedy choice at each step</button>
+  <button class="opt">It memoizes greedy's result so a wrong answer at amount 6 gets corrected by larger amounts</button>
+  <div class="fb" data-correct="Yes — dp[6] = 1 + min(dp[5], dp[3], dp[2]) considers taking coin 3 even though 4 looks better locally. Exhaustive comparison per state, made cheap by caching, is DP's whole advantage over greedy." data-wrong="Sort order doesn't help, and caching a wrong answer keeps it wrong. DP wins because the recurrence compares EVERY choice at every amount — dp[6] = 1 + min(dp[5], dp[3], dp[2]) — instead of committing to one."></div>
+</div>
+
+<h2>8 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://www.youtube.com/playlist?list=PLgUwDviBIf0qUlt5H_kiKYaNSqJ81PMMY">Striver — DP Series, Lectures 1–2</a> (memoization → tabulation → space optimization, in this exact order). Backup: <a href="https://www.youtube.com/watch?v=Y0lT9Fck7qI">NeetCode — Climbing Stairs</a> for the recursion-tree visual.</li>
+  <li><strong>Practice ladder (do in order, all four ways on the first one):</strong>
+    LC 509 Fibonacci → LC 1137 N-th Tribonacci → LC 70 Climbing Stairs <em>(Google-reported)</em> → LC 746 Min Cost Climbing Stairs <em>(Google-reported)</em>.</li>
+  <li><strong>Drill:</strong> for LC 70, write naive → memo → table → rolling from a blank file without looking. Reciting the 5-step framework out loud as you code is exactly what you'll do in the interview.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0002-1d-dp.html">DP Lesson 02 — 1D DP on sequences</a>, starting with House Robber.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Fuzzy on why <code>fib(n-2)</code> is "recomputed", when a memo needs <code>Integer[]</code> vs <code>int[]</code>,
+  or want me to dry-run the memo table for another n? Ask in the chat. When you can state the 5-step
+  framework from memory and write all four Fibonacci versions, say <strong>"next"</strong> and we start robbing houses.
+</div>
+
+<div class="nav">
+  <span><a href="../graph-lessons/0009-advanced-graphs.html">← Graph track</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0002-1d-dp.html">1D DP on sequences →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

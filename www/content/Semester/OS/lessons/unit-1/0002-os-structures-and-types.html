@@ -1,0 +1,322 @@
+<title>OS Structures and Types</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<div class="wrap">
+
+<p class="crumb">Operating Systems &middot; Unit I &middot; Lesson 2 of 14</p>
+<h1>Structures and Types of Operating Systems</h1>
+<p class="deck">The six ways an OS can be built &mdash; simple, monolithic, layered, microkernel, modular, hybrid &mdash; plus virtual machines, the eight types of operating system, and the system boot sequence.</p>
+
+<div class="box exam">
+  <span class="lbl">Exam strategy</span>
+  <p>Two guaranteed questions live here. <strong>&ldquo;Explain the structures of an operating system with diagrams&rdquo;</strong> is a 10-mark answer &mdash; you need <strong>a labelled diagram for each</strong>, and the microkernel one especially. <strong>&ldquo;Explain the types of operating system&rdquo;</strong> is 5&ndash;10 marks and is marked on breadth: name all eight, one line and one example each. <strong>Monolithic vs microkernel</strong> is the single most-asked comparison in this unit &mdash; memorise that table.</p>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-title">Monolithic Kernel vs Microkernel Architecture</div>
+  <div class="flow-row">
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box highlight"><strong>Monolithic Architecture (Linux)</strong><span class="sub">All OS services in Kernel space</span></div>
+      <div class="flow-box">VFS, Network Stack, IPC, Device Drivers, Process/Memory Scheduling all run in Ring 0 &bull; High performance, but crash in driver halts whole OS</div>
+    </div>
+    <div class="flow-col" style="flex:1;">
+      <div class="flow-box ok"><strong>Microkernel Architecture (Mach/QNX)</strong><span class="sub">Minimal Kernel space</span></div>
+      <div class="flow-box">Only IPC, minimal memory, and low-level scheduling in Ring 0 &bull; File system and device drivers run as user-space servers communicating via IPC message passing</div>
+    </div>
+  </div>
+</div>
+
+<div class="watch-curated">
+  <span class="lbl">Recommended Masterclass &bull; 15 min</span>
+  <div class="video-card">
+    <div class="v-header">
+      <span class="concept-tag">OS Structures & Types</span>
+      <span class="best-tag">Highest Yield</span>
+    </div>
+    <div class="v-title">Operating System Structures: Monolithic, Layered, Microkernel</div>
+    <div class="v-desc">Comprehensive breakdown comparing simple, monolithic, layered, and microkernel designs alongside batch, time-sharing, and real-time systems.</div>
+    <a class="v-link" href="https://www.youtube.com/watch?v=D262QFTj9mw" target="_blank" rel="noopener">Watch on YouTube &rarr; (Knowledge Gate)</a>
+  </div>
+</div>
+
+<h2>Operating system structures</h2>
+
+<p>&ldquo;Structure&rdquo; means <strong>how the code of the OS is organised internally</strong>. The story is a progression: each structure fixes a defect of the one before it.</p>
+
+<h3>1. Simple structure &mdash; MS-DOS</h3>
+
+<p>Written to give the most functionality in the least space, with <strong>no careful division into modules</strong>. Interfaces and levels of functionality are not well separated: application programs can call the BIOS routines directly and write straight to the display and disk.</p>
+
+<div class="formula">
+  <span class="name">MS-DOS layer sketch</span>
+  application program &rarr; resident system program &rarr; MS-DOS device drivers &rarr; ROM BIOS device drivers &rarr; <strong>hardware</strong><br>
+  <span style="font-size:.85em">&hellip; but the arrows can also skip levels, which is exactly the problem.</span>
+</div>
+
+<p><strong>Why it survived:</strong> the Intel 8088 for which it was written had no dual mode and no hardware protection, so the designers had no way to enforce separation. <strong>Consequence:</strong> a crashing program takes the whole system down.</p>
+
+<h3>2. Monolithic structure &mdash; traditional UNIX</h3>
+
+<p>The <strong>entire operating system runs as a single program in kernel mode</strong>, in one address space. Everything &mdash; file system, scheduler, memory manager, device drivers, networking &mdash; is inside the kernel and any part may call any other part directly.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+<tbody>
+<tr><td><strong>Very fast</strong> &mdash; a call between subsystems is an ordinary function call, with no message passing and no mode switch</td><td><strong>Hard to understand, modify and debug</strong> &mdash; a single huge program</td></tr>
+<tr><td>Little overhead in system calls</td><td><strong>No isolation</strong> &mdash; a bug in any driver can crash the entire system</td></tr>
+<tr><td>Simple design; direct access to all data structures</td><td>Adding a feature means recompiling the whole kernel</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>3. Layered structure</h3>
+
+<p>The OS is broken into <strong>N layers</strong>, layer 0 being the hardware and layer N&minus;1 the user interface. <strong>A layer may use only the services of the layer directly below it.</strong></p>
+
+<div class="formula">
+  <span class="name">Layered approach</span>
+  layer N&minus;1 &mdash; user interface<br>
+  &hellip;<br>
+  layer 2 &mdash; device drivers<br>
+  layer 1 &mdash; CPU scheduling<br>
+  layer 0 &mdash; <strong>hardware</strong>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+<tbody>
+<tr><td><strong>Simplicity of construction and debugging.</strong> Debug layer 0 first; when layer k fails, the error must be in layer k, because k&minus;1 is already proven</td><td><strong>Deciding the layers is hard</strong> &mdash; the backing-store driver needs the scheduler, and the scheduler may need the backing store, so the ordering is not obvious</td></tr>
+<tr><td>Each layer hides its data structures from the layers above &mdash; true modularity</td><td><strong>Poor performance</strong> &mdash; a system call must pass through every layer, each adding overhead</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>4. Microkernel structure &mdash; Mach, QNX, MINIX</h3>
+
+<p>Strip the kernel down: <strong>move everything non-essential out of the kernel into user-space server processes.</strong> What remains in the kernel is minimal &mdash; typically only <strong>process (thread) management, minimal memory management, and inter-process communication</strong>. File systems, device drivers, protocol stacks and the rest run as ordinary user processes.</p>
+
+<p>Communication between a client program and a server is <strong>indirect, by message passing through the microkernel</strong>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+<tbody>
+<tr><td><strong>Easy to extend</strong> &mdash; a new service is a new user program, no kernel change</td><td><strong>Performance overhead</strong> of message passing and the extra mode switches</td></tr>
+<tr><td><strong>Easy to port</strong> to a new hardware architecture &mdash; little code is machine dependent</td><td>Two mode switches per request instead of one function call</td></tr>
+<tr><td><strong>More reliable and more secure</strong> &mdash; a crashing file-system server does not bring down the kernel; less code runs in kernel mode</td><td>Complex to get right; some services genuinely need kernel privileges</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box win">
+  <span class="lbl">The comparison that gets asked</span>
+  <div class="tw">
+  <table>
+  <thead><tr><th>&nbsp;</th><th>Monolithic kernel</th><th>Microkernel</th></tr></thead>
+  <tbody>
+  <tr><td><strong>What is in the kernel</strong></td><td>Everything &mdash; FS, drivers, memory, scheduler, networking</td><td>Only IPC, basic scheduling, minimal memory management</td></tr>
+  <tr><td><strong>Kernel size</strong></td><td>Large</td><td>Small</td></tr>
+  <tr><td><strong>Communication</strong></td><td>Direct function calls</td><td>Message passing</td></tr>
+  <tr><td><strong>Speed</strong></td><td><strong>Faster</strong></td><td>Slower &mdash; message-passing overhead</td></tr>
+  <tr><td><strong>Reliability</strong></td><td>Lower &mdash; one driver bug crashes everything</td><td><strong>Higher</strong> &mdash; a failed server is restartable</td></tr>
+  <tr><td><strong>Extensibility</strong></td><td>Recompile the kernel</td><td>Add a user-level server</td></tr>
+  <tr><td><strong>Examples</strong></td><td>Traditional UNIX, Linux, MS-DOS</td><td>Mach, QNX, MINIX, Symbian, L4</td></tr>
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<h3>5. Modular structure &mdash; the modern answer (Linux, Solaris)</h3>
+
+<p>The best current design uses <strong>loadable kernel modules</strong>. There is a small core kernel with a set of well-defined interfaces, and additional services &mdash; a file system, a device driver, a scheduling class &mdash; are <strong>linked in dynamically, at boot time or at run time</strong>.</p>
+
+<p>It is the sweet spot: <strong>like layers, because each module has a defined interface; like microkernels, because modules are separate and loadable; but as fast as monolithic, because modules run in kernel mode and call one another directly rather than by message passing.</strong> That sentence answers &ldquo;why is the modular approach preferred?&rdquo; on its own.</p>
+
+<h3>6. Hybrid structure</h3>
+
+<p>Real systems mix approaches for performance and practicality.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>System</th><th>What it actually is</th></tr></thead>
+<tbody>
+<tr><td><strong>Linux</strong></td><td>Monolithic (all in one address space, for speed) <strong>plus</strong> loadable modules</td></tr>
+<tr><td><strong>Windows</strong></td><td>Largely monolithic, <strong>plus</strong> microkernel-style subsystems for different personalities</td></tr>
+<tr><td><strong>macOS / iOS</strong></td><td><strong>Darwin</strong>: the Mach microkernel for IPC and memory, with a BSD monolithic layer above it</td></tr>
+<tr><td><strong>Android</strong></td><td>A modified Linux kernel, plus the ART runtime and libraries in user space</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Virtual machines</h3>
+
+<p>A <strong>virtual machine</strong> takes the layered approach to its conclusion: it treats hardware and the kernel as though they were all hardware, and gives each process the illusion of <strong>its own private processor and its own memory</strong>. The host runs a <strong>virtual machine manager (hypervisor)</strong>; each guest runs its own complete OS.</p>
+
+<ul>
+<li><strong>Benefit &mdash; complete isolation:</strong> each VM is protected from every other, so a guest crash affects nobody else.</li>
+<li><strong>Benefit &mdash; development and research:</strong> you can test a new OS or a risky change without disturbing normal operation.</li>
+<li><strong>Cost:</strong> hard to implement (the virtual machine must be an exact duplicate of the underlying machine) and slower, since privileged instructions must be trapped and simulated.</li>
+</ul>
+
+<h2>Types of operating system</h2>
+
+<p>Learn these as <strong>eight items, each with one distinguishing sentence and one example.</strong></p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Type</th><th>Defining idea</th><th>Weakness</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td><strong>1. Batch OS</strong></td><td>Similar jobs are batched together by an operator and run without user interaction; an <em>automatic job sequencer</em> (the resident monitor) runs one after another</td><td>No interaction, long turnaround, CPU idle during I/O, priority is impossible</td><td>Early IBM systems, payroll and bank statement runs</td></tr>
+<tr><td><strong>2. Multiprogramming OS</strong></td><td>Several jobs held in memory; when one waits for I/O the CPU is given to another</td><td>Complex memory management; no guarantee of response time</td><td>THE, early mainframes</td></tr>
+<tr><td><strong>3. Multitasking / time-sharing OS</strong></td><td>The CPU is switched among jobs on a <strong>time quantum</strong>, so each user gets interactive response</td><td>Context-switch overhead; needs protection and swapping</td><td>UNIX, Linux, Windows</td></tr>
+<tr><td><strong>4. Multiprocessing OS</strong></td><td>Two or more CPUs share the bus, clock, memory and devices &mdash; true parallel execution</td><td>Complex synchronisation; a shared bus can bottleneck</td><td>SMP servers, modern multi-core desktops</td></tr>
+<tr><td><strong>5. Real-time OS (RTOS)</strong></td><td>Correctness depends on <strong>meeting a deadline</strong>, not just on producing the right answer. <strong>Hard RTOS:</strong> missing a deadline is total failure. <strong>Soft RTOS:</strong> a critical task simply gets priority</td><td>Very limited or no virtual memory and secondary storage in hard RTOS</td><td>Hard: avionics, airbag controllers, industrial robots. Soft: multimedia, VoIP</td></tr>
+<tr><td><strong>6. Distributed OS</strong></td><td>Several independent machines with <strong>no shared memory or clock</strong>, connected by a network, presented to the user as one system</td><td>Network failure and latency; hard to secure and to synchronise</td><td>LOCUS, Amoeba, modern clusters</td></tr>
+<tr><td><strong>7. Clustered OS</strong></td><td>Multiple complete systems joined to work together on a task, sharing storage and closely linked by a LAN. <strong>Asymmetric:</strong> one machine is a hot standby. <strong>Symmetric:</strong> all run applications and monitor each other</td><td>Expensive; needs distributed lock management</td><td>High-availability database clusters</td></tr>
+<tr><td><strong>8. Embedded / network OS</strong></td><td><strong>Embedded:</strong> a special-purpose OS inside a device, with limited functions and memory. <strong>Network OS:</strong> users are aware of the separate machines and log in explicitly to remote ones</td><td>Embedded: no general-purpose capability. Network: no transparency</td><td>Embedded: washing machine, router, smartwatch. Network: Novell NetWare, Windows Server</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="box">
+  <span class="lbl">The distinction examiners test</span>
+  <p><strong>Distributed vs network OS:</strong> in a <em>distributed</em> system the user does not know, and does not need to know, which machine runs the job &mdash; it looks like a single computer (<strong>transparency</strong>). In a <em>network</em> OS the user knows there are many machines and must explicitly log in or copy files across.</p>
+  <p><strong>Multiprogramming vs multiprocessing:</strong> multiprogramming is <em>one</em> CPU switching among many jobs; multiprocessing is <em>many</em> CPUs genuinely running jobs at the same instant.</p>
+</div>
+
+<h2>System boot</h2>
+
+<p>&ldquo;How does the OS get into memory when there is no OS in memory to load it?&rdquo; That circularity is the whole point of the boot question.</p>
+
+<div class="formula">
+  <span class="name">The boot sequence &mdash; write these six steps</span>
+  <strong>1.</strong> Power on. The CPU's program counter is set by hardware to a fixed address in <strong>ROM / EEPROM</strong>.<br>
+  <strong>2.</strong> The <strong>bootstrap program</strong> (firmware, BIOS or UEFI) runs. It is in ROM, so it needs no loading and cannot be modified by a virus easily.<br>
+  <strong>3.</strong> It runs <strong>POST</strong> &mdash; the power-on self-test &mdash; checking CPU registers, memory and devices.<br>
+  <strong>4.</strong> It initialises the hardware, then locates the <strong>boot block</strong> &mdash; the first sector of the boot disk, the Master Boot Record.<br>
+  <strong>5.</strong> The boot block holds the <strong>boot loader</strong> (GRUB, Windows Boot Manager), which is larger and smarter; it finds the kernel on disk and loads it into main memory.<br>
+  <strong>6.</strong> The <strong>kernel starts executing</strong>, initialises its data structures, creates the first process (<code>init</code> or <code>systemd</code>), starts the system daemons, and waits for events.
+</div>
+
+<p>Two supporting terms:</p>
+
+<ul>
+<li><strong>Bootstrapping</strong> &mdash; the general name for a small simple program pulling in a large complex one, &ldquo;lifting itself by its own bootstraps.&rdquo;</li>
+<li><strong>System generation (SYSGEN)</strong> &mdash; configuring the OS for the particular machine it will run on: which CPU, how much memory, which devices, which options. The OS is then either recompiled or, more commonly today, configured by a table read at boot time.</li>
+</ul>
+
+<div class="quiz">
+<h3>Check yourself</h3>
+
+<div class="q">
+  <p class="stem">1. In a layered operating system, a layer may call:</p>
+  <div class="opts">
+    <button class="opt">Only layer 0, the hardware</button>
+    <button class="opt" data-ok="1">Only the layer immediately below it</button>
+    <button class="opt">Only the layer immediately above it</button>
+    <button class="opt">Any layer at all</button>
+  </div>
+  <p class="why">That restriction is what makes debugging easy — an error found while testing layer k must be in layer k, since every lower layer is already proven correct.</p>
+</div>
+
+<div class="q">
+  <p class="stem">2. What remains inside a microkernel?</p>
+  <div class="opts">
+    <button class="opt">Nothing — the whole OS is in user space</button>
+    <button class="opt">The complete networking stack</button>
+    <button class="opt">The file system and all device drivers</button>
+    <button class="opt" data-ok="1">Inter-process communication, minimal process and memory management</button>
+  </div>
+  <p class="why">Everything else is pushed into user-space servers, and clients reach those servers by message passing through the microkernel.</p>
+</div>
+
+<div class="q">
+  <p class="stem">3. The main disadvantage of the microkernel approach is:</p>
+  <div class="opts">
+    <button class="opt" data-ok="1">Performance overhead from message passing and extra mode switches</button>
+    <button class="opt">A driver crash brings down the whole system</button>
+    <button class="opt">It cannot be ported to new hardware</button>
+    <button class="opt">New services cannot be added</button>
+  </div>
+  <p class="why">The other three are microkernel <em>advantages</em>, or monolithic weaknesses. Message passing is the price paid for isolation.</p>
+</div>
+
+<div class="q">
+  <p class="stem">4. Loadable kernel modules give the modular approach its key benefit, which is:</p>
+  <div class="opts">
+    <button class="opt">All services run in user mode</button>
+    <button class="opt" data-ok="1">Defined interfaces like layers, separability like a microkernel, but direct calls so it stays as fast as monolithic</button>
+    <button class="opt">Message passing replaces all function calls</button>
+    <button class="opt">The kernel never needs a scheduler</button>
+  </div>
+  <p class="why">Modules run in kernel mode and call each other directly, so no message-passing cost is paid, yet each is separately loadable and has a defined interface.</p>
+</div>
+
+<div class="q">
+  <p class="stem">5. In a hard real-time system, missing a deadline means:</p>
+  <div class="opts">
+    <button class="opt">The user is asked to retry</button>
+    <button class="opt">Slightly degraded quality, which is acceptable</button>
+    <button class="opt" data-ok="1">Total system failure — the result is worthless even if correct</button>
+    <button class="opt">The job is simply rescheduled</button>
+  </div>
+  <p class="why">That is the hard/soft distinction. A soft RTOS merely gives critical tasks priority over others; multimedia playback is the standard example.</p>
+</div>
+
+<div class="q">
+  <p class="stem">6. The program stored in ROM that runs first at power-on is the:</p>
+  <div class="opts">
+    <button class="opt">init process</button>
+    <button class="opt">Boot loader in the boot block</button>
+    <button class="opt" data-ok="1">Bootstrap program (firmware / BIOS)</button>
+    <button class="opt">Kernel</button>
+  </div>
+  <p class="why">Order: bootstrap in ROM → POST → boot block on disk → boot loader → kernel → first process. The bootstrap is in ROM precisely because there is nothing yet able to load it.</p>
+</div>
+
+<div class="q">
+  <p class="stem">7. A user of a distributed operating system, unlike a network operating system:</p>
+  <div class="opts">
+    <button class="opt">Shares physical memory with all other machines</button>
+    <button class="opt" data-ok="1">Need not know which machine is executing the job</button>
+    <button class="opt">Must log in explicitly to each remote machine</button>
+    <button class="opt">Cannot access remote files at all</button>
+  </div>
+  <p class="why">That property is called transparency. A distributed system has no shared memory and no common clock, yet presents itself as a single machine.</p>
+</div>
+
+</div>
+
+<h2>Recall without looking</h2>
+
+<div class="recall">
+  <details class="card"><summary>Name the six OS structures in order of development.</summary>
+    <p class="ans">Simple (MS-DOS), monolithic (traditional UNIX), layered, microkernel (Mach, QNX), modular with loadable kernel modules (Linux, Solaris), and hybrid (macOS Darwin, Windows). Virtual machines are a further extension of layering.</p></details>
+  <details class="card"><summary>Give the advantage and the disadvantage of the layered approach.</summary>
+    <p class="ans">Advantage: simplicity of construction and debugging, because each layer uses only the proven layer below it. Disadvantages: deciding the layer ordering is genuinely difficult, and every system call must traverse all the layers, which costs performance.</p></details>
+  <details class="card"><summary>Compare monolithic and microkernel on five points.</summary>
+    <p class="ans">Kernel content: everything vs only IPC and minimal process/memory management. Size: large vs small. Communication: direct function calls vs message passing. Speed: monolithic faster. Reliability and extensibility: microkernel better, since a failed server is restartable and new services are just user programs.</p></details>
+  <details class="card"><summary>Why is the modular approach preferred today?</summary>
+    <p class="ans">It has defined interfaces like a layered system, separable loadable parts like a microkernel, but its modules run in kernel mode and call one another directly, so it keeps monolithic speed without message-passing overhead.</p></details>
+  <details class="card"><summary>List the eight types of operating system.</summary>
+    <p class="ans">Batch, multiprogramming, multitasking/time-sharing, multiprocessing, real-time (hard and soft), distributed, clustered, and embedded/network.</p></details>
+  <details class="card"><summary>Distinguish distributed from network operating systems, and multiprogramming from multiprocessing.</summary>
+    <p class="ans">Distributed systems are transparent — the user does not know which machine runs the job; in a network OS the user knows and logs in explicitly. Multiprogramming is one CPU switching among many jobs; multiprocessing is many CPUs executing simultaneously.</p></details>
+  <details class="card"><summary>Give the six steps of the boot sequence.</summary>
+    <p class="ans">Power on and the PC is set to a fixed ROM address; the bootstrap program (BIOS/UEFI) runs; POST tests the hardware; the boot block on the boot disk is located; the boot loader in it loads the kernel into memory; the kernel initialises, creates the first process and waits for events.</p></details>
+  <details class="card"><summary>What is SYSGEN?</summary>
+    <p class="ans">System generation — configuring the operating system for the specific machine it will run on: CPU type, memory size, devices present and options wanted. The result is either a recompiled kernel or, more commonly, a configuration table read at boot.</p></details>
+</div>
+
+<p class="ask">Next: what the OS actually offers the user and the programmer &mdash; services, the two interfaces, system programs, and then system calls in detail.</p>
+
+<div class="nav">
+  <a href="0001-overview-of-operating-systems.html">&larr; Overview</a>
+  <a href="../../index.html">All lessons</a>
+  <a href="0003-os-services-and-interfaces.html">Next: Services and Interfaces &rarr;</a>
+  <a href="../../reference/unit1-cheat-sheet.html">Unit I sheet</a>
+</div>
+
+</div>
+<script src="../../assets/quiz.js"></script>

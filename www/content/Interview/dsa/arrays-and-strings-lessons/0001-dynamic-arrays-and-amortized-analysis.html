@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arrays &amp; Strings Lesson 01 — Dynamic Arrays &amp; Amortized Analysis</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Arrays &amp; Strings Track · Lesson 1 of 5 · Contiguous Memory, Cache Lines, Amortized O(1)</div>
+<h1>Dynamic Arrays Under the Hood</h1>
+<p class="subtitle">Why arrays are the fastest data structure in physical hardware, and how ArrayList dynamically resizes without choking your CPU.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master foundational data structures from 0 level. This is Lesson 1 of 5 in Arrays &amp; Strings.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The One Idea</h2>
+<p>
+A static array is a contiguous block of physical RAM addresses: <code>Address(index i) = BaseAddress + (i * elementSize)</code>. Because calculating an address takes exactly one multiplication and addition, looking up <code>arr[i]</code> takes <strong>O(1) time</strong>. Furthermore, because computer CPUs read memory in 64-byte chunks called <strong>Cache Lines</strong>, scanning an array sequentially is dramatically faster than traversing linked nodes scattered around the heap (Spatial Locality). A <strong>Dynamic Array</strong> (like Java's <code>ArrayList</code> or Python's <code>list</code>) wraps a fixed array, automatically allocating a double-sized array whenever it fills up.
+</p>
+
+<h2>2 · How Dynamic Resizing Works &amp; Geometric Growth</h2>
+<p>
+When you initialize <code>new ArrayList&lt;&gt;()</code> in Java, it starts with an internal capacity of 10. When you append the 11th element:
+</p>
+<ol>
+  <li>The JVM allocates a new array of size <code>capacity * 1.5</code> (or $2	imes$ in many C++ <code>std::vector</code> implementations).</li>
+  <li>It copies all existing elements over to the new array using high-speed native memory copying (<code>System.arraycopy</code>).</li>
+  <li>It reassigns the internal pointer and discards the old array for garbage collection.</li>
+</ol>
+
+<h2>3 · Why Appending is Amortized O(1)</h2>
+<p>
+Beginners often ask: <em>"If resizing copies $N$ elements (taking $O(N)$ time), why is <code>add()</code> considered $O(1)$?"</em>
+</p>
+<p>
+Because resizing happens <strong>exponentially less frequently</strong> as the array grows:
+</p>
+<ul>
+  <li>Cost to insert 1st to 8th element: $1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 = 8$ operations.</li>
+  <li>Cost to resize at 8: Copy 8 elements + insert 9th = $8 + 1 = 9$ operations.</li>
+  <li>Next resize won't happen until element 16!</li>
+</ul>
+<p>
+Sum of all copy costs over $N$ insertions is: $1 + 2 + 4 + 8 + \dots + N/2 = N - 1 &lt; N$.
+Total work for $N$ insertions is: $N 	ext{ (regular inserts)} + N 	ext{ (copying)} = 2N$.
+Average cost per insert: $rac{2N}{N} = \mathbf{O(1)	ext{ Amortized Time}}$.
+</p>
+
+<h2>4 · Clean Java Implementation from Scratch</h2>
+<pre><code>public class CustomArrayList&lt;T&gt; {
+    private Object[] data;
+    private int size = 0;
+    private static final int DEFAULT_CAPACITY = 10;
+
+    public CustomArrayList() {
+        this.data = new Object[DEFAULT_CAPACITY];
+    }
+
+    public void add(T element) {
+        if (size == data.length) {
+            resize(data.length * 2); <span class="cmt">// Geometric doubling</span>
+        }
+        data[size++] = element;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T get(int index) {
+        if (index &lt; 0 || index &gt;= size) throw new IndexOutOfBoundsException();
+        return (T) data[index]; <span class="cmt">// O(1) direct offset access</span>
+    }
+
+    private void resize(int newCapacity) {
+        Object[] newArray = new Object[newCapacity];
+        System.arraycopy(data, 0, newArray, 0, size);
+        this.data = newArray;
+    }
+
+    public int size() { return size; }
+}</code></pre>
+
+<h2>Do this next</h2>
+<ul>
+  <li>Now that array memory mechanics are clear, how do we find optimal contiguous ranges? Next: Kadane's Algorithm &amp; Subarray Patterns.</li>
+</ul>
+
+<div class="nav">
+  <a href="../INDEX.md">← Course Index</a>
+  <a href="../INDEX.md">Index</a>
+  <a href="0002-kadane-and-subarray-patterns.html">Next: Kadane's Algorithm →</a>
+</div>
+</body>
+</html>

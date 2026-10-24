@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 41 - Consistency vs Availability | System Design Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">System Design · HLD · Lesson 41 of 66 · CRDTs, Vector Clocks, Read Repair</div>
+  
+  <h1>Consistency vs Availability: Conflict Resolution</h1>
+  <p class="subtitle">How distributed systems merge conflicting writes across the globe without central locks.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Module K — System Design Trade-offs</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In highly available, multi-region systems (like collaborative Google Docs, Amazon shopping carts, or Apple Notes), users must be allowed to write data even while offline on an airplane or disconnected from other regions. When connections resume, multiple replicas will hold conflicting versions of the same document. <strong>Conflict Resolution</strong> algorithms allow distributed systems to automatically converge on a single, mathematically sound version without human intervention.</p>
+
+  <h2>2 · Conflict Resolution Strategies</h2>
+
+  <h3>1. Last-Write-Wins (LWW) — Simple but Dangerous</h3>
+  <ul>
+    <li>Every write attaches a physical wall-clock timestamp (NTP). The replica with the highest timestamp overwrites all others.</li>
+    <li><strong>Major Flaw:</strong> Computer clocks drift! Due to hardware clock skew, Server B's clock might be 200ms behind Server A's clock, silently deleting legitimate newer writes (Silent Data Loss).</li>
+  </ul>
+
+  <h3>2. Vector Clocks (Causality Tracking)</h3>
+  <ul>
+    <li>Instead of physical clocks, each node maintains an array of logical counters: <code>[NodeA: 2, NodeB: 1, NodeC: 4]</code>.</li>
+    <li>Allows the database to detect whether Write 2 happened <em>after</em> Write 1 (causally related), or if Write 1 and Write 2 occurred concurrently.</li>
+    <li>If concurrent, the database preserves both versions as siblings and forces the application (or user) to resolve the merge (e.g., Git merge conflicts or Amazon shopping cart items combining).</li>
+  </ul>
+
+  <h3>3. CRDTs (Conflict-free Replicated Data Types) — The Holy Grail</h3>
+  <p>Data structures engineered with mathematical properties (associative, commutative, idempotent) such that any two replicas can merge their state in any order at any time and are <strong>guaranteed to reach the exact same state</strong> with zero coordination!</p>
+  <ul>
+    <li><strong>P-N Counter:</strong> Distributed upvote/downvote counter.</li>
+    <li><strong>ORSet (Observed-Remove Set):</strong> Distributed shopping cart or tag list.</li>
+    <li><strong>RGA / Yjs / Automerge:</strong> Real-time collaborative text editing in Figma and Google Docs.</li>
+  </ul>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>Next, let's explore database storage engine internals: B-Trees vs LSM-Trees in SQL vs NoSQL.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0040-push-vs-pull.html">← Previous: Push vs Pull</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0042-sql-vs-nosql-tradeoffs.html">Next: SQL vs NoSQL Trade-offs →</a>
+  </div>
+</body>
+</html>

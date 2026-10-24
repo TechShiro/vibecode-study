@@ -1,0 +1,906 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 07 — Weighted Shortest Paths</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 07 of 09 · when edges have cost</div>
+<h1>Weighted Shortest Paths (Dijkstra &amp; friends)</h1>
+<p class="subtitle">BFS only finds shortest paths when every edge costs 1. Add weights and you need a greedy min-heap (Dijkstra) — or a different tool when weights can be 0/1 or negative.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Weighted shortest path is a top Google-interview graph theme (Network Delay, Cheapest Flights).
+  This is Lesson 7 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<div class="callout tip">
+  <span class="label">Prerequisite — the Java you'll lean on</span>
+  Dijkstra lives or dies on <code>PriorityQueue&lt;int[]&gt;</code> with the right comparator, and the heap
+  comparator direction is the classic bug. If that's fuzzy, do
+  <a href="../java-lessons/0003-priorityqueue-and-comparators.html">Java 03: PriorityQueue &amp; Comparators</a> first.
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+On an <strong>unweighted</strong> graph, BFS works because every edge advances distance by exactly 1, so
+the frontier is naturally sorted by distance. The moment edges carry <em>different</em> costs, that
+guarantee breaks: the fewest-<em>edges</em> path is no longer the cheapest path. You now need an algorithm
+that always expands the <strong>cheapest-known</strong> node next. That algorithm is
+<strong>Dijkstra</strong> — BFS with a <strong>min-heap</strong> replacing the plain queue. Two special
+cases get cheaper or stronger tools: edges of weight <strong>0 or 1</strong> → <strong>0-1 BFS</strong>
+(a deque), and <strong>negative</strong> edges → <strong>Bellman-Ford</strong> (which Dijkstra cannot
+handle and which also detects negative cycles). Need <em>all</em> pairs at once → <strong>Floyd-Warshall</strong>.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Minimum <em>cost</em> / cheapest / shortest <em>time</em> / least <em>effort</em>" where moves carry
+  different weights. If the problem says "fewest steps/edges," that's plain BFS (Lesson 03). If it says
+  "cheapest" with non-negative weights, Dijkstra fires. Negative weights or "detect a negative cycle" →
+  Bellman-Ford.
+</div>
+
+<h2>2 · Which algorithm? (decide in 10 seconds)</h2>
+<table>
+  <thead><tr><th>Edge weights</th><th>Algorithm</th><th>Time</th><th>Space</th></tr></thead>
+  <tbody>
+    <tr><td>All equal (unweighted)</td><td>BFS (Lesson 03)</td><td>O(V + E)</td><td>O(V)</td></tr>
+    <tr><td>Only 0 or 1</td><td>0-1 BFS (deque)</td><td>O(V + E)</td><td>O(V)</td></tr>
+    <tr><td>Non-negative</td><td><strong>Dijkstra</strong> (min-heap)</td><td>O(E log V)</td><td>O(V + E)</td></tr>
+    <tr><td>Negative allowed</td><td>Bellman-Ford</td><td>O(V · E)</td><td>O(V)</td></tr>
+    <tr><td>All pairs (small V)</td><td>Floyd-Warshall</td><td>O(V³)</td><td>O(V²)</td></tr>
+  </tbody>
+</table>
+<p>
+Default to <strong>Dijkstra</strong>: interview-weighted graphs are almost always non-negative, and it's
+the fastest single-source option. Reach past it only when the constraints above force you to.
+</p>
+
+<h2>3 · Core template — Dijkstra</h2>
+<p>
+Carry a <code>dist[]</code> array (best cost known to each node, all <code>Integer.MAX_VALUE</code> at
+first) and a min-heap of <code>{node, distSoFar}</code> ordered by <code>distSoFar</code>. Pop the cheapest
+node, relax its edges, push improved neighbors. The one subtlety that trips everyone is
+<strong>lazy deletion</strong>: Java's <code>PriorityQueue</code> can't update a key in place, so we leave
+stale entries in the heap and <em>skip</em> them on pop.
+</p>
+
+<pre><code><span class="cmt">// adjacency: adj.get(u) = list of {neighbor, weight}</span>
+int dijkstra(int n, List&lt;List&lt;int[]&gt;&gt; adj, int src, int dst) {
+    int[] dist = new int[n];
+    Arrays.fill(dist, Integer.MAX_VALUE);
+    dist[src] = 0;
+    <span class="cmt">// min-heap ordered by distance-so-far (a[1]). WRONG direction = the classic bug.</span>
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[1] - b[1]);
+    pq.offer(new int[]{src, 0});       <span class="cmt">// {node, dist}</span>
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int u = top[0], d = top[1];
+        if (d &gt; dist[u]) continue;     <span class="cmt">// LAZY DELETION — stale entry, already improved</span>
+        if (u == dst) return d;        <span class="cmt">// first pop of a node IS its final distance</span>
+        for (int[] e : adj.get(u)) {
+            int v = e[0], w = e[1];
+            if (dist[u] + w &lt; dist[v]) {
+                dist[v] = dist[u] + w; <span class="cmt">// relax</span>
+                pq.offer(new int[]{v, dist[v]}); <span class="cmt">// push the improved entry</span>
+            }
+        }
+    }
+    return -1;                          <span class="cmt">// dst unreachable</span>
+}</code></pre>
+<p><strong>Time</strong> O(E log V) — each edge can push one heap entry, each pop/push is O(log V).
+<strong>Space</strong> O(V + E) for the adjacency list, <code>dist[]</code>, and up to O(E) heap entries.</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: source <code>0</code>, undirected weighted edges
+<code>(0,1,4) (0,2,1) (2,1,2) (2,3,5) (1,3,1) (3,4,3)</code>. The highlighted edges form the shortest-path tree:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 360 220" role="img" aria-label="Weighted graph; Dijkstra shortest-path tree from node 0 highlighted">
+  <line class="edge"    x1="40"  y1="110" x2="140" y2="50"/>
+  <line class="edge hl" x1="40"  y1="110" x2="140" y2="170"/>
+  <line class="edge hl" x1="140" y1="170" x2="140" y2="50"/>
+  <line class="edge"    x1="140" y1="170" x2="250" y2="110"/>
+  <line class="edge hl" x1="140" y1="50"  x2="250" y2="110"/>
+  <line class="edge hl" x1="250" y1="110" x2="330" y2="110"/>
+  <text class="wt" x="80"  y="72">4</text>
+  <text class="wt" x="78"  y="148">1</text>
+  <text class="wt" x="126" y="112">2</text>
+  <text class="wt" x="202" y="150">5</text>
+  <text class="wt" x="200" y="72">1</text>
+  <text class="wt" x="290" y="100">3</text>
+  <circle class="node done" cx="40"  cy="110" r="20"/><text class="lbl" x="40"  y="110">0</text>
+  <circle class="node done" cx="140" cy="50"  r="20"/><text class="lbl" x="140" y="50">1</text>
+  <circle class="node done" cx="140" cy="170" r="20"/><text class="lbl" x="140" y="170">2</text>
+  <circle class="node done" cx="250" cy="110" r="20"/><text class="lbl" x="250" y="110">3</text>
+  <circle class="node done" cx="330" cy="110" r="20"/><text class="lbl" x="330" y="110">4</text>
+</svg>
+<figcaption>Dijkstra from 0. Final distances 0→0, 2→1, 1→3, 3→4, 4→7. Each pop finalizes the globally nearest unfinalized node.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">init dist = [0, ∞, ∞, ∞, ∞]; heap = [(0, dist 0)]</span>
+<span class="step now">pop 0 (d=0) → relax: dist[1]=<span class="ptr">4</span>, dist[2]=<span class="ptr">1</span></span>
+<span class="step now">pop 2 (d=1) → relax: dist[1]=min(4, 1+2)=<span class="ptr">3</span>, dist[3]=<span class="ptr">6</span></span>
+<span class="step now">pop 1 (d=3) → relax: dist[3]=min(6, 3+1)=<span class="ptr">4</span></span>
+<span class="step">pop stale (1, d=4) → 4 &gt; dist[1]=3 → <em>skip</em> (lazy deletion)</span>
+<span class="step now">pop 3 (d=4) → relax: dist[4]=<span class="ptr">7</span></span>
+<span class="step">pop 4 (d=7) → no improvement; heap drains → done</span>
+<span class="step">final dist = {0:0, 2:1, 1:3, 3:4, 4:7}</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Why the <code>if (d &gt; dist[u]) continue;</code> line matters</span>
+  We never decrease-key; we just push a fresh, cheaper entry and let the old one rot in the heap. When the
+  stale (larger) entry finally pops, <code>d</code> exceeds the already-finalized <code>dist[u]</code>, so
+  we skip it. Without this guard you'd re-relax from outdated distances — slower, and a magnet for subtle
+  bugs. The first time a node is popped <em>without</em> being skipped, its distance is final (greedy
+  invariant) — that's why Dijkstra can early-return at <code>dst</code>.
+</div>
+
+<div class="callout trap">
+  <span class="label">Negative edges break Dijkstra — silently</span>
+  Dijkstra's correctness rests on "once popped, a node's distance never improves." A negative edge can make
+  a later, cheaper path to an already-finalized node — but Dijkstra has moved on and will never revisit it,
+  so it returns a wrong answer with no error. Negative weights ⇒ Bellman-Ford, full stop.
+</div>
+
+<h2>4 · All the cases</h2>
+<p>Same heap, different "what is a node" and "what is the cost being minimized."</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Single-source to all</td><td>LC 743 ★</td><td>Dijkstra from src; answer = max finalized dist (or -1 if any unreachable).</td></tr>
+    <tr><td>Minimize the MAX edge on a path</td><td>LC 1631</td><td>Cost = max edge so far, not the sum. Relax with <code>max(dist[u], w)</code>.</td></tr>
+    <tr><td>Cheapest within K stops</td><td>LC 787 ★</td><td>Add a stop budget to the state; plain Dijkstra fails — see below.</td></tr>
+    <tr><td>Minimize max along grid path</td><td>LC 778</td><td>Grid = implicit graph; cost = max cell value seen so far.</td></tr>
+    <tr><td>0/1 edge weights</td><td>0-1 BFS</td><td>Deque: 0-edge to front, 1-edge to back — no heap.</td></tr>
+    <tr><td>Negative edges / cycle check</td><td>Bellman-Ford</td><td>V−1 relax passes + one extra pass to detect a negative cycle.</td></tr>
+  </tbody>
+</table>
+<p>★ = frequent Google favorite.</p>
+
+<h3>Case: Network Delay Time (LC 743) — Dijkstra to all nodes ★</h3>
+<p>
+"How long until <em>every</em> node gets the signal?" = run Dijkstra from the source, then the answer is the
+<strong>largest</strong> finalized distance (the last node to hear it). If any node stays
+<code>MAX_VALUE</code>, it's unreachable → return -1.
+</p>
+<pre><code>int networkDelayTime(int[][] times, int n, int k) {
+    List&lt;List&lt;int[]&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt;= n; i++) adj.add(new ArrayList&lt;&gt;()); <span class="cmt">// nodes are 1..n</span>
+    for (int[] t : times) adj.get(t[0]).add(new int[]{t[1], t[2]}); <span class="cmt">// {to, weight}, DIRECTED</span>
+
+    int[] dist = new int[n + 1];
+    Arrays.fill(dist, Integer.MAX_VALUE);
+    dist[k] = 0;
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[1] - b[1]);
+    pq.offer(new int[]{k, 0});
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int u = top[0], d = top[1];
+        if (d &gt; dist[u]) continue;
+        for (int[] e : adj.get(u)) {
+            if (d + e[1] &lt; dist[e[0]]) {
+                dist[e[0]] = d + e[1];
+                pq.offer(new int[]{e[0], dist[e[0]]});
+            }
+        }
+    }
+    int ans = 0;
+    for (int i = 1; i &lt;= n; i++) {
+        if (dist[i] == Integer.MAX_VALUE) return -1; <span class="cmt">// someone never hears it</span>
+        ans = Math.max(ans, dist[i]);
+    }
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(E log V). <strong>Space</strong> O(V + E).</p>
+
+<h3>Case: Path With Minimum Effort (LC 1631) — minimize the MAX edge</h3>
+<p>
+Here "effort" is the <em>largest</em> height difference along the path, not the sum. Dijkstra still works —
+just change the relaxation: a candidate path's cost is <code>max(costToHere, edgeWeight)</code>. This is a
+"minimax path," and the heap stays ordered by that running max.
+</p>
+<pre><code>int minimumEffortPath(int[][] heights) {
+    int R = heights.length, C = heights[0].length;
+    int[][] effort = new int[R][C];
+    for (int[] row : effort) Arrays.fill(row, Integer.MAX_VALUE);
+    effort[0][0] = 0;
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[2] - b[2]); <span class="cmt">// {r, c, effort}</span>
+    pq.offer(new int[]{0, 0, 0});
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int r = top[0], c = top[1], e = top[2];
+        if (e &gt; effort[r][c]) continue;            <span class="cmt">// stale entry</span>
+        if (r == R - 1 && c == C - 1) return e;     <span class="cmt">// first pop of target = answer</span>
+        for (int[] d : dirs) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr &lt; 0 || nr &gt;= R || nc &lt; 0 || nc &gt;= C) continue;
+            int diff = Math.abs(heights[nr][nc] - heights[r][c]);
+            int ne = Math.max(e, diff);             <span class="cmt">// minimax: cost = worst edge so far</span>
+            if (ne &lt; effort[nr][nc]) {
+                effort[nr][nc] = ne;
+                pq.offer(new int[]{nr, nc, ne});
+            }
+        }
+    }
+    return 0;
+}</code></pre>
+<p><strong>Time</strong> O(R·C·log(R·C)). <strong>Space</strong> O(R·C). LC 778 (Swim in Rising Water) is the
+<em>same</em> minimax pattern — cost is <code>max(time, grid[nr][nc])</code> instead of a height diff.</p>
+
+<h3>Case: Swim in Rising Water (LC 778) — minimax on a grid</h3>
+<pre><code>int swimInWater(int[][] grid) {
+    int n = grid.length;
+    boolean[][] done = new boolean[n][n];
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[2] - b[2]); <span class="cmt">// {r, c, time}</span>
+    pq.offer(new int[]{0, 0, grid[0][0]});
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int r = top[0], c = top[1], t = top[2];
+        if (done[r][c]) continue;                   <span class="cmt">// finalized = lowest time wins</span>
+        done[r][c] = true;
+        if (r == n - 1 && c == n - 1) return t;     <span class="cmt">// earliest time to reach corner</span>
+        for (int[] d : dirs) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr &lt; 0 || nr &gt;= n || nc &lt; 0 || nc &gt;= n || done[nr][nc]) continue;
+            pq.offer(new int[]{nr, nc, Math.max(t, grid[nr][nc])});
+        }
+    }
+    return -1;
+}</code></pre>
+<p><strong>Time</strong> O(n²·log n). <strong>Space</strong> O(n²). (Here a boolean <code>done[][]</code>
+replaces the dist array — once a cell pops it's final, so we skip repeats.)</p>
+
+<h3>Case: Cheapest Flights Within K Stops (LC 787) — why plain Dijkstra fails ★</h3>
+<div class="callout trap">
+  <span class="label">Why plain Dijkstra is wrong here</span>
+  Dijkstra finalizes each node at its globally cheapest distance and never revisits it. But the cheapest
+  way to reach a node might use <em>too many stops</em>, while a pricier route uses fewer and is the only
+  one that can extend within budget. Once Dijkstra finalizes the cheap-but-stop-heavy version, it discards
+  the route you actually needed. The fix: the <strong>state is (node, stopsUsed)</strong>, not just node —
+  or relax exactly <code>K+1</code> times à la Bellman-Ford.
+</div>
+<p>The cleanest answer is <strong>Bellman-Ford bounded to K+1 edges</strong>: relax all edges K+1 times,
+each round using a frozen snapshot of the previous round's costs so a single round can't chain multiple
+flights.</p>
+<pre><code>int findCheapestPrice(int n, int[][] flights, int src, int dst, int k) {
+    int[] dist = new int[n];
+    Arrays.fill(dist, Integer.MAX_VALUE);
+    dist[src] = 0;
+    for (int i = 0; i &lt;= k; i++) {                  <span class="cmt">// at most k+1 edges = k stops</span>
+        int[] snap = dist.clone();                  <span class="cmt">// freeze: this round uses last round's costs</span>
+        for (int[] f : flights) {
+            int u = f[0], v = f[1], w = f[2];
+            if (snap[u] != Integer.MAX_VALUE && snap[u] + w &lt; dist[v]) {
+                dist[v] = snap[u] + w;
+            }
+        }
+    }
+    return dist[dst] == Integer.MAX_VALUE ? -1 : dist[dst];
+}</code></pre>
+<p><strong>Time</strong> O(K · E). <strong>Space</strong> O(V). The Dijkstra-on-state alternative pushes
+<code>{node, cost, stopsUsed}</code> and only expands while <code>stopsUsed &lt;= k</code> — correct too, but
+the bounded Bellman-Ford is shorter and the <code>snap</code> clone is the part everyone forgets (without
+it, one round chains many hops).</p>
+
+<h3>Case: 0-1 BFS — deque instead of a heap</h3>
+<p>
+When weights are only <strong>0 or 1</strong>, skip the log factor: push 0-weight relaxations to the
+<em>front</em> of a deque, 1-weight relaxations to the <em>back</em>. The deque stays sorted by distance
+(only two live values), giving O(V + E) — Dijkstra's invariant without the heap.
+</p>
+<pre><code>Deque&lt;int[]&gt; dq = new ArrayDeque&lt;&gt;();   <span class="cmt">// {node, dist}</span>
+dist[src] = 0;
+dq.offerFirst(new int[]{src, 0});
+while (!dq.isEmpty()) {
+    int[] cur = dq.pollFirst();
+    int u = cur[0];
+    if (cur[1] &gt; dist[u]) continue;     <span class="cmt">// same stale-skip idea</span>
+    for (int[] e : adj.get(u)) {        <span class="cmt">// e = {neighbor, weight in {0,1}}</span>
+        int v = e[0], w = e[1];
+        if (dist[u] + w &lt; dist[v]) {
+            dist[v] = dist[u] + w;
+            if (w == 0) dq.offerFirst(new int[]{v, dist[v]}); <span class="cmt">// 0-edge → front</span>
+            else        dq.offerLast(new int[]{v, dist[v]});  <span class="cmt">// 1-edge → back</span>
+        }
+    }
+}</code></pre>
+<p><strong>Time</strong> O(V + E). <strong>Space</strong> O(V).</p>
+
+<h3>Case: Bellman-Ford — negative edges &amp; negative-cycle detection</h3>
+<p>
+Relax <em>all</em> edges <code>V−1</code> times (any shortest path has at most V−1 edges). Then run one
+more pass: if anything still relaxes, a <strong>negative cycle</strong> is reachable and "shortest path"
+is undefined (you could loop forever getting cheaper).
+</p>
+<pre><code>long[] bellmanFord(int n, int[][] edges, int src) {
+    long[] dist = new long[n];
+    Arrays.fill(dist, Long.MAX_VALUE);  <span class="cmt">// long: sums of weights can overflow int</span>
+    dist[src] = 0;
+    for (int i = 0; i &lt; n - 1; i++) {   <span class="cmt">// V-1 relaxation passes</span>
+        for (int[] e : edges) {
+            int u = e[0], v = e[1], w = e[2];
+            if (dist[u] != Long.MAX_VALUE && dist[u] + w &lt; dist[v])
+                dist[v] = dist[u] + w;
+        }
+    }
+    for (int[] e : edges) {             <span class="cmt">// one extra pass = negative-cycle check</span>
+        int u = e[0], v = e[1], w = e[2];
+        if (dist[u] != Long.MAX_VALUE && dist[u] + w &lt; dist[v])
+            throw new IllegalStateException("negative cycle reachable from src");
+    }
+    return dist;
+}</code></pre>
+<p><strong>Time</strong> O(V · E). <strong>Space</strong> O(V).</p>
+
+<div class="callout tip">
+  <span class="label">All pairs in one shot — Floyd-Warshall (brief)</span>
+  When V is small (≲ 400) and you want <em>every</em> pair's shortest distance, Floyd-Warshall is three
+  nested loops over a <code>dist[i][j]</code> matrix:
+  <code>dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])</code> with <code>k</code> as the outermost
+  loop. <strong>Time</strong> O(V³), <strong>Space</strong> O(V²). It handles negative edges (no negative
+  cycles) and is the go-to when the problem is really "answer many source-destination queries."
+</div>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Negative edges break Dijkstra</strong> — a later cheaper path to a finalized node is never reconsidered. Use Bellman-Ford instead.</li>
+  <li><strong>Stale heap entries</strong> — Java's PQ can't decrease-key; you push duplicates and <code>if (d &gt; dist[u]) continue;</code> skips the outdated ones. Forgetting this guard re-relaxes from stale costs.</li>
+  <li><strong>Revisiting with a smaller dist</strong> — relax only when <code>dist[u] + w &lt; dist[v]</code>; a boolean visited (instead of a dist array) silently locks in the first, possibly non-optimal, arrival.</li>
+  <li><strong>Overflow</strong> — adding to <code>Integer.MAX_VALUE</code> wraps negative. Guard with <code>dist[u] != MAX</code> before <code>dist[u] + w</code>, or use <code>long</code> for the running sums.</li>
+  <li><strong>Disconnected / unreachable nodes</strong> — they stay <code>MAX_VALUE</code>; check for it before reporting an answer (LC 743 returns -1).</li>
+  <li><strong>Comparator direction</strong> — <code>(a,b) -&gt; a[1] - b[1]</code> is a <em>min</em>-heap. Reversing it makes a max-heap and quietly returns garbage.</li>
+  <li><strong>Constraint in the state</strong> — "within K stops / at most T fuel" must live in the heap/DP state, or Dijkstra's greediness discards the route you need (LC 787).</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does Dijkstra keep the line <code>if (d &gt; dist[u]) continue;</code> after popping from the heap?</div>
+  <button class="opt">To break ties between nodes that have the same distance value</button>
+  <button class="opt">Because Java's PQ can't decrease-key, so stale (larger-distance) duplicates must be skipped</button>
+  <button class="opt">To stop the algorithm as soon as the destination is finalized</button>
+  <div class="fb" data-correct="We never update a key in place — we push a cheaper duplicate and let the old entry rot. When the stale, larger entry pops, d exceeds the already-finalized dist[u], so we skip it." data-wrong="It's lazy deletion: since we can't decrease-key, the heap holds outdated duplicates. The guard skips any entry whose distance is worse than the node's finalized distance."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A graph has some <strong>negative</strong> edge weights and you must find shortest paths from one source. Which algorithm is correct?</div>
+  <button class="opt">Dijkstra — it always finds shortest paths, weights don't matter</button>
+  <button class="opt">0-1 BFS with a deque, treating negatives as 0-edges</button>
+  <button class="opt">Bellman-Ford — V−1 relaxation passes, with an extra pass to detect negative cycles</button>
+  <div class="fb" data-correct="Dijkstra's greedy invariant fails with negative edges (a finalized node can later get cheaper). Bellman-Ford relaxes all edges V−1 times and a final pass flags negative cycles." data-wrong="Negative edges violate Dijkstra's 'once finalized, never improves' guarantee. Bellman-Ford handles them and detects negative cycles via one extra relaxation pass."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Cheapest Flights Within K Stops, why doesn't plain Dijkstra (state = node only) work?</div>
+  <button class="opt">It finalizes a node at its cheapest cost, but that route may use too many stops to extend within K</button>
+  <button class="opt">The flight graph can contain negative-weight edges</button>
+  <button class="opt">A min-heap can't store flight prices, only integer distances</button>
+  <div class="fb" data-correct="The globally cheapest route to a node may exceed the stop budget; a costlier route with fewer stops is the one that can still reach the destination. The stop count must be part of the state." data-wrong="It's about the K constraint: cheapest-by-cost can be too stop-heavy to extend, so Dijkstra discards the route you need. Put stopsUsed in the state, or bound Bellman-Ford to K+1 rounds."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/network-delay-time">NeetCode — Network Delay Time (Dijkstra)</a>. Cleanest walkthrough of the heap + dist[] + lazy-deletion pattern. Then <a href="https://neetcode.io/problems/cheapest-flights-within-k-stops">NeetCode — Cheapest Flights Within K Stops</a> for the bounded Bellman-Ford twist.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 743 (Network Delay) → LC 1631 (Min Effort) → LC 778 (Swim in Rising Water) → LC 787 (Cheapest Flights ★) → LC 1514 (Path with Max Probability — Dijkstra on products) → LC 1976 (Number of Ways to Arrive — Dijkstra + counting). Code each from a blank file; if you stall on the heap, revisit the core template.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0008-minimum-spanning-tree.html">Graph Lesson 08 — Minimum Spanning Tree</a> (Prim reuses this exact min-heap).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure whether your weights demand Dijkstra or Bellman-Ford, want me to dry-run the heap and the
+  lazy-deletion skip, or fuzzy on why the stop budget belongs in the state? Ask in the chat. When you can
+  write Dijkstra (LC 743) and the bounded Bellman-Ford (LC 787) from memory, say <strong>"next"</strong> and
+  we move to Minimum Spanning Tree.
+</div>
+
+<div class="nav">
+  <span><a href="0006-union-find.html">← Union-Find</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0008-minimum-spanning-tree.html">Minimum Spanning Tree →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Lesson 07 — Weighted Shortest Paths</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Graph Track · Lesson 07 of 09 · when edges have cost</div>
+<h1>Weighted Shortest Paths (Dijkstra &amp; friends)</h1>
+<p class="subtitle">BFS only finds shortest paths when every edge costs 1. Add weights and you need a greedy min-heap (Dijkstra) — or a different tool when weights can be 0/1 or negative.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> Weighted shortest path is a top Google-interview graph theme (Network Delay, Cheapest Flights).
+  This is Lesson 7 of the 9-lesson graph track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<div class="callout tip">
+  <span class="label">Prerequisite — the Java you'll lean on</span>
+  Dijkstra lives or dies on <code>PriorityQueue&lt;int[]&gt;</code> with the right comparator, and the heap
+  comparator direction is the classic bug. If that's fuzzy, do
+  <a href="../java-lessons/0003-priorityqueue-and-comparators.html">Java 03: PriorityQueue &amp; Comparators</a> first.
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+On an <strong>unweighted</strong> graph, BFS works because every edge advances distance by exactly 1, so
+the frontier is naturally sorted by distance. The moment edges carry <em>different</em> costs, that
+guarantee breaks: the fewest-<em>edges</em> path is no longer the cheapest path. You now need an algorithm
+that always expands the <strong>cheapest-known</strong> node next. That algorithm is
+<strong>Dijkstra</strong> — BFS with a <strong>min-heap</strong> replacing the plain queue. Two special
+cases get cheaper or stronger tools: edges of weight <strong>0 or 1</strong> → <strong>0-1 BFS</strong>
+(a deque), and <strong>negative</strong> edges → <strong>Bellman-Ford</strong> (which Dijkstra cannot
+handle and which also detects negative cycles). Need <em>all</em> pairs at once → <strong>Floyd-Warshall</strong>.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "Minimum <em>cost</em> / cheapest / shortest <em>time</em> / least <em>effort</em>" where moves carry
+  different weights. If the problem says "fewest steps/edges," that's plain BFS (Lesson 03). If it says
+  "cheapest" with non-negative weights, Dijkstra fires. Negative weights or "detect a negative cycle" →
+  Bellman-Ford.
+</div>
+
+<h2>2 · Which algorithm? (decide in 10 seconds)</h2>
+<table>
+  <thead><tr><th>Edge weights</th><th>Algorithm</th><th>Time</th><th>Space</th></tr></thead>
+  <tbody>
+    <tr><td>All equal (unweighted)</td><td>BFS (Lesson 03)</td><td>O(V + E)</td><td>O(V)</td></tr>
+    <tr><td>Only 0 or 1</td><td>0-1 BFS (deque)</td><td>O(V + E)</td><td>O(V)</td></tr>
+    <tr><td>Non-negative</td><td><strong>Dijkstra</strong> (min-heap)</td><td>O(E log V)</td><td>O(V + E)</td></tr>
+    <tr><td>Negative allowed</td><td>Bellman-Ford</td><td>O(V · E)</td><td>O(V)</td></tr>
+    <tr><td>All pairs (small V)</td><td>Floyd-Warshall</td><td>O(V³)</td><td>O(V²)</td></tr>
+  </tbody>
+</table>
+<p>
+Default to <strong>Dijkstra</strong>: interview-weighted graphs are almost always non-negative, and it's
+the fastest single-source option. Reach past it only when the constraints above force you to.
+</p>
+
+<h2>3 · Core template — Dijkstra</h2>
+<p>
+Carry a <code>dist[]</code> array (best cost known to each node, all <code>Integer.MAX_VALUE</code> at
+first) and a min-heap of <code>{node, distSoFar}</code> ordered by <code>distSoFar</code>. Pop the cheapest
+node, relax its edges, push improved neighbors. The one subtlety that trips everyone is
+<strong>lazy deletion</strong>: Java's <code>PriorityQueue</code> can't update a key in place, so we leave
+stale entries in the heap and <em>skip</em> them on pop.
+</p>
+
+<pre><code><span class="cmt">// adjacency: adj.get(u) = list of {neighbor, weight}</span>
+int dijkstra(int n, List&lt;List&lt;int[]&gt;&gt; adj, int src, int dst) {
+    int[] dist = new int[n];
+    Arrays.fill(dist, Integer.MAX_VALUE);
+    dist[src] = 0;
+    <span class="cmt">// min-heap ordered by distance-so-far (a[1]). WRONG direction = the classic bug.</span>
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[1] - b[1]);
+    pq.offer(new int[]{src, 0});       <span class="cmt">// {node, dist}</span>
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int u = top[0], d = top[1];
+        if (d &gt; dist[u]) continue;     <span class="cmt">// LAZY DELETION — stale entry, already improved</span>
+        if (u == dst) return d;        <span class="cmt">// first pop of a node IS its final distance</span>
+        for (int[] e : adj.get(u)) {
+            int v = e[0], w = e[1];
+            if (dist[u] + w &lt; dist[v]) {
+                dist[v] = dist[u] + w; <span class="cmt">// relax</span>
+                pq.offer(new int[]{v, dist[v]}); <span class="cmt">// push the improved entry</span>
+            }
+        }
+    }
+    return -1;                          <span class="cmt">// dst unreachable</span>
+}</code></pre>
+<p><strong>Time</strong> O(E log V) — each edge can push one heap entry, each pop/push is O(log V).
+<strong>Space</strong> O(V + E) for the adjacency list, <code>dist[]</code>, and up to O(E) heap entries.</p>
+
+<h3>Worked example — dry run</h3>
+<p>Input: source <code>0</code>, undirected weighted edges
+<code>(0,1,4) (0,2,1) (2,1,2) (2,3,5) (1,3,1) (3,4,3)</code>. The highlighted edges form the shortest-path tree:</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 360 220" role="img" aria-label="Weighted graph; Dijkstra shortest-path tree from node 0 highlighted">
+  <line class="edge"    x1="40"  y1="110" x2="140" y2="50"/>
+  <line class="edge hl" x1="40"  y1="110" x2="140" y2="170"/>
+  <line class="edge hl" x1="140" y1="170" x2="140" y2="50"/>
+  <line class="edge"    x1="140" y1="170" x2="250" y2="110"/>
+  <line class="edge hl" x1="140" y1="50"  x2="250" y2="110"/>
+  <line class="edge hl" x1="250" y1="110" x2="330" y2="110"/>
+  <text class="wt" x="80"  y="72">4</text>
+  <text class="wt" x="78"  y="148">1</text>
+  <text class="wt" x="126" y="112">2</text>
+  <text class="wt" x="202" y="150">5</text>
+  <text class="wt" x="200" y="72">1</text>
+  <text class="wt" x="290" y="100">3</text>
+  <circle class="node done" cx="40"  cy="110" r="20"/><text class="lbl" x="40"  y="110">0</text>
+  <circle class="node done" cx="140" cy="50"  r="20"/><text class="lbl" x="140" y="50">1</text>
+  <circle class="node done" cx="140" cy="170" r="20"/><text class="lbl" x="140" y="170">2</text>
+  <circle class="node done" cx="250" cy="110" r="20"/><text class="lbl" x="250" y="110">3</text>
+  <circle class="node done" cx="330" cy="110" r="20"/><text class="lbl" x="330" y="110">4</text>
+</svg>
+<figcaption>Dijkstra from 0. Final distances 0→0, 2→1, 1→3, 3→4, 4→7. Each pop finalizes the globally nearest unfinalized node.</figcaption>
+</figure>
+
+<div class="trace">
+<span class="step">init dist = [0, ∞, ∞, ∞, ∞]; heap = [(0, dist 0)]</span>
+<span class="step now">pop 0 (d=0) → relax: dist[1]=<span class="ptr">4</span>, dist[2]=<span class="ptr">1</span></span>
+<span class="step now">pop 2 (d=1) → relax: dist[1]=min(4, 1+2)=<span class="ptr">3</span>, dist[3]=<span class="ptr">6</span></span>
+<span class="step now">pop 1 (d=3) → relax: dist[3]=min(6, 3+1)=<span class="ptr">4</span></span>
+<span class="step">pop stale (1, d=4) → 4 &gt; dist[1]=3 → <em>skip</em> (lazy deletion)</span>
+<span class="step now">pop 3 (d=4) → relax: dist[4]=<span class="ptr">7</span></span>
+<span class="step">pop 4 (d=7) → no improvement; heap drains → done</span>
+<span class="step">final dist = {0:0, 2:1, 1:3, 3:4, 4:7}</span>
+</div>
+
+<div class="callout tip">
+  <span class="label">Why the <code>if (d &gt; dist[u]) continue;</code> line matters</span>
+  We never decrease-key; we just push a fresh, cheaper entry and let the old one rot in the heap. When the
+  stale (larger) entry finally pops, <code>d</code> exceeds the already-finalized <code>dist[u]</code>, so
+  we skip it. Without this guard you'd re-relax from outdated distances — slower, and a magnet for subtle
+  bugs. The first time a node is popped <em>without</em> being skipped, its distance is final (greedy
+  invariant) — that's why Dijkstra can early-return at <code>dst</code>.
+</div>
+
+<div class="callout trap">
+  <span class="label">Negative edges break Dijkstra — silently</span>
+  Dijkstra's correctness rests on "once popped, a node's distance never improves." A negative edge can make
+  a later, cheaper path to an already-finalized node — but Dijkstra has moved on and will never revisit it,
+  so it returns a wrong answer with no error. Negative weights ⇒ Bellman-Ford, full stop.
+</div>
+
+<h2>4 · All the cases</h2>
+<p>Same heap, different "what is a node" and "what is the cost being minimized."</p>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Unweighted (baseline)</td><td>BFS refresher</td><td>Plain queue, no heap — first arrival at a node is its shortest distance.</td></tr>
+    <tr><td>Single-source to all</td><td>LC 743 ★</td><td>Dijkstra from src; answer = max finalized dist (or -1 if any unreachable).</td></tr>
+    <tr><td>Minimize the MAX edge on a path</td><td>LC 1631</td><td>Cost = max edge so far, not the sum. Relax with <code>max(dist[u], w)</code>.</td></tr>
+    <tr><td>Cheapest within K stops</td><td>LC 787 ★</td><td>Add a stop budget to the state; plain Dijkstra fails — see below.</td></tr>
+    <tr><td>Minimize max along grid path</td><td>LC 778</td><td>Grid = implicit graph; cost = max cell value seen so far.</td></tr>
+    <tr><td>0/1 edge weights</td><td>0-1 BFS</td><td>Deque: 0-edge to front, 1-edge to back — no heap.</td></tr>
+    <tr><td>Negative edges / cycle check</td><td>Bellman-Ford</td><td>V−1 relax passes + one extra pass to detect a negative cycle.</td></tr>
+    <tr><td>Every pair at once</td><td>Floyd-Warshall</td><td><code>k</code> outermost; <code>dist[i][j]</code> matrix relaxed through each intermediate.</td></tr>
+  </tbody>
+</table>
+<p>★ = frequent Google favorite.</p>
+
+<h3>Case: Unweighted BFS (refresher) — the baseline, no heap</h3>
+<p>
+When every edge costs the same (weight 1), you don't need a heap at all — a plain <strong>queue</strong>
+visits nodes in distance order for free. This is the Lesson 03 pattern; it lives here only as the contrast
+that makes Dijkstra necessary. The rule: the <em>first</em> time you reach a node is its shortest distance,
+so you visit each node once and never relax.
+</p>
+<pre><code>int bfsShortest(List&lt;List&lt;Integer&gt;&gt; adj, int src, int dst) {
+    int[] dist = new int[adj.size()];
+    Arrays.fill(dist, -1);              <span class="cmt">// -1 = unvisited (doubles as the visited flag)</span>
+    dist[src] = 0;
+    Queue&lt;Integer&gt; q = new ArrayDeque&lt;&gt;();
+    q.offer(src);
+    while (!q.isEmpty()) {
+        int u = q.poll();
+        if (u == dst) return dist[u];   <span class="cmt">// first arrival = shortest (uniform cost)</span>
+        for (int v : adj.get(u)) {
+            if (dist[v] == -1) {        <span class="cmt">// visit once — no min-heap, no relaxation</span>
+                dist[v] = dist[u] + 1;
+                q.offer(v);
+            }
+        }
+    }
+    return -1;                          <span class="cmt">// dst unreachable</span>
+}</code></pre>
+<p><strong>Time</strong> O(V + E). <strong>Space</strong> O(V). Multi-source variant: seed the queue with
+<em>all</em> starting cells at distance 0 and let the wavefronts expand together.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1091 · Shortest Path in Binary Matrix</strong> (Medium) — grid BFS with 8-directional moves; distance = cells visited. The first time you pop the bottom-right cell is the answer; return -1 if the queue drains first or either corner is blocked.</li>
+  <li><strong>LC 994 · Rotting Oranges</strong> (Medium) — multi-source BFS: seed the queue with every rotten orange at time 0, expand level by level, and the last level processed is the minutes elapsed. Track the remaining fresh count to catch the unreachable case.</li>
+</ul>
+
+<h3>Case: Network Delay Time (LC 743) — Dijkstra to all nodes ★</h3>
+<p>
+"How long until <em>every</em> node gets the signal?" = run Dijkstra from the source, then the answer is the
+<strong>largest</strong> finalized distance (the last node to hear it). If any node stays
+<code>MAX_VALUE</code>, it's unreachable → return -1.
+</p>
+<pre><code>int networkDelayTime(int[][] times, int n, int k) {
+    List&lt;List&lt;int[]&gt;&gt; adj = new ArrayList&lt;&gt;();
+    for (int i = 0; i &lt;= n; i++) adj.add(new ArrayList&lt;&gt;()); <span class="cmt">// nodes are 1..n</span>
+    for (int[] t : times) adj.get(t[0]).add(new int[]{t[1], t[2]}); <span class="cmt">// {to, weight}, DIRECTED</span>
+
+    int[] dist = new int[n + 1];
+    Arrays.fill(dist, Integer.MAX_VALUE);
+    dist[k] = 0;
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[1] - b[1]);
+    pq.offer(new int[]{k, 0});
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int u = top[0], d = top[1];
+        if (d &gt; dist[u]) continue;
+        for (int[] e : adj.get(u)) {
+            if (d + e[1] &lt; dist[e[0]]) {
+                dist[e[0]] = d + e[1];
+                pq.offer(new int[]{e[0], dist[e[0]]});
+            }
+        }
+    }
+    int ans = 0;
+    for (int i = 1; i &lt;= n; i++) {
+        if (dist[i] == Integer.MAX_VALUE) return -1; <span class="cmt">// someone never hears it</span>
+        ans = Math.max(ans, dist[i]);
+    }
+    return ans;
+}</code></pre>
+<p><strong>Time</strong> O(E log V). <strong>Space</strong> O(V + E).</p>
+
+<h3>Case: Path With Minimum Effort (LC 1631) — minimize the MAX edge</h3>
+<p>
+Here "effort" is the <em>largest</em> height difference along the path, not the sum. Dijkstra still works —
+just change the relaxation: a candidate path's cost is <code>max(costToHere, edgeWeight)</code>. This is a
+"minimax path," and the heap stays ordered by that running max.
+</p>
+<pre><code>int minimumEffortPath(int[][] heights) {
+    int R = heights.length, C = heights[0].length;
+    int[][] effort = new int[R][C];
+    for (int[] row : effort) Arrays.fill(row, Integer.MAX_VALUE);
+    effort[0][0] = 0;
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[2] - b[2]); <span class="cmt">// {r, c, effort}</span>
+    pq.offer(new int[]{0, 0, 0});
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int r = top[0], c = top[1], e = top[2];
+        if (e &gt; effort[r][c]) continue;            <span class="cmt">// stale entry</span>
+        if (r == R - 1 && c == C - 1) return e;     <span class="cmt">// first pop of target = answer</span>
+        for (int[] d : dirs) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr &lt; 0 || nr &gt;= R || nc &lt; 0 || nc &gt;= C) continue;
+            int diff = Math.abs(heights[nr][nc] - heights[r][c]);
+            int ne = Math.max(e, diff);             <span class="cmt">// minimax: cost = worst edge so far</span>
+            if (ne &lt; effort[nr][nc]) {
+                effort[nr][nc] = ne;
+                pq.offer(new int[]{nr, nc, ne});
+            }
+        }
+    }
+    return 0;
+}</code></pre>
+<p><strong>Time</strong> O(R·C·log(R·C)). <strong>Space</strong> O(R·C). LC 778 (Swim in Rising Water) is the
+<em>same</em> minimax pattern — cost is <code>max(time, grid[nr][nc])</code> instead of a height diff.</p>
+
+<h3>Case: Swim in Rising Water (LC 778) — minimax on a grid</h3>
+<pre><code>int swimInWater(int[][] grid) {
+    int n = grid.length;
+    boolean[][] done = new boolean[n][n];
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    PriorityQueue&lt;int[]&gt; pq = new PriorityQueue&lt;&gt;((a, b) -&gt; a[2] - b[2]); <span class="cmt">// {r, c, time}</span>
+    pq.offer(new int[]{0, 0, grid[0][0]});
+    while (!pq.isEmpty()) {
+        int[] top = pq.poll();
+        int r = top[0], c = top[1], t = top[2];
+        if (done[r][c]) continue;                   <span class="cmt">// finalized = lowest time wins</span>
+        done[r][c] = true;
+        if (r == n - 1 && c == n - 1) return t;     <span class="cmt">// earliest time to reach corner</span>
+        for (int[] d : dirs) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr &lt; 0 || nr &gt;= n || nc &lt; 0 || nc &gt;= n || done[nr][nc]) continue;
+            pq.offer(new int[]{nr, nc, Math.max(t, grid[nr][nc])});
+        }
+    }
+    return -1;
+}</code></pre>
+<p><strong>Time</strong> O(n²·log n). <strong>Space</strong> O(n²). (Here a boolean <code>done[][]</code>
+replaces the dist array — once a cell pops it's final, so we skip repeats.)</p>
+
+<h3>Case: Cheapest Flights Within K Stops (LC 787) — why plain Dijkstra fails ★</h3>
+<div class="callout trap">
+  <span class="label">Why plain Dijkstra is wrong here</span>
+  Dijkstra finalizes each node at its globally cheapest distance and never revisits it. But the cheapest
+  way to reach a node might use <em>too many stops</em>, while a pricier route uses fewer and is the only
+  one that can extend within budget. Once Dijkstra finalizes the cheap-but-stop-heavy version, it discards
+  the route you actually needed. The fix: the <strong>state is (node, stopsUsed)</strong>, not just node —
+  or relax exactly <code>K+1</code> times à la Bellman-Ford.
+</div>
+<p>The cleanest answer is <strong>Bellman-Ford bounded to K+1 edges</strong>: relax all edges K+1 times,
+each round using a frozen snapshot of the previous round's costs so a single round can't chain multiple
+flights.</p>
+<pre><code>int findCheapestPrice(int n, int[][] flights, int src, int dst, int k) {
+    int[] dist = new int[n];
+    Arrays.fill(dist, Integer.MAX_VALUE);
+    dist[src] = 0;
+    for (int i = 0; i &lt;= k; i++) {                  <span class="cmt">// at most k+1 edges = k stops</span>
+        int[] snap = dist.clone();                  <span class="cmt">// freeze: this round uses last round's costs</span>
+        for (int[] f : flights) {
+            int u = f[0], v = f[1], w = f[2];
+            if (snap[u] != Integer.MAX_VALUE && snap[u] + w &lt; dist[v]) {
+                dist[v] = snap[u] + w;
+            }
+        }
+    }
+    return dist[dst] == Integer.MAX_VALUE ? -1 : dist[dst];
+}</code></pre>
+<p><strong>Time</strong> O(K · E). <strong>Space</strong> O(V). The Dijkstra-on-state alternative pushes
+<code>{node, cost, stopsUsed}</code> and only expands while <code>stopsUsed &lt;= k</code> — correct too, but
+the bounded Bellman-Ford is shorter and the <code>snap</code> clone is the part everyone forgets (without
+it, one round chains many hops).</p>
+
+<h3>Case: 0-1 BFS — deque instead of a heap</h3>
+<p>
+When weights are only <strong>0 or 1</strong>, skip the log factor: push 0-weight relaxations to the
+<em>front</em> of a deque, 1-weight relaxations to the <em>back</em>. The deque stays sorted by distance
+(only two live values), giving O(V + E) — Dijkstra's invariant without the heap.
+</p>
+<pre><code>Deque&lt;int[]&gt; dq = new ArrayDeque&lt;&gt;();   <span class="cmt">// {node, dist}</span>
+dist[src] = 0;
+dq.offerFirst(new int[]{src, 0});
+while (!dq.isEmpty()) {
+    int[] cur = dq.pollFirst();
+    int u = cur[0];
+    if (cur[1] &gt; dist[u]) continue;     <span class="cmt">// same stale-skip idea</span>
+    for (int[] e : adj.get(u)) {        <span class="cmt">// e = {neighbor, weight in {0,1}}</span>
+        int v = e[0], w = e[1];
+        if (dist[u] + w &lt; dist[v]) {
+            dist[v] = dist[u] + w;
+            if (w == 0) dq.offerFirst(new int[]{v, dist[v]}); <span class="cmt">// 0-edge → front</span>
+            else        dq.offerLast(new int[]{v, dist[v]});  <span class="cmt">// 1-edge → back</span>
+        }
+    }
+}</code></pre>
+<p><strong>Time</strong> O(V + E). <strong>Space</strong> O(V).</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 2290 · Minimum Obstacle Removal to Reach Corner</strong> (Hard) — the textbook 0-1 BFS. Stepping into an empty cell is a 0-edge (push front), into an obstacle is a 1-edge (push back). The deque keeps cells sorted by obstacles-removed; the first pop of the corner is the answer.</li>
+  <li><strong>LC 1368 · Minimum Cost to Make at Least One Valid Path in a Grid</strong> (Hard) — each cell has a sign pointing one way: following the arrow costs 0, changing direction costs 1. Model those as 0/1 edges and run the same deque. Rated Hard, but the 0-1 BFS lens makes it mechanical.</li>
+</ul>
+
+<h3>Case: Bellman-Ford — negative edges &amp; negative-cycle detection</h3>
+<p>
+Relax <em>all</em> edges <code>V−1</code> times (any shortest path has at most V−1 edges). Then run one
+more pass: if anything still relaxes, a <strong>negative cycle</strong> is reachable and "shortest path"
+is undefined (you could loop forever getting cheaper).
+</p>
+<pre><code>long[] bellmanFord(int n, int[][] edges, int src) {
+    long[] dist = new long[n];
+    Arrays.fill(dist, Long.MAX_VALUE);  <span class="cmt">// long: sums of weights can overflow int</span>
+    dist[src] = 0;
+    for (int i = 0; i &lt; n - 1; i++) {   <span class="cmt">// V-1 relaxation passes</span>
+        for (int[] e : edges) {
+            int u = e[0], v = e[1], w = e[2];
+            if (dist[u] != Long.MAX_VALUE && dist[u] + w &lt; dist[v])
+                dist[v] = dist[u] + w;
+        }
+    }
+    for (int[] e : edges) {             <span class="cmt">// one extra pass = negative-cycle check</span>
+        int u = e[0], v = e[1], w = e[2];
+        if (dist[u] != Long.MAX_VALUE && dist[u] + w &lt; dist[v])
+            throw new IllegalStateException("negative cycle reachable from src");
+    }
+    return dist;
+}</code></pre>
+<p><strong>Time</strong> O(V · E). <strong>Space</strong> O(V).</p>
+<p><strong>Practice — free-tier LeetCode</strong> (pure negative-edge problems are scarce on the free tier; these two are the standard Bellman-Ford drills — both appear elsewhere in this lesson, so re-solve them with the relaxation template rather than their default solution):</p>
+<ul>
+  <li><strong>LC 787 · Cheapest Flights Within K Stops</strong> (Medium) — bounded Bellman-Ford, worked above. Relax all edges K+1 times over a frozen <code>snap</code> of the previous round's costs so one round can't chain multiple hops. This is <em>the</em> canonical free-tier Bellman-Ford problem — rebuild it from a blank file.</li>
+  <li><strong>LC 743 · Network Delay Time</strong> (Medium) — shown earlier as Dijkstra, but re-solve it with vanilla Bellman-Ford: relax every edge V−1 times, then answer = max <code>dist[]</code> (or -1 if any stays MAX). Best drill for internalizing the relaxation loop without a heap.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="label">All pairs in one shot — Floyd-Warshall (brief)</span>
+  When V is small (≲ 400) and you want <em>every</em> pair's shortest distance, Floyd-Warshall is three
+  nested loops over a <code>dist[i][j]</code> matrix:
+  <code>dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])</code> with <code>k</code> as the outermost
+  loop. <strong>Time</strong> O(V³), <strong>Space</strong> O(V²). It handles negative edges (no negative
+  cycles) and is the go-to when the problem is really "answer many source-destination queries."
+</div>
+
+<h3>Case: Floyd-Warshall — all-pairs shortest path</h3>
+<p>
+When you need the shortest distance between <em>every</em> pair of nodes — usually because the problem fires
+many source→destination queries — run Floyd-Warshall once and read answers off a matrix. Seed
+<code>dist[i][j]</code> with direct edge weights (0 on the diagonal, a large <code>INF</code> sentinel
+elsewhere), then let every node <code>k</code> act as a possible intermediate. The loop order is the whole
+trick: <strong><code>k</code> must be the outermost loop</strong>, or you relax through half-finished paths.
+</p>
+<pre><code>void floydWarshall(int[][] dist, int n) {   <span class="cmt">// dist pre-seeded: edge weights, 0 on diagonal, INF else</span>
+    for (int k = 0; k &lt; n; k++)             <span class="cmt">// intermediate node — OUTERMOST</span>
+        for (int i = 0; i &lt; n; i++)
+            for (int j = 0; j &lt; n; j++)
+                if (dist[i][k] != INF &amp;&amp; dist[k][j] != INF   <span class="cmt">// guard: skip if either leg is unreachable (avoids INF overflow)</span>
+                        &amp;&amp; dist[i][k] + dist[k][j] &lt; dist[i][j])
+                    dist[i][j] = dist[i][k] + dist[k][j];    <span class="cmt">// route i→j through k is cheaper</span>
+}</code></pre>
+<p><strong>Time</strong> O(V³). <strong>Space</strong> O(V²). Handles negative edges (no negative cycles); a
+negative <code>dist[i][i]</code> after the run signals a negative cycle through <code>i</code>. Use it only
+when V is small (≲ 400) — beyond that O(V³) is too slow and you'd run Dijkstra once per source instead.</p>
+<p><strong>Practice — free-tier LeetCode</strong></p>
+<ul>
+  <li><strong>LC 1334 · Find the City With the Smallest Number of Neighbors at a Threshold Distance</strong> (Medium) — the canonical Floyd-Warshall problem. Build the all-pairs matrix, then for each city count how many others sit within the distance threshold and pick the best (ties → highest index). V ≤ 100, so O(V³) is comfortable.</li>
+  <li><strong>LC 1462 · Course Schedule IV</strong> (Medium) — reachability, not distance: run the same triple loop over a boolean <code>reach[i][j]</code> (<code>reach[i][j] |= reach[i][k] &amp;&amp; reach[k][j]</code>) to get the transitive closure, then answer each prerequisite query in O(1).</li>
+</ul>
+
+<h2>5 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Negative edges break Dijkstra</strong> — a later cheaper path to a finalized node is never reconsidered. Use Bellman-Ford instead.</li>
+  <li><strong>Stale heap entries</strong> — Java's PQ can't decrease-key; you push duplicates and <code>if (d &gt; dist[u]) continue;</code> skips the outdated ones. Forgetting this guard re-relaxes from stale costs.</li>
+  <li><strong>Revisiting with a smaller dist</strong> — relax only when <code>dist[u] + w &lt; dist[v]</code>; a boolean visited (instead of a dist array) silently locks in the first, possibly non-optimal, arrival.</li>
+  <li><strong>Overflow</strong> — adding to <code>Integer.MAX_VALUE</code> wraps negative. Guard with <code>dist[u] != MAX</code> before <code>dist[u] + w</code>, or use <code>long</code> for the running sums.</li>
+  <li><strong>Disconnected / unreachable nodes</strong> — they stay <code>MAX_VALUE</code>; check for it before reporting an answer (LC 743 returns -1).</li>
+  <li><strong>Comparator direction</strong> — <code>(a,b) -&gt; a[1] - b[1]</code> is a <em>min</em>-heap. Reversing it makes a max-heap and quietly returns garbage.</li>
+  <li><strong>Constraint in the state</strong> — "within K stops / at most T fuel" must live in the heap/DP state, or Dijkstra's greediness discards the route you need (LC 787).</li>
+</ul>
+
+<h2>6 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does Dijkstra keep the line <code>if (d &gt; dist[u]) continue;</code> after popping from the heap?</div>
+  <button class="opt">To break ties between nodes that have the same distance value</button>
+  <button class="opt">Because Java's PQ can't decrease-key, so stale (larger-distance) duplicates must be skipped</button>
+  <button class="opt">To stop the algorithm as soon as the destination is finalized</button>
+  <div class="fb" data-correct="We never update a key in place — we push a cheaper duplicate and let the old entry rot. When the stale, larger entry pops, d exceeds the already-finalized dist[u], so we skip it." data-wrong="It's lazy deletion: since we can't decrease-key, the heap holds outdated duplicates. The guard skips any entry whose distance is worse than the node's finalized distance."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A graph has some <strong>negative</strong> edge weights and you must find shortest paths from one source. Which algorithm is correct?</div>
+  <button class="opt">Dijkstra — it always finds shortest paths, weights don't matter</button>
+  <button class="opt">0-1 BFS with a deque, treating negatives as 0-edges</button>
+  <button class="opt">Bellman-Ford — V−1 relaxation passes, with an extra pass to detect negative cycles</button>
+  <div class="fb" data-correct="Dijkstra's greedy invariant fails with negative edges (a finalized node can later get cheaper). Bellman-Ford relaxes all edges V−1 times and a final pass flags negative cycles." data-wrong="Negative edges violate Dijkstra's 'once finalized, never improves' guarantee. Bellman-Ford handles them and detects negative cycles via one extra relaxation pass."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">In Cheapest Flights Within K Stops, why doesn't plain Dijkstra (state = node only) work?</div>
+  <button class="opt">It finalizes a node at its cheapest cost, but that route may use too many stops to extend within K</button>
+  <button class="opt">The flight graph can contain negative-weight edges</button>
+  <button class="opt">A min-heap can't store flight prices, only integer distances</button>
+  <div class="fb" data-correct="The globally cheapest route to a node may exceed the stop budget; a costlier route with fewer stops is the one that can still reach the destination. The stop count must be part of the state." data-wrong="It's about the K constraint: cheapest-by-cost can be too stop-heavy to extend, so Dijkstra discards the route you need. Put stopsUsed in the state, or bound Bellman-Ford to K+1 rounds."></div>
+</div>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/network-delay-time">NeetCode — Network Delay Time (Dijkstra)</a>. Cleanest walkthrough of the heap + dist[] + lazy-deletion pattern. Then <a href="https://neetcode.io/problems/cheapest-flights-within-k-stops">NeetCode — Cheapest Flights Within K Stops</a> for the bounded Bellman-Ford twist.</li>
+  <li><strong>Practice ladder (Java):</strong> LC 743 (Network Delay) → LC 1631 (Min Effort) → LC 778 (Swim in Rising Water) → LC 787 (Cheapest Flights ★) → LC 1514 (Path with Max Probability — Dijkstra on products) → LC 1976 (Number of Ways to Arrive — Dijkstra + counting). Code each from a blank file; if you stall on the heap, revisit the core template.</li>
+  <li><strong>Then advance:</strong> say <strong>"next"</strong> → <a href="0008-minimum-spanning-tree.html">Graph Lesson 08 — Minimum Spanning Tree</a> (Prim reuses this exact min-heap).</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Unsure whether your weights demand Dijkstra or Bellman-Ford, want me to dry-run the heap and the
+  lazy-deletion skip, or fuzzy on why the stop budget belongs in the state? Ask in the chat. When you can
+  write Dijkstra (LC 743) and the bounded Bellman-Ford (LC 787) from memory, say <strong>"next"</strong> and
+  we move to Minimum Spanning Tree.
+</div>
+
+<div class="nav">
+  <span><a href="0006-union-find.html">← Union-Find</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0008-minimum-spanning-tree.html">Minimum Spanning Tree →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

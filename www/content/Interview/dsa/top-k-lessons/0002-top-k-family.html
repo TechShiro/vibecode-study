@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top-K Lesson 02 — The Top-K Family</title>
+<link rel="stylesheet" href="../utils/assets/styles.css">
+<script src="../utils/assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Top-K / Heap Track · Lesson 2 of 3 · 215 · 347 · 973 · 703 · 451 · quickselect</div>
+<h1>The Top-K Family</h1>
+<p class="subtitle">Five famous problems, one template — plus Quickselect, the O(n) party trick interviewers ask for as the follow-up, and bucket sort, the O(n) answer when the key is a frequency.</p>
+
+<div class="ribbon">
+  <strong>Mission link:</strong> LC 215, 347, and 973 are among the most-reported OA/phone-screen questions at Amazon, Meta, and Google.
+  This is Lesson 2 of the 3-lesson Top-K / Heap track. <a href="../utils/MISSION.md">Mission</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Every problem here is "find the k best under some scoring function" — value, frequency, distance. Three engines
+solve all of them: the <strong>size-k heap</strong> from Lesson 1 (O(n log k), works on streams), <strong>Quickselect</strong>
+(O(n) average, in-place, needs the whole array), and <strong>bucket sort</strong> (O(n), only when the score is a
+bounded integer like a frequency ≤ n). Your job in an interview is to (1) name the scoring function, (2) pick the
+engine, (3) state why.
+</p>
+
+<div class="callout">
+  <span class="label">Recognition trigger</span>
+  "k largest", "k most frequent", "k closest to origin", "kth largest", "sort by frequency". The scoring function
+  changes (value / count / squared distance) but the skeleton never does. Follow-up "can you beat O(n log k)?" →
+  Quickselect (kth of an array) or bucket sort (frequency-scored). Follow-up "what if it's a stream?" → the heap
+  is the only survivor.
+</div>
+
+<h2>2 · Core template A — Kth Largest via size-k min-heap (LC 215)</h2>
+<pre><code>int findKthLargest(int[] nums, int k) {
+    PriorityQueue&lt;Integer&gt; heap = new PriorityQueue&lt;&gt;(); <span class="cmt">// MIN-heap: eviction door for the k largest</span>
+    for (int x : nums) {
+        heap.offer(x);
+        if (heap.size() &gt; k) heap.poll();  <span class="cmt">// evict the weakest of the current k</span>
+    }
+    return heap.peek();                    <span class="cmt">// smallest survivor = kth largest</span>
+}</code></pre>
+<p><strong>Time</strong> O(n log k) · <strong>Space</strong> O(k). This is Lesson 1's template verbatim — recognized, not re-derived.</p>
+
+<h2>3 · Core template B — Quickselect, the O(n) follow-up</h2>
+<p>
+Quicksort recurses into <em>both</em> halves; <strong>Quickselect recurses into one</strong>. Partition the array
+around a pivot so smaller values sit left and larger sit right — the pivot lands at its final sorted index
+<code>p</code>. If <code>p</code> is the index you want, done; otherwise recurse only into the side that contains
+it. Cost: n + n/2 + n/4 + … = <strong>O(n) average</strong>. Worst case O(n²) on adversarial pivots — say
+"randomized pivot fixes that in expectation" and the interviewer relaxes.
+</p>
+<pre><code>int findKthLargest(int[] nums, int k) {
+    return quickselect(nums, 0, nums.length - 1, nums.length - k); <span class="cmt">// kth largest = index n−k in sorted order</span>
+}
+int quickselect(int[] a, int lo, int hi, int target) {
+    while (true) {
+        if (lo == hi) return a[lo];
+        int p = partition(a, lo, hi);      <span class="cmt">// pivot's final sorted index</span>
+        if (p == target) return a[p];
+        if (p &lt; target) lo = p + 1;        <span class="cmt">// answer is right of the pivot</span>
+        else            hi = p - 1;        <span class="cmt">// answer is left — recurse ONE side only</span>
+    }
+}
+int partition(int[] a, int lo, int hi) {   <span class="cmt">// Lomuto: pivot = a[hi]</span>
+    int r = lo + (int)(Math.random() * (hi - lo + 1));
+    swap(a, r, hi);                        <span class="cmt">// randomize → O(n) expected, kills sorted-input worst case</span>
+    int pivot = a[hi], i = lo;             <span class="cmt">// i = next slot for a "small" element</span>
+    for (int j = lo; j &lt; hi; j++)
+        if (a[j] &lt; pivot) swap(a, i++, j); <span class="cmt">// smaller-than-pivot values compact to the left</span>
+    swap(a, i, hi);                        <span class="cmt">// pivot drops into its final index i</span>
+    return i;
+}
+void swap(int[] a, int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; }</code></pre>
+<p><strong>Time</strong> O(n) average, O(n²) worst · <strong>Space</strong> O(1) — in-place, iterative. Note it <em>mutates</em> the input.</p>
+
+<h3>Partition walkthrough — dry run</h3>
+<p><code>a = [3, 1, 5, 2, 4]</code>, k = 2 → target index <code>5 − 2 = 3</code>. Say the random swap picks pivot <code>4</code> (moved to the end → <code>[3,1,5,2,4]</code>):</p>
+<div class="trace">
+<span class="step">pivot = 4, i = 0 (next slot for a value &lt; 4)</span>
+<span class="step now">j=0: a[0]=3 &lt; 4 → swap(0,0), i→<span class="ptr">1</span> — [3,1,5,2,4]</span>
+<span class="step now">j=1: a[1]=1 &lt; 4 → swap(1,1), i→<span class="ptr">2</span> — [3,1,5,2,4]</span>
+<span class="step">j=2: a[2]=5 ≥ 4 → skip (5 stays in the "big" zone)</span>
+<span class="step now">j=3: a[3]=2 &lt; 4 → swap(2,3), i→<span class="ptr">3</span> — [3,1,2,5,4]</span>
+<span class="step now">final: swap(i=3, hi=4) → [3,1,2,<span class="ptr">4</span>,5] — pivot 4 lands at index 3</span>
+<span class="step">p = 3 = target → return <span class="ptr">4</span>. One partition, no recursion needed. (4 is the 2nd largest ✓)</span>
+</div>
+
+<h2>4 · All the cases</h2>
+
+<table>
+  <thead><tr><th>Case</th><th>Problem</th><th>What changes</th></tr></thead>
+  <tbody>
+    <tr><td>Kth largest value</td><td>LC 215</td><td>The two cores above. Heap for streams, Quickselect for the O(n) follow-up.</td></tr>
+    <tr><td>Top k by frequency</td><td>LC 347</td><td>Score = count. HashMap count → size-k min-heap on frequency; or O(n) bucket sort (freq ≤ n).</td></tr>
+    <tr><td>k closest points</td><td>LC 973</td><td>Score = x²+y² (skip the sqrt!). k <em>smallest</em> → size-k MAX-heap.</td></tr>
+    <tr><td>Kth largest, streaming</td><td>LC 703</td><td>The size-k min-heap becomes a class field; each add() offers + trims + peeks.</td></tr>
+    <tr><td>Sort all by frequency</td><td>LC 451</td><td>k = "all distinct" → max-heap drained fully, or buckets walked high→low; rebuild the string.</td></tr>
+  </tbody>
+</table>
+
+<h3>Case: Top K Frequent Elements — heap on a score (LC 347)</h3>
+<p>The heap stores <code>{value, freq}</code> pairs and the comparator ranks by <strong>freq</strong> — the first time the heap's contents and its ordering key differ. This is the shape most Top-K interview questions take.</p>
+<pre><code>int[] topKFrequent(int[] nums, int k) {
+    Map&lt;Integer, Integer&gt; count = new HashMap&lt;&gt;();
+    for (int x : nums) count.merge(x, 1, Integer::sum);   <span class="cmt">// score every value: O(n)</span>
+
+    PriorityQueue&lt;int[]&gt; heap =                            <span class="cmt">// {value, freq}, MIN-heap BY FREQ</span>
+        new PriorityQueue&lt;&gt;((a, b) -&gt; Integer.compare(a[1], b[1]));
+    for (Map.Entry&lt;Integer, Integer&gt; e : count.entrySet()) {
+        heap.offer(new int[]{e.getKey(), e.getValue()});
+        if (heap.size() &gt; k) heap.poll();                 <span class="cmt">// evict the least frequent of the k</span>
+    }
+    int[] res = new int[k];
+    for (int i = 0; i &lt; k; i++) res[i] = heap.poll()[0];  <span class="cmt">// O(m log k), m = distinct values</span>
+    return res;
+}</code></pre>
+
+<h3>Case: Top K Frequent — O(n) bucket sort alternative (LC 347)</h3>
+<p>A frequency can't exceed <code>n</code>, so frequencies are a <em>bounded</em> score: index an array of buckets by frequency and walk it from the top. No comparisons, no log factor.</p>
+<pre><code>int[] topKFrequent(int[] nums, int k) {
+    Map&lt;Integer, Integer&gt; count = new HashMap&lt;&gt;();
+    for (int x : nums) count.merge(x, 1, Integer::sum);
+
+    List&lt;Integer&gt;[] bucket = new List[nums.length + 1];   <span class="cmt">// bucket[f] = values appearing exactly f times</span>
+    for (Map.Entry&lt;Integer, Integer&gt; e : count.entrySet()) {
+        int f = e.getValue();
+        if (bucket[f] == null) bucket[f] = new ArrayList&lt;&gt;();
+        bucket[f].add(e.getKey());
+    }
+    int[] res = new int[k]; int i = 0;
+    for (int f = nums.length; f &gt;= 1 &amp;&amp; i &lt; k; f--)       <span class="cmt">// walk highest frequency down</span>
+        if (bucket[f] != null)
+            for (int v : bucket[f]) { res[i++] = v; if (i == k) break; }
+    return res;                                            <span class="cmt">// O(n) time, O(n) space — beats the heap</span>
+}</code></pre>
+
+<h3>Case: K Closest Points to Origin — size-k MAX-heap (LC 973)</h3>
+<p>"Closest" = k <em>smallest</em> distances → the mirror template: max-heap, evict the farthest. And never take the square root — <code>x²+y²</code> preserves order and stays in integers.</p>
+<pre><code>int[][] kClosest(int[][] points, int k) {
+    PriorityQueue&lt;int[]&gt; heap = new PriorityQueue&lt;&gt;(      <span class="cmt">// MAX-heap by squared distance</span>
+        (a, b) -&gt; Integer.compare(b[0]*b[0] + b[1]*b[1],
+                                  a[0]*a[0] + a[1]*a[1]));
+    for (int[] p : points) {
+        heap.offer(p);
+        if (heap.size() &gt; k) heap.poll();                 <span class="cmt">// evict the FARTHEST of the current k</span>
+    }
+    return heap.toArray(new int[0][]);                    <span class="cmt">// any order accepted. O(n log k) / O(k)</span>
+}</code></pre>
+
+<h3>Case: Kth Largest in a Stream — the heap becomes state (LC 703)</h3>
+<pre><code>class KthLargest {
+    private final PriorityQueue&lt;Integer&gt; heap = new PriorityQueue&lt;&gt;(); <span class="cmt">// size-k min-heap, lives forever</span>
+    private final int k;
+    public KthLargest(int k, int[] nums) {
+        this.k = k;
+        for (int x : nums) add(x);         <span class="cmt">// reuse add() — nums.length may be &lt; k, that's fine</span>
+    }
+    public int add(int val) {
+        heap.offer(val);
+        if (heap.size() &gt; k) heap.poll();
+        return heap.peek();                <span class="cmt">// kth largest so far — O(log k) per add</span>
+    }
+}</code></pre>
+
+<h3>Case: Sort Characters by Frequency — drain the whole heap (LC 451)</h3>
+<p>Here k = every distinct character, so no size cap — count, max-heap by frequency, drain, rebuild.</p>
+<pre><code>String frequencySort(String s) {
+    int[] cnt = new int[128];
+    for (char c : s.toCharArray()) cnt[c]++;              <span class="cmt">// ASCII counting — score in O(n)</span>
+    PriorityQueue&lt;Character&gt; heap = new PriorityQueue&lt;&gt;(  <span class="cmt">// MAX-heap by count</span>
+        (a, b) -&gt; Integer.compare(cnt[b], cnt[a]));
+    for (char c = 0; c &lt; 128; c++) if (cnt[c] &gt; 0) heap.offer(c);
+    StringBuilder sb = new StringBuilder();
+    while (!heap.isEmpty()) {
+        char c = heap.poll();                             <span class="cmt">// most frequent remaining</span>
+        for (int i = 0; i &lt; cnt[c]; i++) sb.append(c);    <span class="cmt">// append it cnt[c] times</span>
+    }
+    return sb.toString();  <span class="cmt">// O(n + d log d), d ≤ 128. Bucket-by-frequency gives O(n) here too.</span>
+}</code></pre>
+
+<h2>5 · Decision guide — heap vs sort vs quickselect vs bucket</h2>
+<table>
+  <thead><tr><th>Engine</th><th>Time</th><th>Space</th><th>Pick it when</th></tr></thead>
+  <tbody>
+    <tr><td>Full sort</td><td>O(n log n)</td><td>O(1)–O(n)</td><td>k ≈ n, or you need everything ordered anyway. Simplest to write; mention it, then beat it.</td></tr>
+    <tr><td>Size-k heap</td><td>O(n log k)</td><td>O(k)</td><td>k ≪ n, <strong>streaming input</strong>, memory-bounded, or online "kth so far" queries (703). The default answer.</td></tr>
+    <tr><td>Quickselect</td><td>O(n) avg, O(n²) worst</td><td>O(1)</td><td>Whole array in hand, single kth/top-k query, mutation allowed. The "can you do better?" answer for 215.</td></tr>
+    <tr><td>Bucket sort</td><td>O(n)</td><td>O(n)</td><td>The score is a bounded integer — frequencies (347, 451). Guaranteed linear, no randomness.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout tip">
+  <span class="label">Interview script</span>
+  Lead with the size-k heap and its O(n log k) — it's robust and streams. When asked "can you do better?", offer
+  Quickselect O(n) average for a one-shot kth, or bucket sort O(n) if the score is a frequency. Naming the
+  <em>trade-offs</em> (stream vs mutate vs bounded score) is worth more than any single implementation.
+</div>
+
+<h2>6 · Edge-case checklist</h2>
+<ul>
+  <li><strong>Comparator direction</strong>, again: k largest → min-heap, k smallest/closest → max-heap. In 347/973 the comparator ranks by the <em>score slot</em>, not the value — double-check which index you compare.</li>
+  <li><strong>Quickselect index math:</strong> kth <em>largest</em> = sorted index <code>n − k</code>; kth <em>smallest</em> = index <code>k − 1</code>. Off-by-one here fails hidden tests silently.</li>
+  <li><strong>Randomize the pivot</strong> (or shuffle first) — LeetCode's 215 test set includes sorted/equal arrays that drive fixed-pivot Lomuto to O(n²) TLE.</li>
+  <li><strong>Distance overflow:</strong> in 973, x²+y² fits int for |x|,|y| ≤ 10⁴, but say "I'd use long for larger coordinates." Never compare doubles from <code>Math.sqrt</code>.</li>
+  <li><strong>703 constructor may pass fewer than k numbers</strong> — routing the constructor through <code>add()</code> handles it; <code>peek()</code> is only meaningful once size == k (the problem guarantees k−1+ elements before the first add).</li>
+  <li><strong>347 heap holds distinct values</strong> (m entries), not n — the log factor is log k on m offers. Don't offer raw array elements.</li>
+  <li><strong>Bucket array size n+1</strong> — a value can appear exactly n times; size-n buckets miss index n.</li>
+</ul>
+
+<h2>7 · Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+  <div class="q">For LC 973 (k closest points), which heap and comparator do you build?</div>
+  <button class="opt">Min-heap of size k on distance — closest points should bubble to the top</button>
+  <button class="opt">Min-heap of all n points, then poll k times — simplest and optimal</button>
+  <button class="opt">Max-heap of size k on distance — evict the farthest whenever you exceed k</button>
+  <div class="fb" data-correct="Keeping the k SMALLEST distances means the eviction door shows the largest of them — a max-heap of size k, O(n log k) time and O(k) space." data-wrong="Remember the mirror rule: keeping small things means evicting the biggest occupant, so the max sits on top. A size-k max-heap does it in O(n log k); heapifying all n costs O(n) space."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">After one partition call, the pivot lands at index p = 6 and you're hunting target index 3. What next?</div>
+  <button class="opt">Recurse into the left side only: hi = p − 1</button>
+  <button class="opt">Recurse into both sides and merge, like merge sort</button>
+  <button class="opt">Restart with a new pivot on the whole array, since p missed the target</button>
+  <div class="fb" data-correct="The pivot is at its FINAL sorted position, so index 3 must be strictly left of it. Discarding the right half every round is what makes Quickselect O(n) average instead of O(n log n)." data-wrong="Partition fixes the pivot's final position: everything left is smaller, everything right larger. Target 3 &lt; 6 means the answer lives entirely in the left segment — recurse there and throw the rest away."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why can LC 347 (Top K Frequent) be solved in guaranteed O(n) with buckets, while general kth-largest cannot?</div>
+  <button class="opt">Because HashMap counting is O(1) per element, which makes any follow-up step linear</button>
+  <button class="opt">Because a frequency is a bounded integer (1..n), so values can be indexed into n buckets — no comparisons needed</button>
+  <button class="opt">Because there are always fewer distinct elements than n, so any algorithm on them is O(n)</button>
+  <div class="fb" data-correct="Bounded scores unlock counting/bucketing: index bucket[freq] directly and sweep from n down. Arbitrary values have no such bound, so comparison-based selection (heap/quickselect) is the tool there." data-wrong="The unlock is that frequencies live in 1..n, so they index directly into an array of buckets — sidestepping comparison sorting entirely. Distinct-count and hashing arguments don't remove the log/expected factors on their own."></div>
+</div>
+
+<h2>8 · Do this next</h2>
+<ul>
+  <li><strong>Primary source (watch):</strong> <a href="https://neetcode.io/problems/kth-largest-element-in-an-array">NeetCode — Kth Largest Element in an Array</a> (heap + Quickselect side by side) and <a href="https://neetcode.io/problems/top-k-elements-in-list">NeetCode — Top K Frequent Elements</a> (bucket sort walkthrough).</li>
+  <li><strong>Practice ladder (Java):</strong> LC 215 (write BOTH solutions) → LC 347 (heap first, then bucket) → LC 973 (mirror comparator) → LC 703 (heap as state) → LC 451 (drain + rebuild). For 215, dry-run one partition by hand on [3,1,5,2,4] before coding — the walkthrough above is your answer key.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Want another partition dry run, unsure when bucket sort applies, or curious about worst-case-O(n)
+  median-of-medians? Ask in the chat. When you can pick heap vs quickselect vs bucket for a new problem
+  <em>and justify it</em>, say <strong>"next"</strong> for Lesson 3: two heaps (streaming median) and
+  k-way merge (merge k sorted lists).
+</div>
+
+<div class="nav">
+  <span><a href="0001-heaps-and-priorityqueue.html">← Heaps &amp; PriorityQueue</a></span>
+  <span><a href="../utils/MISSION.md">Mission</a></span>
+  <span><a href="0003-two-heaps-and-k-way-merge.html">Two Heaps &amp; K-way Merge →</a></span>
+</div>
+
+<script src="../utils/assets/quiz.js"></script>
+</body>
+</html>

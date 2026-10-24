@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 14 - OOP Case Study: Notification Engine | OOPS Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">OOPS · Applied Architecture · Lesson 14 of 15 · Observer, Strategy, Factory, Decorator</div>
+  
+  <h1>OOP Case Study: The Extensible Notification Engine</h1>
+  <p class="subtitle">Composing multiple design patterns into a decoupled, highly extensible production system.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Applied OOP Architecture</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>In low-level design, you rarely use one pattern in isolation. A well-designed production service weaves several patterns together: the <strong>Observer Pattern</strong> listens for domain events, the <strong>Factory Pattern</strong> instantiates the appropriate channel handlers, the <strong>Strategy Pattern</strong> swaps formatting algorithms, and the <strong>Decorator Pattern</strong> wraps network calls with automated retry and logging logic.</p>
+
+  <h2>2 · The Architecture Flow</h2>
+  <div class="arch-flow">
+    <div class="box">OrderPlacedEvent</div>
+    <div class="arrow-right"></div>
+    <div class="box">NotificationService (Observer)</div>
+    <div class="arrow-right"></div>
+    <div class="box good">ChannelFactory</div>
+  </div>
+  <div class="arch-flow">
+    <div class="box">LoggingDecorator</div>
+    <div class="arrow-right"></div>
+    <div class="box">RetryDecorator</div>
+    <div class="arrow-right"></div>
+    <div class="box">Email / SMS / Push Sender</div>
+  </div>
+
+  <h2>3 · Production Java Implementation</h2>
+  <pre><code>public interface NotificationSender {
+    void send(String recipient, String message);
+}
+
+<span class="cmt">// Base implementation</span>
+public class EmailSender implements NotificationSender {
+    public void send(String recipient, String message) {
+        System.out.println("Sending Email to " + recipient + ": " + message);
+    }
+}
+
+<span class="cmt">// Decorator adding Retry Logic</span>
+public class RetryNotificationDecorator implements NotificationSender {
+    private final NotificationSender wrapped;
+    private final int maxRetries;
+
+    public RetryNotificationDecorator(NotificationSender wrapped, int maxRetries) {
+        this.wrapped = wrapped;
+        this.maxRetries = maxRetries;
+    }
+
+    public void send(String recipient, String message) {
+        int attempts = 0;
+        while (attempts &lt; maxRetries) {
+            try {
+                wrapped.send(recipient, message);
+                return;
+            } catch (Exception e) {
+                attempts++;
+                if (attempts &gt;= maxRetries) throw e;
+            }
+        }
+    }
+}</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>The grand finale: How does OOP differ across Java, C++, Python, and JavaScript? Lesson 15: Multi-Paradigm OOP Comparison.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0013-reflection-annotations-and-metaprogramming.html">← Previous: Reflection &amp; Annotations</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0015-multi-paradigm-oop-comparison.html">Next: Multi-Paradigm OOP Comparison →</a>
+  </div>
+</body>
+</html>

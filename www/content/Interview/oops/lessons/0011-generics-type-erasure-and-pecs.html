@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 11 - Generics, Type Erasure &amp; PECS | OOPS Course</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="../assets/theme.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+  <div class="kicker">OOPS · Advanced Foundations · Lesson 11 of 15 · Type Erasure, Wildcards, Joshua Bloch's PECS</div>
+  
+  <h1>Generics, Type Erasure &amp; The PECS Rule</h1>
+  <p class="subtitle">Mastering compile-time type safety, wildcard bounds, and the mechanics of type erasure.</p>
+  
+  <div class="ribbon">
+    <a href="../INDEX.md">↑ Back to Course Index</a>
+    <span>Advanced OOP Internals</span>
+  </div>
+
+  <div class="yt-embed">
+    <div class="yt-title">📺 Recommended Lecture</div>
+    <a href="https://www.youtube.com/watch?v=K1iu1kXkVoA" target="_blank">Generics In Java - Full Simple Tutorial — Coding with John</a>
+    <span class="yt-desc">Intuitive breakdown of generic classes, methods, and wildcard boundaries.</span>
+  </div>
+
+  <h2>1 · The One Idea</h2>
+  <p>Before Java 5 introduced Generics, collections stored raw <code>Object</code> references. Developers had to manually cast every retrieval: <code>String s = (String) list.get(0);</code>. A single mismatched type crashed in production with <code>ClassCastException</code>. <strong>Generics</strong> shift type verification from runtime to <strong>compile time</strong>, guaranteeing type safety before your code ever runs.</p>
+
+  <h2>2 · Under the Hood: Type Erasure</h2>
+  <p>To preserve backward compatibility with legacy Java 1.4 bytecodes, Java implements generics via <strong>Type Erasure</strong>:</p>
+  <ul>
+    <li>During compilation, the compiler replaces all type parameters (like <code>&lt;T&gt;</code>) with their bounded type (e.g. <code>Object</code> or <code>Comparable</code>).</li>
+    <li>The compiler automatically inserts synthetic type-casts at call sites.</li>
+    <li><strong>At runtime, generic types DO NOT EXIST!</strong> <code>List&lt;String&gt;</code> and <code>List&lt;Integer&gt;</code> are the exact same compiled class: <code>List.class</code>!</li>
+    <li><em>Why <code>new T[]</code> fails:</em> Because at runtime, the JVM has no idea what <code>T</code> is and cannot allocate array memory!</li>
+  </ul>
+
+  <h2>3 · Wildcards &amp; Joshua Bloch's PECS Rule</h2>
+  <p>Is <code>List&lt;Integer&gt;</code> a subclass of <code>List&lt;Number&gt;</code>? <strong>NO!</strong> Generics are <strong>invariant</strong>: you cannot pass a <code>List&lt;Integer&gt;</code> to a method expecting <code>List&lt;Number&gt;</code> because the method could write a <code>Double</code> into your Integer list!</p>
+  <p>To write flexible APIs, use <strong>Bounded Wildcards</strong> governed by Joshua Bloch's legendary rule:</p>
+
+  <div class="callout tip">
+    <span class="label">The PECS Rule</span>
+    <p style="font-size: 1.2rem; font-weight: bold; text-align: center;">Producer Extends, Consumer Super</p>
+    <ul>
+      <li><strong>Producer Extends (<code>? extends T</code>):</strong> If your method reads/produces elements of type <code>T</code> from a collection, use <code>&lt;? extends T&gt;</code>. (You can read <code>T</code>, but you cannot write anything except <code>null</code>!).</li>
+      <li><strong>Consumer Super (<code>? super T</code>):</strong> If your method writes/consumes elements of type <code>T</code> into a collection, use <code>&lt;? super T&gt;</code>. (You can safely add <code>T</code>, but reads only return <code>Object</code>!).</li>
+    </ul>
+  </div>
+
+  <pre><code><span class="cmt">// Copies from src (Producer) into dest (Consumer)</span>
+public static &lt;T&gt; void copy(List&lt;? super T&gt; dest, List&lt;? extends T&gt; src) {
+    for (T item : src) {
+        dest.add(item); <span class="cmt">// Safe! Dest accepts T or any supertype of T</span>
+    }
+}</code></pre>
+
+  <h2>Do this next</h2>
+  <ul>
+    <li>How should large systems handle runtime errors and exceptions? Next: Exception Handling Architecture &amp; Anti-Patterns.</li>
+  </ul>
+
+  <div class="nav">
+    <a href="0010-immutability-records-value-objects.html">← Previous: Immutability &amp; Records</a>
+    <a href="../INDEX.md">Course Index</a>
+    <a href="0012-exception-architecture-and-antipatterns.html">Next: Exception Handling Architecture →</a>
+  </div>
+</body>
+</html>

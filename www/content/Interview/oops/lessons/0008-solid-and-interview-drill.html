@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOPS Lesson 08 — SOLID &amp; the Interview Drill</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">OOPS Track · Lesson 8 of 8</div>
+<h1>SOLID &amp; the Interview Drill</h1>
+<p class="subtitle">Five design habits in plain words, model answers to all 25 of your senior's questions, an MCQ gauntlet, and a one-page cheat sheet.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Master OOPS for interviews — from zero.
+  This is Lesson 8 of 8 — the finale. <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · The one idea</h2>
+<p>
+Everything so far was <em>mechanics</em> — what the keywords do. <strong>SOLID is about taste: five habits that keep classes
+easy to change without breaking each other.</strong> Learn each as one plain sentence plus one tiny bad→good example.
+Then we drill: all 25 questions, an MCQ gauntlet, and a cheat sheet for the night before.
+</p>
+<div class="callout">
+  <span class="label">Where the deep dive lives</span>
+  This section gives you the interview-ready version. The full working-code treatment — refactoring a real design with each
+  principle — is in the LLD track: <a href="../../system-design/lld/0002-solid-in-practice.html">SOLID in Practice</a>.
+</div>
+
+<h2>2 · SOLID — five sentences, five tiny examples</h2>
+
+<h3>S — Single Responsibility: one class, one job</h3>
+<p>A class should have only one reason to change. A Swiss-army knife breaks in three ways; a kitchen knife in one.</p>
+<pre><code><span class="cmt">// BAD: three unrelated jobs — any change to printing, saving, or math touches this class</span>
+class Report { double calculate() {...} void printPDF() {...} void saveToDB() {...} }
+
+<span class="cmt">// GOOD: one job each — a DB change now touches only ReportRepository</span>
+class Report          { double calculate() {...} }
+class ReportPrinter   { void printPDF(Report r) {...} }
+class ReportRepository{ void save(Report r) {...} }</code></pre>
+
+<h3>O — Open/Closed: open for extension, closed for modification</h3>
+<p>Add new behavior by adding new classes, not by editing tested old code. Like a power strip: plug in a new device; don't rewire the wall.</p>
+<pre><code><span class="cmt">// BAD: every new shape means editing (and re-risking) this if-chain</span>
+double area(Object s) {
+    if (s instanceof Circle) {...} else if (s instanceof Square) {...}  <span class="cmt">// grows forever</span>
+}
+
+<span class="cmt">// GOOD: new shape = new class. area() never changes again.</span>
+interface Shape { double area(); }
+class Circle implements Shape { public double area() {...} }
+class Square implements Shape { public double area() {...} }   <span class="cmt">// added, nothing modified</span></code></pre>
+
+<h3>L — Liskov Substitution: a child must work anywhere its parent works</h3>
+<p>If code expects a <code>Bird</code>, handing it any subclass must not break it. A substitute teacher must actually teach the class, not cancel it.</p>
+<pre><code><span class="cmt">// BAD: Penguin IS-A Bird by keyword, but breaks the parent's promise</span>
+class Bird    { void fly() {...} }
+class Penguin extends Bird {
+    @Override void fly() { throw new UnsupportedOperationException(); } <span class="cmt">// callers crash</span>
+}
+
+<span class="cmt">// GOOD: model the promise correctly — only FlyingBird promises fly()</span>
+class Bird {}
+class FlyingBird extends Bird { void fly() {...} }
+class Penguin    extends Bird { void swim() {...} }   <span class="cmt">// no broken promise anywhere</span></code></pre>
+
+<h3>I — Interface Segregation: many small interfaces beat one fat one</h3>
+<p>Don't force a class to implement methods it can't use. Order à la carte; don't make everyone buy the full thali.</p>
+<pre><code><span class="cmt">// BAD: Robot is forced to fake eat()</span>
+interface Worker { void work(); void eat(); }
+class Robot implements Worker { public void work() {...} public void eat() { <span class="cmt">/* ??? */</span> } }
+
+<span class="cmt">// GOOD: split by capability; implement only what's true</span>
+interface Workable { void work(); }
+interface Eatable  { void eat(); }
+class Human implements Workable, Eatable {...}
+class Robot implements Workable {...}                  <span class="cmt">// no fake methods</span></code></pre>
+
+<h3>D — Dependency Inversion: depend on abstractions, not concrete classes</h3>
+<p>High-level code should talk to an interface, and receive the concrete thing from outside. Appliances plug into a socket; they're not hardwired into the wall.</p>
+<pre><code><span class="cmt">// BAD: welded to MySQL — switching DBs or testing means editing this class</span>
+class UserService { private MySQLDatabase db = new MySQLDatabase(); }
+
+<span class="cmt">// GOOD: depends on the interface; any Database can be injected (real, Postgres, fake-for-tests)</span>
+interface Database { void save(String data); }
+class UserService {
+    private final Database db;
+    UserService(Database db) { this.db = db; }         <span class="cmt">// dependency injection</span>
+}</code></pre>
+
+<div class="callout tip">
+  <span class="label">Q20 in one breath</span>
+  "SOLID: Single responsibility — one reason to change. Open/closed — extend, don't modify. Liskov — subclasses must honor
+  the parent's promises. Interface segregation — small, focused interfaces. Dependency inversion — depend on abstractions
+  and inject the concretes. Together they keep code changeable without ripple effects."
+</div>
+
+<h2>3 · Interview questions this lesson answers</h2>
+<ul>
+  <li>
+    <strong>Q20. "What is the SOLID principle in OOPS?"</strong><br>
+    Five design principles (Single responsibility, Open/closed, Liskov substitution, Interface segregation, Dependency
+    inversion) that keep classes loosely coupled and safe to extend — see the one-breath answer above.
+  </li>
+</ul>
+<p>…and via the rapid-fire below, this lesson closes out <strong>all 25</strong> questions on your senior's list.</p>
+
+<h2>4 · Rapid-fire: all 25 questions</h2>
+<p>Compact model answers — 2 to 4 lines each, exactly the density an interviewer wants first. Deep dives live in the lessons noted.</p>
+
+<h3>Basic Concepts (Q1–Q10)</h3>
+<ul>
+  <li><strong>Q1. "What are the main principles of OOPS?"</strong> — Encapsulation: bundle data + methods, guard with <code>private</code>. Abstraction: expose only what's needed. Inheritance: child reuses and extends a parent. Polymorphism: one call, many behaviors — overloading (compile time), overriding (runtime).</li>
+  <li><strong>Q2. "Difference between class and object."</strong> — Class = blueprint (fields and methods); object = a concrete instance with real values. One class, many objects: <code>Car</code> vs <code>new Car()</code>.</li>
+  <li><strong>Q3. "What is constructor and destructor?"</strong> — Constructor: class-named, no return type, runs at <code>new</code> to initialize state. Destructor: C++ cleanup at destruction; Java has none — GC frees unreachable objects, try-with-resources handles files/sockets. (Lesson 6.)</li>
+  <li><strong>Q4. "Difference between compile-time polymorphism and runtime polymorphism."</strong> — Compile time = overloading: same name, different parameter lists, resolved by the compiler. Runtime = overriding: the object's real type picks the version via dynamic dispatch. (Lesson 4.)</li>
+  <li><strong>Q5. "What is the difference between overloading and overriding?"</strong> — Overloading: same class, same name, different signatures — a convenience, bound at compile time. Overriding: child class, same signature, new behavior — bound at runtime; the heart of polymorphism.</li>
+  <li><strong>Q6. "Can you explain abstraction vs encapsulation with an example?"</strong> — Abstraction hides complexity: <code>car.drive()</code> hides ignition and injection. Encapsulation hides data: <code>private int fuel</code> changes only through the class's own methods. "What to show" vs "how to guard". (Lesson 5.)</li>
+  <li><strong>Q7. "What is an interface and how is it different from an abstract class?"</strong> — Interface: pure contract, no state or constructors, implement many. Abstract class: fields, constructors, mixed methods, extend one. Shared code among relatives → abstract class; a capability → interface. (Lesson 5.)</li>
+  <li><strong>Q8. "Can a constructor be virtual? Why or why not?"</strong> — No. Virtual dispatch needs an existing object's vtable pointer; the constructor runs before the object exists, and creation must name an exact class. Use factory methods instead. (Lesson 7.)</li>
+  <li><strong>Q9. "What is method hiding vs method overriding?"</strong> — Overriding: <em>instance</em> methods, dispatched by runtime type. Hiding: <em>static</em> methods with the same signature — resolved by the reference type at compile time, no polymorphism.</li>
+  <li><strong>Q10. "What are access specifiers (public, private, protected)?"</strong> — <code>private</code>: same class. Package-private (Java default): same package. <code>protected</code>: package + subclasses. <code>public</code>: everywhere. C++ contrast: class members default to <em>private</em>; C++ protected has no package part.</li>
+</ul>
+
+<h3>Inheritance &amp; Polymorphism (Q11–Q15)</h3>
+<ul>
+  <li><strong>Q11. "What are the different types of inheritance?"</strong> — Single (A→B), multilevel (A→B→C), hierarchical (A→B, A→C), multiple (B,C→D), hybrid (a mix). Java supports the first three with classes; multiple/hybrid only via interfaces — dodging the diamond problem.</li>
+  <li><strong>Q12. "What is the diamond problem in multiple inheritance and how is it solved?"</strong> — D inherits A via both B and C: ambiguity, duplicated state. C++: virtual inheritance shares one A. Java: single class inheritance; clashing interface defaults are a compile error until you override and pick via <code>B.super.method()</code>. (Lesson 7.)</li>
+  <li><strong>Q13. "How does dynamic dispatch (virtual functions) work internally?"</strong> — Each class holds a vtable of method addresses; each object points to its class's table. A call looks up the method slot at runtime, so the real type wins. Java does this for all instance methods. (Lesson 7.)</li>
+  <li><strong>Q14. "Difference between is-a and has-a relationship."</strong> — is-a = inheritance (Circle extends Shape); has-a = holding a reference (Car has an Engine). Prefer has-a/composition unless the subtype genuinely IS the parent and honors its promises (Liskov). (Lesson 6.)</li>
+  <li><strong>Q15. "Explain composition vs aggregation."</strong> — Both has-a; the test is lifetime. Aggregation: parts arrive from outside and outlive the whole (Team–Players, hollow diamond). Composition: the whole creates its parts and they die with it (House–Rooms, filled diamond). (Lesson 6.)</li>
+</ul>
+
+<h3>Advanced Concepts (Q16–Q20)</h3>
+<ul>
+  <li><strong>Q16. "What is object slicing?"</strong> — In C++, copying a derived object <em>by value</em> into a base-typed variable chops off the derived part. Impossible in Java: assignment copies a reference, and the whole object survives on the heap. (Lesson 7.)</li>
+  <li><strong>Q17. "Difference between deep copy and shallow copy."</strong> — Shallow: copy the object, share its inner references — mutate the copy's list and the original changes. Deep: copy every mutable level for full independence. Java's <code>clone()</code> is shallow by default. (Lesson 6.)</li>
+  <li><strong>Q18. "Can you explain friend class/function (in C++) and its use case?"</strong> — A friend can access another class's privates; classic use: container + iterator. Java dropped it — use package-private access or nested classes (how JDK iterators work). (Lesson 7.)</li>
+  <li><strong>Q19. "What is the difference between static methods and instance methods?"</strong> — Static: class-owned, called on the class name, no <code>this</code>, not overridable (only hidden). Instance: object-owned, has <code>this</code>, dynamically dispatched.</li>
+  <li><strong>Q20. "What is the SOLID principle in OOPS?"</strong> — Five principles that keep code loosely coupled and extension-friendly (Section 2). Give the one-breath answer, then a bad→good example — the if-chain vs polymorphism one lands best.</li>
+</ul>
+
+<h3>Memory &amp; Design (Q21–Q25)</h3>
+<ul>
+  <li><strong>Q21. "How are objects stored in memory (stack vs heap)?"</strong> — Objects live on the heap (shared, GC-managed); locals and references live on the stack (per call, freed on return). <code>Team t = new Team()</code>: <code>t</code> on the stack points to a Team on the heap.</li>
+  <li><strong>Q22. "Difference between virtual function and pure virtual function."</strong> — Virtual: has a body, may be overridden, runtime dispatched. Pure virtual: declared with no body at all, must be overridden, makes the class abstract. Java: instance methods are virtual by default; pure virtual = <code>abstract</code> method. (Lesson 5.)</li>
+  <li><strong>Q23. "What is abstract factory design pattern (or any common OOPS design pattern)?"</strong> — Safest pick: Factory Method — a creator returns objects via a common interface (<code>Shape s = ShapeFactory.create("circle")</code>), so callers never <code>new</code> concretes. Also name Singleton and Strategy. Deep dive: LLD track.</li>
+  <li><strong>Q24. "What is operator overloading? Give an example."</strong> — C++: redefine operators for your own types, e.g. teach plus to add two Complex objects so the plus sign runs your code. Java omitted it for readability; write <code>a.add(b)</code> (BigInteger style). Only the language overloads <code>+</code> for Strings. (Lesson 7.)</li>
+  <li><strong>Q25. "Why do we need OOPS when we already have procedural programming?"</strong> — Procedural code shares mutable data among free functions; at scale, anything can corrupt anything. OOPS bundles data with its guardian methods, models the domain directly, and allows extension without modifying tested code. Scale, safety, change-friendliness.</li>
+</ul>
+
+<h2>5 · MCQ drill</h2>
+<p>
+Twelve of your senior's 30 MCQs as live quizzes. All code here is <strong>Java</strong>. Where the original MCQ
+is about a C++-only mechanism, the question is asked in plain words — answer it verbally, then be ready to add
+"and in Java, ..." exactly as you would in the interview.
+</p>
+
+<div class="quiz" data-answer="0">
+  <div class="q">[MCQ 2] What is encapsulation?</div>
+  <button class="opt">Bundling data and the methods that operate on it into a single unit</button>
+  <button class="opt">The ability to create a new class from an existing class</button>
+  <button class="opt">The ability to redefine methods in derived classes</button>
+  <div class="fb" data-correct="Data + its guardian methods in one class, with private blocking outside access — the textbook definition." data-wrong="Creating classes from classes is inheritance; redefining methods in children is overriding. Encapsulation bundles and guards data with methods."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">[MCQ 5, Java version] Which type of inheritance is NOT supported for classes in Java?</div>
+  <button class="opt">Multilevel inheritance — a chain like A → B → C</button>
+  <button class="opt">Multiple inheritance — one class extending two classes</button>
+  <button class="opt">Hierarchical inheritance — two classes extending one parent</button>
+  <div class="fb" data-correct="Java classes extend exactly one class, to avoid the diamond problem; multiple inheritance exists only via interfaces. (The C++ original's answer: hybrid has no direct keyword-level form.)" data-wrong="Chains (multilevel) and shared parents (hierarchical) are fine. The banned one is a class with two parents — the diamond-problem risk Java removed."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">[MCQ 8 — C++ concept, in words] In C++, Base defines <code>show()</code>, Derived redefines it, and the method is NOT marked virtual. A Base-typed pointer holding a Derived object calls <code>show()</code>. What runs — and what would Java do with <code>Base b = new Derived(); b.show();</code>?</div>
+  <button class="opt">C++ runs Base's version (pointer type binds at compile time); Java prints "Derived"</button>
+  <button class="opt">Both languages run Derived's version — the real object always decides the call</button>
+  <button class="opt">C++ refuses to compile it — a base pointer cannot hold a derived object at all</button>
+  <div class="fb" data-correct="Non-virtual C++ methods use static binding: the pointer's declared type picks the method, so Base's version runs. Java has no such trap — every instance method is virtual, so the same shape prints 'Derived'." data-wrong="'Real object always decides' is only true in Java (or C++ WITH virtual). Without the marker, C++ binds by the pointer's declared type at compile time — and base pointers to derived objects are perfectly legal."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">[MCQ 12] Which of the following is NOT a real kind of constructor?</div>
+  <button class="opt">Default constructor — the no-argument one</button>
+  <button class="opt">Copy constructor — builds an object from another of the same class</button>
+  <button class="opt">Virtual constructor — dispatched by the runtime type being created</button>
+  <div class="fb" data-correct="No language has virtual constructors: dispatch needs an existing object, and construction is what creates it. For polymorphic creation, use a factory method." data-wrong="Default and copy constructors are both real. The impostor is the 'virtual constructor' — dispatch needs an object that doesn't exist yet."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">[MCQ 16] Which is true about pure virtual functions (Java: abstract methods)?</div>
+  <button class="opt">They have a default body that derived classes may optionally replace</button>
+  <button class="opt">They have no implementation, and every concrete derived class must provide one</button>
+  <button class="opt">They can only appear in interfaces, never in any kind of class</button>
+  <div class="fb" data-correct="No body + mandatory implementation in concrete children — and their presence makes the class abstract. The C++ answer was 'all of the above': no implementation, must be implemented, and it makes the class abstract." data-wrong="A default body would make it merely 'virtual' (a normal Java method), and abstract methods live in abstract classes too. The defining pair: no body, children must implement."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">[MCQ 17] What is an abstract class?</div>
+  <button class="opt">A class that cannot be instantiated, only that and nothing more specific</button>
+  <button class="opt">A class where every single method must lack a body</button>
+  <button class="opt">A class that cannot be instantiated and typically has at least one abstract method</button>
+  <div class="fb" data-correct="Both properties together (the C++ answer: 'both a and b'): no direct instantiation, plus abstract methods for children to fill. All-methods-abstract isn't required — that extreme is basically an interface." data-wrong="The definition needs both halves: un-instantiable AND carrying abstract methods. ALL methods bodiless describes an interface, not an abstract class."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">[MCQ 19] Default member access: what do C++ classes and Java classes give you when you write no modifier?</div>
+  <button class="opt">C++: private. Java: package-private — visible to the whole package</button>
+  <button class="opt">Both default to private — hidden from everything outside the class</button>
+  <button class="opt">Both default to public — accessible from anywhere in the program</button>
+  <div class="fb" data-correct="Different defaults — favorite trick question. C++ class members are private unless stated; Java's no-modifier means package-private (same-package access)." data-wrong="The two languages disagree — that's the trap. C++ defaults to private; Java's default is package-private, neither private nor public."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">[MCQ 21 — C++ concept, in words] A C++ copy constructor builds a new object from an existing one, and the rule is that it must receive the source object <em>by reference</em>, never by value. Why?</div>
+  <button class="opt">References are faster to type-check, so the compiler mandates them for style</button>
+  <button class="opt">Pass-by-value would itself need the copy constructor — infinite recursion</button>
+  <button class="opt">C++ forbids passing any class-type object by value anywhere in the language</button>
+  <div class="fb" data-correct="Passing the source by value would call the very copy constructor being defined — infinite recursion. Taking it by reference breaks the loop. Java dodges this entirely: parameters are always references to objects, so a Java copy constructor like A(A other) has no such issue." data-wrong="C++ passes objects by value elsewhere; it's not style. The issue is circular: by-value needs a copy, and making that copy needs the constructor being defined — infinite recursion. In Java every object parameter is already a reference."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">[MCQ 24] What does the <code>protected</code> access specifier mean in Java?</div>
+  <button class="opt">Accessible only within the same class, like a slightly renamed private</button>
+  <button class="opt">Accessible within the same class, its subclasses, and the same package</button>
+  <button class="opt">Accessible from anywhere, but the compiler prints a warning outside the class</button>
+  <div class="fb" data-correct="Subclasses + same package (Java adds the package part; C++ protected is just class + derived classes). Parents share internals with children without going public." data-wrong="Protected sits between private and public: children and same-package classes get in, nobody else. No warnings — access is allowed or denied at compile time."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">[MCQ 25 — C++-specific] What is a virtual destructor, and what's Java's story?</div>
+  <button class="opt">A destructor the programmer may invoke manually to force early cleanup</button>
+  <button class="opt">A destructor that does nothing, existing only to satisfy the compiler</button>
+  <button class="opt">One ensuring derived destructors run on delete-via-base-pointer; Java needs none — GC frees by real type</button>
+  <div class="fb" data-correct="Without it, deleting a derived object through a base-class pointer runs only the base destructor and leaks whatever the derived part owned. Java sidesteps the bug: no destructors, and GC always knows the real type." data-wrong="Neither manual nor empty. The point is polymorphic cleanup: deletion via a base pointer must still run the derived destructor. Java avoids this entirely via GC."></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">[MCQ 26, Java version] Base's constructor prints "Base"; Derived's prints "Derived". What does <code>new Derived()</code> output?</div>
+  <button class="opt">"BaseDerived" — the parent constructor completes before the child's body</button>
+  <button class="opt">"DerivedBase" — construction starts at the most specific class, moves upward</button>
+  <button class="opt">"Derived" — Base's constructor is skipped since we never wrote <code>super()</code></button>
+  <div class="fb" data-correct="Java inserts an implicit super() as line one of every constructor: foundation first, floors after. Same in C++ (MCQ 27); destructors, where they exist, run in reverse." data-wrong="The chain runs parent-first — super() is auto-inserted even when unwritten, so Base's constructor is never skipped and prints before Derived's body."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">[MCQ 30, Java version] A's <code>show()</code> prints "A"; B extends A and overrides it to print "B". Code: <code>A a = new B(); a.show();</code> Output?</div>
+  <button class="opt">"A" — the declared type of the variable <code>a</code> selects the method</button>
+  <button class="opt">"B" — dynamic dispatch runs the override of the object's actual class</button>
+  <button class="opt">"AB" — both versions execute, parent's first, like constructor chaining</button>
+  <div class="fb" data-correct="Runtime polymorphism: the reference type limits WHICH methods you may call; the object's real class decides WHOSE version runs. The C++ original needed 'virtual' — Java gives it by default." data-wrong="Method calls don't chain like constructors, and the variable's type never picks the implementation. The heap object is a B, so B's override runs: 'B'."></div>
+</div>
+
+<h2>6 · OOPS cheat sheet</h2>
+<p>One pass over this table the night before the interview. Every row = a concept you can now defend in depth.</p>
+<table>
+  <thead><tr><th>Concept</th><th>One-line definition</th><th>Java keyword / example</th><th>Classic interview trap</th></tr></thead>
+  <tbody>
+    <tr><td>Encapsulation</td><td>Bundle data + methods; guard the data</td><td><code>private</code> field + getter/setter</td><td>It's the guard on data — don't define it as "hiding complexity"</td></tr>
+    <tr><td>Abstraction</td><td>Expose only what users need</td><td><code>abstract</code>, <code>interface</code></td><td>vs encapsulation: design "what to show" vs implementation "how to guard"</td></tr>
+    <tr><td>Inheritance</td><td>Child reuses + extends a parent (is-a)</td><td><code>extends</code>, <code>super()</code></td><td>Private members are inherited into the object but not accessible</td></tr>
+    <tr><td>Overloading vs overriding</td><td>Same name new params (compile time) vs child redefines (runtime)</td><td><code>add(int,int)</code> / <code>@Override</code></td><td>Return type can't distinguish overloads; statics are <em>hidden</em>, not overridden</td></tr>
+    <tr><td>Runtime polymorphism</td><td>Object's real type picks the method via vtable</td><td><code>A a = new B(); a.show()</code> → B's</td><td>C++ needs <code>virtual</code>; Java instance methods are virtual by default</td></tr>
+    <tr><td>Abstract class</td><td>Un-instantiable template with blanks to fill</td><td><code>abstract class Shape</code></td><td>CAN have constructors and fields; just no <code>new</code></td></tr>
+    <tr><td>Interface</td><td>Pure contract; a class may sign many</td><td><code>implements A, B</code></td><td>Clashing <code>default</code> methods = compile error until you override</td></tr>
+    <tr><td>Pure virtual (C++)</td><td>No body; children must implement</td><td>= <code>abstract</code> method</td><td>"virtual" has a body and MAY be overridden; "pure virtual" MUST be</td></tr>
+    <tr><td>Constructor / destructor</td><td>Init at <code>new</code> / C++ cleanup at destruction</td><td>Class-named / none — GC + try-with-resources</td><td>Never virtual; parent's runs first; C++ base destructors must be <code>virtual</code></td></tr>
+    <tr><td>Aggregation vs composition</td><td>Weak has-a (parts outlive whole) vs strong (parts die with it)</td><td>Parts injected vs <code>new</code>-ed inside</td><td>Lifetime test: Team–Players vs House–Rooms; prefer composition over inheritance</td></tr>
+    <tr><td>Shallow vs deep copy</td><td>Copy references vs copy the objects behind them</td><td><code>new ArrayList&lt;&gt;(old)</code> per level</td><td><code>clone()</code> is shallow; mutating the copy's list corrupts the original</td></tr>
+    <tr><td>equals / hashCode</td><td>Equal objects must share a hash code</td><td>Override both, same fields</td><td>equals-only ⇒ HashMap <code>get</code> silently returns null (wrong bucket)</td></tr>
+    <tr><td>Immutability</td><td>No state change after construction</td><td><code>final</code> fields, no setters, defensive copies</td><td>Why String: pool sharing, safe keys, security, thread safety</td></tr>
+    <tr><td>Diamond problem</td><td>Two inheritance paths to one ancestor</td><td>Banned for classes; interfaces + <code>B.super.m()</code></td><td>C++ fix is <em>virtual inheritance</em> — name it explicitly</td></tr>
+    <tr><td>Object slicing</td><td>By-value copy into base type chops derived part</td><td>Impossible — references only</td><td>Say WHY: Java assignment copies addresses, never object bytes</td></tr>
+    <tr><td>friend (C++)</td><td>Grants outsiders access to privates</td><td>≈ package-private, nested classes</td><td>Both a class AND a function can be friends in C++</td></tr>
+    <tr><td>Operator overloading</td><td>Custom operator behavior for your types (C++)</td><td>Not in Java — <code>a.add(b)</code></td><td>Java's one built-in: <code>+</code> on Strings; you can't make your own</td></tr>
+    <tr><td>Stack vs heap</td><td>References/locals vs objects</td><td><code>t</code> on stack → <code>new Team()</code> on heap</td><td>GC patrols only the heap; stack frames free themselves on return</td></tr>
+    <tr><td>SOLID</td><td>Five habits for changeable classes</td><td>S·O·L·I·D — Section 2</td><td>Have one bad→good example ready per letter (if-chain → polymorphism)</td></tr>
+  </tbody>
+</table>
+
+<h2>7 · Do this next</h2>
+<ul>
+  <li><strong>Mock rapid-fire:</strong> have a friend (or me, in chat) fire the 25 questions in random order. Target: 30 seconds per answer, out loud.</li>
+  <li><strong>Redo all 30 MCQs</strong> in OOPS.txt cold. For every C++-specific one, add "…and in Java, …" — that's your differentiator.</li>
+  <li><strong>Rebuild the cheat sheet from memory:</strong> blank paper, concept + trap per row. Revisit whatever you missed.</li>
+  <li><strong>Continue the pipeline:</strong> start the LLD track next, where SOLID and patterns get applied to real machine-coding problems.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  Track complete — all 25 questions and 30 MCQs are now yours. Want a timed mock on any theme, a deeper pass on any answer,
+  or extra bad→good SOLID examples? Ask in the chat. When the rapid-fire feels easy, say <strong>"next"</strong> and we
+  begin the LLD track: foundations and UML.
+</div>
+
+<div class="nav">
+  <span><a href="0007-cpp-interview-concepts-in-java-terms.html">← C++ Concepts in Java Terms</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="../../system-design/lld/0001-lld-foundations-and-uml.html">LLD Track: Foundations &amp; UML →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

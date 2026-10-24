@@ -1,0 +1,121 @@
+<title>PCC Unit IV Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body{padding-top:2rem}
+  .wrap{max-width:52rem}
+  h2{margin:1.8rem 0 .5rem; font-size:1.15rem}
+  .formula{padding:.55rem .8rem; margin:.6rem 0; font-size:.98rem}
+  table{font-size:.86rem}
+  th,td{padding:.34rem .5rem}
+  ul,ol{margin:.4rem 0 .4rem 1.1rem}
+  li{margin:.15rem 0}
+  .tag{display:inline-block; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.62rem;
+    letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--paper);
+    padding:.12rem .45rem; border-radius:3px; vertical-align:.15em; margin-left:.4rem}
+  @media print{ body{font-size:9.5pt} .wrap{max-width:100%} h2{margin:.9rem 0 .3rem} }
+</style>
+<div class="wrap">
+
+<p class="crumb">Principles of Compiler Construction &middot; Reference</p>
+<h1>Unit IV &mdash; Exam Sheet</h1>
+<p class="deck">Intermediate Code Generation &mdash; SDD, SDT, Three-Address Code, Array Addressing, Backpatching, and Runtime Storage Administration.</p>
+
+<h2>Attributes: Synthesised vs Inherited <span class="tag">guaranteed</span></h2>
+<p><strong>Synthesised:</strong> Computed from children in parse tree. Bottom-up flow. Evaluated during LR parsing.<br>
+<strong>Inherited:</strong> Computed from parent and/or left siblings. Top-down/sideways flow. Terminals cannot have inherited attributes.</p>
+
+<h2>S-Attributed vs L-Attributed SDD <span class="tag">comparison</span></h2>
+<div class="tw">
+<table>
+<thead><tr><th>Property</th><th>S-Attributed</th><th>L-Attributed</th></tr></thead>
+<tbody>
+<tr><td><strong>Attributes allowed</strong></td><td>Only Synthesised</td><td>Synthesised + Inherited (restricted)</td></tr>
+<tr><td><strong>Inherited dependency</strong></td><td>None permitted</td><td>Only from left siblings or parent</td></tr>
+<tr><td><strong>Evaluation method</strong></td><td>Bottom-up (LR parse stack)</td><td>Depth-first left-to-right (LL or DFS)</td></tr>
+<tr><td><strong>Hierarchy</strong></td><td colspan="2" style="text-align:center;"><strong>S-Attributed &sub; L-Attributed &sub; General SDD</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Three-Address Code (TAC) Forms <span class="tag">definition</span></h2>
+<p>Each instruction has at most 3 addresses: <code>x = y op z</code>, <code>x = op y</code>, <code>x = y</code>, <code>goto L</code>, <code>if x relop y goto L</code>, <code>x = y[i]</code>, <code>x[i] = y</code>, <code>x = &amp;y</code>, <code>x = *y</code>, <code>param x</code>, <code>call p, n</code>.</p>
+
+<h2>Quadruples vs Triples vs Indirect Triples <span class="tag">memorise</span></h2>
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Quadruples</th><th>Triples</th><th>Indirect Triples</th></tr></thead>
+<tbody>
+<tr><td><strong>Fields</strong></td><td><code>(op, arg1, arg2, result)</code></td><td><code>(op, arg1, arg2)</code></td><td><code>(op, arg1, arg2)</code> + Pointer array</td></tr>
+<tr><td><strong>Temporaries</strong></td><td>Explicit ($t_1, t_2$)</td><td>Implicit (position index)</td><td>Implicit (position index)</td></tr>
+<tr><td><strong>Reordering</strong></td><td>Easy (names fixed)</td><td>Disastrous (breaks indices)</td><td>Extremely easy (swap pointers only)</td></tr>
+<tr><td><strong>Memory</strong></td><td>Largest</td><td>Smallest</td><td>Moderate</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Array Address Calculation <span class="tag">guaranteed numerical</span></h2>
+<p><strong>1D Array:</strong> $\text{Address}(A[i]) = Base + (i - low) \times w$.<br>
+<strong>2D Row-Major:</strong> $\text{Address}(A[i, j]) = Base + ((i - low_1) \times n_2 + (j - low_2)) \times w$.<br>
+<strong>2D Column-Major:</strong> $\text{Address}(A[i, j]) = Base + ((j - low_2) \times n_1 + (i - low_1)) \times w$.<br>
+<em>(where $n_1 = high_1 - low_1 + 1$ is rows, $n_2 = high_2 - low_2 + 1$ is columns, $w$ is byte width).</em></p>
+
+<h2>Control Flow &amp; Short-Circuit Evaluation <span class="tag">template</span></h2>
+<p><strong>If-Else:</strong> <code>if E goto L_true; goto L_false; L_true: S1; goto L_after; L_false: S2; L_after: ...</code><br>
+<strong>While:</strong> <code>L_start: ifFalse E goto L_exit; S; goto L_start; L_exit: ...</code><br>
+<strong>Short-Circuit OR ($B_1 \textbf{ or } B_2$):</strong> if $B_1$ true &rarr; jump to true label; evaluate $B_2$ only if $B_1$ is false.<br>
+<strong>Short-Circuit AND ($B_1 \textbf{ and } B_2$):</strong> if $B_1$ false &rarr; jump to false label; evaluate $B_2$ only if $B_1$ is true.</p>
+
+<h2>Backpatching Primitives <span class="tag">algorithm</span></h2>
+<p><strong>makelist(i):</strong> creates a new list containing quad index $i$.<br>
+<strong>merge(p1, p2):</strong> concatenates list $p_1$ and $p_2$.<br>
+<strong>backpatch(p, L):</strong> inserts target label $L$ into all incomplete gotos on list $p$.<br>
+$B_1 \textbf{ or } M\ B_2$: $backpatch(B_1.false, M.quad)$; $true = merge(B_1.true, B_2.true)$; $false = B_2.false$.<br>
+$B_1 \textbf{ and } M\ B_2$: $backpatch(B_1.true, M.quad)$; $true = B_2.true$; $false = merge(B_1.false, B_2.false)$.</p>
+
+<h2>Activation Record (Stack Frame) <span class="tag">memorise 7 fields</span></h2>
+<ol>
+<li><strong>Return value:</strong> result returned to caller.</li>
+<li><strong>Actual parameters:</strong> arguments passed by caller.</li>
+<li><strong>Control link (Dynamic link):</strong> pointer to caller's frame (stack unwinding).</li>
+<li><strong>Access link (Static link):</strong> pointer to lexical parent frame (nested scopes).</li>
+<li><strong>Saved machine status:</strong> PC return address and CPU registers.</li>
+<li><strong>Local variables:</strong> procedure's local data.</li>
+<li><strong>Temporaries:</strong> expression evaluation temps.</li>
+</ol>
+
+<h2>Storage Allocation Strategies</h2>
+<p><strong>Static:</strong> Compile-time fixed addresses. No recursion. (Fortran 77).<br>
+<strong>Stack:</strong> Runtime LIFO allocation on call/return. Supports recursion. (C/C++ locals).<br>
+<strong>Heap:</strong> Runtime dynamic allocation in arbitrary order (<code>malloc</code>/<code>new</code>). Garbage collection.</p>
+
+<h2>Parameter Passing Comparison <span class="tag">exam trace</span></h2>
+<p><strong>Call by Value:</strong> Copy r-value. Caller variables unaffected.<br>
+<strong>Call by Reference:</strong> Pass l-value (address). Aliased; caller variable changes immediately.<br>
+<strong>Call by Value-Result (Copy-Restore):</strong> Local copy modified; copied back to caller at return time.<br>
+<strong>Call by Name:</strong> Textual substitution via thunks; re-evaluated on every access.</p>
+
+<h2>Five-minute scan</h2>
+<ol>
+<li><strong>Synthesised:</strong> from children (bottom-up). <strong>Inherited:</strong> from parent/left siblings.</li>
+<li><strong>S-attributed:</strong> only synthesised (LR). <strong>L-attributed:</strong> synth + left-inherited (LL/DFS).</li>
+<li><strong>TAC:</strong> $x = y\ op\ z$ (at most 3 addresses).</li>
+<li><strong>Quadruples vs Triples:</strong> Quads have explicit temporaries; Triples use position index (hard to reorder); Indirect triples reorder pointers.</li>
+<li><strong>2D Array Row-Major:</strong> $Base + ((i - low_1) \times n_2 + (j - low_2)) \times w$.</li>
+<li><strong>Backpatching:</strong> fills forward goto holes in single pass. <code>makelist</code>, <code>merge</code>, <code>backpatch</code>.</li>
+<li><strong>AR (7 fields):</strong> Return val, Params, Dynamic link, Static link, Saved regs, Locals, Temps.</li>
+<li><strong>Dynamic link:</strong> caller (runtime). <strong>Static link:</strong> enclosing scope (lexical).</li>
+<li><strong>Storage:</strong> Static (no recursion), Stack (recursion/LIFO), Heap (dynamic lifetimes).</li>
+<li><strong>Parameter passing:</strong> Value (copy), Reference (address/alias), Value-Result (copy-in/copy-out).</li>
+<li><strong>Static Checking (4 types):</strong> Type checks (compatibility), Flow-of-control (break/return), Uniqueness (no duplicate IDs/case labels), Name checks.</li>
+<li><strong>Type Equivalence:</strong> Name Equivalence (equal iff same name, O(1)) vs Structural Equivalence (equal iff same constructors recursively).</li>
+<li><strong>Translation of Declarations:</strong> Maintain global <code>offset</code>: for $D \to \mathbf{id} : T$, record $\text{offset}$ and advance by $T.\text{width}$.</li>
+<li><strong>Display Mechanism:</strong> Array <code>d[depth]</code> pointing to active activation records; provides $O(1)$ constant-time non-local variable lookup vs $O(k)$ for static chains.</li>
+</ol>
+
+<div class="nav">
+  <a href="../index.html">All lessons</a>
+  <a href="unit3-cheat-sheet.html">&larr; Unit III sheet</a>
+  <a href="unit5-cheat-sheet.html">Unit V sheet &rarr;</a>
+</div>
+
+</div>

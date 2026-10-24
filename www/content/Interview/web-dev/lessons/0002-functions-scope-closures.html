@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Dev Lesson 02 — Functions, Scope &amp; Closures</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" aria-label="Toggle dark mode"></button>
+
+<div class="kicker">Web Dev Track · Lesson 2 of 24 · functions, callbacks, scope, closures</div>
+<h1>Functions, Scope &amp; Closures</h1>
+<p class="subtitle">In Java, methods live inside classes and behave. In JS, functions are free-roaming values — you can pass them, return them, and make them remember things. That last trick powers everything from React hooks to Express middleware.</p>
+
+<div class="ribbon">
+  <strong>Track goal:</strong> Full-stack web dev — JS → React/Next → Express/Nest → Postgres/Drizzle. This is Lesson 2 of 24.
+  <a href="../INDEX.md">Index</a>
+</div>
+
+<h2>1 · Three ways to write a function</h2>
+<p>
+Java gives you one way to define behavior: a method inside a class. JS gives you three syntaxes, and the differences
+between them are real, testable behavior — not style.
+</p>
+<pre><code><span class="cmt">// 1) FUNCTION DECLARATION — a standalone statement starting with 'function'</span>
+function add(a, b) {
+  return a + b;
+}
+
+<span class="cmt">// 2) FUNCTION EXPRESSION — a function used as a VALUE, assigned to a variable</span>
+const subtract = function (a, b) {
+  return a - b;
+};
+
+<span class="cmt">// 3) ARROW FUNCTION (ES6) — compact expression syntax</span>
+const multiply = (a, b) => a * b;        <span class="cmt">// one expression? it's auto-returned</span>
+const square   = n => n * n;             <span class="cmt">// one parameter? parens optional</span>
+const greet    = () => "hi";             <span class="cmt">// zero parameters? empty parens required</span>
+const divide   = (a, b) => {             <span class="cmt">// need multiple statements? add braces…</span>
+  if (b === 0) throw new Error("÷0");
+  return a / b;                          <span class="cmt">// …and then 'return' is on you again</span>
+};</code></pre>
+<p>The first behavioral difference: <strong>hoisting</strong>. Declarations are hoisted <em>whole</em> — body and all — so you can call them before their line. Expressions live in variables, and variables follow Lesson 1's rules:</p>
+<pre><code>add(2, 3);       <span class="cmt">// 5 — declaration was fully hoisted, this works</span>
+subtract(5, 2);  <span class="cmt">// ReferenceError — 'subtract' is a const, still in its TDZ</span>
+
+function add(a, b) { return a + b; }
+const subtract = function (a, b) { return a - b; };</code></pre>
+<p>
+The second difference — the big one — is <code>this</code>. Arrow functions don't get their own <code>this</code>; they
+borrow it from the surrounding scope. That single fact fixes a decade of JS bugs, and it deserves its own stage:
+<strong>Lesson 3 covers it in depth</strong>. For now: arrows are perfect for short callbacks, and you should not use them
+as object methods until you've seen why.
+</p>
+<table>
+  <thead><tr><th></th><th>Declaration</th><th>Expression</th><th>Arrow</th></tr></thead>
+  <tbody>
+    <tr><td>Hoisted callable?</td><td>Yes — fully</td><td>No (variable rules apply)</td><td>No (variable rules apply)</td></tr>
+    <tr><td>Own <code>this</code>?</td><td>Yes</td><td>Yes</td><td><strong>No — inherits from outer scope</strong> (Lesson 3)</td></tr>
+    <tr><td>Own <code>arguments</code>?</td><td>Yes</td><td>Yes</td><td>No — use rest <code>...args</code></td></tr>
+    <tr><td>Usable as constructor (<code>new</code>)?</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+    <tr><td>Best for</td><td>Top-level named functions</td><td>Assigning/conditional creation</td><td>Callbacks, one-liners</td></tr>
+  </tbody>
+</table>
+
+<h2>2 · Parameters: defaults, rest, and the arguments object</h2>
+<p>
+Java overloads methods to handle different argument counts. JS doesn't have overloading at all — a function has
+<em>one</em> definition, and callers may pass too few or too many arguments without any error. Missing parameters
+are simply <code>undefined</code>; extras are ignored. The tools below exist to manage that flexibility.
+</p>
+<pre><code><span class="cmt">// DEFAULT PARAMETERS — used when the argument is undefined (missing counts)</span>
+function connect(host, port = 5432, retries = 3) {
+  return `${host}:${port} (retries ${retries})`;
+}
+connect("db.local");             <span class="cmt">// "db.local:5432 (retries 3)"</span>
+connect("db.local", 8080);       <span class="cmt">// "db.local:8080 (retries 3)"</span>
+connect("db.local", undefined, 5); <span class="cmt">// default kicks in for port: "db.local:5432 (retries 5)"</span>
+connect("db.local", null, 5);    <span class="cmt">// null is a VALUE, default does NOT kick in: "db.local:null…"</span>
+
+<span class="cmt">// REST PARAMETER — gathers "all remaining arguments" into a real array</span>
+function sum(...nums) {          <span class="cmt">// nums is a genuine array: map/filter/reduce all work</span>
+  let total = 0;
+  for (const n of nums) total += n;
+  return total;
+}
+sum(1, 2, 3, 4);                 <span class="cmt">// 10 — this is JS's varargs, like Java's int... nums</span>
+
+<span class="cmt">// THE OLD WAY: 'arguments' — an array-LIKE object available in non-arrow functions</span>
+function legacySum() {
+  let total = 0;
+  for (let i = 0; i &lt; arguments.length; i++) total += arguments[i];
+  return total;                  <span class="cmt">// works, but arguments has no map/filter, and</span>
+}                                <span class="cmt">// arrow functions don't have it at all. Prefer ...rest.</span></code></pre>
+<div class="callout">
+  <span class="label">Java parallel</span>
+  Rest parameters are Java varargs: <code>function sum(...nums)</code> ≈ <code>int sum(int... nums)</code>, same
+  last-position-only rule. Default parameters replace the overload pattern — where Java writes
+  <code>connect(String h)</code> delegating to <code>connect(String h, int p)</code>, JS writes one function with <code>port = 5432</code>.
+</div>
+
+<h2>3 · Functions are values — first-class citizens</h2>
+<p>
+Here is the sentence that separates JS thinking from Java thinking: <strong>a function is just a value, like 42 or "hello".</strong>
+It can be stored in a variable, put in an array, passed as an argument, and returned from another function. Java only
+approximated this in Java 8 with lambdas and <code>Function&lt;T,R&gt;</code> — in JS it has been the core design since day one.
+</p>
+<pre><code>const shout = function (s) { return s.toUpperCase() + "!"; };
+
+const ops = [shout, s =&gt; s.length, s =&gt; s.split("").reverse().join("")];
+ops[0]("hey");                  <span class="cmt">// "HEY!" — grabbed from an array and called</span>
+
+function applyTwice(fn, value) { <span class="cmt">// takes a function as a parameter…</span>
+  return fn(fn(value));
+}
+applyTwice(shout, "go");        <span class="cmt">// "GO!!"</span>
+
+function makeMultiplier(factor) {
+  return x =&gt; x * factor;       <span class="cmt">// …and returns a brand-new function</span>
+}
+const triple = makeMultiplier(3);
+triple(7);                      <span class="cmt">// 21</span></code></pre>
+<p>Two vocabulary words fall straight out of this, and interviewers use both:</p>
+<ul>
+  <li>A <strong>callback</strong> is a function you hand to other code so it can call you back at the right moment — when a button is clicked, when data arrives, for each array element. <code>shout</code> passed into <code>applyTwice</code> is a callback.</li>
+  <li>A <strong>higher-order function (HOF)</strong> is any function that takes a function as an argument or returns one. <code>applyTwice</code> and <code>makeMultiplier</code> both qualify — as do <code>map</code>, <code>filter</code>, and <code>reduce</code>, the HOFs you'll use daily from Lesson 4 onward.</li>
+</ul>
+<pre><code><span class="cmt">// The HOFs you'll actually live in (full treatment in Lesson 4):</span>
+[1, 2, 3, 4].map(n =&gt; n * 2)        <span class="cmt">// [2, 4, 6, 8]   — transform each element</span>
+[1, 2, 3, 4].filter(n =&gt; n % 2 === 0) <span class="cmt">// [2, 4]        — keep matching elements</span>
+setTimeout(() =&gt; console.log("later"), 1000) <span class="cmt">// run my callback after ~1s</span></code></pre>
+<div class="callout tip">
+  <span class="label">Java parallel</span>
+  Java 8's <code>list.stream().map(n -&gt; n * 2)</code> and <code>button.addActionListener(e -&gt; ...)</code> are the same idea —
+  but under the hood Java wraps each lambda in a functional-interface object. JS needs no wrapper: the function
+  <em>is</em> the value. No <code>Function&lt;T,R&gt;</code>, no <code>@FunctionalInterface</code>, no ceremony.
+</div>
+
+<h2>4 · IIFE — the historical oddity worth knowing</h2>
+<p>
+You will meet this pattern in older code and in interviews: the <strong>IIFE</strong> (Immediately Invoked Function Expression,
+pronounced "iffy") — a function defined and called in the same breath:
+</p>
+<pre><code>(function () {
+  var secret = "hidden";        <span class="cmt">// trapped inside — invisible to the outside world</span>
+  console.log("runs once, immediately");
+})();                            <span class="cmt">// ← the () at the end calls it right now</span>
+
+<span class="cmt">// console.log(secret);  → ReferenceError. Mission accomplished.</span></code></pre>
+<p>
+<strong>Why did this exist?</strong> Before 2015, JS had only <code>var</code> (function-scoped — no block scope) and no module
+system: every script dumped its variables into the shared global scope, and two scripts using the same name silently
+clobbered each other. The only way to create a private scope was… a function. So developers wrapped whole files in one.
+The wrapping parentheses force the <code>function</code> keyword to be parsed as an <em>expression</em> (statements can't be
+immediately invoked; expressions can).
+</p>
+<p>
+<strong>Today</strong>, block scope (<code>let</code>/<code>const</code> + <code>{}</code>) and ES modules (Lesson 8) solve the privacy problem
+properly, so you'll rarely write an IIFE — but you must recognize it, explain why it existed, and you'll see its ghost
+in every bundled JS file you ever open in DevTools.
+</p>
+
+<h2>5 · Lexical scope and the scope chain</h2>
+<p>
+Lesson 1 introduced the rule: inner scopes can see outer names. Now the precise mechanism, because closures depend on it.
+When code uses a name, the engine resolves it by walking the <strong>scope chain</strong>: current scope → enclosing scope →
+… → global. And critically, "enclosing" is decided by <strong>where the function is written in the source code</strong> —
+not where or by whom it is called. That's what <strong>lexical</strong> (= "of the text") scope means.
+</p>
+<pre><code>const region = "global";
+
+function outer() {
+  const region = "outer";
+  function inner() {
+    console.log(region);   <span class="cmt">// which one? walk outward from where inner is WRITTEN:</span>
+  }                        <span class="cmt">// inner's scope → outer's scope (found! "outer") → global</span>
+  return inner;
+}
+
+const fn = outer();
+fn();                      <span class="cmt">// "outer" — even though we CALL it out here in global,</span>
+                           <span class="cmt">// its birth location decides what it sees. Forever.</span></code></pre>
+<p>
+Nearest match wins — the inner <code>region</code> <em>shadows</em> the global one, exactly like a Java local shadowing a field.
+The chain is fixed at the moment the function is created, like a birth certificate listing its home address. Calling the
+function later, from anywhere, doesn't change its home. Hold that thought — it's the entire secret of the next section.
+</p>
+
+<h2>6 · Closures — functions with a backpack</h2>
+<p>
+Now the headline concept of this lesson, and one of the top-three JS interview topics of all time.
+</p>
+<p>
+A <strong>closure</strong> is a function bundled together with the variables from its birth scope. When a function is created inside
+another function, it keeps a live link to the outer function's variables — and that link <strong>survives even after the outer
+function has returned</strong>. Analogy: the inner function leaves home carrying a <em>backpack</em> holding every outer variable it uses.
+Wherever it travels, the backpack goes too.
+</p>
+<pre><code>function makeCounter() {
+  let count = 0;              <span class="cmt">// a local — should die when makeCounter returns…</span>
+  return function () {
+    count++;                  <span class="cmt">// …but the inner function still holds it</span>
+    return count;
+  };
+}
+
+const counter = makeCounter(); <span class="cmt">// makeCounter has now RETURNED. count lives on.</span>
+counter();  <span class="cmt">// 1</span>
+counter();  <span class="cmt">// 2</span>
+counter();  <span class="cmt">// 3 — the backpack persists between calls</span>
+
+const other = makeCounter();   <span class="cmt">// a fresh call → a fresh scope → a FRESH backpack</span>
+other();    <span class="cmt">// 1 — completely independent of counter's count</span></code></pre>
+<p>
+Why doesn't <code>count</code> die? In Lesson 1's terms: locals live in a scope object, and scope objects are garbage-collected
+when nothing references them. The returned inner function <em>references its birth scope</em> — so the GC must keep that scope
+alive. A closure is simply a scope kept alive by a surviving function.
+</p>
+<p><strong>Use 1 — private state.</strong> Notice what just happened: <code>count</code> is <em>impossible</em> to touch except through the returned function. That's encapsulation — Java's <code>private</code> keyword — achieved with no class at all:</p>
+<pre><code>function createAccount(opening) {
+  let balance = opening;               <span class="cmt">// effectively 'private double balance'</span>
+  return {
+    deposit(amt)  { if (amt &gt; 0) balance += amt; return balance; },
+    withdraw(amt) { if (amt &gt; 0 &amp;&amp; amt &lt;= balance) balance -= amt; return balance; },
+    getBalance()  { return balance; }
+  };                                   <span class="cmt">// three methods sharing ONE backpack</span>
+}
+
+const acc = createAccount(1000);
+acc.deposit(500);      <span class="cmt">// 1500</span>
+acc.balance;           <span class="cmt">// undefined — no such property; the real balance is unreachable</span>
+acc.withdraw(99999);   <span class="cmt">// 1500 — the guard logic cannot be bypassed</span></code></pre>
+<div class="callout">
+  <span class="label">Java parallel</span>
+  This is a class with a private field, written without a class. <code>createAccount</code> plays constructor; the closure
+  variables play private fields; the returned object's functions play public methods. Java's inner classes capture outer
+  variables too — but only <code>final</code>/effectively-final ones. JS closures capture the <em>live variable itself</em>,
+  mutation included — strictly more powerful.
+</div>
+<p><strong>Use 2 — the classic loop pitfall</strong> (a guaranteed interview question):</p>
+<pre><code><span class="cmt">// BUG: prints 3, 3, 3 — not 0, 1, 2</span>
+for (var i = 0; i &lt; 3; i++) {
+  setTimeout(function () { console.log(i); }, 100);
+}</code></pre>
+<p>
+Why? <code>var</code> is function-scoped, so all three iterations share <strong>one</strong> variable <code>i</code> — all three callbacks
+carry the <em>same</em> backpack containing the <em>same</em> <code>i</code>. The callbacks run after the loop finishes
+(timers wait, Lesson 6), by which time <code>i</code> is 3. Closures capture <strong>variables, not values</strong>.
+</p>
+<pre><code><span class="cmt">// FIX: let is block-scoped — each iteration gets a FRESH i in a fresh backpack</span>
+for (let i = 0; i &lt; 3; i++) {
+  setTimeout(function () { console.log(i); }, 100);   <span class="cmt">// 0, 1, 2 ✓</span>
+}
+
+<span class="cmt">// The pre-2015 fix, for history: an IIFE forcing a per-iteration copy</span>
+for (var i = 0; i &lt; 3; i++) {
+  (function (j) {                                      <span class="cmt">// j is a fresh local per pass</span>
+    setTimeout(function () { console.log(j); }, 100);  <span class="cmt">// 0, 1, 2 ✓</span>
+  })(i);
+}</code></pre>
+<p><strong>Use 3 — why this concept owns the rest of the track.</strong> Closures aren't an exam curiosity; they are the load-bearing wall of everything ahead:</p>
+<ul>
+  <li><strong>React hooks</strong> (Lesson 12): <code>useState</code> works because your component function closes over its state; the notorious "stale closure" bug is exactly the var-in-loop pitfall wearing a React costume.</li>
+  <li><strong>Express middleware</strong> (Lesson 18): <code>rateLimit({ max: 100 })</code> returns a handler that closes over your config — that's <code>makeMultiplier</code> at industrial scale.</li>
+  <li><strong>Debounce, throttle, memoize</strong> (Lesson 10): each is ~10 lines of closure keeping private timers/caches.</li>
+  <li><strong>Event handlers &amp; callbacks everywhere</strong>: any callback that uses a variable from where it was written is using a closure. You'll write hundreds without noticing.</li>
+</ul>
+<div class="callout tip">
+  <span class="label">Interview one-liner</span>
+  "A closure is a function that retains access to its lexical scope's variables even after the outer function has returned.
+  The engine keeps that scope alive because the inner function references it. It gives JS private state and is how
+  React hooks, middleware factories, and debounce/memoize all work. Key subtlety: closures capture variables, not
+  values — hence the var-in-loop bug and its <code>let</code> fix."
+</div>
+
+<h2>7 · Pure functions and side effects</h2>
+<p>
+Last concept — a small one with a big future. A <strong>pure function</strong> satisfies two conditions:
+(1) same inputs → same output, always; (2) no <strong>side effects</strong> — it doesn't modify anything outside itself
+(no mutating shared objects, no writing globals, no I/O, no <code>console.log</code> in the strict sense).
+</p>
+<pre><code><span class="cmt">// PURE — same in, same out; touches nothing outside</span>
+function circleArea(r) { return Math.PI * r * r; }
+function withTax(price, rate) { return price * (1 + rate); }
+
+<span class="cmt">// IMPURE — depends on / modifies the outside world</span>
+let total = 0;
+function addToTotal(x) { total += x; return total; }  <span class="cmt">// mutates a global</span>
+function now() { return Date.now(); }                 <span class="cmt">// different output each call</span>
+
+<span class="cmt">// SUBTLY IMPURE — mutates its argument (the caller's object! Lesson 1 §9)</span>
+function addItemBad(cart, item) {
+  cart.push(item);              <span class="cmt">// caller's array modified — side effect</span>
+  return cart;
+}
+<span class="cmt">// PURE version — build a new array, leave the input untouched</span>
+function addItem(cart, item) {
+  return [...cart, item];       <span class="cmt">// spread copies; full story in Lesson 4</span>
+}</code></pre>
+<p>
+Why care? Pure functions are trivially testable (no setup, no mocks), safe to cache, and safe to run in any order.
+React is built on this contract — components are expected to be pure functions of their props, and Redux reducers
+<em>must</em> be pure. When React (Lesson 11) says "don't mutate state," it's this section talking. Real programs need side
+effects (saving to a DB <em>is</em> the job) — the discipline is to push them to the edges and keep the core logic pure.
+</p>
+
+<h2>8 · Interview questions this lesson answers</h2>
+<ul>
+  <li><strong>Q. "What's the difference between a function declaration and a function expression?"</strong><br>
+  A declaration (<code>function f() {}</code> as a statement) is hoisted with its body, so it's callable anywhere in its scope.
+  An expression (<code>const f = function () {}</code>) is a value assigned to a variable, so it follows variable rules —
+  calling it before the assignment throws (TDZ with <code>const</code>/<code>let</code>).</li>
+  <li><strong>Q. "What is a closure? Give a practical use."</strong><br>
+  A function plus its preserved lexical scope: inner functions keep live access to outer variables even after the outer
+  function returns, because the engine keeps that scope alive. Uses: private state (counter/account factories),
+  function factories and middleware configuration, debounce/throttle/memoize, React hooks.</li>
+  <li><strong>Q. "Why does <code>for (var i...)</code> with setTimeout print the final value three times, and what fixes it?"</strong><br>
+  <code>var</code> is function-scoped, so every callback closes over the one shared <code>i</code>; by the time the timers fire the loop
+  has finished and <code>i</code> is 3. <code>let</code> creates a fresh binding per iteration, so each callback captures its own value.
+  Pre-ES6, an IIFE passing <code>i</code> as a parameter achieved the same.</li>
+  <li><strong>Q. "What is a higher-order function? A callback?"</strong><br>
+  A HOF takes and/or returns functions — possible because JS functions are first-class values. A callback is a function
+  passed to other code to be invoked later (event handlers, <code>map</code>'s argument, timer functions).</li>
+  <li><strong>Q. "Rest parameter vs the arguments object?"</strong><br>
+  <code>...rest</code> is a true array holding the remaining arguments and works everywhere including arrows.
+  <code>arguments</code> is a legacy array-like object (no array methods), absent in arrow functions. Always prefer rest.</li>
+  <li><strong>Q. "What is an IIFE and why was it used?"</strong><br>
+  A function expression invoked immediately: <code>(function(){...})()</code>. Pre-ES6 it was the only way to create private
+  scope and avoid polluting the shared global namespace. Block scope and ES modules have replaced it.</li>
+  <li><strong>Q. "What makes a function pure, and why does it matter?"</strong><br>
+  Deterministic output from inputs alone, and zero side effects (including not mutating arguments). Pure functions are
+  easy to test, cache, and reason about — React components and Redux reducers are required to be pure.</li>
+</ul>
+
+<h2>9 · Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Two counters: <code>const c1 = makeCounter(); const c2 = makeCounter();</code> then <code>c1(); c1(); c2();</code>. What does <code>c2()</code> return?</div>
+  <button class="opt">3 — both counters share the same count variable inside makeCounter</button>
+  <button class="opt">1 — each call to makeCounter creates a fresh scope, so each counter has its own backpack</button>
+  <button class="opt">undefined — count was garbage-collected when makeCounter returned</button>
+  <div class="fb" data-correct="Every CALL to makeCounter creates a new scope with a new count = 0, and the returned function closes over that specific scope. c1 and c2 carry separate backpacks — that independence is what makes closure factories useful." data-wrong="Closures are per-call, not per-definition: each makeCounter() invocation creates a brand-new count, kept alive by its own returned function. c1's two calls touched only c1's count; c2 starts fresh at 1. And no — the GC can't collect a scope a living function still references."></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What does this print? <code>greet(); const greet = () =&gt; console.log("hi");</code></div>
+  <button class="opt">"hi" — all functions are hoisted, arrows included</button>
+  <button class="opt">undefined — greet exists but has no body yet</button>
+  <button class="opt">ReferenceError — greet is a const in its temporal dead zone</button>
+  <div class="fb" data-correct="Only function DECLARATIONS hoist with their bodies. An arrow assigned to const is just a variable, and const in its TDZ throws on access. Written as function greet() {...}, the call would have worked." data-wrong="Arrow functions get no special hoisting — they're values assigned to variables. Here greet is a const accessed before its declaration line runs, which is the TDZ → ReferenceError. (With var you'd get 'greet is not a function' — undefined isn't callable.)"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does <code>for (var i = 0; i &lt; 3; i++) setTimeout(() =&gt; console.log(i))</code> print 3, 3, 3?</div>
+  <button class="opt">All three callbacks close over the same function-scoped variable, which is 3 by the time they run</button>
+  <button class="opt">setTimeout copies i's current value into each callback, and the copy gets corrupted</button>
+  <button class="opt">Arrow functions can't read loop variables, so i falls back to its final value</button>
+  <div class="fb" data-correct="Exactly — closures capture variables, not snapshots of values. var gives the whole loop ONE shared i; the callbacks run after the loop ends, all reading i = 3. let fixes it by giving each iteration its own binding." data-wrong="Nothing is copied and arrows read outer variables just fine (that's lexical scope). The real cause: var creates one shared i for the whole loop, all three closures reference that same variable, and it's 3 when the delayed callbacks finally run. let creates a fresh i per iteration."></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Which function is pure?</div>
+  <button class="opt"><code>const f = arr =&gt; { arr.sort(); return arr[0]; }</code></button>
+  <button class="opt"><code>const g = arr =&gt; [...arr].sort((a, b) =&gt; a - b)[0]</code></button>
+  <button class="opt"><code>const h = arr =&gt; arr[Math.floor(Math.random() * arr.length)]</code></button>
+  <div class="fb" data-correct="g copies the array before sorting, so the caller's data is untouched, and identical input always yields identical output. f mutates its argument (sort sorts in place — Lesson 4), and h is non-deterministic via Math.random — each breaks one purity rule." data-wrong="Check both rules. f calls sort() directly on the caller's array — sort mutates in place, a side effect. h uses Math.random, so the same input gives different outputs. Only g qualifies: it spreads into a fresh copy (no mutation) and is fully deterministic."></div>
+</div>
+
+<h2>10 · Do this next</h2>
+<ul>
+  <li>In your playground, build <code>createStopwatch()</code> — a closure factory returning <code>{ start, stop, reset, elapsed }</code>
+  where the private state (start time, accumulated ms) is unreachable from outside. Use <code>Date.now()</code>. Prove privacy:
+  <code>console.log(sw.startTime)</code> must be <code>undefined</code>.</li>
+  <li>Write your own HOFs from scratch (don't use array methods yet): <code>function myMap(arr, fn)</code> and
+  <code>function myFilter(arr, fn)</code> using plain loops. Then write <code>compose(f, g)</code> returning a new function
+  computing <code>f(g(x))</code>, and verify <code>compose(n =&gt; n + 1, n =&gt; n * 2)(5) === 11</code>.</li>
+  <li>Type the buggy <code>var</code>/setTimeout loop and run it. Fix it three ways: with <code>let</code>, with an IIFE, and by
+  extracting a helper function <code>schedule(j)</code> that takes the value as a parameter. Explain in a comment why each works.</li>
+</ul>
+
+<div class="callout">
+  <span class="label">I'm your teacher — ask me</span>
+  If the backpack metaphor hasn't clicked, or you're unsure why closures capture variables instead of values, or you want
+  more Java-lambda comparisons — ask in the chat, that's what I'm here for. When you can write a counter factory from
+  memory, fix the var-loop bug two ways, and explain a closure in two sentences, say <strong>"next"</strong> to advance to
+  Lesson 3: Objects, this, Prototypes &amp; Classes.
+</div>
+
+<div class="nav">
+  <span><a href="0001-javascript-values-types-variables.html">← Values, Types &amp; Variables</a></span>
+  <span><a href="../INDEX.md">Index</a></span>
+  <span><a href="0003-objects-this-prototypes-classes.html">Objects, this &amp; Prototypes →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
